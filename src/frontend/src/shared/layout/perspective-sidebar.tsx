@@ -32,7 +32,7 @@ export function PerspectiveSidebar({ perspectives, version }: { perspectives: re
       </div>
       <nav aria-label="Perspective navigation" className="mt-3 grid gap-2">
         {activePerspective?.menuItems.map((item) => {
-          const isActive = location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
+          const isActive = isMenuItemActive(location.pathname, item.to);
 
           return (
             <Link key={item.to} to={item.to} className={isActive ? 'flex gap-3 rounded-interactive bg-active-blue p-3 text-foreground' : 'flex gap-3 rounded-interactive p-3 text-foreground transition hover:bg-hover-blue'}>
@@ -48,4 +48,12 @@ export function PerspectiveSidebar({ perspectives, version }: { perspectives: re
       <div className="mt-auto px-1 pt-6 text-[12px] text-muted-foreground">v{version}</div>
     </aside>
   );
+}
+
+function isMenuItemActive(pathname: string, itemPath: string) {
+  if (pathname === itemPath) {
+    return true;
+  }
+
+  return itemPath !== '/employee' && pathname.startsWith(`${itemPath}/`);
 }

@@ -74,15 +74,28 @@ public sealed class CredentialPACSAssignmentService(AccessControlDbContext db, C
     {
         DateTimeOffset now = timeProvider.GetUtcNow();
 
-        return await db.CredentialPACSAssignments
-            .Join(
-                credentialDb.Credentials,
-                assignment => assignment.CredentialId,
-                credential => credential.Id,
-                (assignment, credential) => new { assignment, credential })
-            .Where(item => item.assignment.Status == CredentialPACSAssignmentStatus.Provisioned)
-            .Where(item => item.credential.ValidUntil.HasValue && item.credential.ValidUntil.Value <= now)
-            .Select(item => item.assignment.Id)
-            .ToListAsync(cancellationToken);
+        (Guid Id, Guid CredentialId)[] provisionedAssignments = await db.CredentialPACSAssignments
+            .Where(item => item.Status == CredentialPACSAssignmentStatus.Provisioned)
+            .Select(item => new ValueTuple<Guid, Guid>(item.Id, item.CredentialId))
+            .ToArrayAsync(cancellationToken);
+
+        if (provisionedAssignments.Length == 0)
+            return [];
+
+        Guid[] expiredCredentialIds = await credentialDb.Credentials
+            .Where(item => provisionedAssignments.Select(assignment => assignment.CredentialId).Contains(item.Id))
+            .Where(item => item.ValidUntil.HasValue && item.ValidUntil.Value <= now)
+            .Select(item => item.Id)
+            .ToArrayAsync(cancellationToken);
+
+        if (expiredCredentialIds.Length == 0)
+            return [];
+
+        HashSet<Guid> expiredCredentialIdSet = [.. expiredCredentialIds];
+
+        return provisionedAssignments
+            .Where(item => expiredCredentialIdSet.Contains(item.CredentialId))
+            .Select(item => item.Id)
+            .ToArray();
     }
 }
