@@ -30,7 +30,10 @@ export const appPerspectives: readonly AppPerspective[] = [
     to: '/employee',
     icon: Briefcase,
     priority: 1,
-    menuItems: [{ label: 'Overview', description: 'Employee homepage.', to: '/employee' }],
+    menuItems: [
+      { label: 'Overview', description: 'Employee homepage.', to: '/employee' },
+      { label: 'Request Access', description: 'Request access packages and track your requests.', to: '/employee/request-access' },
+    ],
     isAvailable: (actor) => actor.isEmployee,
   },
   {
@@ -41,7 +44,10 @@ export const appPerspectives: readonly AppPerspective[] = [
     to: '/manager',
     icon: UsersRound,
     priority: 2,
-    menuItems: [{ label: 'Overview', description: 'Manager homepage.', to: '/manager' }],
+    menuItems: [
+      { label: 'Overview', description: 'Manager homepage.', to: '/manager' },
+      { label: 'Approval Inbox', description: 'Review approvals you can give.', to: '/manager/approval-inbox' },
+    ],
     isAvailable: (actor) => actor.isManager,
   },
   {
@@ -52,7 +58,10 @@ export const appPerspectives: readonly AppPerspective[] = [
     to: '/security-officer',
     icon: ShieldCheck,
     priority: 3,
-    menuItems: [{ label: 'Overview', description: 'Security Officer homepage.', to: '/security-officer' }],
+    menuItems: [
+      { label: 'Overview', description: 'Security Officer homepage.', to: '/security-officer' },
+      { label: 'Identity 360', description: 'Review canonical identities and drill into full identity records.', to: '/security-officer/identities' },
+    ],
     isAvailable: (actor) => actor.isSecurityOfficer,
   },
   {

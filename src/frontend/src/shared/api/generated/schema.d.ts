@@ -5037,6 +5037,8 @@ export interface paths {
         get: {
             parameters: {
                 query: {
+                    IdentityId?: string;
+                    AccessControlSystemId?: string;
                     Page: number | string;
                     PageSize: number | string;
                 };
@@ -6251,6 +6253,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/access-catalog/package-requests/approval-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PreviewPackageRequestApprovalsRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ApprovalRequirementsPreviewAccessItemResponse"][];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/access-catalog/package-requests/{requestId}": {
         parameters: {
             query?: never;
@@ -6284,6 +6325,90 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/access-catalog/package-requests/{requestId}/details": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    requestId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PackageRequestDetailResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/access-catalog/approval-inbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    approverIdentityId: string;
+                    ids: string[];
+                    Page?: number | string;
+                    PageSize?: number | string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PageOfApprovalInboxItemResponse"];
+                    };
                 };
             };
         };
@@ -12534,6 +12659,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/visitors/visitors/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VisitorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/visitors/visits": {
         parameters: {
             query?: never;
@@ -13943,11 +14112,17 @@ export interface components {
             /** Format: uuid */
             packageId: string;
             /** Format: uuid */
+            accessItemId: null | string;
+            /** Format: uuid */
             identityId: string;
             assignmentChannel: components["schemas"]["AssignmentChannel"];
             sourceKind: components["schemas"]["AssignmentSourceKind"];
             /** Format: uuid */
             sourceId: string;
+            /** Format: uuid */
+            approvalFlowId: null | string;
+            /** Format: uuid */
+            requestScopeId: null | string;
             durationKind: components["schemas"]["AccessDurationKind"];
             /** Format: date-time */
             validFrom: string;
@@ -14296,9 +14471,94 @@ export interface components {
         };
         /** @enum {unknown} */
         ApprovalGroupStatus: "Active" | "Inactive";
+        ApprovalInboxItemResponse: {
+            /** Format: uuid */
+            approvalRequirementId: string;
+            /** Format: uuid */
+            approvalFlowId: string;
+            /** Format: uuid */
+            requestId: string;
+            /** Format: uuid */
+            packageId: string;
+            packageName: string;
+            /** Format: uuid */
+            beneficiaryIdentityId: string;
+            beneficiaryDisplayName: string;
+            /** Format: uuid */
+            requesterIdentityId: string;
+            requesterDisplayName: string;
+            /** Format: uuid */
+            accessItemId: string;
+            accessItemName: string;
+            /** Format: uuid */
+            siteId: string;
+            siteName: string;
+            requestedLocationLabels: string[];
+            type: components["schemas"]["ApprovalRequirementType"];
+            role: components["schemas"]["ApprovalDecisionRole"];
+            approvalGroupName: null | string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+            status: components["schemas"]["ApprovalStatus"];
+        };
+        ApprovalInboxItemResponse: {
+            /** Format: uuid */
+            approvalRequirementId: string;
+            /** Format: uuid */
+            approvalFlowId: string;
+            /** Format: uuid */
+            requestId: string;
+            /** Format: uuid */
+            packageId: string;
+            packageName: string;
+            /** Format: uuid */
+            beneficiaryIdentityId: string;
+            beneficiaryDisplayName: string;
+            /** Format: uuid */
+            requesterIdentityId: string;
+            requesterDisplayName: string;
+            /** Format: uuid */
+            accessItemId: string;
+            accessItemName: string;
+            /** Format: uuid */
+            siteId: string;
+            siteName: string;
+            requestedLocationLabels: string[];
+            type: components["schemas"]["ApprovalRequirementType"];
+            role: components["schemas"]["ApprovalDecisionRole"];
+            approvalGroupName: null | string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+            status: components["schemas"]["ApprovalStatus"];
+        };
+        ApprovalRequirementPreviewApprovalGroupResponse: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        ApprovalRequirementPreviewApproverIdentityResponse: {
+            /** Format: uuid */
+            id: string;
+            displayName: string;
+            email: null | string;
+        };
+        ApprovalRequirementPreviewResponse: {
+            /** Format: uuid */
+            locationId: string;
+            type: components["schemas"]["ApprovalRequirementType"];
+            role: components["schemas"]["ApprovalDecisionRole"];
+            approvalGroup: null | components["schemas"]["ApprovalRequirementPreviewApprovalGroupResponse"];
+            approverIdentity: null | components["schemas"]["ApprovalRequirementPreviewApproverIdentityResponse"];
+        };
         ApprovalRequirementResponse: {
             /** Format: uuid */
             id: string;
+            /** Format: uuid */
+            approvalFlowId: string;
             /** Format: uuid */
             requestId: string;
             /** Format: uuid */
@@ -14317,6 +14577,13 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             completedAt: null | string;
+        };
+        ApprovalRequirementsPreviewAccessItemResponse: {
+            /** Format: uuid */
+            accessItemId: string;
+            name: string;
+            description: null | string;
+            requirements: components["schemas"]["ApprovalRequirementPreviewResponse"][];
         };
         /** @enum {unknown} */
         ApprovalRequirementType: "Destination" | "Organizational";
@@ -15937,6 +16204,7 @@ export interface components {
             beneficiaryIdentityId: string;
             requestReason: string;
             status: components["schemas"]["PackageRequestStatus"];
+            subStatus: null | components["schemas"]["PackageRequestSubStatus"];
             durationKind: components["schemas"]["AccessDurationKind"];
             /** Format: date-time */
             validFrom: string;
@@ -15950,8 +16218,90 @@ export interface components {
             decidedAt: null | string;
             locationIds: string[];
         };
+        PackageRequestDetailFlowResponse: {
+            /** Format: uuid */
+            approvalFlowId: string;
+            /** Format: uuid */
+            accessItemId: string;
+            accessItemName: string;
+            accessItemDescription: null | string;
+            /** Format: uuid */
+            siteId: string;
+            siteName: string;
+            status: components["schemas"]["ApprovalFlowStatus"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            completedAt: null | string;
+            requestedLocations: components["schemas"]["PackageRequestDetailLocationResponse"][];
+            requirements: components["schemas"]["PackageRequestDetailRequirementResponse"][];
+            grants: components["schemas"]["PackageRequestDetailGrantResponse"][];
+        };
+        PackageRequestDetailGrantResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            accessItemId: string;
+            accessItemName: string;
+            /** Format: uuid */
+            locationId: string;
+            locationLabel: string;
+            status: components["schemas"]["AccessGrantStatus"];
+            /** Format: date-time */
+            validFrom: string;
+            /** Format: date-time */
+            validUntil: null | string;
+        };
+        PackageRequestDetailLocationResponse: {
+            /** Format: uuid */
+            id: string;
+            label: string;
+            /** Format: uuid */
+            siteId: string;
+            siteName: string;
+        };
+        PackageRequestDetailRequirementResponse: {
+            /** Format: uuid */
+            id: string;
+            type: components["schemas"]["ApprovalRequirementType"];
+            role: components["schemas"]["ApprovalDecisionRole"];
+            /** Format: uuid */
+            approvalGroupId: null | string;
+            approvalGroupName: null | string;
+            /** Format: uuid */
+            requiredApproverIdentityId: null | string;
+            requiredApproverDisplayName: null | string;
+            status: components["schemas"]["ApprovalStatus"];
+            systemApprovalReason: null | string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            completedAt: null | string;
+            decisions: components["schemas"]["PackageRequestDetailDecisionResponse"][];
+        };
+        PackageRequestDetailDecisionResponse: {
+            /** Format: uuid */
+            id: string;
+            approverDisplayName: string;
+            role: components["schemas"]["ApprovalDecisionRole"];
+            decisionKind: components["schemas"]["ApprovalDecisionKind"];
+            note: null | string;
+            /** Format: date-time */
+            decidedAt: string;
+        };
+        PackageRequestDetailResponse: {
+            request: components["schemas"]["PackageRequestResponse"];
+            package: components["schemas"]["PackageResponse"];
+            requestedLocations: components["schemas"]["PackageRequestDetailLocationResponse"][];
+            flows: components["schemas"]["PackageRequestDetailFlowResponse"][];
+            grants: components["schemas"]["PackageRequestDetailGrantResponse"][];
+        };
         /** @enum {unknown} */
-        PackageRequestStatus: "Requested" | "PendingApproval" | "Approved" | "Rejected" | "Expired";
+        ApprovalFlowStatus: "InProgress" | "Approved" | "Rejected" | "SystemApproved" | "Expired";
+        /** @enum {unknown} */
+        PackageRequestStatus: "InProgress" | "Completed";
+        /** @enum {unknown} */
+        PackageRequestSubStatus: "Approved" | "PartiallyApproved" | "Rejected" | "Expired";
         PackageResponse: {
             /** Format: uuid */
             id: string;
@@ -16196,6 +16546,18 @@ export interface components {
             /** Format: int32 */
             totalItems?: null | number | string;
             items?: components["schemas"]["ApprovalGroupResponse"][];
+            isLastPage?: boolean;
+        };
+        PageOfApprovalInboxItemResponse: {
+            /** Format: int32 */
+            currentPage?: number | string;
+            /** Format: int32 */
+            totalPages?: null | number | string;
+            /** Format: int32 */
+            pageSize?: number | string;
+            /** Format: int32 */
+            totalItems?: null | number | string;
+            items?: components["schemas"]["ApprovalInboxItemResponse"][];
             isLastPage?: boolean;
         };
         PageOfApprovalRequirementResponse: {
@@ -16749,6 +17111,13 @@ export interface components {
             /** Format: date-time */
             reportedAt: string;
             devices: components["schemas"]["HardwareDeviceInventoryItem"][];
+        };
+        PreviewPackageRequestApprovalsRequest: {
+            /** Format: uuid */
+            packageId: string;
+            /** Format: uuid */
+            beneficiaryIdentityId: string;
+            locationIds: string[];
         };
         PrintLabelRequest: {
             template: string;

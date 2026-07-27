@@ -172,7 +172,7 @@ export default function ApprovalGroupEditPage() {
                 {availableIdentities.map((identity: IdentityResponse) => <option key={identity.id} value={identity.id}>{identity.displayName}</option>)}
               </select>
             </label>
-            <LocationSelector value={selectedLocationId} onChange={setSelectedLocationId} maxDepth="Room" requiredDepth="Site" disabled={addMember.isPending} />
+            <LocationSelector value={selectedLocationId} onChange={setSelectedLocationId} level="Site" disabled={addMember.isPending} />
             <div className="flex justify-end">
               <Button type="button" disabled={!selectedIdentityId || !selectedLocationId || addMember.isPending} onClick={handleAddMember}>
                 <Plus className="size-4" aria-hidden="true" />

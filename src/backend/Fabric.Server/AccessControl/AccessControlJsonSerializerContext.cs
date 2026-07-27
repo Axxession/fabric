@@ -29,6 +29,7 @@ namespace Fabric.Server.AccessControl;
 [JsonSerializable(typeof(CreatePACSAssignmentsRequest))]
 [JsonSerializable(typeof(ListCredentialPACSAssignmentsRequest))]
 [JsonSerializable(typeof(ListCredentialTypeTargetsRequest))]
+[JsonSerializable(typeof(ListPACSSubjectsRequest))]
 [JsonSerializable(typeof(ListPACSSubjectProvisioningsRequest))]
 [JsonSerializable(typeof(CreateAccessItemRequest))]
 [JsonSerializable(typeof(CreateUnipassAccessControlSystemRequest))]

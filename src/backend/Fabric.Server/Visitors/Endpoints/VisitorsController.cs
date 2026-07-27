@@ -19,6 +19,11 @@ public static class VisitorEndpoints
             .WithDescription("List visitors")
             .WithSummary("List visitors")
             .Produces<Page<VisitorResponse>>();
+        app.MapGet("/api/visitors/visitors/{id:guid}", GetVisitor)
+            .WithDescription("Get visitor")
+            .WithSummary("Get visitor")
+            .Produces<VisitorResponse>()
+            .Produces(StatusCodes.Status404NotFound);
         app.MapGet("/api/visitors/invitations/{invitationId:guid}/visit", GetVisitByInvitationId)
             .WithDescription("Retrieve the visit for an invitation")
             .WithSummary("Retrieve invitation visit")
@@ -148,6 +153,15 @@ public static class VisitorEndpoints
         );
 
         return Results.Ok(visitRow.ToResponse(organizer));
+    }
+
+    private static async Task<IResult> GetVisitor(
+        Guid id,
+        VisitorsDbContext db,
+        CancellationToken cancellationToken = default)
+    {
+        Visitor? visitor = await db.Visitors.AsNoTracking().SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
+        return visitor is null ? Results.NotFound() : Results.Ok(visitor.ToResponse());
     }
 
     private static async Task<IResult> GetVisitByInvitationId(

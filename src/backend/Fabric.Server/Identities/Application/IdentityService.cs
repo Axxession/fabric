@@ -120,7 +120,10 @@ public class IdentityService(IdentitiesDbContext db, TimeProvider timeProvider)
         ListIdentitiesRequest request,
         CancellationToken cancellationToken = default)
     {
-        IQueryable<Identity> query = db.Identities.AsNoTracking();
+        IQueryable<Identity> query = db.Identities.AsNoTracking()
+            .Include(identity => identity.EmployeeAffiliations)
+            .Include(identity => identity.ContractorAffiliations)
+            .Include(identity => identity.VisitorAffiliations);
 
         if (!string.IsNullOrWhiteSpace(request.Query))
         {

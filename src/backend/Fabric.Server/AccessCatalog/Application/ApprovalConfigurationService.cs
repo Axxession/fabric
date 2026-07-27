@@ -49,8 +49,12 @@ public sealed class ApprovalConfigurationService(
         if (!await identitiesDb.Identities.AnyAsync(item => item.Id == identityId, cancellationToken))
             return Result.Failure<ApprovalGroupMember, AccessCatalogErrors>(AccessCatalogErrors.IdentityNotFound);
 
-        if (!await locationsDb.LocationLookups.AnyAsync(item => item.Id == responsibleLocationId, cancellationToken))
+        LocationLookup? location = await locationsDb.LocationLookups.SingleOrDefaultAsync(item => item.Id == responsibleLocationId, cancellationToken);
+        if (location is null)
             return Result.Failure<ApprovalGroupMember, AccessCatalogErrors>(AccessCatalogErrors.LocationRequired);
+
+        if (location.Type != LocationType.Site)
+            return Result.Failure<ApprovalGroupMember, AccessCatalogErrors>(AccessCatalogErrors.ApprovalGroupMemberLocationMustBeSite);
 
         bool exists = await db.ApprovalGroupMembers.AnyAsync(
             item => item.ApprovalGroupId == approvalGroupId && item.IdentityId == identityId && item.ResponsibleLocationId == responsibleLocationId,

@@ -515,8 +515,7 @@ export default function ReceptionDeskSettingsPage() {
                       <LocationSelector
                         value={kioskValues.locationId}
                         onChange={(locationId) => setKioskValues((current) => ({ ...current, locationId }))}
-                        maxDepth="Room"
-                        requiredDepth="None"
+                        level="Room"
                       />
                     </div>
                     <label className="inline-flex items-center gap-2 text-[14px] font-medium">
@@ -636,8 +635,7 @@ export default function ReceptionDeskSettingsPage() {
                     <LocationSelector
                       value={values.locationId}
                       onChange={(locationId) => setValues((current) => ({ ...current, locationId }))}
-                      maxDepth="Room"
-                      requiredDepth="None"
+                      level="Room"
                     />
                   </div>
 

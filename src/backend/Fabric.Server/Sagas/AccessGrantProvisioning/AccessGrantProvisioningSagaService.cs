@@ -153,10 +153,12 @@ public sealed class AccessGrantProvisioningSagaService(
             return;
         }
 
-        Guid[] accessItemIds = await accessCatalogDb.PackageAccessItems
-            .Where(item => item.PackageId == grant.PackageId)
-            .Select(item => item.AccessItemId)
-            .ToArrayAsync(cancellationToken);
+        Guid[] accessItemIds = grant.AccessItemId.HasValue
+            ? [grant.AccessItemId.Value]
+            : await accessCatalogDb.PackageAccessItems
+                .Where(item => item.PackageId == grant.PackageId)
+                .Select(item => item.AccessItemId)
+                .ToArrayAsync(cancellationToken);
 
         Guid[] locationIds = await accessCatalogDb.AccessGrantLocations
             .Where(item => item.AccessGrantId == grant.Id)

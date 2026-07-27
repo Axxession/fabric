@@ -3,6 +3,7 @@ using System;
 using Fabric.Server.AccessCatalog.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Fabric.Server.AccessCatalog.Persistence.Migrations
 {
     [DbContext(typeof(AccessCatalogDbContext))]
-    partial class AccessCatalogDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260727024854_RefactorPackageRequestApprovalFlows")]
+    partial class RefactorPackageRequestApprovalFlows
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

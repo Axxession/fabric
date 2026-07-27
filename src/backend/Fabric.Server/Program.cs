@@ -118,6 +118,7 @@ app.MapPackageEndpoints();
 app.MapAccessGrantEndpoints();
 app.MapApprovalGroupEndpoints();
 app.MapApprovalDefinitionEndpoints();
+app.MapApprovalInboxEndpoints();
 app.MapPackageRequestEndpoints();
 app.MapApprovalRequirementEndpoints();
 app.MapAccessPolicyEndpoints();

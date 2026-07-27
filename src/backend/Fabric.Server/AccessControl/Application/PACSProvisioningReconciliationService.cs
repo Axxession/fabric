@@ -193,6 +193,8 @@ public sealed class PACSProvisioningReconciliationService(
                 await db.SaveChangesAsync(cancellationToken);
                 break;
         }
+
+        await EnqueueAsync(provisioning.IdentityId, provisioning.AccessControlSystemId, cancellationToken);
     }
 
     public async Task RevokeExpiredProvisioningAsync(Guid provisioningId, CancellationToken cancellationToken = default)
@@ -206,6 +208,7 @@ public sealed class PACSProvisioningReconciliationService(
             return;
 
         await RevokeProvisioningAsync(provisioning, system, cancellationToken);
+        await EnqueueAsync(provisioning.IdentityId, provisioning.AccessControlSystemId, cancellationToken);
     }
 
     private async Task<List<DesiredProvisioning>> BuildDesiredProvisioningsAsync(PACSAssignment[] assignments, CancellationToken cancellationToken)

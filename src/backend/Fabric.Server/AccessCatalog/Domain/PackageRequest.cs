@@ -12,6 +12,7 @@ public sealed class PackageRequest
     public Guid BeneficiaryIdentityId { get; private set; }
     public string RequestReason { get; private set; } = null!;
     public PackageRequestStatus Status { get; private set; }
+    public PackageRequestSubStatus? SubStatus { get; private set; }
     public AccessDurationKind DurationKind { get; private set; }
     public DateTimeOffset ValidFrom { get; private set; }
     public DateTimeOffset? ValidUntil { get; private set; }
@@ -52,7 +53,7 @@ public sealed class PackageRequest
             RequesterIdentityId = requesterIdentityId,
             BeneficiaryIdentityId = beneficiaryIdentityId,
             RequestReason = requestReason.Trim(),
-            Status = PackageRequestStatus.Requested,
+            Status = PackageRequestStatus.InProgress,
             DurationKind = durationKind,
             ValidFrom = validFrom,
             ValidUntil = validUntil,
@@ -61,23 +62,10 @@ public sealed class PackageRequest
         });
     }
 
-    public void MarkPendingApproval() => Status = PackageRequestStatus.PendingApproval;
-
-    public void MarkApproved(DateTimeOffset decidedAt)
+    public void MarkCompleted(PackageRequestSubStatus subStatus, DateTimeOffset decidedAt)
     {
-        Status = PackageRequestStatus.Approved;
-        DecidedAt = decidedAt;
-    }
-
-    public void MarkRejected(DateTimeOffset decidedAt)
-    {
-        Status = PackageRequestStatus.Rejected;
-        DecidedAt = decidedAt;
-    }
-
-    public void MarkExpired(DateTimeOffset decidedAt)
-    {
-        Status = PackageRequestStatus.Expired;
+        Status = PackageRequestStatus.Completed;
+        SubStatus = subStatus;
         DecidedAt = decidedAt;
     }
 }

@@ -17,9 +17,11 @@ public class AccessCatalogDbContext : TenantDbContext
     public DbSet<AccessGrantLocation> AccessGrantLocations { get; set; } = null!;
     public DbSet<PackageRequest> PackageRequests { get; set; } = null!;
     public DbSet<PackageRequestLocation> PackageRequestLocations { get; set; } = null!;
+    public DbSet<PackageRequestScope> PackageRequestScopes { get; set; } = null!;
     public DbSet<ApprovalGroup> ApprovalGroups { get; set; } = null!;
     public DbSet<ApprovalGroupMember> ApprovalGroupMembers { get; set; } = null!;
     public DbSet<ApprovalDefinition> ApprovalDefinitions { get; set; } = null!;
+    public DbSet<ApprovalFlow> ApprovalFlows { get; set; } = null!;
     public DbSet<ApprovalRequirement> ApprovalRequirements { get; set; } = null!;
     public DbSet<ApprovalDecision> ApprovalDecisions { get; set; } = null!;
 
@@ -44,9 +46,11 @@ public class AccessCatalogDbContext : TenantDbContext
         modelBuilder.ApplyConfiguration(new AccessGrantLocationConfiguration());
         modelBuilder.ApplyConfiguration(new PackageRequestConfiguration());
         modelBuilder.ApplyConfiguration(new PackageRequestLocationConfiguration());
+        modelBuilder.ApplyConfiguration(new PackageRequestScopeConfiguration());
         modelBuilder.ApplyConfiguration(new ApprovalGroupConfiguration());
         modelBuilder.ApplyConfiguration(new ApprovalGroupMemberConfiguration());
         modelBuilder.ApplyConfiguration(new ApprovalDefinitionConfiguration());
+        modelBuilder.ApplyConfiguration(new ApprovalFlowConfiguration());
         modelBuilder.ApplyConfiguration(new ApprovalRequirementConfiguration());
         modelBuilder.ApplyConfiguration(new ApprovalDecisionConfiguration());
         ApplyTenantFilters(modelBuilder);

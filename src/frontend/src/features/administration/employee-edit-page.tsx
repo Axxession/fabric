@@ -348,7 +348,7 @@ export default function EmployeeEditPage() {
 
         {isAssignWorkLocationOpen ? (
           <div className="grid gap-4 rounded-structural border border-border p-4">
-            <LocationSelector value={selectedWorkLocationId} onChange={setSelectedWorkLocationId} maxDepth="Room" requiredDepth="Site" disabled={replaceEmployeeWorkLocations.isPending} />
+            <LocationSelector value={selectedWorkLocationId} onChange={setSelectedWorkLocationId} level="Room" disabled={replaceEmployeeWorkLocations.isPending} />
             <label className="flex items-center gap-3 text-[14px] font-medium">
               <input type="checkbox" className="size-4 rounded border border-border" checked={workLocations.length === 0 ? true : newWorkLocationPrimary} disabled={replaceEmployeeWorkLocations.isPending || workLocations.length === 0} onChange={(event) => setNewWorkLocationPrimary(event.target.checked)} />
               Set as primary work location

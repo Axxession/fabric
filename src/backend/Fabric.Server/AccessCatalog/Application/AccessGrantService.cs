@@ -44,12 +44,94 @@ public sealed class AccessGrantService(
         if (locationCount != locationIds.Distinct().Count())
             return Result.Failure<AccessGrant, AccessCatalogErrors>(AccessCatalogErrors.LocationRequired);
 
+        return await CreateInternalAsync(
+            packageId,
+            null,
+            identityId,
+            locationIds,
+            assignmentChannel,
+            sourceKind,
+            sourceId,
+            null,
+            null,
+            durationKind,
+            validFrom,
+            validUntil,
+            reasonText,
+            cancellationToken);
+    }
+
+    public async Task<Result<AccessGrant, AccessCatalogErrors>> CreateForRequestScopeAsync(
+        Guid packageId,
+        Guid accessItemId,
+        Guid identityId,
+        Guid locationId,
+        Guid requestId,
+        Guid approvalFlowId,
+        Guid requestScopeId,
+        AccessDurationKind durationKind,
+        DateTimeOffset validFrom,
+        DateTimeOffset? validUntil,
+        string reasonText,
+        CancellationToken cancellationToken = default)
+    {
+        return await CreateInternalAsync(
+            packageId,
+            accessItemId,
+            identityId,
+            [locationId],
+            AssignmentChannel.CatalogRequest,
+            AssignmentSourceKind.CatalogRequest,
+            requestId,
+            approvalFlowId,
+            requestScopeId,
+            durationKind,
+            validFrom,
+            validUntil,
+            reasonText,
+            cancellationToken);
+    }
+
+    public async Task<Result<AccessGrant, AccessCatalogErrors>> RevokeAsync(Guid accessGrantId, CancellationToken cancellationToken = default)
+    {
+        AccessGrant? grant = await db.AccessGrants.SingleOrDefaultAsync(item => item.Id == accessGrantId, cancellationToken);
+        if (grant is null)
+            return Result.Failure<AccessGrant, AccessCatalogErrors>(AccessCatalogErrors.AccessGrantNotFound);
+
+        Result<AccessCatalogErrors> revoke = grant.Revoke();
+        if (revoke.IsFailure(out AccessCatalogErrors error))
+            return Result.Failure<AccessGrant, AccessCatalogErrors>(error);
+
+        await db.SaveChangesAsync(cancellationToken);
+        await sagaService.EnqueueAccessGrantRevokedAsync(grant.Id, cancellationToken);
+        return Result.Success<AccessGrant, AccessCatalogErrors>(grant);
+    }
+
+    private async Task<Result<AccessGrant, AccessCatalogErrors>> CreateInternalAsync(
+        Guid packageId,
+        Guid? accessItemId,
+        Guid identityId,
+        Guid[] locationIds,
+        AssignmentChannel assignmentChannel,
+        AssignmentSourceKind sourceKind,
+        Guid sourceId,
+        Guid? approvalFlowId,
+        Guid? requestScopeId,
+        AccessDurationKind durationKind,
+        DateTimeOffset validFrom,
+        DateTimeOffset? validUntil,
+        string reasonText,
+        CancellationToken cancellationToken)
+    {
         Result<AccessGrant, AccessCatalogErrors> create = AccessGrant.Create(
             packageId,
             identityId,
             assignmentChannel,
             sourceKind,
             sourceId,
+            accessItemId,
+            approvalFlowId,
+            requestScopeId,
             durationKind,
             validFrom,
             validUntil,
@@ -66,21 +148,6 @@ public sealed class AccessGrantService(
 
         await db.SaveChangesAsync(cancellationToken);
         await sagaService.EnqueueAccessGrantCreatedAsync(grant.Id, cancellationToken);
-        return Result.Success<AccessGrant, AccessCatalogErrors>(grant);
-    }
-
-    public async Task<Result<AccessGrant, AccessCatalogErrors>> RevokeAsync(Guid accessGrantId, CancellationToken cancellationToken = default)
-    {
-        AccessGrant? grant = await db.AccessGrants.SingleOrDefaultAsync(item => item.Id == accessGrantId, cancellationToken);
-        if (grant is null)
-            return Result.Failure<AccessGrant, AccessCatalogErrors>(AccessCatalogErrors.AccessGrantNotFound);
-
-        Result<AccessCatalogErrors> revoke = grant.Revoke();
-        if (revoke.IsFailure(out AccessCatalogErrors error))
-            return Result.Failure<AccessGrant, AccessCatalogErrors>(error);
-
-        await db.SaveChangesAsync(cancellationToken);
-        await sagaService.EnqueueAccessGrantRevokedAsync(grant.Id, cancellationToken);
         return Result.Success<AccessGrant, AccessCatalogErrors>(grant);
     }
 }

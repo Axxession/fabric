@@ -23,6 +23,7 @@ public enum AccessCatalogErrors
     ApprovalGroupNameAlreadyExists,
     ApprovalGroupMemberNotFound,
     ApprovalGroupMemberAlreadyExists,
+    ApprovalGroupMemberLocationMustBeSite,
     ApprovalDefinitionNotFound,
     ApprovalDefinitionAlreadyExists,
     ApprovalRequirementNotFound,

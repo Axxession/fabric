@@ -273,7 +273,7 @@ export default function AccessControlSystemEditPage() {
         </div>
 
         <div className="grid gap-4 rounded-structural border border-border p-4">
-          <LocationSelector value={selectedLocationId} onChange={setSelectedLocationId} maxDepth="Room" requiredDepth="Site" disabled={linkLocation.isPending} />
+          <LocationSelector value={selectedLocationId} onChange={setSelectedLocationId} level="Room" disabled={linkLocation.isPending} />
           <div className="flex justify-end">
             <Button type="button" disabled={!selectedLocationId || linkLocation.isPending || linkedLocationIds.has(selectedLocationId)} onClick={handleLinkLocation}>
               <Plus className="size-4" aria-hidden="true" />

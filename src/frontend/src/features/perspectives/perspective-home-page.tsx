@@ -1,4 +1,7 @@
+import { Link } from '@tanstack/react-router';
+
 import { useCurrentActor } from '@/shared/actors/current-actor';
+import { buttonVariants } from '@/shared/components/ui/button';
 import { getPerspectiveById, type PerspectiveId } from '@/shared/perspectives/app-perspectives';
 
 export function PerspectiveHomePage({ perspectiveId }: { perspectiveId: PerspectiveId }) {
@@ -18,6 +21,8 @@ export function PerspectiveHomePage({ perspectiveId }: { perspectiveId: Perspect
         <p className="mt-6 text-[14px] text-muted-foreground">
           {actorQuery.data?.displayName ? `Signed in as ${actorQuery.data.displayName}.` : 'Perspective shell ready.'}
         </p>
+        {perspectiveId === 'employee' ? <Link to="/employee/request-access" className={`${buttonVariants()} mt-6`}>Request Access</Link> : null}
+        {perspectiveId === 'manager' ? <Link to="/manager/approval-inbox" className={`${buttonVariants()} mt-6`}>Open Approval Inbox</Link> : null}
       </div>
 
       <div className="rounded-structural border border-dashed border-border bg-content p-6 text-[14px] text-muted-foreground">

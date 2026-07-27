@@ -189,8 +189,7 @@ export function VisitForm({ initialValues, isSubmitting, submitLabel, onSubmit, 
                 <LocationSelector
                   value={field.value}
                   onChange={field.onChange}
-                  maxDepth="Room"
-                  requiredDepth="None"
+                  level="Room"
                   disabled={disabledFields?.includes('location')}
                 />
               </FormControl>

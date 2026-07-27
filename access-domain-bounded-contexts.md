@@ -474,9 +474,13 @@ It owns:
 
 `Package` is the requestable catalog item. It contains one or more `AccessItemId` references.
 
-`PackageRequest` is a catalog request for a package. It records the requester, beneficiary, requested locations, requested duration, request reason, status, timestamps, and the final approval/rejection outcome.
+`PackageRequest` is a catalog request for a package. It records the requester, beneficiary, requested descendant locations, requested duration, request reason, status, timestamps, and the final outcome.
 
-`AccessGrant` is a granted package for one identity. It records the duration kind and validity range, granted locations, the assignment channel, and the source that caused the grant.
+`ApprovalFlow` is the approval unit for one access item at one normalized site. It snapshots the approval context and completes independently as `Approved`, `Rejected`, `SystemApproved`, or `Expired`.
+
+`PackageRequestScope` is the provisioning unit for one access item at one originally requested descendant location. Multiple request scopes can point to the same approval flow when they normalize to the same site.
+
+`AccessGrant` is a granted exact request scope for one identity. For catalog requests, Fabric creates one grant per approved request scope so PACS provisioning stays tied to the original descendant location while approval stays normalized at site level.
 
 `AccessDurationKind` distinguishes permanent from temporary business access:
 
@@ -485,7 +489,7 @@ It owns:
 
 `ApprovalGroup` is a role-like approval responsibility, such as `Facility Managers`.
 
-`ApprovalGroupMember` scopes a member's approval authority to a location. Example: Sverre is a Facility Manager for Site Antwerp, while Kris is a Facility Manager for Site Lille.
+`ApprovalGroupMember` scopes a member's approval authority to a site. Example: Sverre is a Facility Manager for Site Antwerp, while Kris is a Facility Manager for Site Lille.
 
 ```mermaid
 classDiagram
@@ -542,6 +546,7 @@ classDiagram
         Guid BeneficiaryIdentityId
         string RequestReason
         PackageRequestStatus Status
+        PackageRequestSubStatus SubStatus
         AccessDurationKind DurationKind
         DateTimeOffset ValidFrom
         DateTimeOffset ValidUntil
@@ -555,8 +560,27 @@ classDiagram
         Guid LocationId
     }
 
+    class ApprovalFlow {
+        Guid Id
+        Guid RequestId
+        Guid PackageId
+        Guid AccessItemId
+        Guid SiteId
+        ApprovalFlowStatus Status
+        DateTimeOffset CreatedAt
+        DateTimeOffset CompletedAt
+    }
+
+    class PackageRequestScope {
+        Guid Id
+        Guid RequestId
+        Guid ApprovalFlowId
+        Guid RequestedLocationId
+    }
+
     class ApprovalRequirement {
         Guid Id
+        Guid ApprovalFlowId
         Guid RequestId
         Guid AccessItemId
         Guid LocationId
@@ -584,10 +608,13 @@ classDiagram
     class AccessGrant {
         Guid Id
         Guid PackageId
+        Guid AccessItemId
         Guid IdentityId
         AssignmentChannel AssignmentChannel
         AssignmentSourceKind SourceKind
         Guid SourceId
+        Guid ApprovalFlowId
+        Guid RequestScopeId
         AccessDurationKind DurationKind
         DateTimeOffset ValidFrom
         DateTimeOffset ValidUntil
@@ -609,9 +636,12 @@ classDiagram
     ApprovalDefinition "*" --> "1" ApprovalGroup
     ApprovalGroup "1" --> "*" ApprovalGroupMember
     PackageRequest "1" --> "*" PackageRequestLocation
-    PackageRequest "1" --> "*" ApprovalRequirement
+    PackageRequest "1" --> "*" ApprovalFlow
+    ApprovalFlow "1" --> "*" PackageRequestScope
+    ApprovalFlow "1" --> "*" ApprovalRequirement
     ApprovalRequirement "1" --> "*" ApprovalDecision
     AccessGrant "1" --> "*" AccessGrantLocation
+    PackageRequestScope "1" --> "0..1" AccessGrant
 ```
 
 Assignment source:
@@ -641,11 +671,14 @@ Approval rules:
 
 - Approval applies to `CatalogRequest`.
 - Automatic configuration is trusted policy and bypasses approval.
-- A request can include multiple locations.
-- Destination approval resolves through `ApprovalDefinition.DestinationApprovalGroupId` and the requested locations.
-- Approval group member lookup is hierarchy-sensitive: a member responsible for the requested room, its building, or its site can approve.
-- If no approval group member exists for a requested location or any of its ancestors, the approval requirement is system-approved for that location.
-- System approval must record why the system approved, for example `No approver configured for request location`.
+- A request can include multiple descendant locations.
+- Each requested location is normalized to its site for approval.
+- Fabric creates one `ApprovalFlow` per `(RequestId, AccessItemId, SiteId)`.
+- Fabric creates one `PackageRequestScope` per `(RequestId, AccessItemId, RequestedLocationId)` and links it to the normalized approval flow for that location's site.
+- Destination approval resolves through `ApprovalDefinition.DestinationApprovalGroupId` and the normalized site.
+- Approval group members are site-scoped only.
+- If no approval group member exists for the normalized site, the destination requirement is system-approved for that site.
+- System approval must record why the system approved, for example `No approver configured for request site`.
 - Organizational approval resolves through the requester's manager chain.
 - Organizational approver resolution is snapshotted when the request is created by storing `ApprovalRequirement.RequiredApproverIdentityId`.
 - `ApprovalRequirement.Role` stores the approval role being satisfied, such as `FacilityManager`, `L+1`, or `L+2`.
@@ -655,7 +688,9 @@ Approval rules:
 - A human approver may leave an optional note on approval or rejection.
 - Approval decisions record the approver identity, decision timestamp, note, decision kind, and role explaining why that person could approve.
 - If the same person can approve for multiple roles, one human action can satisfy those roles.
-- Requests record `CreatedAt`, and approved/rejected requests record `DecidedAt`.
+- Requests record `CreatedAt`, and completed requests record `DecidedAt`.
+- When an approval flow reaches `Approved` or `SystemApproved`, Fabric can grant all linked descendant request scopes immediately.
+- A partially approved request is therefore valid while other flows on the same request are still pending; the top-level request stays `InProgress` until every flow reaches a terminal state.
 
 Multiple-approval example:
 
@@ -687,12 +722,30 @@ If another Facility Manager approves first:
 Request status:
 
 ```text
-Requested -> PendingApproval -> Approved
-Requested -> PendingApproval -> Rejected
-Requested -> PendingApproval -> Expired
+InProgress -> Completed(Approved)
+InProgress -> Completed(PartiallyApproved)
+InProgress -> Completed(Rejected)
+InProgress -> Completed(Expired)
 ```
 
-`Expired` is a transition from `PendingApproval` after the configured approval window elapses.
+Flow status:
+
+```text
+InProgress -> Approved
+InProgress -> Rejected
+InProgress -> SystemApproved
+InProgress -> Expired
+```
+
+`Expired` is applied to any still-pending approval flow after the configured approval window elapses.
+
+Request summary rules:
+
+- If any approval flow is still `InProgress`, the request is `InProgress`.
+- If all flows are `Approved` or `SystemApproved`, the request completes as `Approved`.
+- If some flows are approved/system-approved and some are rejected or expired, the request completes as `PartiallyApproved`.
+- If no flows are approved/system-approved and one or more flows are rejected, the request completes as `Rejected`.
+- If no flows are approved/system-approved and pending flows time out, the request completes as `Expired`.
 
 Catalog listing rule:
 
@@ -1361,18 +1414,12 @@ It owns:
 - optional credential ranges
 - issued credentials
 - credential validity
-- credential type targets
-- credential PACS assignments
 
 `CredentialType` defines how a credential is classified and allocated, such as `Visitor QR`, `Employee Desfire`, or `License Plate`.
 
 `CredentialRange` exists only for range-allocated credential types.
 
 `Credential` is the issued credential.
-
-`CredentialTypeTarget` defines which PACS systems receive credentials of that type and when credential provisioning should happen.
-
-`CredentialPACSAssignment` is the technical provisioning item that pushes an issued credential to a PACS.
 
 ```mermaid
 classDiagram
@@ -1403,14 +1450,6 @@ classDiagram
         CredentialStatus Status
     }
 
-    class CredentialTypeTarget {
-        Guid Id
-        Guid CredentialTypeId
-        Guid AccessControlSystemId
-        ProvisioningTiming ProvisioningTiming
-        bool IsEnabled
-    }
-
     class CredentialPACSAssignment {
         Guid Id
         Guid CredentialId
@@ -1422,23 +1461,38 @@ classDiagram
 
     CredentialType "1" --> "*" CredentialRange
     CredentialType "1" --> "*" Credential
-    CredentialType "1" --> "*" CredentialTypeTarget
-    Credential "1" --> "*" CredentialPACSAssignment
-    CredentialTypeTarget "1" --> "*" CredentialPACSAssignment
 ```
 
 Boundary rules:
 
 - Packages do not define credentials.
 - Visitor or employee onboarding flows request credentials separately.
-- `CredentialTypeTarget.AccessControlSystemId` is an id reference to Access Control.
 - Visitor QR numbers can be known immediately by issuing the credential up front.
-- Delayed PACS provisioning is controlled through `CredentialTypeTarget.ProvisioningTiming`.
 - `Credential.Identifier` is unique tenant-wide, regardless of credential type, technology, or PACS.
 - `CredentialTechnology` is descriptive and behavioral; it does not define uniqueness.
 - `AllocationMode = Range` requires a numeric identifier inside an active `CredentialRange`.
 - `AllocationMode = Provided` allows a caller-provided identifier, still tenant-globally unique.
-- `AllocationMode = External` is reserved for provider-assigned identifiers.
+
+Access Control owns provider-native credential mapping and PACS work items:
+
+- `CredentialTypeTarget`
+  - links a business `CredentialTypeId` to an `AccessControlSystemId`
+  - stores target-level `ProvisioningTiming`
+  - may optionally store provider-native metadata such as `ProviderCredentialTypeId`
+- `CredentialPACSAssignment`
+  - is the technical PACS work item for provisioning an issued credential
+  - can fail terminally when the PACS or current integration does not support that credential technology
+  - uses statuses such as `Pending`, `Provisioned`, `FailedRetryable`, `FailedTerminal`, and `Revoked`
+
+Current operational timing semantics:
+
+- `Eager`: schedule PACS provisioning immediately.
+- `AtValidFrom`: schedule PACS provisioning at UTC midnight on the `ValidFrom` date, not at the exact `ValidFrom` instant.
+
+Current operational cleanup semantics:
+
+- expired effective access-level `PACSProvisioning` rows are proactively revoked from PACS
+- expired provisioned `CredentialPACSAssignment` rows are proactively revoked from PACS
 
 ## Cross-Context Use Cases
 

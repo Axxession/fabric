@@ -40,6 +40,8 @@ public sealed record ListApprovalRequirementsRequest : BaseListRequest
     public ApprovalStatus? Status { get; set; }
 }
 
+public sealed record ListApprovalInboxRequest : BaseListRequest;
+
 public sealed record CreateCatalogRequest(string Name, string? Description);
 public sealed record UpdateCatalogRequest(string Name, string? Description, CatalogStatus Status);
 public sealed record LinkCatalogPackageRequest(Guid PackageId, bool IsRequestable);
@@ -52,6 +54,7 @@ public sealed record UpdatePackageRequest(string Name, string? Description, Pack
 public sealed record AddPackageAccessItemRequest(Guid AccessItemId);
 public sealed record CreateApprovalDefinitionRequest(Guid AccessItemId, Guid? DestinationApprovalGroupId, OrganizationalApprovalMode OrganizationalApprovalMode, int OrganizationalApprovalLevels);
 public sealed record UpdateApprovalDefinitionRequest(Guid? DestinationApprovalGroupId, OrganizationalApprovalMode OrganizationalApprovalMode, int OrganizationalApprovalLevels);
+public sealed record PreviewPackageRequestApprovalsRequest(Guid PackageId, Guid BeneficiaryIdentityId, Guid[] LocationIds);
 public sealed record CreatePackageRequestRequest(Guid PackageId, Guid RequesterIdentityId, Guid BeneficiaryIdentityId, Guid[] LocationIds, string RequestReason, AccessDurationKind DurationKind, DateTimeOffset ValidFrom, DateTimeOffset? ValidUntil);
 public sealed record CreateApprovalDecisionRequest(Guid ApproverIdentityId, ApprovalDecisionKind DecisionKind, string? Note);
 
@@ -74,16 +77,30 @@ public sealed record PackageAccessItemResponse(Guid PackageId, Guid AccessItemId
 public sealed record ApprovalGroupResponse(Guid Id, string Name, ApprovalGroupStatus Status);
 public sealed record ApprovalGroupMemberResponse(Guid Id, Guid ApprovalGroupId, Guid IdentityId, Guid ResponsibleLocationId);
 public sealed record ApprovalDefinitionResponse(Guid Id, Guid AccessItemId, Guid? DestinationApprovalGroupId, OrganizationalApprovalMode OrganizationalApprovalMode, int OrganizationalApprovalLevels);
-public sealed record ApprovalRequirementResponse(Guid Id, Guid RequestId, Guid AccessItemId, Guid LocationId, ApprovalRequirementType Type, ApprovalDecisionRole Role, Guid? ApprovalGroupId, Guid? RequiredApproverIdentityId, ApprovalStatus Status, string? SystemApprovalReason, DateTimeOffset CreatedAt, DateTimeOffset? CompletedAt);
+public sealed record ApprovalRequirementResponse(Guid Id, Guid ApprovalFlowId, Guid RequestId, Guid AccessItemId, Guid LocationId, ApprovalRequirementType Type, ApprovalDecisionRole Role, Guid? ApprovalGroupId, Guid? RequiredApproverIdentityId, ApprovalStatus Status, string? SystemApprovalReason, DateTimeOffset CreatedAt, DateTimeOffset? CompletedAt);
+public sealed record ApprovalRequirementPreviewApprovalGroupResponse(Guid Id, string Name);
+public sealed record ApprovalRequirementPreviewApproverIdentityResponse(Guid Id, string DisplayName, string? Email);
+public sealed record ApprovalRequirementPreviewResponse(Guid LocationId, ApprovalRequirementType Type, ApprovalDecisionRole Role, ApprovalRequirementPreviewApprovalGroupResponse? ApprovalGroup, ApprovalRequirementPreviewApproverIdentityResponse? ApproverIdentity);
+public sealed record ApprovalRequirementsPreviewAccessItemResponse(Guid AccessItemId, string Name, string? Description, ApprovalRequirementPreviewResponse[] Requirements);
 public sealed record ApprovalDecisionResponse(Guid Id, Guid RequestId, Guid ApprovalRequirementId, Guid ApproverIdentityId, ApprovalDecisionRole Role, ApprovalDecisionKind DecisionKind, string? Note, DateTimeOffset DecidedAt);
-public sealed record PackageRequestResponse(Guid Id, Guid PackageId, Guid RequesterIdentityId, Guid BeneficiaryIdentityId, string RequestReason, PackageRequestStatus Status, AccessDurationKind DurationKind, DateTimeOffset ValidFrom, DateTimeOffset? ValidUntil, DateTimeOffset CreatedAt, DateTimeOffset ExpiresAt, DateTimeOffset? DecidedAt, Guid[] LocationIds);
+public sealed record PackageRequestResponse(Guid Id, Guid PackageId, Guid RequesterIdentityId, Guid BeneficiaryIdentityId, string RequestReason, PackageRequestStatus Status, PackageRequestSubStatus? SubStatus, AccessDurationKind DurationKind, DateTimeOffset ValidFrom, DateTimeOffset? ValidUntil, DateTimeOffset CreatedAt, DateTimeOffset ExpiresAt, DateTimeOffset? DecidedAt, Guid[] LocationIds);
+public sealed record PackageRequestDetailLocationResponse(Guid Id, string Label, Guid SiteId, string SiteName);
+public sealed record ApprovalInboxItemResponse(Guid ApprovalRequirementId, Guid ApprovalFlowId, Guid RequestId, Guid PackageId, string PackageName, Guid BeneficiaryIdentityId, string BeneficiaryDisplayName, Guid RequesterIdentityId, string RequesterDisplayName, Guid AccessItemId, string AccessItemName, Guid SiteId, string SiteName, string[] RequestedLocationLabels, ApprovalRequirementType Type, ApprovalDecisionRole Role, string? ApprovalGroupName, DateTimeOffset CreatedAt, DateTimeOffset ExpiresAt, ApprovalStatus Status);
+public sealed record PackageRequestDetailGrantResponse(Guid Id, Guid AccessItemId, string AccessItemName, Guid LocationId, string LocationLabel, AccessGrantStatus Status, DateTimeOffset ValidFrom, DateTimeOffset? ValidUntil);
+public sealed record PackageRequestDetailDecisionResponse(Guid Id, string ApproverDisplayName, ApprovalDecisionRole Role, ApprovalDecisionKind DecisionKind, string? Note, DateTimeOffset DecidedAt);
+public sealed record PackageRequestDetailRequirementResponse(Guid Id, ApprovalRequirementType Type, ApprovalDecisionRole Role, Guid? ApprovalGroupId, string? ApprovalGroupName, Guid? RequiredApproverIdentityId, string? RequiredApproverDisplayName, ApprovalStatus Status, string? SystemApprovalReason, DateTimeOffset CreatedAt, DateTimeOffset? CompletedAt, PackageRequestDetailDecisionResponse[] Decisions);
+public sealed record PackageRequestDetailFlowResponse(Guid ApprovalFlowId, Guid AccessItemId, string AccessItemName, string? AccessItemDescription, Guid SiteId, string SiteName, ApprovalFlowStatus Status, DateTimeOffset CreatedAt, DateTimeOffset? CompletedAt, PackageRequestDetailLocationResponse[] RequestedLocations, PackageRequestDetailRequirementResponse[] Requirements, PackageRequestDetailGrantResponse[] Grants);
+public sealed record PackageRequestDetailResponse(PackageRequestResponse Request, PackageResponse Package, PackageRequestDetailLocationResponse[] RequestedLocations, PackageRequestDetailFlowResponse[] Flows, PackageRequestDetailGrantResponse[] Grants);
 public sealed record AccessGrantResponse(
     Guid Id,
     Guid PackageId,
+    Guid? AccessItemId,
     Guid IdentityId,
     AssignmentChannel AssignmentChannel,
     AssignmentSourceKind SourceKind,
     Guid SourceId,
+    Guid? ApprovalFlowId,
+    Guid? RequestScopeId,
     AccessDurationKind DurationKind,
     DateTimeOffset ValidFrom,
     DateTimeOffset? ValidUntil,
@@ -115,22 +132,25 @@ public static class AccessCatalogMapper
         new(definition.Id, definition.AccessItemId, definition.DestinationApprovalGroupId, definition.OrganizationalApprovalMode, definition.OrganizationalApprovalLevels);
 
     public static ApprovalRequirementResponse ToResponse(this ApprovalRequirement requirement) =>
-        new(requirement.Id, requirement.RequestId, requirement.AccessItemId, requirement.LocationId, requirement.Type, requirement.Role, requirement.ApprovalGroupId, requirement.RequiredApproverIdentityId, requirement.Status, requirement.SystemApprovalReason, requirement.CreatedAt, requirement.CompletedAt);
+        new(requirement.Id, requirement.ApprovalFlowId, requirement.RequestId, requirement.AccessItemId, requirement.LocationId, requirement.Type, requirement.Role, requirement.ApprovalGroupId, requirement.RequiredApproverIdentityId, requirement.Status, requirement.SystemApprovalReason, requirement.CreatedAt, requirement.CompletedAt);
 
     public static ApprovalDecisionResponse ToResponse(this ApprovalDecision decision) =>
         new(decision.Id, decision.RequestId, decision.ApprovalRequirementId, decision.ApproverIdentityId, decision.Role, decision.DecisionKind, decision.Note, decision.DecidedAt);
 
     public static PackageRequestResponse ToResponse(this PackageRequest request, Guid[] locationIds) =>
-        new(request.Id, request.PackageId, request.RequesterIdentityId, request.BeneficiaryIdentityId, request.RequestReason, request.Status, request.DurationKind, request.ValidFrom, request.ValidUntil, request.CreatedAt, request.ExpiresAt, request.DecidedAt, locationIds);
+        new(request.Id, request.PackageId, request.RequesterIdentityId, request.BeneficiaryIdentityId, request.RequestReason, request.Status, request.SubStatus, request.DurationKind, request.ValidFrom, request.ValidUntil, request.CreatedAt, request.ExpiresAt, request.DecidedAt, locationIds);
 
     public static AccessGrantResponse ToResponse(this AccessGrant grant, Guid[] locationIds) =>
         new(
             grant.Id,
             grant.PackageId,
+            grant.AccessItemId,
             grant.IdentityId,
             grant.AssignmentChannel,
             grant.SourceKind,
             grant.SourceId,
+            grant.ApprovalFlowId,
+            grant.RequestScopeId,
             grant.DurationKind,
             grant.ValidFrom,
             grant.ValidUntil,

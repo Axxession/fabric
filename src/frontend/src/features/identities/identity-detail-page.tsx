@@ -1,0 +1,966 @@
+import { useQuery } from '@tanstack/react-query';
+import { Link, useNavigate, useParams } from '@tanstack/react-router';
+import { ArrowLeft, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
+
+import { api } from '@/shared/api/client';
+import type { components } from '@/shared/api/generated/schema';
+import { getLocationLabel, type LocationResponse } from '@/shared/components/location-selector';
+import { Badge } from '@/shared/components/ui/badge';
+import { Card } from '@/shared/components/ui/card';
+
+type AccessControlSystemResponse = components['schemas']['AccessControlSystemResponse'];
+type AccessLevelTargetResponse = components['schemas']['AccessLevelTargetResponse'];
+type ApprovalDecisionKind = components['schemas']['ApprovalDecisionKind'];
+type AccessGrantResponse = components['schemas']['AccessGrantResponse'];
+type EmployeeResponse = components['schemas']['EmployeeResponse'];
+type IdentityAffiliationSummaryResponse = components['schemas']['IdentityAffiliationSummaryResponse'];
+type IdentityResponse = components['schemas']['IdentityResponse'];
+type PackageRequestDetailDecisionResponse = components['schemas']['PackageRequestDetailDecisionResponse'];
+type PackageRequestDetailFlowResponse = components['schemas']['PackageRequestDetailFlowResponse'];
+type PackageRequestDetailResponse = components['schemas']['PackageRequestDetailResponse'];
+type PackageRequestDetailRequirementResponse = components['schemas']['PackageRequestDetailRequirementResponse'];
+type PACSAssignmentResponse = components['schemas']['PACSAssignmentResponse'];
+type PACSProvisioningResponse = components['schemas']['PACSProvisioningResponse'];
+type PACSSubjectResponse = components['schemas']['PACSSubjectResponse'];
+type PackageRequestResponse = components['schemas']['PackageRequestResponse'];
+type PackageResponse = components['schemas']['PackageResponse'];
+type PackageRequestStatus = components['schemas']['PackageRequestStatus'];
+type VisitorResponse = components['schemas']['VisitorResponse'];
+
+type IdentitySection = 'overview' | 'assignments' | 'known-in' | 'requests';
+
+const sections: readonly { id: IdentitySection; label: string; description: string }[] = [
+  { id: 'overview', label: 'Overview', description: 'Employee and visitor details for this identity.' },
+  { id: 'assignments', label: 'Assignments', description: 'Granted access and PACS provisioning state.' },
+  { id: 'known-in', label: 'Known in', description: 'PACS subjects linked to this identity.' },
+  { id: 'requests', label: 'Requests', description: 'Catalog requests where this identity is beneficiary.' },
+];
+
+export default function IdentityDetailPage() {
+  const { identityId } = useParams({ from: '/main/security-officer/identities/$identityId' });
+  const navigate = useNavigate();
+  const [section, setSection] = useState<IdentitySection>('overview');
+
+  const identityQuery = useQuery({
+    queryKey: ['security-officer', 'identity-360', identityId, 'identity'],
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/identities/{id}', { params: { path: { id: identityId } } });
+      if (error || !data) {
+        throw new Error('Could not load identity.');
+      }
+      return data;
+    },
+  });
+
+  const systemsQuery = useQuery({
+    queryKey: ['security-officer', 'identity-360', identityId, 'systems'],
+    enabled: section === 'assignments' || section === 'known-in',
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/access-control/systems', { params: { query: { Name: undefined, Page: 0, PageSize: 200 } as never } });
+      if (error) {
+        throw new Error('Could not load access control systems.');
+      }
+      return new Map((data?.items ?? []).map((item: AccessControlSystemResponse) => [item.id, item]));
+    },
+  });
+
+  const employeeDetailsQuery = useQuery({
+    queryKey: ['security-officer', 'identity-360', identityId, 'employee-details', identityQuery.data?.employeeAffiliations.map((item) => item.sourceId).join(',') ?? ''],
+    enabled: section === 'overview' && (identityQuery.data?.employeeAffiliations.length ?? 0) > 0,
+    queryFn: async () => {
+      const items = await Promise.all((identityQuery.data?.employeeAffiliations ?? []).map(async (affiliation: IdentityAffiliationSummaryResponse) => {
+        const { data, error } = await api.GET('/api/employees/employees/{id}', { params: { path: { id: affiliation.sourceId } } });
+        if (error || !data) {
+          throw new Error('Could not load employee details.');
+        }
+        return data;
+      }));
+
+      return items;
+    },
+  });
+
+  const visitorDetailsQuery = useQuery({
+    queryKey: ['security-officer', 'identity-360', identityId, 'visitor-details', identityQuery.data?.visitorAffiliations.map((item) => item.sourceId).join(',') ?? ''],
+    enabled: section === 'overview' && (identityQuery.data?.visitorAffiliations.length ?? 0) > 0,
+    queryFn: async () => {
+      const items = await Promise.all((identityQuery.data?.visitorAffiliations ?? []).map(async (affiliation: IdentityAffiliationSummaryResponse) => {
+        const { data, error } = await api.GET('/api/visitors/visitors/{id}', { params: { path: { id: affiliation.sourceId } } });
+        if (error || !data) {
+          throw new Error('Could not load visitor details.');
+        }
+        return data;
+      }));
+
+      return items;
+    },
+  });
+
+  const employeeWorkLocationLabelsQuery = useQuery({
+    queryKey: ['security-officer', 'identity-360', identityId, 'employee-work-location-labels', employeeDetailsQuery.data?.map((item) => item.id).join(',') ?? ''],
+    enabled: section === 'overview' && (employeeDetailsQuery.data?.length ?? 0) > 0,
+    queryFn: async () => {
+      const locationIds = Array.from(new Set((employeeDetailsQuery.data ?? []).flatMap((employee) => employee.workLocations.map((item) => item.locationId))));
+      const locations = await Promise.all(locationIds.map(async (locationId) => {
+        const { data, error } = await api.GET('/api/locations/locations/{id}', { params: { path: { id: locationId } } });
+        if (error || !data) {
+          return null;
+        }
+        return data;
+      }));
+
+      return new Map(locations.filter((item): item is LocationResponse => item !== null).map((item) => [item.id, getLocationLabel(item)]));
+    },
+  });
+
+  const assignmentsQuery = useQuery({
+    queryKey: ['security-officer', 'identity-360', identityId, 'assignments'],
+    enabled: section === 'assignments',
+    queryFn: async () => {
+      const [grantsResult, assignmentsResult, provisioningsResult] = await Promise.all([
+        api.GET('/api/access-catalog/access-grants', { params: { query: { IdentityId: identityId, PackageId: undefined, Status: undefined, Page: 0, PageSize: 200 } as never } }),
+        api.GET('/api/access-control/assignments', { params: { query: { SourceAssignmentId: undefined, IdentityId: identityId, AccessControlSystemId: undefined, Status: undefined, Page: 0, PageSize: 200 } as never } }),
+        api.GET('/api/access-control/provisionings', { params: { query: { IdentityId: identityId, AccessControlSystemId: undefined, Status: undefined, Page: 0, PageSize: 200 } as never } }),
+      ]);
+
+      if (grantsResult.error || assignmentsResult.error || provisioningsResult.error) {
+        throw new Error('Could not load assignments.');
+      }
+
+      const grants = grantsResult.data?.items ?? [];
+      const assignments = assignmentsResult.data?.items ?? [];
+      const provisionings = provisioningsResult.data?.items ?? [];
+
+      const packageIds = Array.from(new Set(grants.map((item: AccessGrantResponse) => item.packageId)));
+      const accessItemIds = Array.from(new Set(grants.map((item: AccessGrantResponse) => item.accessItemId).filter((item): item is string => Boolean(item))));
+      const locationIds = Array.from(new Set(grants.flatMap((item: AccessGrantResponse) => item.locationIds ?? [])));
+
+        const [packages, accessItems, locations] = await Promise.all([
+        Promise.all(packageIds.map(async (packageId) => {
+          const { data, error } = await api.GET('/api/access-catalog/packages/{packageId}', { params: { path: { packageId } } });
+          if (error || !data) return null;
+          return data;
+        })),
+        Promise.all(accessItemIds.map(async (itemId) => {
+          const { data, error } = await api.GET('/api/access-control/items/{itemId}', { params: { path: { itemId } } });
+          if (error || !data) return null;
+          return data;
+        })),
+        Promise.all(locationIds.map(async (locationId) => {
+          const { data, error } = await api.GET('/api/locations/locations/{id}', { params: { path: { id: locationId } } });
+          if (error || !data) return null;
+          return data;
+        })),
+        ]);
+
+        const targets = await Promise.all(accessItemIds.map(async (itemId) => {
+          const { data, error } = await api.GET('/api/access-control/items/{itemId}/targets', { params: { path: { itemId }, query: { Page: 0, PageSize: 200 } } });
+          if (error) {
+            return [] as AccessLevelTargetResponse[];
+          }
+
+          return (data?.items ?? []) as AccessLevelTargetResponse[];
+        }));
+
+        const requestIds = Array.from(new Set(grants.filter((item: AccessGrantResponse) => item.sourceKind === 'CatalogRequest').map((item: AccessGrantResponse) => item.sourceId)));
+        const requestDetails = await Promise.all(requestIds.map(async (requestId) => {
+          const { data, error } = await api.GET('/api/access-catalog/package-requests/{requestId}/details', { params: { path: { requestId } } });
+          if (error || !data) {
+            return null;
+          }
+
+          return data;
+        }));
+
+        return {
+          grants,
+          assignments,
+          provisionings,
+          packagesById: new Map(packages.filter((item): item is PackageResponse => item !== null).map((item) => [item.id, item])),
+          accessItemsById: new Map(accessItems.filter((item): item is components['schemas']['AccessItemResponse'] => item !== null).map((item) => [item.id, item])),
+          locationsById: new Map(locations.filter((item): item is LocationResponse => item !== null).map((item) => [item.id, item])),
+          targetsById: new Map(targets.flat().map((item) => [item.id, item])),
+          requestDetailsById: new Map(requestDetails.filter((item): item is PackageRequestDetailResponse => item !== null).map((item) => [item.request.id, item])),
+        };
+      },
+    });
+
+  const subjectsQuery = useQuery({
+    queryKey: ['security-officer', 'identity-360', identityId, 'subjects'],
+    enabled: section === 'known-in',
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/access-control/subjects', { params: { query: { IdentityId: identityId, AccessControlSystemId: undefined, Page: 0, PageSize: 200 } as never } });
+      if (error) {
+        throw new Error('Could not load PACS subjects.');
+      }
+      return data?.items ?? [];
+    },
+  });
+
+  const requestsQuery = useQuery({
+    queryKey: ['security-officer', 'identity-360', identityId, 'requests'],
+    enabled: section === 'requests',
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/access-catalog/package-requests', { params: { query: { RequesterIdentityId: undefined, BeneficiaryIdentityId: identityId, Status: undefined, ids: [] } as never } });
+      if (error) {
+        throw new Error('Could not load requests.');
+      }
+
+      const requests = data?.items ?? [];
+      const packageIds = Array.from(new Set(requests.map((item: PackageRequestResponse) => item.packageId)));
+      const packages = await Promise.all(packageIds.map(async (packageId) => {
+        const { data: packageData, error: packageError } = await api.GET('/api/access-catalog/packages/{packageId}', { params: { path: { packageId } } });
+        if (packageError || !packageData) {
+          return null;
+        }
+        return packageData;
+      }));
+
+      return {
+        requests,
+        packagesById: new Map(packages.filter((item): item is PackageResponse => item !== null).map((item) => [item.id, item])),
+      };
+    },
+  });
+
+  const identity = identityQuery.data;
+
+  return (
+    <section className="grid gap-6">
+      <Link to="/security-officer/identities" className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground">
+        <ArrowLeft className="size-4" aria-hidden="true" />
+        Back to Identity 360
+      </Link>
+
+      {identityQuery.isLoading ? <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">Loading identity...</p> : null}
+      {identityQuery.isError || !identity ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load identity.</p> : null}
+
+      {identity ? (
+        <>
+          <IdentityHeader identity={identity} />
+
+          <div className="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
+            <Card className="p-3">
+              <nav className="grid gap-2" aria-label="Identity 360 navigation">
+                {sections.map((item) => (
+                  <button key={item.id} type="button" className={section === item.id ? 'rounded-interactive bg-active-blue px-3 py-3 text-left text-foreground' : 'rounded-interactive px-3 py-3 text-left text-foreground transition hover:bg-hover-blue'} onClick={() => setSection(item.id)}>
+                    <span className="block font-semibold">{item.label}</span>
+                    <span className="mt-1 block text-[13px] leading-5 text-muted-foreground">{item.description}</span>
+                  </button>
+                ))}
+              </nav>
+            </Card>
+
+            <div className="grid gap-4">
+              {section === 'overview' ? <OverviewSection employeeDetails={employeeDetailsQuery.data ?? []} employeeWorkLocationLabels={employeeWorkLocationLabelsQuery.data ?? new Map<string, string>()} employeeLoading={employeeDetailsQuery.isLoading || employeeWorkLocationLabelsQuery.isLoading} employeeError={employeeDetailsQuery.isError || employeeWorkLocationLabelsQuery.isError} visitorDetails={visitorDetailsQuery.data ?? []} visitorLoading={visitorDetailsQuery.isLoading} visitorError={visitorDetailsQuery.isError} /> : null}
+              {section === 'assignments' ? <AssignmentsSection data={assignmentsQuery.data} isLoading={assignmentsQuery.isLoading} isError={assignmentsQuery.isError} systemsById={systemsQuery.data ?? new Map<string, AccessControlSystemResponse>()} /> : null}
+              {section === 'known-in' ? <KnownInSection subjects={subjectsQuery.data ?? []} isLoading={subjectsQuery.isLoading} isError={subjectsQuery.isError} systemsById={systemsQuery.data ?? new Map<string, AccessControlSystemResponse>()} /> : null}
+              {section === 'requests' ? <RequestsSection data={requestsQuery.data} isLoading={requestsQuery.isLoading} isError={requestsQuery.isError} onOpenRequest={(requestId) => void navigate({ to: '/security-officer/identities/$identityId/requests/$requestId', params: { identityId, requestId } })} /> : null}
+            </div>
+          </div>
+        </>
+      ) : null}
+    </section>
+  );
+}
+
+function IdentityHeader({ identity }: { readonly identity: IdentityResponse }) {
+  const affiliationLabels = [
+    identity.employeeAffiliations.length > 0 ? 'Employee' : null,
+    identity.contractorAffiliations.length > 0 ? 'Contractor' : null,
+    identity.visitorAffiliations.length > 0 ? 'Visitor' : null,
+  ].filter((item): item is string => item !== null);
+
+  return (
+    <Card className="p-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-[28px] font-semibold tracking-tight">{identity.displayName}</h1>
+            <Badge variant={getIdentityStatusVariant(identity.status)}>{identity.status}</Badge>
+          </div>
+          <p className="mt-2 text-[14px] text-muted-foreground">{identity.email ?? 'No email'}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {affiliationLabels.length > 0 ? affiliationLabels.map((label) => <Badge key={label} variant="secondary">{label}</Badge>) : <Badge variant="outline">No affiliations</Badge>}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function OverviewSection({ employeeDetails, employeeWorkLocationLabels, employeeLoading, employeeError, visitorDetails, visitorLoading, visitorError }: { readonly employeeDetails: EmployeeResponse[]; readonly employeeWorkLocationLabels: Map<string, string>; readonly employeeLoading: boolean; readonly employeeError: boolean; readonly visitorDetails: VisitorResponse[]; readonly visitorLoading: boolean; readonly visitorError: boolean; }) {
+  return (
+    <>
+      {employeeError || visitorError ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load overview details.</p> : null}
+      {employeeLoading || visitorLoading ? <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">Loading overview...</p> : null}
+      {!employeeLoading && !visitorLoading && employeeDetails.length === 0 && visitorDetails.length === 0 ? <Card className="p-6 text-[14px] text-muted-foreground">No employee or visitor details linked to this identity.</Card> : null}
+
+      {employeeDetails.map((employee) => (
+        <Card key={employee.id} className="p-6">
+          <h2 className="text-[18px] font-semibold tracking-tight">Employee</h2>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <Info label="Employee number" value={employee.employeeNumber ?? '-'} />
+            <Info label="Organization unit" value={employee.organizationUnit.name} />
+            <Info label="Job title" value={employee.jobTitle ?? '-'} />
+            <Info label="Status" value={employee.status} />
+            <Info label="Contract" value={employee.contractStartDate ? `${employee.contractStartDate}${employee.contractEndDate ? ` to ${employee.contractEndDate}` : ''}` : '-'} />
+            <Info label="Personas" value={employee.personas.length > 0 ? employee.personas.map((item) => item.name).join(', ') : 'None'} />
+            <Info label="Work locations" value={employee.workLocations.length > 0 ? employee.workLocations.map((item) => employeeWorkLocationLabels.get(item.locationId) ? `${employeeWorkLocationLabels.get(item.locationId)}${item.isPrimary ? ' (Primary)' : ''}` : item.isPrimary ? 'Primary location' : 'Location').join(', ') : 'None'} />
+          </div>
+        </Card>
+      ))}
+
+      {visitorDetails.map((visitor) => (
+        <Card key={visitor.id} className="p-6">
+          <h2 className="text-[18px] font-semibold tracking-tight">Visitor</h2>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <Info label="Name" value={`${visitor.firstName} ${visitor.lastName}`} />
+            <Info label="Email" value={visitor.email} />
+            <Info label="Company" value={visitor.company ?? '-'} />
+            <Info label="License plate" value={visitor.licensePlate ?? '-'} />
+          </div>
+        </Card>
+      ))}
+    </>
+  );
+}
+
+function AssignmentsSection({ data, isLoading, isError, systemsById }: { readonly data: { readonly grants: AccessGrantResponse[]; readonly assignments: PACSAssignmentResponse[]; readonly provisionings: PACSProvisioningResponse[]; readonly packagesById: Map<string, PackageResponse>; readonly accessItemsById: Map<string, components['schemas']['AccessItemResponse']>; readonly locationsById: Map<string, LocationResponse>; readonly targetsById: Map<string, AccessLevelTargetResponse>; readonly requestDetailsById: Map<string, PackageRequestDetailResponse>; } | undefined; readonly isLoading: boolean; readonly isError: boolean; readonly systemsById: Map<string, AccessControlSystemResponse>; }) {
+  if (isError) {
+    return <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load assignments.</p>;
+  }
+
+  if (isLoading) {
+    return <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">Loading assignments...</p>;
+  }
+
+  const grants = data?.grants ?? [];
+  if (grants.length === 0) {
+    return <Card className="p-6 text-[14px] text-muted-foreground">No granted access for this identity.</Card>;
+  }
+
+  const views = grants.map((grant) => buildGrantView(grant, data, systemsById));
+  const catalogViews = views.filter((item) => item.grant.sourceKind === 'CatalogRequest');
+  const automaticViews = views.filter((item) => item.grant.sourceKind !== 'CatalogRequest');
+
+  const requestGroups = groupCatalogViews(catalogViews, data?.requestDetailsById ?? new Map<string, PackageRequestDetailResponse>());
+  const policyGroups = groupAutomaticViews(automaticViews);
+
+  return (
+    <div className="grid gap-4">
+      {requestGroups.length > 0 ? <AssignmentsTreeSection title="Catalog requests" description="Access granted from catalog requests, grouped by access package." groups={requestGroups.map((group) => <PackageAssignmentGroup key={`${group.sourceType}-${group.sourceId}-${group.packageId}`} group={group} />)} /> : null}
+      {policyGroups.length > 0 ? <AssignmentsTreeSection title="Automated grants" description="Access granted from policy automation, grouped by access package." groups={policyGroups.map((group) => <PackageAssignmentGroup key={`${group.sourceType}-${group.sourceId}-${group.packageId}`} group={group} />)} /> : null}
+    </div>
+  );
+}
+
+function AssignmentsTreeSection({ title, description, groups }: { readonly title: string; readonly description: string; readonly groups: React.ReactNode[] }) {
+  return (
+    <section className="grid gap-4">
+      <div>
+        <h2 className="text-[20px] font-semibold tracking-tight">{title}</h2>
+        <p className="mt-2 text-[14px] text-muted-foreground">{description}</p>
+      </div>
+      {groups}
+    </section>
+  );
+}
+
+function PackageAssignmentGroup({ group }: { readonly group: PackageAssignmentGroupView }) {
+  return (
+    <details className="rounded-structural border border-border bg-content" open={group.shouldExpand}>
+      <summary className="cursor-pointer list-none p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-[18px] font-semibold tracking-tight text-foreground">{group.packageName}</h2>
+              {group.requestStatus ? <Badge variant={getRequestStatusVariant(group.requestStatus, group.requestSubStatus ?? null)}>{formatRequestStatus(group.requestStatus, group.requestSubStatus ?? null)}</Badge> : null}
+              <Badge variant={getProvisioningSummaryVariant(group.provisioningSummary.variant)}>{group.provisioningSummary.label}</Badge>
+            </div>
+            <div className="mt-3 grid gap-1 text-[13px] text-muted-foreground sm:grid-cols-2 xl:grid-cols-4">
+              <p><span className="font-medium text-foreground">Source:</span> {group.sourceLabel}</p>
+              <p><span className="font-medium text-foreground">Reason:</span> {group.sourceReason}</p>
+              <p><span className="font-medium text-foreground">Validity:</span> {group.validityLabel}</p>
+              <p><span className="font-medium text-foreground">Locations:</span> {group.locationSummary || '-'}</p>
+              <p><span className="font-medium text-foreground">Approved by:</span> {group.approvalSummary}</p>
+              <p><span className="font-medium text-foreground">Items:</span> {group.accessItems.length}</p>
+              <p><span className="font-medium text-foreground">Provisionings:</span> {group.provisioningCount}</p>
+              {group.requestCreatedAt ? <p><span className="font-medium text-foreground">Created:</span> {formatDateTimeLabel(group.requestCreatedAt)}</p> : null}
+            </div>
+          </div>
+          <ChevronRight className="mt-1 size-5 shrink-0 text-muted-foreground transition group-open:rotate-90" aria-hidden="true" />
+        </div>
+      </summary>
+      <div className="border-t border-border px-6 pb-6 pt-4 grid gap-4">
+        {group.accessItems.map((item) => <AccessItemGroup key={`${group.packageId}-${item.accessItemId}`} group={item} />)}
+      </div>
+    </details>
+  );
+}
+
+function AccessItemGroup({ group }: { readonly group: AccessItemGroupView }) {
+  return (
+    <details className="rounded-interactive border border-border bg-background" open={group.shouldExpand}>
+      <summary className="cursor-pointer list-none p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-[16px] font-semibold text-foreground">{group.accessItemName}</h3>
+          </div>
+          <ChevronRight className="mt-1 size-4 shrink-0 text-muted-foreground transition group-open:rotate-90" aria-hidden="true" />
+        </div>
+      </summary>
+      <div className="border-t border-border p-4 grid gap-4">
+        {group.scopes.length === 1 ? <AccessItemGrantLeaf view={group.scopes[0].leafViews[0]} titleOverride={group.scopes[0].scopeLabel} hideItemHeader /> : group.scopes.map((item) => <ScopeGroup key={`${group.accessItemId}-${item.scopeLabel}`} group={item} />)}
+      </div>
+    </details>
+  );
+}
+
+function ScopeGroup({ group }: { readonly group: ScopeGroupView }) {
+  return (
+    <details className="rounded-interactive border border-border bg-content" open={group.shouldExpand}>
+      <summary className="cursor-pointer list-none p-4">
+        <div className="flex items-center justify-between gap-4">
+          <h4 className="min-w-0 flex-1 text-[15px] font-medium text-foreground">{group.scopeLabel}</h4>
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-open:rotate-90" aria-hidden="true" />
+        </div>
+      </summary>
+      <div className="border-t border-border p-4 grid gap-4">
+        {group.leafViews.map((item) => <AccessItemGrantLeaf key={item.grant.id} view={item} hideItemHeader />)}
+      </div>
+    </details>
+  );
+}
+
+function AccessItemGrantLeaf({ view, titleOverride, hideItemHeader = false }: { readonly view: GrantView; readonly titleOverride?: string; readonly hideItemHeader?: boolean; }) {
+  return (
+    <details className="rounded-structural border border-border bg-content" open={view.shouldExpand}>
+      <summary className="cursor-pointer list-none p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              {!hideItemHeader ? <h4 className="text-[16px] font-semibold tracking-tight text-foreground">{view.accessItemName}</h4> : null}
+              {titleOverride ? <span className="text-[14px] font-medium text-foreground">{titleOverride}</span> : null}
+            </div>
+            {!titleOverride ? <p className="mt-2 text-[13px] text-muted-foreground">{view.locationLabels || '-'}</p> : null}
+          </div>
+          <ChevronRight className="mt-1 size-4 shrink-0 text-muted-foreground transition group-open:rotate-90" aria-hidden="true" />
+        </div>
+      </summary>
+
+      <div className="border-t border-border px-4 pb-4 pt-4">
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <ApprovalHistoryPanel history={view.approvalHistory} systemApprovalReasons={view.systemApprovalReasons} sourceKind={view.grant.sourceKind} />
+        </div>
+        {view.hasStatusMismatch ? <p className="mt-4 rounded-interactive border border-warning/40 bg-warning/10 px-4 py-3 text-[14px] text-foreground">Effective PACS provisioning is already provisioned, but one or more source assignment rows are still marked pending. Effective provisioning status is shown as the primary truth.</p> : null}
+        <div className="mt-4">
+          <ProvisioningInsightPanel title="Effective PACS provisioning" emptyLabel="No PACS provisioning yet." items={view.grantProvisionings.map((item) => ({ key: item.id, systemName: view.systemsById.get(item.accessControlSystemId)?.name ?? 'Unknown system', targetName: view.targetsById.get(item.accessLevelTargetId)?.name ?? 'Unknown target', status: item.status, scheduledFor: item.scheduledFor, provisionedAt: item.provisionedAt, completedAt: item.completedAt, failureReason: item.failureReason, nativeAssignmentId: item.nativeAssignmentId, validFrom: item.validFrom, validUntil: item.validUntil, provisioningTiming: item.provisioningTiming }))} />
+        </div>
+        <details className="mt-4 rounded-interactive border border-border p-4">
+          <summary className="cursor-pointer text-[14px] font-medium text-foreground">Source assignment rows</summary>
+          <div className="mt-4">
+            <AssignmentInsightPanel title="PACS assignments" emptyLabel="No PACS assignments yet." items={view.grantAssignments.map((item) => ({ key: item.id, systemName: view.systemsById.get(item.accessControlSystemId)?.name ?? 'Unknown system', targetName: view.targetsById.get(item.accessLevelTargetId)?.name ?? 'Unknown target', status: item.status, scheduledFor: item.scheduledFor, provisionedAt: item.provisionedAt, completedAt: item.completedAt, failureReason: item.failureReason, nativeAssignmentId: item.nativeAssignmentId, validFrom: item.validFrom, validUntil: item.validUntil }))} />
+          </div>
+        </details>
+      </div>
+    </details>
+  );
+}
+
+function KnownInSection({ subjects, isLoading, isError, systemsById }: { readonly subjects: PACSSubjectResponse[]; readonly isLoading: boolean; readonly isError: boolean; readonly systemsById: Map<string, AccessControlSystemResponse>; }) {
+  if (isError) {
+    return <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load PACS subjects.</p>;
+  }
+
+  if (isLoading) {
+    return <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">Loading PACS subjects...</p>;
+  }
+
+  if (subjects.length === 0) {
+    return <Card className="p-6 text-[14px] text-muted-foreground">Identity is not known in any PACS subject yet.</Card>;
+  }
+
+  return (
+    <div className="grid gap-4">
+      {subjects.map((subject) => (
+        <Card key={subject.id} className="p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-[18px] font-semibold tracking-tight">{systemsById.get(subject.accessControlSystemId)?.name ?? subject.accessControlSystemId}</h2>
+              <p className="mt-1 text-[14px] text-muted-foreground">Native subject id: {subject.nativeSubjectId}</p>
+            </div>
+            <Badge variant={subject.state === 'Active' ? 'success' : subject.state === 'Blocked' ? 'secondary' : 'error'}>{subject.state}</Badge>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <Info label="First name" value={subject.firstName} />
+            <Info label="Last name" value={subject.lastName} />
+            <Info label="Email" value={subject.email ?? '-'} />
+            <Info label="Last synchronized" value={formatDateTimeLabel(subject.lastSynchronizedAt)} />
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function RequestsSection({ data, isLoading, isError, onOpenRequest }: { readonly data: { readonly requests: PackageRequestResponse[]; readonly packagesById: Map<string, PackageResponse>; } | undefined; readonly isLoading: boolean; readonly isError: boolean; readonly onOpenRequest: (requestId: string) => void; }) {
+  if (isError) {
+    return <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load requests.</p>;
+  }
+
+  if (isLoading) {
+    return <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">Loading requests...</p>;
+  }
+
+  const requests = data?.requests ?? [];
+  if (requests.length === 0) {
+    return <Card className="p-6 text-[14px] text-muted-foreground">No catalog requests for this identity.</Card>;
+  }
+
+  return (
+    <Card className="p-6">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[56rem] border-collapse text-left text-[14px]">
+          <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
+            <tr>
+              <th className="px-4 py-3 font-semibold">Package</th>
+              <th className="px-4 py-3 font-semibold">Status</th>
+              <th className="px-4 py-3 font-semibold">Created</th>
+              <th className="px-4 py-3 font-semibold">Valid from</th>
+              <th className="px-4 py-3 font-semibold">Valid until</th>
+              <th className="px-4 py-3 text-right font-semibold">Open</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {requests.map((request) => (
+              <tr key={request.id} className="cursor-pointer transition hover:bg-hover-blue" role="link" tabIndex={0} onClick={() => onOpenRequest(request.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpenRequest(request.id); } }}>
+                <td className="px-4 py-4 font-medium text-foreground">{data?.packagesById.get(request.packageId)?.name ?? request.packageId}</td>
+                <td className="px-4 py-4"><Badge variant={getRequestStatusVariant(request.status, request.subStatus)}>{formatRequestStatus(request.status, request.subStatus)}</Badge></td>
+                <td className="px-4 py-4 text-muted-foreground">{formatDateTimeLabel(request.createdAt)}</td>
+                <td className="px-4 py-4 text-muted-foreground">{formatDateTimeLabel(request.validFrom)}</td>
+                <td className="px-4 py-4 text-muted-foreground">{request.validUntil ? formatDateTimeLabel(request.validUntil) : 'No end date'}</td>
+                <td className="px-4 py-4 text-right text-muted-foreground"><span className="inline-flex items-center justify-center"><ChevronRight className="size-4" aria-hidden="true" /></span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+function AssignmentInsightPanel({ title, emptyLabel, items }: { readonly title: string; readonly emptyLabel: string; readonly items: readonly { key: string; systemName: string; targetName: string; status: string; scheduledFor: string; provisionedAt: string | null; completedAt: string | null; failureReason: string | null; nativeAssignmentId: string | null; validFrom: string; validUntil: string | null; }[]; }) {
+  return (
+    <div className="rounded-interactive border border-border p-4">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
+      <div className="mt-3 grid gap-2">
+        {items.length === 0 ? <p className="text-[14px] text-muted-foreground">{emptyLabel}</p> : items.map((item) => <div key={item.key} className="rounded-interactive border border-border bg-background p-3"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-medium text-foreground">{item.systemName}</p><p className="mt-1 text-[13px] text-muted-foreground">{item.targetName}</p></div><Badge variant={getInfraStatusVariant(item.status)}>{item.status}</Badge></div><dl className="mt-3 grid gap-2 text-[13px] text-muted-foreground"><div className="flex items-center justify-between gap-3"><dt>Window</dt><dd className="text-right">{formatDateTimeLabel(item.validFrom)}{item.validUntil ? ` to ${formatDateTimeLabel(item.validUntil)}` : ''}</dd></div><div className="flex items-center justify-between gap-3"><dt>Scheduled</dt><dd className="text-right">{formatDateTimeLabel(item.scheduledFor)}</dd></div><div className="flex items-center justify-between gap-3"><dt>Provisioned</dt><dd className="text-right">{item.provisionedAt ? formatDateTimeLabel(item.provisionedAt) : '-'}</dd></div><div className="flex items-center justify-between gap-3"><dt>Completed</dt><dd className="text-right">{item.completedAt ? formatDateTimeLabel(item.completedAt) : '-'}</dd></div>{item.failureReason ? <div className="flex items-center justify-between gap-3"><dt>Failure</dt><dd className="text-right text-error">{item.failureReason}</dd></div> : null}{item.nativeAssignmentId ? <div className="flex items-center justify-between gap-3"><dt>Native assignment</dt><dd className="text-right">{item.nativeAssignmentId}</dd></div> : null}</dl></div>)}
+      </div>
+    </div>
+  );
+}
+
+function ProvisioningInsightPanel({ title, emptyLabel, items }: { readonly title: string; readonly emptyLabel: string; readonly items: readonly { key: string; systemName: string; targetName: string; status: string; scheduledFor: string; provisionedAt: string | null; completedAt: string | null; failureReason: string | null; nativeAssignmentId: string | null; validFrom: string; validUntil: string | null; provisioningTiming: string; }[]; }) {
+  return (
+    <div className="rounded-interactive border border-border p-4">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
+      <div className="mt-3 grid gap-2">
+        {items.length === 0 ? <p className="text-[14px] text-muted-foreground">{emptyLabel}</p> : items.map((item) => <div key={item.key} className="rounded-interactive border border-border bg-background p-3"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-medium text-foreground">{item.systemName}</p><p className="mt-1 text-[13px] text-muted-foreground">{item.targetName}</p></div><Badge variant={getInfraStatusVariant(item.status)}>{item.status}</Badge></div><dl className="mt-3 grid gap-2 text-[13px] text-muted-foreground"><div className="flex items-center justify-between gap-3"><dt>Timing</dt><dd className="text-right">{item.provisioningTiming}</dd></div><div className="flex items-center justify-between gap-3"><dt>Window</dt><dd className="text-right">{formatDateTimeLabel(item.validFrom)}{item.validUntil ? ` to ${formatDateTimeLabel(item.validUntil)}` : ''}</dd></div><div className="flex items-center justify-between gap-3"><dt>Scheduled</dt><dd className="text-right">{formatDateTimeLabel(item.scheduledFor)}</dd></div><div className="flex items-center justify-between gap-3"><dt>Provisioned</dt><dd className="text-right">{item.provisionedAt ? formatDateTimeLabel(item.provisionedAt) : '-'}</dd></div><div className="flex items-center justify-between gap-3"><dt>Completed</dt><dd className="text-right">{item.completedAt ? formatDateTimeLabel(item.completedAt) : '-'}</dd></div>{item.failureReason ? <div className="flex items-center justify-between gap-3"><dt>Failure</dt><dd className="text-right text-error">{item.failureReason}</dd></div> : null}{item.nativeAssignmentId ? <div className="flex items-center justify-between gap-3"><dt>Native assignment</dt><dd className="text-right">{item.nativeAssignmentId}</dd></div> : null}</dl></div>)}
+      </div>
+    </div>
+  );
+}
+
+function ApprovalHistoryPanel({ history, systemApprovalReasons, sourceKind }: { readonly history: readonly { key: string; approverDisplayName: string; role: string; decisionKind: ApprovalDecisionKind; decidedAt: string; note: string | null; }[]; readonly systemApprovalReasons: readonly string[]; readonly sourceKind: AccessGrantResponse['sourceKind']; }) {
+  if (sourceKind !== 'CatalogRequest') {
+    return <div className="rounded-interactive border border-border p-4"><p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Approval</p><p className="mt-3 text-[14px] text-muted-foreground">No approval required. Automatic grant.</p></div>;
+  }
+
+  if (history.length === 0 && systemApprovalReasons.length === 0) {
+    return <div className="rounded-interactive border border-border p-4"><p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Approval</p><p className="mt-3 text-[14px] text-muted-foreground">No approval history available.</p></div>;
+  }
+
+  return (
+    <div className="rounded-interactive border border-border p-4">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Approved by</p>
+      <div className="mt-3 grid gap-2">
+        {history.map((item) => <div key={item.key} className="rounded-interactive border border-border bg-background px-3 py-2 text-[14px]"><p className="font-medium text-foreground">{item.approverDisplayName}</p><p className="mt-1 text-[13px] text-muted-foreground">{item.role} • {item.decisionKind === 'Approve' ? 'Approved' : 'Rejected'} • {formatDateTimeLabel(item.decidedAt)}</p>{item.note ? <p className="mt-1 text-[13px] text-muted-foreground">{item.note}</p> : null}</div>)}
+        {systemApprovalReasons.map((reason) => <div key={reason} className="rounded-interactive border border-border bg-background px-3 py-2 text-[14px]"><p className="font-medium text-foreground">System approved</p><p className="mt-1 text-[13px] text-muted-foreground">{reason}</p></div>)}
+      </div>
+    </div>
+  );
+}
+
+function Info({ label, value }: { readonly label: string; readonly value: string }) {
+  return <div className="rounded-interactive border border-border p-3"><div className="text-[12px] uppercase text-muted-foreground">{label}</div><div className="mt-1 break-all text-[14px] font-medium text-foreground">{value}</div></div>;
+}
+
+function formatDateTimeLabel(value: string) {
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+}
+
+function formatDateLabel(value: string) {
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value));
+}
+
+function getIdentityStatusVariant(status: IdentityResponse['status']) {
+  switch (status) {
+    case 'Active':
+      return 'success';
+    case 'Suspended':
+      return 'secondary';
+    default:
+      return 'error';
+  }
+}
+
+function getRequestStatusVariant(status: PackageRequestStatus, subStatus: PackageRequestResponse['subStatus']) {
+  if (status === 'InProgress') {
+    return 'secondary';
+  }
+
+  switch (subStatus) {
+    case 'Approved':
+      return 'success';
+    case 'Rejected':
+    case 'Expired':
+      return 'error';
+    default:
+      return 'secondary';
+  }
+}
+
+function formatRequestStatus(status: PackageRequestStatus, subStatus: PackageRequestResponse['subStatus']) {
+  if (status === 'InProgress') {
+    return 'In Progress';
+  }
+
+  return subStatus === 'PartiallyApproved'
+    ? 'Completed - Partially Approved'
+    : subStatus === 'Approved'
+      ? 'Completed - Approved'
+      : subStatus === 'Rejected'
+        ? 'Completed - Rejected'
+        : subStatus === 'Expired'
+          ? 'Completed - Expired'
+          : 'Completed';
+}
+
+function getInfraStatusVariant(status: string) {
+  return status === 'Provisioned' || status === 'Active'
+    ? 'success'
+    : status === 'Failed' || status === 'Revoked' || status === 'Archived'
+      ? 'error'
+      : 'secondary';
+}
+
+function getProvisioningSummary(items: readonly PACSProvisioningResponse[]) {
+  if (items.length === 0) {
+    return { label: 'Not materialized', variant: 'secondary' as const };
+  }
+
+  if (items.some((item) => item.status === 'Failed')) {
+    return { label: 'Provisioning issue', variant: 'error' as const };
+  }
+
+  if (items.every((item) => item.status === 'Provisioned')) {
+    return { label: 'Provisioned', variant: 'success' as const };
+  }
+
+  if (items.some((item) => item.status === 'Pending')) {
+    return { label: 'Provisioning pending', variant: 'secondary' as const };
+  }
+
+  return { label: 'Provisioning mixed', variant: 'secondary' as const };
+}
+
+function getProvisioningSummaryVariant(variant: 'success' | 'secondary' | 'error') {
+  return variant;
+}
+
+type GrantView = {
+  readonly grant: AccessGrantResponse;
+  readonly grantAssignments: PACSAssignmentResponse[];
+  readonly grantProvisionings: PACSProvisioningResponse[];
+  readonly packageName: string;
+  readonly accessItemName: string;
+  readonly locationLabels: string;
+  readonly provisioningSummary: { readonly label: string; readonly variant: 'success' | 'secondary' | 'error' };
+  readonly hasStatusMismatch: boolean;
+  readonly approvalHistory: ReturnType<typeof getApprovalHistory>;
+  readonly systemApprovalReasons: string[];
+  readonly shouldExpand: boolean;
+  readonly approvalSummary: string;
+  readonly systemsById: Map<string, AccessControlSystemResponse>;
+  readonly targetsById: Map<string, AccessLevelTargetResponse>;
+};
+
+type PackageAssignmentGroupView = {
+  readonly packageId: string;
+  readonly sourceId: string;
+  readonly sourceType: 'CatalogRequest' | 'Automated';
+  readonly packageName: string;
+  readonly sourceLabel: string;
+  readonly sourceReason: string;
+  readonly validityLabel: string;
+  readonly locationSummary: string;
+  readonly accessItems: AccessItemGroupView[];
+  readonly provisioningSummary: { readonly label: string; readonly variant: 'success' | 'secondary' | 'error' };
+  readonly provisioningCount: number;
+  readonly approvalSummary: string;
+  readonly shouldExpand: boolean;
+  readonly requestStatus?: PackageRequestStatus;
+  readonly requestSubStatus?: PackageRequestResponse['subStatus'];
+  readonly requestCreatedAt?: string;
+};
+
+type AccessItemGroupView = {
+  readonly accessItemId: string;
+  readonly accessItemName: string;
+  readonly scopes: ScopeGroupView[];
+  readonly provisioningSummary: { readonly label: string; readonly variant: 'success' | 'secondary' | 'error' };
+  readonly provisioningCount: number;
+  readonly approvalSummary: string;
+  readonly shouldExpand: boolean;
+};
+
+type ScopeGroupView = {
+  readonly scopeLabel: string;
+  readonly leafViews: GrantView[];
+  readonly provisioningSummary: { readonly label: string; readonly variant: 'success' | 'secondary' | 'error' };
+  readonly approvalSummary: string;
+  readonly shouldExpand: boolean;
+};
+
+function buildGrantView(
+  grant: AccessGrantResponse,
+  data: {
+    readonly assignments: PACSAssignmentResponse[];
+    readonly provisionings: PACSProvisioningResponse[];
+    readonly packagesById: Map<string, PackageResponse>;
+    readonly accessItemsById: Map<string, components['schemas']['AccessItemResponse']>;
+    readonly locationsById: Map<string, LocationResponse>;
+    readonly targetsById: Map<string, AccessLevelTargetResponse>;
+    readonly requestDetailsById: Map<string, PackageRequestDetailResponse>;
+  } | undefined,
+  systemsById: Map<string, AccessControlSystemResponse>,
+): GrantView {
+  const grantAssignments = (data?.assignments ?? []).filter((item) => item.sourceAssignmentId === grant.id);
+  const grantAssignmentIds = new Set(grantAssignments.map((item) => item.id));
+  const grantProvisionings = (data?.provisionings ?? []).filter((item) => item.sourceAssignmentIds.some((assignmentId) => grantAssignmentIds.has(assignmentId)));
+  const packageName = data?.packagesById.get(grant.packageId)?.name ?? grant.packageId;
+  const accessItemName = grant.accessItemId ? data?.accessItemsById.get(grant.accessItemId)?.name ?? grant.accessItemId : packageName;
+  const locationLabels = (grant.locationIds ?? []).map((locationId) => getLocationLabel(data?.locationsById.get(locationId))).join(', ');
+  const provisioningSummary = getProvisioningSummary(grantProvisionings);
+  const hasStatusMismatch = grantAssignments.some((assignment) => assignment.status === 'Pending') && grantProvisionings.some((provisioning) => provisioning.status === 'Provisioned');
+  const approvalFlow = resolveApprovalFlow(grant, data?.requestDetailsById);
+  const approvalHistory = approvalFlow ? getApprovalHistory(approvalFlow) : [];
+  const systemApprovalReasons = approvalFlow ? getSystemApprovalReasons(approvalFlow) : [];
+  const shouldExpand = hasStatusMismatch || provisioningSummary.variant !== 'success';
+  const approvalSummary = getApprovalSummary(approvalHistory, systemApprovalReasons, grant.sourceKind);
+
+  return {
+    grant,
+    grantAssignments,
+    grantProvisionings,
+    packageName,
+    accessItemName,
+    locationLabels,
+    provisioningSummary,
+    hasStatusMismatch,
+    approvalHistory,
+    systemApprovalReasons,
+    shouldExpand,
+    approvalSummary,
+    systemsById,
+    targetsById: data?.targetsById ?? new Map<string, AccessLevelTargetResponse>(),
+  };
+}
+
+function groupCatalogViews(views: GrantView[], requestDetailsById: Map<string, PackageRequestDetailResponse>) {
+  const groups = new Map<string, GrantView[]>();
+
+  views.forEach((view) => {
+    const key = view.grant.sourceId;
+    const current = groups.get(key) ?? [];
+    current.push(view);
+    groups.set(key, current);
+  });
+
+  return Array.from(groups.entries()).map(([requestId, requestViews]): PackageAssignmentGroupView => {
+    const request = requestDetailsById.get(requestId)?.request;
+    const allProvisionings = requestViews.flatMap((item) => item.grantProvisionings);
+    const allApprovalHistory = requestViews.flatMap((item) => item.approvalHistory);
+    const allSystemReasons = requestViews.flatMap((item) => item.systemApprovalReasons);
+
+    return {
+      packageId: requestViews[0]?.grant.packageId ?? '',
+      sourceId: requestId,
+      sourceType: 'CatalogRequest',
+      packageName: requestViews[0]?.packageName ?? requestViews[0]?.grant.packageId ?? '',
+      sourceLabel: 'Catalogue Request',
+      sourceReason: request?.requestReason ?? 'Catalogue request',
+      validityLabel: getValidityLabel(requestViews),
+      locationSummary: getLocationSummary(requestViews),
+      accessItems: groupAccessItems(requestViews),
+      provisioningSummary: getProvisioningSummary(allProvisionings),
+      provisioningCount: allProvisionings.length,
+      approvalSummary: getApprovalSummary(allApprovalHistory, allSystemReasons, 'CatalogRequest'),
+      shouldExpand: requestViews.some((item) => item.shouldExpand),
+      requestStatus: request?.status,
+      requestSubStatus: request?.subStatus ?? null,
+      requestCreatedAt: request?.createdAt,
+    };
+  });
+}
+
+function groupAutomaticViews(views: GrantView[]) {
+  const groups = new Map<string, GrantView[]>();
+
+  views.forEach((view) => {
+    const key = formatSourceLabel(view.grant.sourceKind);
+    const current = groups.get(key) ?? [];
+    current.push(view);
+    groups.set(key, current);
+  });
+
+  return Array.from(groups.entries()).flatMap(([policyLabel, policyViews]) =>
+    groupBy(policyViews, (item) => item.grant.packageId).map(([packageId, packageViews]): PackageAssignmentGroupView => ({
+      packageId,
+      sourceId: packageViews[0]?.grant.sourceId ?? '',
+      sourceType: 'Automated',
+      packageName: packageViews[0]?.packageName ?? packageId,
+      sourceLabel: policyLabel,
+      sourceReason: getAutomaticReason(packageViews[0]),
+      validityLabel: getValidityLabel(packageViews),
+      locationSummary: getLocationSummary(packageViews),
+      accessItems: groupAccessItems(packageViews),
+      provisioningSummary: getProvisioningSummary(packageViews.flatMap((item) => item.grantProvisionings)),
+      provisioningCount: packageViews.flatMap((item) => item.grantProvisionings).length,
+      approvalSummary: getApprovalSummary([], [], packageViews[0]?.grant.sourceKind ?? 'Manual'),
+      shouldExpand: packageViews.some((item) => item.shouldExpand),
+    })),
+  );
+}
+
+function groupAccessItems(views: GrantView[]) {
+  return groupBy(views, (item) => item.grant.accessItemId ?? item.grant.id).map(([accessItemId, accessItemViews]): AccessItemGroupView => ({
+    accessItemId,
+    accessItemName: accessItemViews[0]?.accessItemName ?? accessItemId,
+    scopes: groupScopes(accessItemViews),
+    provisioningSummary: getProvisioningSummary(accessItemViews.flatMap((item) => item.grantProvisionings)),
+    provisioningCount: accessItemViews.flatMap((item) => item.grantProvisionings).length,
+    approvalSummary: getApprovalSummary(accessItemViews.flatMap((item) => item.approvalHistory), accessItemViews.flatMap((item) => item.systemApprovalReasons), accessItemViews[0]?.grant.sourceKind ?? 'Manual'),
+    shouldExpand: accessItemViews.some((item) => item.shouldExpand),
+  }));
+}
+
+function groupScopes(views: GrantView[]) {
+  return groupBy(views, (item) => item.locationLabels || 'Unscoped').map(([scopeLabel, scopeViews]): ScopeGroupView => ({
+    scopeLabel,
+    leafViews: scopeViews,
+    provisioningSummary: getProvisioningSummary(scopeViews.flatMap((item) => item.grantProvisionings)),
+    approvalSummary: getApprovalSummary(scopeViews.flatMap((item) => item.approvalHistory), scopeViews.flatMap((item) => item.systemApprovalReasons), scopeViews[0]?.grant.sourceKind ?? 'Manual'),
+    shouldExpand: scopeViews.some((item) => item.shouldExpand),
+  }));
+}
+
+function groupBy<T>(items: readonly T[], keySelector: (item: T) => string) {
+  const map = new Map<string, T[]>();
+  items.forEach((item) => {
+    const key = keySelector(item);
+    const current = map.get(key) ?? [];
+    current.push(item);
+    map.set(key, current);
+  });
+  return Array.from(map.entries());
+}
+
+function getLocationSummary(views: readonly GrantView[]) {
+  return Array.from(new Set(views.flatMap((item) => item.locationLabels.split(', ').filter(Boolean)))).join(', ');
+}
+
+function getValidityLabel(views: readonly GrantView[]) {
+  const validFrom = views[0]?.grant.validFrom;
+  const validUntil = views[0]?.grant.validUntil;
+  if (!validFrom) return '-';
+  return `${formatDateTimeLabel(validFrom)}${validUntil ? ` to ${formatDateTimeLabel(validUntil)}` : ''}`;
+}
+
+function getAutomaticReason(view: GrantView | undefined) {
+  if (!view) return 'Automatic grant';
+  return view.grant.reasonText || formatSourceLabel(view.grant.sourceKind);
+}
+
+function getApprovalSummary(
+  history: readonly { approverDisplayName: string }[],
+  systemApprovalReasons: readonly string[],
+  sourceKind: AccessGrantResponse['sourceKind'],
+) {
+  if (sourceKind !== 'CatalogRequest') {
+    return 'Automatic grant';
+  }
+
+  if (history.length === 0 && systemApprovalReasons.length > 0) {
+    return 'System approved';
+  }
+
+  if (history.length === 0) {
+    return 'No approval history';
+  }
+
+  const uniqueApprovers = Array.from(new Set(history.map((item) => item.approverDisplayName)));
+  return uniqueApprovers.length === 1
+    ? uniqueApprovers[0]
+    : `${uniqueApprovers[0]} + ${uniqueApprovers.length - 1} more`;
+}
+
+function resolveApprovalFlow(grant: AccessGrantResponse, requestDetailsById: Map<string, PackageRequestDetailResponse> | undefined) {
+  if (!grant.approvalFlowId || grant.sourceKind !== 'CatalogRequest') {
+    return null;
+  }
+
+  const requestDetail = requestDetailsById?.get(grant.sourceId);
+  return requestDetail?.flows.find((flow) => flow.approvalFlowId === grant.approvalFlowId) ?? null;
+}
+
+function getApprovalHistory(flow: PackageRequestDetailFlowResponse) {
+  return flow.requirements
+    .flatMap((requirement) => requirement.decisions.map((decision) => ({
+      key: decision.id,
+      approverDisplayName: decision.approverDisplayName,
+      role: formatDecisionRole(requirement.type, decision.role, requirement.approvalGroupName),
+      decisionKind: decision.decisionKind,
+      decidedAt: decision.decidedAt,
+      note: decision.note,
+    })))
+    .sort((left, right) => new Date(left.decidedAt).getTime() - new Date(right.decidedAt).getTime());
+}
+
+function getSystemApprovalReasons(flow: PackageRequestDetailFlowResponse) {
+  return flow.requirements
+    .filter((requirement) => requirement.status === 'SystemApproved' && requirement.systemApprovalReason)
+    .map((requirement) => requirement.systemApprovalReason as string);
+}
+
+function formatDecisionRole(type: PackageRequestDetailRequirementResponse['type'], role: PackageRequestDetailDecisionResponse['role'], approvalGroupName: string | null) {
+  return type === 'Destination'
+    ? approvalGroupName ?? 'Destination approval'
+    : `${role} approval`;
+}
+
+function formatSourceLabel(sourceKind: AccessGrantResponse['sourceKind']) {
+  switch (sourceKind) {
+    case 'OrganizationalUnit':
+    case 'Persona':
+      return 'HR Policy';
+    case 'VisitorLocation':
+      return 'Visitors Policy';
+    case 'Manual':
+      return 'Manual grant';
+    default:
+      return 'Catalog request';
+  }
+}

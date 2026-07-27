@@ -17,6 +17,7 @@ public sealed class PackageRequestConfiguration : IEntityTypeConfiguration<Packa
         builder.Property(item => item.BeneficiaryIdentityId).HasColumnName("beneficiary_identity_id").IsRequired();
         builder.Property(item => item.RequestReason).HasColumnName("request_reason").HasMaxLength(2_000).IsRequired();
         builder.Property(item => item.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(50).IsRequired();
+        builder.Property(item => item.SubStatus).HasColumnName("sub_status").HasConversion<string>().HasMaxLength(50);
         builder.Property(item => item.DurationKind).HasColumnName("duration_kind").HasConversion<string>().HasMaxLength(50).IsRequired();
         builder.Property(item => item.ValidFrom).HasColumnName("valid_from").IsRequired();
         builder.Property(item => item.ValidUntil).HasColumnName("valid_until");

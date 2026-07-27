@@ -90,6 +90,12 @@ public sealed record ListPACSSubjectProvisioningsRequest : BaseListRequest
     public PACSSubjectProvisioningStatus? Status { get; set; }
 }
 
+public sealed record ListPACSSubjectsRequest : BaseListRequest
+{
+    public Guid? IdentityId { get; set; }
+    public Guid? AccessControlSystemId { get; set; }
+}
+
 public sealed record UpsertPACSSubjectProvisioningRequest(
     Guid IdentityId,
     Guid AccessControlSystemId,

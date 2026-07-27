@@ -26,5 +26,6 @@ namespace Fabric.Server.Visitors;
 [JsonSerializable(typeof(VisitConfirmationResponse))]
 [JsonSerializable(typeof(VisitConfirmationVisitorResponse))]
 [JsonSerializable(typeof(VisitResponse))]
+[JsonSerializable(typeof(VisitorResponse))]
 [JsonSerializable(typeof(VisitStatus[]))]
 internal sealed partial class VisitorsJsonSerializerContext : JsonSerializerContext;

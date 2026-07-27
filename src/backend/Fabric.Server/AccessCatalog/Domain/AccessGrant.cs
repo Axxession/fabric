@@ -8,10 +8,13 @@ public sealed class AccessGrant
 
     public Guid Id { get; private set; }
     public Guid PackageId { get; private set; }
+    public Guid? AccessItemId { get; private set; }
     public Guid IdentityId { get; private set; }
     public AssignmentChannel AssignmentChannel { get; private set; }
     public AssignmentSourceKind SourceKind { get; private set; }
     public Guid SourceId { get; private set; }
+    public Guid? ApprovalFlowId { get; private set; }
+    public Guid? RequestScopeId { get; private set; }
     public AccessDurationKind DurationKind { get; private set; }
     public DateTimeOffset ValidFrom { get; private set; }
     public DateTimeOffset? ValidUntil { get; private set; }
@@ -24,6 +27,9 @@ public sealed class AccessGrant
         AssignmentChannel assignmentChannel,
         AssignmentSourceKind sourceKind,
         Guid sourceId,
+        Guid? accessItemId,
+        Guid? approvalFlowId,
+        Guid? requestScopeId,
         AccessDurationKind durationKind,
         DateTimeOffset validFrom,
         DateTimeOffset? validUntil,
@@ -49,6 +55,9 @@ public sealed class AccessGrant
             AssignmentChannel = assignmentChannel,
             SourceKind = sourceKind,
             SourceId = sourceId,
+            AccessItemId = accessItemId,
+            ApprovalFlowId = approvalFlowId,
+            RequestScopeId = requestScopeId,
             DurationKind = durationKind,
             ValidFrom = validFrom,
             ValidUntil = validUntil,

@@ -62,6 +62,10 @@ const FacilitySiteCreatePage = lazy(() => import('@/features/facility/site-creat
 const FacilitySiteEditPage = lazy(() => import('@/features/facility/site-edit-page'));
 const FacilityLocationsPage = lazy(() => import('@/features/facility/locations-page'));
 const HomePage = lazy(() => import('@/features/home/home-page'));
+const EmployeeRequestAccessPage = lazy(() => import('@/features/perspectives/employee-request-access-page'));
+const EmployeeRequestDetailPage = lazy(() => import('@/features/perspectives/employee-request-detail-page'));
+const ManagerApprovalInboxPage = lazy(() => import('@/features/perspectives/manager-approval-inbox-page'));
+const IdentityDetailPage = lazy(() => import('@/features/identities/identity-detail-page'));
 const IdentitiesPage = lazy(() => import('@/features/identities/identities-page'));
 const KioskPage = lazy(() => import('@/features/kiosk/kiosk-page'));
 const KioskSetupPage = lazy(() => import('@/features/kiosk/kiosk-setup-page'));
@@ -171,6 +175,30 @@ const employeeRoute = createRoute({
   component: () => <ProtectedRoute><PerspectiveHomePage perspectiveId="employee" /></ProtectedRoute>,
 });
 
+const employeeRequestAccessRoute = createRoute({
+  getParentRoute: () => mainLayoutRoute,
+  path: '/employee/request-access',
+  component: () => <ProtectedLazyRoute component={<EmployeeRequestAccessPage />} />,
+});
+
+const employeeRequestDetailRoute = createRoute({
+  getParentRoute: () => mainLayoutRoute,
+  path: '/employee/request-access/$requestId',
+  component: () => <ProtectedLazyRoute component={<EmployeeRequestDetailPage />} />,
+});
+
+const managerApprovalInboxRoute = createRoute({
+  getParentRoute: () => mainLayoutRoute,
+  path: '/manager/approval-inbox',
+  component: () => <ProtectedLazyRoute component={<ManagerApprovalInboxPage />} />,
+});
+
+const managerApprovalInboxDetailRoute = createRoute({
+  getParentRoute: () => mainLayoutRoute,
+  path: '/manager/approval-inbox/$requestId',
+  component: () => <ProtectedLazyRoute component={<EmployeeRequestDetailPage />} />,
+});
+
 const managerRoute = createRoute({
   getParentRoute: () => mainLayoutRoute,
   path: '/manager',
@@ -181,6 +209,24 @@ const securityOfficerRoute = createRoute({
   getParentRoute: () => mainLayoutRoute,
   path: '/security-officer',
   component: () => <ProtectedRoute><PerspectiveHomePage perspectiveId="security-officer" /></ProtectedRoute>,
+});
+
+const securityOfficerIdentitiesRoute = createRoute({
+  getParentRoute: () => mainLayoutRoute,
+  path: '/security-officer/identities',
+  component: () => <ProtectedLazyRoute component={<IdentitiesPage />} />,
+});
+
+const securityOfficerIdentityDetailRoute = createRoute({
+  getParentRoute: () => mainLayoutRoute,
+  path: '/security-officer/identities/$identityId',
+  component: () => <ProtectedLazyRoute component={<IdentityDetailPage />} />,
+});
+
+const securityOfficerIdentityRequestDetailRoute = createRoute({
+  getParentRoute: () => mainLayoutRoute,
+  path: '/security-officer/identities/$identityId/requests/$requestId',
+  component: () => <ProtectedLazyRoute component={<EmployeeRequestDetailPage />} />,
 });
 
 const administrationRoute = createRoute({
@@ -777,8 +823,15 @@ const routeTree = rootRoute.addChildren([
     organizationsRoute,
     auditRoute,
     employeeRoute,
+    employeeRequestAccessRoute,
+    employeeRequestDetailRoute,
     managerRoute,
+    managerApprovalInboxRoute,
+    managerApprovalInboxDetailRoute,
     securityOfficerRoute,
+    securityOfficerIdentitiesRoute,
+    securityOfficerIdentityDetailRoute,
+    securityOfficerIdentityRequestDetailRoute,
     administrationRoute.addChildren([
       administrationIndexRoute,
       administrationSitesRoute,

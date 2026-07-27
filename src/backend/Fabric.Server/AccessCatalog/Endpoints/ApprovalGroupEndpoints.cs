@@ -82,6 +82,7 @@ public static class ApprovalGroupEndpoints
         AccessCatalogErrors.ApprovalGroupNameAlreadyExists => Problem(StatusCodes.Status409Conflict, "Approval group name already exists."),
         AccessCatalogErrors.ApprovalGroupMemberNotFound => Problem(StatusCodes.Status404NotFound, "Approval group member not found."),
         AccessCatalogErrors.ApprovalGroupMemberAlreadyExists => Problem(StatusCodes.Status409Conflict, "Approval group member already exists."),
+        AccessCatalogErrors.ApprovalGroupMemberLocationMustBeSite => Problem(StatusCodes.Status400BadRequest, "Approval group members must be assigned to a site."),
         AccessCatalogErrors.IdentityNotFound => Problem(StatusCodes.Status404NotFound, "Identity not found."),
         AccessCatalogErrors.LocationRequired => Problem(StatusCodes.Status400BadRequest, "A valid location is required."),
         _ => Problem(StatusCodes.Status500InternalServerError, "Unexpected access catalog error.")

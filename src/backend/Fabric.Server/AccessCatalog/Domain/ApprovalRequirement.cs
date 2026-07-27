@@ -5,6 +5,7 @@ public sealed class ApprovalRequirement
     private ApprovalRequirement() { }
 
     public Guid Id { get; private set; }
+    public Guid ApprovalFlowId { get; private set; }
     public Guid RequestId { get; private set; }
     public Guid AccessItemId { get; private set; }
     public Guid LocationId { get; private set; }
@@ -18,6 +19,7 @@ public sealed class ApprovalRequirement
     public DateTimeOffset? CompletedAt { get; private set; }
 
     public static ApprovalRequirement CreateDestination(
+        Guid approvalFlowId,
         Guid requestId,
         Guid accessItemId,
         Guid locationId,
@@ -27,6 +29,7 @@ public sealed class ApprovalRequirement
         new()
         {
             Id = Guid.NewGuid(),
+            ApprovalFlowId = approvalFlowId,
             RequestId = requestId,
             AccessItemId = accessItemId,
             LocationId = locationId,
@@ -38,6 +41,7 @@ public sealed class ApprovalRequirement
         };
 
     public static ApprovalRequirement CreateOrganizational(
+        Guid approvalFlowId,
         Guid requestId,
         Guid accessItemId,
         Guid locationId,
@@ -47,6 +51,7 @@ public sealed class ApprovalRequirement
         new()
         {
             Id = Guid.NewGuid(),
+            ApprovalFlowId = approvalFlowId,
             RequestId = requestId,
             AccessItemId = accessItemId,
             LocationId = locationId,
@@ -58,6 +63,7 @@ public sealed class ApprovalRequirement
         };
 
     public static ApprovalRequirement CreateSystemApproved(
+        Guid approvalFlowId,
         Guid requestId,
         Guid accessItemId,
         Guid locationId,
@@ -69,6 +75,7 @@ public sealed class ApprovalRequirement
         new()
         {
             Id = Guid.NewGuid(),
+            ApprovalFlowId = approvalFlowId,
             RequestId = requestId,
             AccessItemId = accessItemId,
             LocationId = locationId,

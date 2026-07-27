@@ -1,7 +1,6 @@
 using Fabric.Server.AccessCatalog.Domain;
 using Fabric.Server.AccessCatalog.Persistence;
 using Fabric.Server.Core;
-using Fabric.Server.Locations.Application;
 using Microsoft.EntityFrameworkCore;
 
 namespace Fabric.Server.AccessCatalog.Application;
@@ -9,7 +8,6 @@ namespace Fabric.Server.AccessCatalog.Application;
 public sealed class ApprovalDecisionService(
     AccessCatalogDbContext db,
     AccessGrantService accessGrantService,
-    LocationService locationService,
     TimeProvider timeProvider)
 {
     public async Task<Result<ApprovalDecision, AccessCatalogErrors>> DecideAsync(
@@ -26,11 +24,15 @@ public sealed class ApprovalDecisionService(
         if (requirement.Status != ApprovalStatus.Pending)
             return Result.Failure<ApprovalDecision, AccessCatalogErrors>(AccessCatalogErrors.ApprovalRequirementAlreadyCompleted);
 
+        ApprovalFlow? flow = await db.ApprovalFlows.SingleOrDefaultAsync(item => item.Id == requirement.ApprovalFlowId, cancellationToken);
+        if (flow is null)
+            return Result.Failure<ApprovalDecision, AccessCatalogErrors>(AccessCatalogErrors.ApprovalRequirementNotFound);
+
         PackageRequest? request = await db.PackageRequests.SingleOrDefaultAsync(item => item.Id == requirement.RequestId, cancellationToken);
         if (request is null)
             return Result.Failure<ApprovalDecision, AccessCatalogErrors>(AccessCatalogErrors.PackageRequestNotFound);
 
-        if (request.Status != PackageRequestStatus.PendingApproval)
+        if (request.Status != PackageRequestStatus.InProgress || flow.Status != ApprovalFlowStatus.InProgress)
             return Result.Failure<ApprovalDecision, AccessCatalogErrors>(AccessCatalogErrors.ApprovalDecisionNotAllowed);
 
         if (!await CanApproveAsync(requirement, approverIdentityId, cancellationToken))
@@ -55,42 +57,56 @@ public sealed class ApprovalDecisionService(
                 break;
             case ApprovalDecisionKind.Reject:
                 requirement.MarkRejected(now);
-                request.MarkRejected(now);
-                await db.SaveChangesAsync(cancellationToken);
-                return Result.Success<ApprovalDecision, AccessCatalogErrors>(decision);
+                break;
         }
 
-        List<ApprovalRequirement> requirements = await db.ApprovalRequirements
-            .Where(item => item.RequestId == request.Id)
+        List<ApprovalRequirement> flowRequirements = await db.ApprovalRequirements
+            .Where(item => item.ApprovalFlowId == flow.Id)
             .ToListAsync(cancellationToken);
 
-        bool allCompleted = requirements.All(item => item.Status == ApprovalStatus.Approved || item.Status == ApprovalStatus.SystemApproved);
+        bool anyRejected = flowRequirements.Any(item => item.Status == ApprovalStatus.Rejected);
+        bool allApproved = flowRequirements.All(item => item.Status == ApprovalStatus.Approved || item.Status == ApprovalStatus.SystemApproved);
 
-        if (allCompleted)
+        if (anyRejected)
+            flow.MarkRejected(now);
+        else if (allApproved)
+            flow.MarkApproved(now);
+
+        if (flow.Status == ApprovalFlowStatus.Approved)
         {
-            Guid[] locationIds = await db.PackageRequestLocations
-                .Where(item => item.RequestId == request.Id)
-                .Select(item => item.LocationId)
-                .ToArrayAsync(cancellationToken);
+            List<PackageRequestScope> scopes = await db.PackageRequestScopes
+                .Where(item => item.ApprovalFlowId == flow.Id)
+                .ToListAsync(cancellationToken);
 
-            Result<AccessGrant, AccessCatalogErrors> grantResult = await accessGrantService.CreateAsync(
-                request.PackageId,
-                request.BeneficiaryIdentityId,
-                locationIds,
-                AssignmentChannel.CatalogRequest,
-                AssignmentSourceKind.CatalogRequest,
-                request.Id,
-                request.DurationKind,
-                request.ValidFrom,
-                request.ValidUntil,
-                request.RequestReason,
-                cancellationToken);
+            foreach (PackageRequestScope scope in scopes)
+            {
+                bool grantExists = await db.AccessGrants.AnyAsync(item => item.RequestScopeId == scope.Id, cancellationToken);
+                if (grantExists)
+                    continue;
 
-            if (grantResult.IsFailure(out AccessCatalogErrors grantError))
-                return Result.Failure<ApprovalDecision, AccessCatalogErrors>(grantError);
+                Result<AccessGrant, AccessCatalogErrors> grantResult = await accessGrantService.CreateForRequestScopeAsync(
+                    request.PackageId,
+                    flow.AccessItemId,
+                    request.BeneficiaryIdentityId,
+                    scope.RequestedLocationId,
+                    request.Id,
+                    flow.Id,
+                    scope.Id,
+                    request.DurationKind,
+                    request.ValidFrom,
+                    request.ValidUntil,
+                    request.RequestReason,
+                    cancellationToken);
 
-            request.MarkApproved(now);
+                if (grantResult.IsFailure(out AccessCatalogErrors grantError))
+                    return Result.Failure<ApprovalDecision, AccessCatalogErrors>(grantError);
+            }
         }
+
+        List<ApprovalFlow> flows = await db.ApprovalFlows
+            .Where(item => item.RequestId == request.Id)
+            .ToListAsync(cancellationToken);
+        PackageRequestStatusCalculator.ApplySummary(request, flows, now);
 
         await db.SaveChangesAsync(cancellationToken);
         return Result.Success<ApprovalDecision, AccessCatalogErrors>(decision);
@@ -101,24 +117,9 @@ public sealed class ApprovalDecisionService(
         return requirement.Type switch
         {
             ApprovalRequirementType.Organizational => requirement.RequiredApproverIdentityId == approverIdentityId,
-            ApprovalRequirementType.Destination when requirement.ApprovalGroupId.HasValue => await IsDestinationApproverAsync(requirement, approverIdentityId, cancellationToken),
+            ApprovalRequirementType.Destination when requirement.ApprovalGroupId.HasValue => await db.ApprovalGroupMembers
+                .AnyAsync(item => item.ApprovalGroupId == requirement.ApprovalGroupId.Value && item.IdentityId == approverIdentityId && item.ResponsibleLocationId == requirement.LocationId, cancellationToken),
             _ => false
         };
-    }
-
-    private async Task<bool> IsDestinationApproverAsync(ApprovalRequirement requirement, Guid approverIdentityId, CancellationToken cancellationToken)
-    {
-        ApprovalGroupMember[] members = await db.ApprovalGroupMembers
-            .Where(item => item.ApprovalGroupId == requirement.ApprovalGroupId!.Value)
-            .Where(item => item.IdentityId == approverIdentityId)
-            .ToArrayAsync(cancellationToken);
-
-        foreach (ApprovalGroupMember member in members)
-        {
-            if (await locationService.IsPartOfLocationTree(requirement.LocationId, member.ResponsibleLocationId, cancellationToken))
-                return true;
-        }
-
-        return false;
     }
 }

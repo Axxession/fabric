@@ -520,13 +520,21 @@ public static class AccessControlEndpoints
     }
 
     private static async Task<IResult> ListSubjects(
-        [AsParameters] BaseListRequest request,
+        [AsParameters] ListPACSSubjectsRequest request,
         AccessControlDbContext db,
         CancellationToken cancellationToken = default)
     {
-        IPaged<PACSSubject> result = await db.PACSSubjects
-            .AsNoTracking()
+        IQueryable<PACSSubject> query = db.PACSSubjects.AsNoTracking();
+
+        if (request.IdentityId.HasValue)
+            query = query.Where(item => item.IdentityId == request.IdentityId.Value);
+
+        if (request.AccessControlSystemId.HasValue)
+            query = query.Where(item => item.AccessControlSystemId == request.AccessControlSystemId.Value);
+
+        IPaged<PACSSubject> result = await query
             .OrderBy(item => item.IdentityId)
+            .ThenBy(item => item.AccessControlSystemId)
             .GetPageAsync(request.Page, request.PageSize, cancellationToken);
 
         return Results.Ok(result.Map(item => item.ToResponse()));

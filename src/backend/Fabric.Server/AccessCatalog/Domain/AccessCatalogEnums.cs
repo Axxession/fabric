@@ -42,10 +42,24 @@ public enum AssignmentSourceKind
 
 public enum PackageRequestStatus
 {
-    Requested,
-    PendingApproval,
+    InProgress,
+    Completed
+}
+
+public enum PackageRequestSubStatus
+{
+    Approved,
+    PartiallyApproved,
+    Rejected,
+    Expired
+}
+
+public enum ApprovalFlowStatus
+{
+    InProgress,
     Approved,
     Rejected,
+    SystemApproved,
     Expired
 }
 
