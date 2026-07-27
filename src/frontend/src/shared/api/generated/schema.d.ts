@@ -5814,6 +5814,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/access-catalog/access-grants/{accessGrantId}/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    accessGrantId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/access-catalog/approval-groups": {
         parameters: {
             query?: never;
@@ -14106,6 +14148,18 @@ export interface components {
         AccessControlSystemStatus: "Active" | "Inactive";
         /** @enum {unknown} */
         AccessDurationKind: "Permanent" | "Temporary";
+        /** @enum {unknown} */
+        AccessGrantMaterializationOutcomeStatus: "Created" | "SkippedNoTarget" | "Failed";
+        AccessGrantMaterializationOutcomeResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            accessItemId: string;
+            /** Format: uuid */
+            locationId: string;
+            status: components["schemas"]["AccessGrantMaterializationOutcomeStatus"];
+            failureReason: null | string;
+        };
         AccessGrantResponse: {
             /** Format: uuid */
             id: string;
@@ -14131,6 +14185,7 @@ export interface components {
             status: components["schemas"]["AccessGrantStatus"];
             reasonText: string;
             locationIds: string[];
+            materializationOutcomes: components["schemas"]["AccessGrantMaterializationOutcomeResponse"][];
         };
         /** @enum {unknown} */
         AccessGrantStatus: "Active" | "Revoked";

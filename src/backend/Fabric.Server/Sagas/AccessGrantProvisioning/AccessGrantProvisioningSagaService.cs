@@ -103,7 +103,8 @@ public sealed class AccessGrantProvisioningSagaService(
             sagaEvent.ProcessedAt = now;
             sagaEvent.FailureReason = null;
             sagaEvent.NextRetryAt = null;
-            saga.FailureReason = null;
+            if (saga.State != AccessGrantProvisioningSagaState.Failed)
+                saga.FailureReason = null;
             saga.RetryCount = 0;
             saga.NextRetryAt = null;
             saga.UpdatedAt = now;
@@ -165,10 +166,20 @@ public sealed class AccessGrantProvisioningSagaService(
             .Select(item => item.LocationId)
             .ToArrayAsync(cancellationToken);
 
+        AccessGrantMaterializationOutcome[] existingOutcomes = await db.AccessGrantMaterializationOutcomes
+            .Where(item => item.AccessGrantId == grant.Id)
+            .ToArrayAsync(cancellationToken);
+
+        HashSet<(Guid AccessItemId, Guid LocationId)> desiredKeys = [];
+        List<string> hardFailureReasons = [];
+        DateTimeOffset now = timeProvider.GetUtcNow();
+
         foreach (Guid locationId in locationIds)
         {
             foreach (Guid accessItemId in accessItemIds)
             {
+                desiredKeys.Add((accessItemId, locationId));
+
                 Result<IReadOnlyList<AccessControl.Domain.PACSAssignment>, AccessControl.Domain.AccessControlErrors> result =
                     await pacsAssignmentService.CreateAssignmentsForGrantAsync(
                         grant.Id,
@@ -181,11 +192,32 @@ public sealed class AccessGrantProvisioningSagaService(
                         cancellationToken);
 
                 if (result.IsFailure(out AccessControl.Domain.AccessControlErrors error))
-                    throw new InvalidOperationException($"Failed to provision PACS assignments: {error}.");
+                {
+                    if (error == AccessControl.Domain.AccessControlErrors.NoAccessLevelTargetsResolved)
+                    {
+                        UpsertOutcome(existingOutcomes, grant.Id, accessItemId, locationId, AccessGrantMaterializationOutcomeStatus.SkippedNoTarget, "No enabled access level target is configured for this access item.", now);
+                        continue;
+                    }
+
+                    string failureReason = $"Failed to create PACS assignments: {error}.";
+                    UpsertOutcome(existingOutcomes, grant.Id, accessItemId, locationId, AccessGrantMaterializationOutcomeStatus.Failed, failureReason, now);
+                    hardFailureReasons.Add(failureReason);
+                    continue;
+                }
+
+                UpsertOutcome(existingOutcomes, grant.Id, accessItemId, locationId, AccessGrantMaterializationOutcomeStatus.Created, null, now);
             }
         }
 
-        saga.State = AccessGrantProvisioningSagaState.Provisioned;
+        foreach (AccessGrantMaterializationOutcome obsoleteOutcome in existingOutcomes.Where(item => !desiredKeys.Contains((item.AccessItemId, item.LocationId))))
+            db.AccessGrantMaterializationOutcomes.Remove(obsoleteOutcome);
+
+        saga.State = hardFailureReasons.Count == 0
+            ? AccessGrantProvisioningSagaState.Provisioned
+            : AccessGrantProvisioningSagaState.Failed;
+        saga.FailureReason = hardFailureReasons.Count == 0
+            ? null
+            : $"Failed to create PACS assignments for {hardFailureReasons.Count} grant item(s).";
     }
 
     private async Task ProcessRevokedAsync(
@@ -221,6 +253,37 @@ public sealed class AccessGrantProvisioningSagaService(
 
         db.AccessGrantProvisioningSagas.Add(saga);
         return saga;
+    }
+
+    private void UpsertOutcome(
+        AccessGrantMaterializationOutcome[] existingOutcomes,
+        Guid accessGrantId,
+        Guid accessItemId,
+        Guid locationId,
+        AccessGrantMaterializationOutcomeStatus status,
+        string? failureReason,
+        DateTimeOffset now)
+    {
+        AccessGrantMaterializationOutcome? existing = existingOutcomes.SingleOrDefault(item => item.AccessItemId == accessItemId && item.LocationId == locationId);
+        if (existing is null)
+        {
+            db.AccessGrantMaterializationOutcomes.Add(new AccessGrantMaterializationOutcome
+            {
+                Id = Guid.NewGuid(),
+                AccessGrantId = accessGrantId,
+                AccessItemId = accessItemId,
+                LocationId = locationId,
+                Status = status,
+                FailureReason = failureReason,
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+            return;
+        }
+
+        existing.Status = status;
+        existing.FailureReason = failureReason;
+        existing.UpdatedAt = now;
     }
 
     private static DateTimeOffset GetRetryAt(int retryCount, DateTimeOffset now)

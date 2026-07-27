@@ -1,5 +1,6 @@
 using Fabric.Server.AccessCatalog.Domain;
 using Fabric.Server.Core;
+using Fabric.Server.Sagas.AccessGrantProvisioning;
 
 namespace Fabric.Server.AccessCatalog.Contracts;
 
@@ -91,6 +92,13 @@ public sealed record PackageRequestDetailDecisionResponse(Guid Id, string Approv
 public sealed record PackageRequestDetailRequirementResponse(Guid Id, ApprovalRequirementType Type, ApprovalDecisionRole Role, Guid? ApprovalGroupId, string? ApprovalGroupName, Guid? RequiredApproverIdentityId, string? RequiredApproverDisplayName, ApprovalStatus Status, string? SystemApprovalReason, DateTimeOffset CreatedAt, DateTimeOffset? CompletedAt, PackageRequestDetailDecisionResponse[] Decisions);
 public sealed record PackageRequestDetailFlowResponse(Guid ApprovalFlowId, Guid AccessItemId, string AccessItemName, string? AccessItemDescription, Guid SiteId, string SiteName, ApprovalFlowStatus Status, DateTimeOffset CreatedAt, DateTimeOffset? CompletedAt, PackageRequestDetailLocationResponse[] RequestedLocations, PackageRequestDetailRequirementResponse[] Requirements, PackageRequestDetailGrantResponse[] Grants);
 public sealed record PackageRequestDetailResponse(PackageRequestResponse Request, PackageResponse Package, PackageRequestDetailLocationResponse[] RequestedLocations, PackageRequestDetailFlowResponse[] Flows, PackageRequestDetailGrantResponse[] Grants);
+public sealed record AccessGrantMaterializationOutcomeResponse(
+    Guid Id,
+    Guid AccessItemId,
+    Guid LocationId,
+    AccessGrantMaterializationOutcomeStatus Status,
+    string? FailureReason);
+
 public sealed record AccessGrantResponse(
     Guid Id,
     Guid PackageId,
@@ -106,7 +114,8 @@ public sealed record AccessGrantResponse(
     DateTimeOffset? ValidUntil,
     AccessGrantStatus Status,
     string ReasonText,
-    Guid[] LocationIds);
+    Guid[] LocationIds,
+    AccessGrantMaterializationOutcomeResponse[] MaterializationOutcomes);
 
 public static class AccessCatalogMapper
 {
@@ -140,7 +149,15 @@ public static class AccessCatalogMapper
     public static PackageRequestResponse ToResponse(this PackageRequest request, Guid[] locationIds) =>
         new(request.Id, request.PackageId, request.RequesterIdentityId, request.BeneficiaryIdentityId, request.RequestReason, request.Status, request.SubStatus, request.DurationKind, request.ValidFrom, request.ValidUntil, request.CreatedAt, request.ExpiresAt, request.DecidedAt, locationIds);
 
-    public static AccessGrantResponse ToResponse(this AccessGrant grant, Guid[] locationIds) =>
+    public static AccessGrantMaterializationOutcomeResponse ToResponse(this AccessGrantMaterializationOutcome outcome) =>
+        new(
+            outcome.Id,
+            outcome.AccessItemId,
+            outcome.LocationId,
+            outcome.Status,
+            outcome.FailureReason);
+
+    public static AccessGrantResponse ToResponse(this AccessGrant grant, Guid[] locationIds, AccessGrantMaterializationOutcomeResponse[] materializationOutcomes) =>
         new(
             grant.Id,
             grant.PackageId,
@@ -156,5 +173,6 @@ public static class AccessCatalogMapper
             grant.ValidUntil,
             grant.Status,
             grant.ReasonText,
-            locationIds);
+            locationIds,
+            materializationOutcomes);
 }

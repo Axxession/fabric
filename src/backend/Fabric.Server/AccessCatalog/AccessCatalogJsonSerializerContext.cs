@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Fabric.Server.AccessCatalog.Contracts;
 using Fabric.Server.AccessCatalog.Domain;
 using Fabric.Server.Core;
+using Fabric.Server.Sagas.AccessGrantProvisioning;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Fabric.Server.AccessCatalog;
@@ -25,8 +26,11 @@ namespace Fabric.Server.AccessCatalog;
 [JsonSerializable(typeof(ApprovalStatus))]
 [JsonSerializable(typeof(ApprovalStatus?))]
 [JsonSerializable(typeof(AccessGrantResponse))]
+[JsonSerializable(typeof(AccessGrantMaterializationOutcomeResponse))]
 [JsonSerializable(typeof(AccessDurationKind))]
 [JsonSerializable(typeof(AccessDurationKind?))]
+[JsonSerializable(typeof(AccessGrantMaterializationOutcomeStatus))]
+[JsonSerializable(typeof(AccessGrantMaterializationOutcomeStatus?))]
 [JsonSerializable(typeof(AccessGrantStatus))]
 [JsonSerializable(typeof(AccessGrantStatus?))]
 [JsonSerializable(typeof(AddPackageAccessItemRequest))]

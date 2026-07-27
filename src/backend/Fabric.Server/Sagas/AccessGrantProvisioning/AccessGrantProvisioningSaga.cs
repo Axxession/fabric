@@ -9,6 +9,13 @@ public enum AccessGrantProvisioningSagaState
     Failed
 }
 
+public enum AccessGrantMaterializationOutcomeStatus
+{
+    Created,
+    SkippedNoTarget,
+    Failed
+}
+
 public sealed class AccessGrantProvisioningSaga
 {
     public Guid Id { get; set; }
@@ -17,6 +24,18 @@ public sealed class AccessGrantProvisioningSaga
     public string? FailureReason { get; set; }
     public int RetryCount { get; set; }
     public DateTimeOffset? NextRetryAt { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
+public sealed class AccessGrantMaterializationOutcome
+{
+    public Guid Id { get; set; }
+    public Guid AccessGrantId { get; set; }
+    public Guid AccessItemId { get; set; }
+    public Guid LocationId { get; set; }
+    public AccessGrantMaterializationOutcomeStatus Status { get; set; }
+    public string? FailureReason { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }

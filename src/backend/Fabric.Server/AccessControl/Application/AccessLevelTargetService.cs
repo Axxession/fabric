@@ -1,13 +1,17 @@
 using Fabric.Server.AccessControl.Domain;
 using Fabric.Server.AccessControl.Persistence;
 using Fabric.Server.Core;
+using Fabric.Server.Sagas;
+using Fabric.Server.Sagas.AccessGrantProvisioning;
 using Microsoft.EntityFrameworkCore;
 
 namespace Fabric.Server.AccessControl.Application;
 
 public sealed class AccessLevelTargetService(
     AccessControlDbContext db,
-    AccessControlSystemService systemService)
+    AccessControlSystemService systemService,
+    SagasDbContext sagasDb,
+    AccessGrantProvisioningSagaService sagaService)
 {
     public async Task<Result<UnipassAccessLevelTarget, AccessControlErrors>> CreateUnipassTargetAsync(
         Guid accessItemId,
@@ -63,6 +67,7 @@ public sealed class AccessLevelTargetService(
 
         db.AccessLevelTargets.Add(target);
         await db.SaveChangesAsync(cancellationToken);
+        await RequeueSkippedAccessGrantsAsync(accessItemId, accessControlSystemId, cancellationToken);
         return Result.Success<UnipassAccessLevelTarget, AccessControlErrors>(target);
     }
 
@@ -113,7 +118,34 @@ public sealed class AccessLevelTargetService(
         target.SetEnabled(isEnabled);
 
         await db.SaveChangesAsync(cancellationToken);
+        if (isEnabled)
+            await RequeueSkippedAccessGrantsAsync(target.AccessItemId, target.AccessControlSystemId, cancellationToken);
+
         return Result.Success<UnipassAccessLevelTarget, AccessControlErrors>(target);
+    }
+
+    private async Task RequeueSkippedAccessGrantsAsync(Guid accessItemId, Guid accessControlSystemId, CancellationToken cancellationToken)
+    {
+        Guid[] locationIds = await db.AccessControlSystemLocations.AsNoTracking()
+            .Where(item => item.AccessControlSystemId == accessControlSystemId)
+            .Select(item => item.LocationId)
+            .Distinct()
+            .ToArrayAsync(cancellationToken);
+
+        if (locationIds.Length == 0)
+            return;
+
+        Guid[] accessGrantIds = await sagasDb.AccessGrantMaterializationOutcomes
+            .AsNoTracking()
+            .Where(item => item.AccessItemId == accessItemId)
+            .Where(item => item.Status == AccessGrantMaterializationOutcomeStatus.SkippedNoTarget)
+            .Where(item => locationIds.Contains(item.LocationId))
+            .Select(item => item.AccessGrantId)
+            .Distinct()
+            .ToArrayAsync(cancellationToken);
+
+        foreach (Guid accessGrantId in accessGrantIds)
+            await sagaService.EnqueueAccessGrantCreatedAsync(accessGrantId, cancellationToken);
     }
 
     private async Task<Result<UnipassMetadata, AccessControlErrors>> GetUnipassMetadataAsync(Guid systemId, CancellationToken cancellationToken)

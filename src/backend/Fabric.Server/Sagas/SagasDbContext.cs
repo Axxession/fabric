@@ -15,6 +15,7 @@ public class SagasDbContext : TenantDbContext
     public DbSet<VisitorPreOnboardingSagaConfig> VisitorPreOnboardingSagaConfigs { get; set; } = null!;
     public DbSet<VisitorPreOnboardingSagaEvent> VisitorPreOnboardingSagaEvents { get; set; } = null!;
     public DbSet<AccessGrantProvisioningSaga> AccessGrantProvisioningSagas { get; set; } = null!;
+    public DbSet<AccessGrantMaterializationOutcome> AccessGrantMaterializationOutcomes { get; set; } = null!;
     public DbSet<AccessGrantProvisioningSagaEvent> AccessGrantProvisioningSagaEvents { get; set; } = null!;
     public DbSet<OrganizationalUnitPackageRule> OrganizationalUnitPackageRules { get; set; } = null!;
     public DbSet<PersonaPackageRule> PersonaPackageRules { get; set; } = null!;
@@ -40,6 +41,7 @@ public class SagasDbContext : TenantDbContext
         modelBuilder.ApplyConfiguration(new VisitorPreOnboardingSagaConfigConfiguration());
         modelBuilder.ApplyConfiguration(new VisitorPreOnboardingSagaEventConfiguration());
         modelBuilder.ApplyConfiguration(new AccessGrantProvisioningSagaConfiguration());
+        modelBuilder.ApplyConfiguration(new AccessGrantMaterializationOutcomeConfiguration());
         modelBuilder.ApplyConfiguration(new AccessGrantProvisioningSagaEventConfiguration());
         modelBuilder.ApplyConfiguration(new OrganizationalUnitPackageRuleConfiguration());
         modelBuilder.ApplyConfiguration(new PersonaPackageRuleConfiguration());

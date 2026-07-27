@@ -3,6 +3,8 @@ using Fabric.Server.AccessCatalog.Contracts;
 using Fabric.Server.AccessCatalog.Domain;
 using Fabric.Server.AccessCatalog.Persistence;
 using Fabric.Server.Core;
+using Fabric.Server.Sagas;
+using Fabric.Server.Sagas.AccessGrantProvisioning;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,12 +19,13 @@ public static class AccessGrantEndpoints
         grants.MapGet("", ListAccessGrants).Produces<Page<AccessGrantResponse>>();
         grants.MapPost("", CreateAccessGrant).Produces<AccessGrantResponse>(StatusCodes.Status201Created);
         grants.MapGet("/{accessGrantId:guid}", GetAccessGrant).Produces<AccessGrantResponse>().Produces(StatusCodes.Status404NotFound);
+        grants.MapPost("/{accessGrantId:guid}/reconcile", ReconcileAccessGrant).Produces(StatusCodes.Status202Accepted).Produces(StatusCodes.Status404NotFound);
         grants.MapPost("/{accessGrantId:guid}/revoke", RevokeAccessGrant).Produces<AccessGrantResponse>().Produces(StatusCodes.Status404NotFound);
 
         return app;
     }
 
-    private static async Task<IResult> ListAccessGrants([AsParameters] ListAccessGrantsRequest request, AccessCatalogDbContext db, CancellationToken cancellationToken = default)
+    private static async Task<IResult> ListAccessGrants([AsParameters] ListAccessGrantsRequest request, AccessCatalogDbContext db, SagasDbContext sagasDb, CancellationToken cancellationToken = default)
     {
         IQueryable<AccessGrant> query = db.AccessGrants.AsNoTracking();
         if (request.IdentityId.HasValue)
@@ -35,10 +38,11 @@ public static class AccessGrantEndpoints
         IPaged<AccessGrant> result = await query.OrderBy(item => item.ValidFrom).GetPageAsync(request.Page, request.PageSize, cancellationToken);
         AccessGrant[] items = result.Items.ToArray();
         Dictionary<Guid, Guid[]> locations = await LoadLocations(db, items.Select(item => item.Id).ToArray(), cancellationToken);
-        return Results.Ok(result.Map(item => item.ToResponse(locations.GetValueOrDefault(item.Id, []))));
+        Dictionary<Guid, AccessGrantMaterializationOutcomeResponse[]> outcomes = await LoadMaterializationOutcomes(sagasDb, items.Select(item => item.Id).ToArray(), cancellationToken);
+        return Results.Ok(result.Map(item => item.ToResponse(locations.GetValueOrDefault(item.Id, []), outcomes.GetValueOrDefault(item.Id, []))));
     }
 
-    private static async Task<IResult> CreateAccessGrant([FromBody] CreateAccessGrantRequest request, AccessGrantService service, AccessCatalogDbContext db, CancellationToken cancellationToken = default)
+    private static async Task<IResult> CreateAccessGrant([FromBody] CreateAccessGrantRequest request, AccessGrantService service, AccessCatalogDbContext db, SagasDbContext sagasDb, CancellationToken cancellationToken = default)
     {
         Result<AccessGrant, AccessCatalogErrors> result = await service.CreateAsync(
             request.PackageId,
@@ -57,22 +61,24 @@ public static class AccessGrantEndpoints
             async item =>
             {
                 Guid[] locationIds = await db.AccessGrantLocations.AsNoTracking().Where(link => link.AccessGrantId == item.Id).Select(link => link.LocationId).ToArrayAsync(cancellationToken);
-                return Results.Created($"/api/access-catalog/access-grants/{item.Id}", item.ToResponse(locationIds));
+                Dictionary<Guid, AccessGrantMaterializationOutcomeResponse[]> outcomes = await LoadMaterializationOutcomes(sagasDb, [item.Id], cancellationToken);
+                return Results.Created($"/api/access-catalog/access-grants/{item.Id}", item.ToResponse(locationIds, outcomes.GetValueOrDefault(item.Id, [])));
             },
             error => Task.FromResult(MapError(error).ToResult()));
     }
 
-    private static async Task<IResult> GetAccessGrant(Guid accessGrantId, AccessCatalogDbContext db, CancellationToken cancellationToken = default)
+    private static async Task<IResult> GetAccessGrant(Guid accessGrantId, AccessCatalogDbContext db, SagasDbContext sagasDb, CancellationToken cancellationToken = default)
     {
         AccessGrant? grant = await db.AccessGrants.AsNoTracking().SingleOrDefaultAsync(item => item.Id == accessGrantId, cancellationToken);
         if (grant is null)
             return Results.NotFound();
 
         Guid[] locationIds = await db.AccessGrantLocations.AsNoTracking().Where(link => link.AccessGrantId == accessGrantId).Select(link => link.LocationId).ToArrayAsync(cancellationToken);
-        return Results.Ok(grant.ToResponse(locationIds));
+        Dictionary<Guid, AccessGrantMaterializationOutcomeResponse[]> outcomes = await LoadMaterializationOutcomes(sagasDb, [accessGrantId], cancellationToken);
+        return Results.Ok(grant.ToResponse(locationIds, outcomes.GetValueOrDefault(accessGrantId, [])));
     }
 
-    private static async Task<IResult> RevokeAccessGrant(Guid accessGrantId, AccessGrantService service, AccessCatalogDbContext db, CancellationToken cancellationToken = default)
+    private static async Task<IResult> RevokeAccessGrant(Guid accessGrantId, AccessGrantService service, AccessCatalogDbContext db, SagasDbContext sagasDb, CancellationToken cancellationToken = default)
     {
         Result<AccessGrant, AccessCatalogErrors> result = await service.RevokeAsync(accessGrantId, cancellationToken);
 
@@ -80,9 +86,24 @@ public static class AccessGrantEndpoints
             async item =>
             {
                 Guid[] locationIds = await db.AccessGrantLocations.AsNoTracking().Where(link => link.AccessGrantId == item.Id).Select(link => link.LocationId).ToArrayAsync(cancellationToken);
-                return Results.Ok(item.ToResponse(locationIds));
+                Dictionary<Guid, AccessGrantMaterializationOutcomeResponse[]> outcomes = await LoadMaterializationOutcomes(sagasDb, [item.Id], cancellationToken);
+                return Results.Ok(item.ToResponse(locationIds, outcomes.GetValueOrDefault(item.Id, [])));
             },
             error => Task.FromResult(MapError(error).ToResult()));
+    }
+
+    private static async Task<IResult> ReconcileAccessGrant(
+        Guid accessGrantId,
+        AccessCatalogDbContext db,
+        AccessGrantProvisioningSagaService sagaService,
+        CancellationToken cancellationToken = default)
+    {
+        AccessGrant? grant = await db.AccessGrants.AsNoTracking().SingleOrDefaultAsync(item => item.Id == accessGrantId, cancellationToken);
+        if (grant is null)
+            return Results.NotFound();
+
+        await sagaService.EnqueueAccessGrantCreatedAsync(accessGrantId, cancellationToken);
+        return Results.Accepted($"/api/access-catalog/access-grants/{accessGrantId}");
     }
 
     private static async Task<Dictionary<Guid, Guid[]>> LoadLocations(AccessCatalogDbContext db, Guid[] accessGrantIds, CancellationToken cancellationToken)
@@ -91,6 +112,14 @@ public static class AccessGrantEndpoints
             .Where(item => accessGrantIds.Contains(item.AccessGrantId))
             .GroupBy(item => item.AccessGrantId)
             .ToDictionaryAsync(group => group.Key, group => group.Select(item => item.LocationId).ToArray(), cancellationToken);
+    }
+
+    private static async Task<Dictionary<Guid, AccessGrantMaterializationOutcomeResponse[]>> LoadMaterializationOutcomes(SagasDbContext db, Guid[] accessGrantIds, CancellationToken cancellationToken)
+    {
+        return await db.AccessGrantMaterializationOutcomes.AsNoTracking()
+            .Where(item => accessGrantIds.Contains(item.AccessGrantId))
+            .GroupBy(item => item.AccessGrantId)
+            .ToDictionaryAsync(group => group.Key, group => group.Select(item => item.ToResponse()).ToArray(), cancellationToken);
     }
 
     private static (int statusCode, ProblemDetails? problemDetails) MapError(AccessCatalogErrors error) =>

@@ -1,21 +1,25 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { getLocationLabel, type LocationResponse } from '@/shared/components/location-selector';
 import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
 import { Card } from '@/shared/components/ui/card';
 
 type AccessControlSystemResponse = components['schemas']['AccessControlSystemResponse'];
 type AccessLevelTargetResponse = components['schemas']['AccessLevelTargetResponse'];
-type ApprovalDecisionKind = components['schemas']['ApprovalDecisionKind'];
+type AccessItemResponse = components['schemas']['AccessItemResponse'];
+type AccessGrantMaterializationOutcomeResponse = components['schemas']['AccessGrantMaterializationOutcomeResponse'];
 type AccessGrantResponse = components['schemas']['AccessGrantResponse'];
 type EmployeeResponse = components['schemas']['EmployeeResponse'];
 type IdentityAffiliationSummaryResponse = components['schemas']['IdentityAffiliationSummaryResponse'];
 type IdentityResponse = components['schemas']['IdentityResponse'];
+type PackageAccessItemResponse = components['schemas']['PackageAccessItemResponse'];
 type PackageRequestDetailDecisionResponse = components['schemas']['PackageRequestDetailDecisionResponse'];
 type PackageRequestDetailFlowResponse = components['schemas']['PackageRequestDetailFlowResponse'];
 type PackageRequestDetailResponse = components['schemas']['PackageRequestDetailResponse'];
@@ -133,10 +137,23 @@ export default function IdentityDetailPage() {
       const provisionings = provisioningsResult.data?.items ?? [];
 
       const packageIds = Array.from(new Set(grants.map((item: AccessGrantResponse) => item.packageId)));
-      const accessItemIds = Array.from(new Set(grants.map((item: AccessGrantResponse) => item.accessItemId).filter((item): item is string => Boolean(item))));
       const locationIds = Array.from(new Set(grants.flatMap((item: AccessGrantResponse) => item.locationIds ?? [])));
 
-        const [packages, accessItems, locations] = await Promise.all([
+      const packageAccessItems = await Promise.all(packageIds.map(async (packageId) => {
+        const { data, error } = await api.GET('/api/access-catalog/packages/{packageId}/access-items', { params: { path: { packageId }, query: { Page: 0, PageSize: 200 } } });
+        if (error) {
+          return [] as PackageAccessItemResponse[];
+        }
+
+        return (data?.items ?? []) as PackageAccessItemResponse[];
+      }));
+
+      const accessItemIds = Array.from(new Set([
+        ...grants.map((item: AccessGrantResponse) => item.accessItemId).filter((item): item is string => Boolean(item)),
+        ...packageAccessItems.flat().map((item) => item.accessItemId),
+      ]));
+
+      const [packages, accessItems, locations] = await Promise.all([
         Promise.all(packageIds.map(async (packageId) => {
           const { data, error } = await api.GET('/api/access-catalog/packages/{packageId}', { params: { path: { packageId } } });
           if (error || !data) return null;
@@ -152,39 +169,50 @@ export default function IdentityDetailPage() {
           if (error || !data) return null;
           return data;
         })),
-        ]);
+      ]);
 
-        const targets = await Promise.all(accessItemIds.map(async (itemId) => {
-          const { data, error } = await api.GET('/api/access-control/items/{itemId}/targets', { params: { path: { itemId }, query: { Page: 0, PageSize: 200 } } });
-          if (error) {
-            return [] as AccessLevelTargetResponse[];
-          }
+      const targets = await Promise.all(accessItemIds.map(async (itemId) => {
+        const { data, error } = await api.GET('/api/access-control/items/{itemId}/targets', { params: { path: { itemId }, query: { Page: 0, PageSize: 200 } } });
+        if (error) {
+          return [] as AccessLevelTargetResponse[];
+        }
 
-          return (data?.items ?? []) as AccessLevelTargetResponse[];
-        }));
+        return (data?.items ?? []) as AccessLevelTargetResponse[];
+      }));
 
-        const requestIds = Array.from(new Set(grants.filter((item: AccessGrantResponse) => item.sourceKind === 'CatalogRequest').map((item: AccessGrantResponse) => item.sourceId)));
-        const requestDetails = await Promise.all(requestIds.map(async (requestId) => {
-          const { data, error } = await api.GET('/api/access-catalog/package-requests/{requestId}/details', { params: { path: { requestId } } });
-          if (error || !data) {
-            return null;
-          }
+      const requestIds = Array.from(new Set(grants.filter((item: AccessGrantResponse) => item.sourceKind === 'CatalogRequest').map((item: AccessGrantResponse) => item.sourceId)));
+      const requestDetails = await Promise.all(requestIds.map(async (requestId) => {
+        const { data, error } = await api.GET('/api/access-catalog/package-requests/{requestId}/details', { params: { path: { requestId } } });
+        if (error || !data) {
+          return null;
+        }
 
-          return data;
-        }));
+        return data;
+      }));
 
-        return {
-          grants,
-          assignments,
-          provisionings,
-          packagesById: new Map(packages.filter((item): item is PackageResponse => item !== null).map((item) => [item.id, item])),
-          accessItemsById: new Map(accessItems.filter((item): item is components['schemas']['AccessItemResponse'] => item !== null).map((item) => [item.id, item])),
-          locationsById: new Map(locations.filter((item): item is LocationResponse => item !== null).map((item) => [item.id, item])),
-          targetsById: new Map(targets.flat().map((item) => [item.id, item])),
-          requestDetailsById: new Map(requestDetails.filter((item): item is PackageRequestDetailResponse => item !== null).map((item) => [item.request.id, item])),
-        };
-      },
-    });
+      const accessItemsById = new Map(accessItems.filter((item): item is AccessItemResponse => item !== null).map((item) => [item.id, item]));
+      const packageAccessItemsByPackageId = new Map<string, AccessItemResponse[]>();
+
+      packageIds.forEach((packageId, index) => {
+        const items = (packageAccessItems[index] ?? [])
+          .map((link) => accessItemsById.get(link.accessItemId))
+          .filter((item): item is AccessItemResponse => item !== undefined);
+        packageAccessItemsByPackageId.set(packageId, items);
+      });
+
+      return {
+        grants,
+        assignments,
+        provisionings,
+        packagesById: new Map(packages.filter((item): item is PackageResponse => item !== null).map((item) => [item.id, item])),
+        accessItemsById,
+        packageAccessItemsByPackageId,
+        locationsById: new Map(locations.filter((item): item is LocationResponse => item !== null).map((item) => [item.id, item])),
+        targetsById: new Map(targets.flat().map((item) => [item.id, item])),
+        requestDetailsById: new Map(requestDetails.filter((item): item is PackageRequestDetailResponse => item !== null).map((item) => [item.request.id, item])),
+      };
+    },
+  });
 
   const subjectsQuery = useQuery({
     queryKey: ['security-officer', 'identity-360', identityId, 'subjects'],
@@ -254,7 +282,7 @@ export default function IdentityDetailPage() {
 
             <div className="grid gap-4">
               {section === 'overview' ? <OverviewSection employeeDetails={employeeDetailsQuery.data ?? []} employeeWorkLocationLabels={employeeWorkLocationLabelsQuery.data ?? new Map<string, string>()} employeeLoading={employeeDetailsQuery.isLoading || employeeWorkLocationLabelsQuery.isLoading} employeeError={employeeDetailsQuery.isError || employeeWorkLocationLabelsQuery.isError} visitorDetails={visitorDetailsQuery.data ?? []} visitorLoading={visitorDetailsQuery.isLoading} visitorError={visitorDetailsQuery.isError} /> : null}
-              {section === 'assignments' ? <AssignmentsSection data={assignmentsQuery.data} isLoading={assignmentsQuery.isLoading} isError={assignmentsQuery.isError} systemsById={systemsQuery.data ?? new Map<string, AccessControlSystemResponse>()} /> : null}
+              {section === 'assignments' ? <AssignmentsSection identityId={identityId} data={assignmentsQuery.data} isLoading={assignmentsQuery.isLoading} isError={assignmentsQuery.isError} systemsById={systemsQuery.data ?? new Map<string, AccessControlSystemResponse>()} /> : null}
               {section === 'known-in' ? <KnownInSection subjects={subjectsQuery.data ?? []} isLoading={subjectsQuery.isLoading} isError={subjectsQuery.isError} systemsById={systemsQuery.data ?? new Map<string, AccessControlSystemResponse>()} /> : null}
               {section === 'requests' ? <RequestsSection data={requestsQuery.data} isLoading={requestsQuery.isLoading} isError={requestsQuery.isError} onOpenRequest={(requestId) => void navigate({ to: '/security-officer/identities/$identityId/requests/$requestId', params: { identityId, requestId } })} /> : null}
             </div>
@@ -327,7 +355,7 @@ function OverviewSection({ employeeDetails, employeeWorkLocationLabels, employee
   );
 }
 
-function AssignmentsSection({ data, isLoading, isError, systemsById }: { readonly data: { readonly grants: AccessGrantResponse[]; readonly assignments: PACSAssignmentResponse[]; readonly provisionings: PACSProvisioningResponse[]; readonly packagesById: Map<string, PackageResponse>; readonly accessItemsById: Map<string, components['schemas']['AccessItemResponse']>; readonly locationsById: Map<string, LocationResponse>; readonly targetsById: Map<string, AccessLevelTargetResponse>; readonly requestDetailsById: Map<string, PackageRequestDetailResponse>; } | undefined; readonly isLoading: boolean; readonly isError: boolean; readonly systemsById: Map<string, AccessControlSystemResponse>; }) {
+function AssignmentsSection({ identityId, data, isLoading, isError, systemsById }: { readonly identityId: string; readonly data: AssignmentData | undefined; readonly isLoading: boolean; readonly isError: boolean; readonly systemsById: Map<string, AccessControlSystemResponse>; }) {
   if (isError) {
     return <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load assignments.</p>;
   }
@@ -345,15 +373,30 @@ function AssignmentsSection({ data, isLoading, isError, systemsById }: { readonl
   const catalogViews = views.filter((item) => item.grant.sourceKind === 'CatalogRequest');
   const automaticViews = views.filter((item) => item.grant.sourceKind !== 'CatalogRequest');
 
-  const requestGroups = groupCatalogViews(catalogViews, data?.requestDetailsById ?? new Map<string, PackageRequestDetailResponse>());
-  const policyGroups = groupAutomaticViews(automaticViews);
-
   return (
     <div className="grid gap-4">
-      {requestGroups.length > 0 ? <AssignmentsTreeSection title="Catalog requests" description="Access granted from catalog requests, grouped by access package." groups={requestGroups.map((group) => <PackageAssignmentGroup key={`${group.sourceType}-${group.sourceId}-${group.packageId}`} group={group} />)} /> : null}
-      {policyGroups.length > 0 ? <AssignmentsTreeSection title="Automated grants" description="Access granted from policy automation, grouped by access package." groups={policyGroups.map((group) => <PackageAssignmentGroup key={`${group.sourceType}-${group.sourceId}-${group.packageId}`} group={group} />)} /> : null}
+      <CatalogueAssignmentGroups views={catalogViews} requestDetailsById={data?.requestDetailsById ?? new Map<string, PackageRequestDetailResponse>()} />
+      <AutomatedAssignmentGroups identityId={identityId} views={automaticViews} packageAccessItemsByPackageId={data?.packageAccessItemsByPackageId ?? new Map<string, AccessItemResponse[]>()} targetsById={data?.targetsById ?? new Map<string, AccessLevelTargetResponse>()} />
     </div>
   );
+}
+
+function CatalogueAssignmentGroups({ views, requestDetailsById }: { readonly views: readonly GrantView[]; readonly requestDetailsById: Map<string, PackageRequestDetailResponse>; }) {
+  const requestGroups = groupCatalogViews([...views], requestDetailsById);
+  if (requestGroups.length === 0) {
+    return null;
+  }
+
+  return <AssignmentsTreeSection title="Catalog requests" description="Access granted from catalog requests, grouped by access package." groups={requestGroups.map((group) => <PackageAssignmentGroup key={`${group.sourceType}-${group.sourceId}-${group.packageId}`} group={group} />)} />;
+}
+
+function AutomatedAssignmentGroups({ identityId, views, packageAccessItemsByPackageId, targetsById }: { readonly identityId: string; readonly views: readonly GrantView[]; readonly packageAccessItemsByPackageId: Map<string, AccessItemResponse[]>; readonly targetsById: Map<string, AccessLevelTargetResponse>; }) {
+  const policyGroups = groupAutomaticViews([...views], packageAccessItemsByPackageId, targetsById);
+  if (policyGroups.length === 0) {
+    return null;
+  }
+
+  return <AssignmentsTreeSection title="Automated grants" description="Access granted from policy automation, grouped by access package." groups={policyGroups.map((group) => <AutomatedPackageAssignmentGroup key={`${group.sourceType}-${group.sourceId}-${group.packageId}`} identityId={identityId} group={group} />)} />;
 }
 
 function AssignmentsTreeSection({ title, description, groups }: { readonly title: string; readonly description: string; readonly groups: React.ReactNode[] }) {
@@ -401,69 +444,188 @@ function PackageAssignmentGroup({ group }: { readonly group: PackageAssignmentGr
 }
 
 function AccessItemGroup({ group }: { readonly group: AccessItemGroupView }) {
+  const hasSkippedOutcome = group.materializationOutcomes.some((item) => item.status === 'SkippedNoTarget');
+  const hasFailedOutcome = group.materializationOutcomes.some((item) => item.status === 'Failed');
+
   return (
     <details className="rounded-interactive border border-border bg-background" open={group.shouldExpand}>
       <summary className="cursor-pointer list-none p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <h3 className="text-[16px] font-semibold text-foreground">{group.accessItemName}</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-[16px] font-semibold text-foreground">{group.accessItemName}</h3>
+              <Badge variant={getProvisioningSummaryVariant(group.provisioningSummary.variant)}>{group.provisioningSummary.label}</Badge>
+              {hasSkippedOutcome ? <Badge variant="error">No configured target</Badge> : null}
+              {hasFailedOutcome ? <Badge variant="error">Assignment creation failed</Badge> : null}
+            </div>
           </div>
           <ChevronRight className="mt-1 size-4 shrink-0 text-muted-foreground transition group-open:rotate-90" aria-hidden="true" />
         </div>
       </summary>
       <div className="border-t border-border p-4 grid gap-4">
-        {group.scopes.length === 1 ? <AccessItemGrantLeaf view={group.scopes[0].leafViews[0]} titleOverride={group.scopes[0].scopeLabel} hideItemHeader /> : group.scopes.map((item) => <ScopeGroup key={`${group.accessItemId}-${item.scopeLabel}`} group={item} />)}
+        <MaterializationOutcomeNotice views={group.leafViews} outcomes={group.materializationOutcomes} />
+        <PacsAssignmentList views={group.leafViews} title="PACS assignments" emptyLabel="No PACS assignments yet." provisioningTitle="Actual provisioned access" />
       </div>
     </details>
   );
 }
 
-function ScopeGroup({ group }: { readonly group: ScopeGroupView }) {
+function AutomatedPackageAssignmentGroup({ identityId, group }: { readonly identityId: string; readonly group: AutomatedPackageAssignmentGroupView }) {
+  const queryClient = useQueryClient();
+  const reconcileGrant = useMutation({
+    mutationFn: async () => {
+      await Promise.all(group.grantIds.map(async (accessGrantId) => {
+        const { error } = await api.POST('/api/access-catalog/access-grants/{accessGrantId}/reconcile', { params: { path: { accessGrantId } } });
+        if (error) {
+          throw new Error('Could not queue grant reconciliation.');
+        }
+      }));
+    },
+    onSuccess: async () => {
+      toast.success('Grant reconciliation queued.');
+      await queryClient.invalidateQueries({ queryKey: ['security-officer', 'identity-360', identityId, 'assignments'] });
+    },
+    onError: () => {
+      toast.error('Could not queue grant reconciliation.');
+    },
+  });
+
   return (
-    <details className="rounded-interactive border border-border bg-content" open={group.shouldExpand}>
-      <summary className="cursor-pointer list-none p-4">
-        <div className="flex items-center justify-between gap-4">
-          <h4 className="min-w-0 flex-1 text-[15px] font-medium text-foreground">{group.scopeLabel}</h4>
-          <ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-open:rotate-90" aria-hidden="true" />
+    <details className="rounded-structural border border-border bg-content" open={group.shouldExpand}>
+      <summary className="cursor-pointer list-none p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-[18px] font-semibold tracking-tight text-foreground">{group.packageName}</h2>
+              <Badge variant={getProvisioningSummaryVariant(group.provisioningSummary.variant)}>{group.provisioningSummary.label}</Badge>
+            </div>
+            <div className="mt-3 grid gap-1 text-[13px] text-muted-foreground sm:grid-cols-2 xl:grid-cols-4">
+              <p><span className="font-medium text-foreground">Source:</span> {group.sourceLabel}</p>
+              <p><span className="font-medium text-foreground">Reason:</span> {group.sourceReason}</p>
+              <p><span className="font-medium text-foreground">Validity:</span> {group.validityLabel}</p>
+              <p><span className="font-medium text-foreground">Locations:</span> {group.locationSummary || '-'}</p>
+              <p><span className="font-medium text-foreground">Approved by:</span> {group.approvalSummary}</p>
+              <p><span className="font-medium text-foreground">Items:</span> {group.accessItems.length}</p>
+              <p><span className="font-medium text-foreground">Provisionings:</span> {group.provisioningCount}</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={reconcileGrant.isPending}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                reconcileGrant.mutate();
+              }}
+            >
+              {reconcileGrant.isPending ? 'Reconciling...' : 'Reconcile grant'}
+            </Button>
+            <ChevronRight className="mt-1 size-5 shrink-0 text-muted-foreground transition group-open:rotate-90" aria-hidden="true" />
+          </div>
         </div>
       </summary>
-      <div className="border-t border-border p-4 grid gap-4">
-        {group.leafViews.map((item) => <AccessItemGrantLeaf key={item.grant.id} view={item} hideItemHeader />)}
+      <div className="grid gap-4 border-t border-border px-6 pb-6 pt-4">
+        {group.accessItems.map((item) => <AutomatedAccessItemGroup key={`${group.packageId}-${item.accessItemId}`} group={item} />)}
       </div>
     </details>
   );
 }
 
-function AccessItemGrantLeaf({ view, titleOverride, hideItemHeader = false }: { readonly view: GrantView; readonly titleOverride?: string; readonly hideItemHeader?: boolean; }) {
+function AutomatedAccessItemGroup({ group }: { readonly group: AutomatedAccessItemGroupView }) {
+  const hasSkippedOutcome = group.materializationOutcomes.some((item) => item.status === 'SkippedNoTarget');
+  const hasFailedOutcome = group.materializationOutcomes.some((item) => item.status === 'Failed');
+
   return (
-    <details className="rounded-structural border border-border bg-content" open={view.shouldExpand}>
+    <details className="rounded-interactive border border-border bg-background" open={group.shouldExpand}>
       <summary className="cursor-pointer list-none p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              {!hideItemHeader ? <h4 className="text-[16px] font-semibold tracking-tight text-foreground">{view.accessItemName}</h4> : null}
-              {titleOverride ? <span className="text-[14px] font-medium text-foreground">{titleOverride}</span> : null}
+              <h3 className="text-[16px] font-semibold text-foreground">{group.accessItemName}</h3>
+              <Badge variant={getProvisioningSummaryVariant(group.provisioningSummary.variant)}>{group.provisioningSummary.label}</Badge>
+              {hasSkippedOutcome || !group.hasTargets ? <Badge variant="error">No configured target</Badge> : null}
+              {hasFailedOutcome ? <Badge variant="error">Assignment creation failed</Badge> : null}
             </div>
-            {!titleOverride ? <p className="mt-2 text-[13px] text-muted-foreground">{view.locationLabels || '-'}</p> : null}
+            <p className="mt-2 text-[13px] text-muted-foreground">{group.locationLabels || '-'}</p>
           </div>
           <ChevronRight className="mt-1 size-4 shrink-0 text-muted-foreground transition group-open:rotate-90" aria-hidden="true" />
         </div>
       </summary>
+      <div className="grid gap-4 border-t border-border p-4">
+        <MaterializationOutcomeNotice views={[group.view]} outcomes={group.materializationOutcomes} />
+        <PacsAssignmentList views={[group.view]} title="PACS assignments" emptyLabel="No PACS assignments yet." provisioningTitle="Actual provisioned access" assignments={group.assignments} provisionings={group.provisionings} />
+      </div>
+    </details>
+  );
+}
 
-      <div className="border-t border-border px-4 pb-4 pt-4">
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <ApprovalHistoryPanel history={view.approvalHistory} systemApprovalReasons={view.systemApprovalReasons} sourceKind={view.grant.sourceKind} />
-        </div>
-        {view.hasStatusMismatch ? <p className="mt-4 rounded-interactive border border-warning/40 bg-warning/10 px-4 py-3 text-[14px] text-foreground">Effective PACS provisioning is already provisioned, but one or more source assignment rows are still marked pending. Effective provisioning status is shown as the primary truth.</p> : null}
-        <div className="mt-4">
-          <ProvisioningInsightPanel title="Effective PACS provisioning" emptyLabel="No PACS provisioning yet." items={view.grantProvisionings.map((item) => ({ key: item.id, systemName: view.systemsById.get(item.accessControlSystemId)?.name ?? 'Unknown system', targetName: view.targetsById.get(item.accessLevelTargetId)?.name ?? 'Unknown target', status: item.status, scheduledFor: item.scheduledFor, provisionedAt: item.provisionedAt, completedAt: item.completedAt, failureReason: item.failureReason, nativeAssignmentId: item.nativeAssignmentId, validFrom: item.validFrom, validUntil: item.validUntil, provisioningTiming: item.provisioningTiming }))} />
-        </div>
-        <details className="mt-4 rounded-interactive border border-border p-4">
-          <summary className="cursor-pointer text-[14px] font-medium text-foreground">Source assignment rows</summary>
-          <div className="mt-4">
-            <AssignmentInsightPanel title="PACS assignments" emptyLabel="No PACS assignments yet." items={view.grantAssignments.map((item) => ({ key: item.id, systemName: view.systemsById.get(item.accessControlSystemId)?.name ?? 'Unknown system', targetName: view.targetsById.get(item.accessLevelTargetId)?.name ?? 'Unknown target', status: item.status, scheduledFor: item.scheduledFor, provisionedAt: item.provisionedAt, completedAt: item.completedAt, failureReason: item.failureReason, nativeAssignmentId: item.nativeAssignmentId, validFrom: item.validFrom, validUntil: item.validUntil }))} />
+function PacsAssignmentList({ views, title, emptyLabel, provisioningTitle, assignments, provisionings }: { readonly views: readonly GrantView[]; readonly title: string; readonly emptyLabel: string; readonly provisioningTitle: string; readonly assignments?: readonly PACSAssignmentResponse[]; readonly provisionings?: readonly PACSProvisioningResponse[]; }) {
+  const sourceAssignments = assignments ?? views.flatMap((view) => view.grantAssignments);
+  const sourceProvisionings = provisionings ?? views.flatMap((view) => view.grantProvisionings);
+  const assignmentRows = buildPacsAssignmentRows(views, sourceAssignments, sourceProvisionings);
+
+  return (
+    <div className="rounded-interactive border border-border p-4">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
+      <div className="mt-3 grid gap-2">
+        {assignmentRows.length === 0 ? <p className="text-[14px] text-muted-foreground">{emptyLabel}</p> : assignmentRows.map((row) => <PacsAssignmentRow key={row.assignment.id} row={row} provisioningTitle={provisioningTitle} />)}
+      </div>
+    </div>
+  );
+}
+
+function MaterializationOutcomeNotice({ views, outcomes }: { readonly views: readonly GrantView[]; readonly outcomes: readonly AccessGrantMaterializationOutcomeResponse[]; }) {
+  const notices = outcomes
+    .filter((item) => item.status === 'SkippedNoTarget' || item.status === 'Failed')
+    .map((item) => ({
+      key: item.id,
+      variant: item.status === 'Failed' ? 'error' : 'secondary',
+      message: item.status === 'Failed'
+        ? `${getLocationLabelForOutcome(views, item.locationId)}: ${item.failureReason ?? 'Failed to create PACS assignments.'}`
+        : `${getLocationLabelForOutcome(views, item.locationId)}: ${item.failureReason ?? 'No enabled PACS access level target is configured for this access item.'}`,
+    }));
+
+  if (notices.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="grid gap-2">
+      {notices.map((notice) => <p key={notice.key} className={notice.variant === 'error' ? 'rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error' : 'rounded-interactive border border-border bg-background px-4 py-3 text-[14px] text-muted-foreground'}>{notice.message}</p>)}
+    </div>
+  );
+}
+
+function PacsAssignmentRow({ row, provisioningTitle }: { readonly row: PacsAssignmentRowView; readonly provisioningTitle: string; }) {
+  const title = `${row.systemName} - ${row.locationLabel || 'Unscoped'}`;
+  const validityLabel = getValidityWindowLabel(row.assignment.validFrom, row.assignment.validUntil);
+
+  return (
+    <details className="rounded-interactive border border-border bg-background" open={row.shouldExpand}>
+      <summary className="cursor-pointer list-none p-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-foreground">{title}</p>
+            <p className="mt-1 text-[13px] text-muted-foreground">{row.targetName}</p>
+            {validityLabel ? <p className="mt-1 text-[13px] text-muted-foreground">{validityLabel}</p> : null}
           </div>
-        </details>
+          <div className="flex items-center gap-3">
+            <Badge variant={getInfraStatusVariant(row.assignment.status)}>{row.assignment.status}</Badge>
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-open:rotate-90" aria-hidden="true" />
+          </div>
+        </div>
+      </summary>
+      <div className="grid gap-4 border-t border-border p-3">
+        <dl className="grid gap-2 text-[13px] text-muted-foreground">
+          <div className="flex items-center justify-between gap-3"><dt>Scheduled</dt><dd className="text-right">{formatDateTimeLabel(row.assignment.scheduledFor)}</dd></div>
+          <div className="flex items-center justify-between gap-3"><dt>Completed</dt><dd className="text-right">{row.assignment.completedAt ? formatDateTimeLabel(row.assignment.completedAt) : '-'}</dd></div>
+          {row.assignment.failureReason ? <div className="flex items-center justify-between gap-3"><dt>Failure</dt><dd className="text-right text-error">{row.assignment.failureReason}</dd></div> : null}
+          {row.assignment.nativeAssignmentId ? <div className="flex items-center justify-between gap-3"><dt>Native assignment</dt><dd className="text-right">{row.assignment.nativeAssignmentId}</dd></div> : null}
+        </dl>
+        <ProvisioningInsightPanel title={provisioningTitle} emptyLabel="No effective provisioning yet." items={row.provisionings.map((item) => ({ key: item.id, systemName: row.systemName, targetName: row.targetName, status: item.status, scheduledFor: item.scheduledFor, provisionedAt: item.provisionedAt, completedAt: item.completedAt, failureReason: item.failureReason, nativeAssignmentId: item.nativeAssignmentId, validFrom: item.validFrom, validUntil: item.validUntil, provisioningTiming: item.provisioningTiming }))} />
       </div>
     </details>
   );
@@ -551,43 +713,12 @@ function RequestsSection({ data, isLoading, isError, onOpenRequest }: { readonly
   );
 }
 
-function AssignmentInsightPanel({ title, emptyLabel, items }: { readonly title: string; readonly emptyLabel: string; readonly items: readonly { key: string; systemName: string; targetName: string; status: string; scheduledFor: string; provisionedAt: string | null; completedAt: string | null; failureReason: string | null; nativeAssignmentId: string | null; validFrom: string; validUntil: string | null; }[]; }) {
-  return (
-    <div className="rounded-interactive border border-border p-4">
-      <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
-      <div className="mt-3 grid gap-2">
-        {items.length === 0 ? <p className="text-[14px] text-muted-foreground">{emptyLabel}</p> : items.map((item) => <div key={item.key} className="rounded-interactive border border-border bg-background p-3"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-medium text-foreground">{item.systemName}</p><p className="mt-1 text-[13px] text-muted-foreground">{item.targetName}</p></div><Badge variant={getInfraStatusVariant(item.status)}>{item.status}</Badge></div><dl className="mt-3 grid gap-2 text-[13px] text-muted-foreground"><div className="flex items-center justify-between gap-3"><dt>Window</dt><dd className="text-right">{formatDateTimeLabel(item.validFrom)}{item.validUntil ? ` to ${formatDateTimeLabel(item.validUntil)}` : ''}</dd></div><div className="flex items-center justify-between gap-3"><dt>Scheduled</dt><dd className="text-right">{formatDateTimeLabel(item.scheduledFor)}</dd></div><div className="flex items-center justify-between gap-3"><dt>Provisioned</dt><dd className="text-right">{item.provisionedAt ? formatDateTimeLabel(item.provisionedAt) : '-'}</dd></div><div className="flex items-center justify-between gap-3"><dt>Completed</dt><dd className="text-right">{item.completedAt ? formatDateTimeLabel(item.completedAt) : '-'}</dd></div>{item.failureReason ? <div className="flex items-center justify-between gap-3"><dt>Failure</dt><dd className="text-right text-error">{item.failureReason}</dd></div> : null}{item.nativeAssignmentId ? <div className="flex items-center justify-between gap-3"><dt>Native assignment</dt><dd className="text-right">{item.nativeAssignmentId}</dd></div> : null}</dl></div>)}
-      </div>
-    </div>
-  );
-}
-
 function ProvisioningInsightPanel({ title, emptyLabel, items }: { readonly title: string; readonly emptyLabel: string; readonly items: readonly { key: string; systemName: string; targetName: string; status: string; scheduledFor: string; provisionedAt: string | null; completedAt: string | null; failureReason: string | null; nativeAssignmentId: string | null; validFrom: string; validUntil: string | null; provisioningTiming: string; }[]; }) {
   return (
     <div className="rounded-interactive border border-border p-4">
       <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
       <div className="mt-3 grid gap-2">
         {items.length === 0 ? <p className="text-[14px] text-muted-foreground">{emptyLabel}</p> : items.map((item) => <div key={item.key} className="rounded-interactive border border-border bg-background p-3"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-medium text-foreground">{item.systemName}</p><p className="mt-1 text-[13px] text-muted-foreground">{item.targetName}</p></div><Badge variant={getInfraStatusVariant(item.status)}>{item.status}</Badge></div><dl className="mt-3 grid gap-2 text-[13px] text-muted-foreground"><div className="flex items-center justify-between gap-3"><dt>Timing</dt><dd className="text-right">{item.provisioningTiming}</dd></div><div className="flex items-center justify-between gap-3"><dt>Window</dt><dd className="text-right">{formatDateTimeLabel(item.validFrom)}{item.validUntil ? ` to ${formatDateTimeLabel(item.validUntil)}` : ''}</dd></div><div className="flex items-center justify-between gap-3"><dt>Scheduled</dt><dd className="text-right">{formatDateTimeLabel(item.scheduledFor)}</dd></div><div className="flex items-center justify-between gap-3"><dt>Provisioned</dt><dd className="text-right">{item.provisionedAt ? formatDateTimeLabel(item.provisionedAt) : '-'}</dd></div><div className="flex items-center justify-between gap-3"><dt>Completed</dt><dd className="text-right">{item.completedAt ? formatDateTimeLabel(item.completedAt) : '-'}</dd></div>{item.failureReason ? <div className="flex items-center justify-between gap-3"><dt>Failure</dt><dd className="text-right text-error">{item.failureReason}</dd></div> : null}{item.nativeAssignmentId ? <div className="flex items-center justify-between gap-3"><dt>Native assignment</dt><dd className="text-right">{item.nativeAssignmentId}</dd></div> : null}</dl></div>)}
-      </div>
-    </div>
-  );
-}
-
-function ApprovalHistoryPanel({ history, systemApprovalReasons, sourceKind }: { readonly history: readonly { key: string; approverDisplayName: string; role: string; decisionKind: ApprovalDecisionKind; decidedAt: string; note: string | null; }[]; readonly systemApprovalReasons: readonly string[]; readonly sourceKind: AccessGrantResponse['sourceKind']; }) {
-  if (sourceKind !== 'CatalogRequest') {
-    return <div className="rounded-interactive border border-border p-4"><p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Approval</p><p className="mt-3 text-[14px] text-muted-foreground">No approval required. Automatic grant.</p></div>;
-  }
-
-  if (history.length === 0 && systemApprovalReasons.length === 0) {
-    return <div className="rounded-interactive border border-border p-4"><p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Approval</p><p className="mt-3 text-[14px] text-muted-foreground">No approval history available.</p></div>;
-  }
-
-  return (
-    <div className="rounded-interactive border border-border p-4">
-      <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Approved by</p>
-      <div className="mt-3 grid gap-2">
-        {history.map((item) => <div key={item.key} className="rounded-interactive border border-border bg-background px-3 py-2 text-[14px]"><p className="font-medium text-foreground">{item.approverDisplayName}</p><p className="mt-1 text-[13px] text-muted-foreground">{item.role} • {item.decisionKind === 'Approve' ? 'Approved' : 'Rejected'} • {formatDateTimeLabel(item.decidedAt)}</p>{item.note ? <p className="mt-1 text-[13px] text-muted-foreground">{item.note}</p> : null}</div>)}
-        {systemApprovalReasons.map((reason) => <div key={reason} className="rounded-interactive border border-border bg-background px-3 py-2 text-[14px]"><p className="font-medium text-foreground">System approved</p><p className="mt-1 text-[13px] text-muted-foreground">{reason}</p></div>)}
       </div>
     </div>
   );
@@ -693,8 +824,21 @@ type GrantView = {
   readonly systemApprovalReasons: string[];
   readonly shouldExpand: boolean;
   readonly approvalSummary: string;
+  readonly locationLabelsById: Map<string, string>;
   readonly systemsById: Map<string, AccessControlSystemResponse>;
   readonly targetsById: Map<string, AccessLevelTargetResponse>;
+};
+
+type AssignmentData = {
+  readonly grants: AccessGrantResponse[];
+  readonly assignments: PACSAssignmentResponse[];
+  readonly provisionings: PACSProvisioningResponse[];
+  readonly packagesById: Map<string, PackageResponse>;
+  readonly accessItemsById: Map<string, AccessItemResponse>;
+  readonly packageAccessItemsByPackageId: Map<string, AccessItemResponse[]>;
+  readonly locationsById: Map<string, LocationResponse>;
+  readonly targetsById: Map<string, AccessLevelTargetResponse>;
+  readonly requestDetailsById: Map<string, PackageRequestDetailResponse>;
 };
 
 type PackageAssignmentGroupView = {
@@ -719,32 +863,56 @@ type PackageAssignmentGroupView = {
 type AccessItemGroupView = {
   readonly accessItemId: string;
   readonly accessItemName: string;
-  readonly scopes: ScopeGroupView[];
+  readonly leafViews: GrantView[];
+  readonly materializationOutcomes: AccessGrantMaterializationOutcomeResponse[];
   readonly provisioningSummary: { readonly label: string; readonly variant: 'success' | 'secondary' | 'error' };
   readonly provisioningCount: number;
   readonly approvalSummary: string;
   readonly shouldExpand: boolean;
 };
 
-type ScopeGroupView = {
-  readonly scopeLabel: string;
-  readonly leafViews: GrantView[];
+type AutomatedPackageAssignmentGroupView = {
+  readonly packageId: string;
+  readonly sourceId: string;
+  readonly sourceType: 'Automated';
+  readonly grantIds: string[];
+  readonly packageName: string;
+  readonly sourceLabel: string;
+  readonly sourceReason: string;
+  readonly validityLabel: string;
+  readonly locationSummary: string;
+  readonly accessItems: AutomatedAccessItemGroupView[];
   readonly provisioningSummary: { readonly label: string; readonly variant: 'success' | 'secondary' | 'error' };
+  readonly provisioningCount: number;
   readonly approvalSummary: string;
+  readonly shouldExpand: boolean;
+};
+
+type AutomatedAccessItemGroupView = {
+  readonly accessItemId: string;
+  readonly accessItemName: string;
+  readonly view: GrantView;
+  readonly locationLabels: string;
+  readonly assignments: PACSAssignmentResponse[];
+  readonly provisionings: PACSProvisioningResponse[];
+  readonly materializationOutcomes: AccessGrantMaterializationOutcomeResponse[];
+  readonly hasTargets: boolean;
+  readonly provisioningSummary: { readonly label: string; readonly variant: 'success' | 'secondary' | 'error' };
+  readonly shouldExpand: boolean;
+};
+
+type PacsAssignmentRowView = {
+  readonly assignment: PACSAssignmentResponse;
+  readonly locationLabel: string;
+  readonly systemName: string;
+  readonly targetName: string;
+  readonly provisionings: PACSProvisioningResponse[];
   readonly shouldExpand: boolean;
 };
 
 function buildGrantView(
   grant: AccessGrantResponse,
-  data: {
-    readonly assignments: PACSAssignmentResponse[];
-    readonly provisionings: PACSProvisioningResponse[];
-    readonly packagesById: Map<string, PackageResponse>;
-    readonly accessItemsById: Map<string, components['schemas']['AccessItemResponse']>;
-    readonly locationsById: Map<string, LocationResponse>;
-    readonly targetsById: Map<string, AccessLevelTargetResponse>;
-    readonly requestDetailsById: Map<string, PackageRequestDetailResponse>;
-  } | undefined,
+  data: AssignmentData | undefined,
   systemsById: Map<string, AccessControlSystemResponse>,
 ): GrantView {
   const grantAssignments = (data?.assignments ?? []).filter((item) => item.sourceAssignmentId === grant.id);
@@ -752,7 +920,8 @@ function buildGrantView(
   const grantProvisionings = (data?.provisionings ?? []).filter((item) => item.sourceAssignmentIds.some((assignmentId) => grantAssignmentIds.has(assignmentId)));
   const packageName = data?.packagesById.get(grant.packageId)?.name ?? grant.packageId;
   const accessItemName = grant.accessItemId ? data?.accessItemsById.get(grant.accessItemId)?.name ?? grant.accessItemId : packageName;
-  const locationLabels = (grant.locationIds ?? []).map((locationId) => getLocationLabel(data?.locationsById.get(locationId))).join(', ');
+  const locationLabelsById = new Map((grant.locationIds ?? []).map((locationId) => [locationId, getLocationLabel(data?.locationsById.get(locationId))]));
+  const locationLabels = Array.from(locationLabelsById.values()).join(', ');
   const provisioningSummary = getProvisioningSummary(grantProvisionings);
   const hasStatusMismatch = grantAssignments.some((assignment) => assignment.status === 'Pending') && grantProvisionings.some((provisioning) => provisioning.status === 'Provisioned');
   const approvalFlow = resolveApprovalFlow(grant, data?.requestDetailsById);
@@ -774,6 +943,7 @@ function buildGrantView(
     systemApprovalReasons,
     shouldExpand,
     approvalSummary,
+    locationLabelsById,
     systemsById,
     targetsById: data?.targetsById ?? new Map<string, AccessLevelTargetResponse>(),
   };
@@ -816,7 +986,11 @@ function groupCatalogViews(views: GrantView[], requestDetailsById: Map<string, P
   });
 }
 
-function groupAutomaticViews(views: GrantView[]) {
+function groupAutomaticViews(
+  views: GrantView[],
+  packageAccessItemsByPackageId: Map<string, AccessItemResponse[]>,
+  targetsById: Map<string, AccessLevelTargetResponse>,
+) {
   const groups = new Map<string, GrantView[]>();
 
   views.forEach((view) => {
@@ -827,16 +1001,17 @@ function groupAutomaticViews(views: GrantView[]) {
   });
 
   return Array.from(groups.entries()).flatMap(([policyLabel, policyViews]) =>
-    groupBy(policyViews, (item) => item.grant.packageId).map(([packageId, packageViews]): PackageAssignmentGroupView => ({
+    groupBy(policyViews, (item) => item.grant.packageId).map(([packageId, packageViews]): AutomatedPackageAssignmentGroupView => ({
       packageId,
       sourceId: packageViews[0]?.grant.sourceId ?? '',
       sourceType: 'Automated',
+      grantIds: Array.from(new Set(packageViews.map((item) => item.grant.id))),
       packageName: packageViews[0]?.packageName ?? packageId,
       sourceLabel: policyLabel,
       sourceReason: getAutomaticReason(packageViews[0]),
       validityLabel: getValidityLabel(packageViews),
       locationSummary: getLocationSummary(packageViews),
-      accessItems: groupAccessItems(packageViews),
+      accessItems: groupAutomaticAccessItems(packageViews, packageAccessItemsByPackageId.get(packageId) ?? [], targetsById),
       provisioningSummary: getProvisioningSummary(packageViews.flatMap((item) => item.grantProvisionings)),
       provisioningCount: packageViews.flatMap((item) => item.grantProvisionings).length,
       approvalSummary: getApprovalSummary([], [], packageViews[0]?.grant.sourceKind ?? 'Manual'),
@@ -845,26 +1020,72 @@ function groupAutomaticViews(views: GrantView[]) {
   );
 }
 
+function groupAutomaticAccessItems(views: readonly GrantView[], accessItems: readonly AccessItemResponse[], targetsById: Map<string, AccessLevelTargetResponse>) {
+  const uniqueAccessItems = Array.from(new Map(accessItems.map((item) => [item.id, item])).values());
+
+  return uniqueAccessItems.map((accessItem): AutomatedAccessItemGroupView => {
+    const targetIds = new Set(Array.from(targetsById.values()).filter((target) => target.accessItemId === accessItem.id).map((target) => target.id));
+    const assignments = views.flatMap((view) => view.grantAssignments.filter((item) => targetIds.has(item.accessLevelTargetId)));
+    const provisionings = views.flatMap((view) => view.grantProvisionings.filter((item) => targetIds.has(item.accessLevelTargetId)));
+    const materializationOutcomes = views.flatMap((view) => view.grant.materializationOutcomes.filter((item) => item.accessItemId === accessItem.id));
+    const hasMaterializationIssue = materializationOutcomes.some((item) => item.status === 'SkippedNoTarget' || item.status === 'Failed');
+    const locationLabels = Array.from(new Set(views.map((view) => view.locationLabels).filter(Boolean))).join(', ');
+    const view = views[0]!;
+
+    return {
+      accessItemId: accessItem.id,
+      accessItemName: accessItem.name,
+      view,
+      locationLabels,
+      assignments,
+      provisionings,
+      materializationOutcomes,
+      hasTargets: targetIds.size > 0,
+      provisioningSummary: getProvisioningSummary(provisionings),
+      shouldExpand: hasMaterializationIssue || targetIds.size === 0 || provisionings.some((item) => item.status !== 'Provisioned') || assignments.some((item) => item.status === 'Pending') || provisionings.length === 0,
+    };
+  });
+}
+
 function groupAccessItems(views: GrantView[]) {
   return groupBy(views, (item) => item.grant.accessItemId ?? item.grant.id).map(([accessItemId, accessItemViews]): AccessItemGroupView => ({
     accessItemId,
     accessItemName: accessItemViews[0]?.accessItemName ?? accessItemId,
-    scopes: groupScopes(accessItemViews),
+    leafViews: accessItemViews,
+    materializationOutcomes: accessItemViews.flatMap((item) => item.grant.materializationOutcomes.filter((outcome) => outcome.accessItemId === accessItemId)),
     provisioningSummary: getProvisioningSummary(accessItemViews.flatMap((item) => item.grantProvisionings)),
     provisioningCount: accessItemViews.flatMap((item) => item.grantProvisionings).length,
     approvalSummary: getApprovalSummary(accessItemViews.flatMap((item) => item.approvalHistory), accessItemViews.flatMap((item) => item.systemApprovalReasons), accessItemViews[0]?.grant.sourceKind ?? 'Manual'),
-    shouldExpand: accessItemViews.some((item) => item.shouldExpand),
+    shouldExpand: accessItemViews.some((item) => item.shouldExpand) || accessItemViews.flatMap((item) => item.grant.materializationOutcomes.filter((outcome) => outcome.accessItemId === accessItemId)).some((outcome) => outcome.status === 'SkippedNoTarget' || outcome.status === 'Failed'),
   }));
 }
 
-function groupScopes(views: GrantView[]) {
-  return groupBy(views, (item) => item.locationLabels || 'Unscoped').map(([scopeLabel, scopeViews]): ScopeGroupView => ({
-    scopeLabel,
-    leafViews: scopeViews,
-    provisioningSummary: getProvisioningSummary(scopeViews.flatMap((item) => item.grantProvisionings)),
-    approvalSummary: getApprovalSummary(scopeViews.flatMap((item) => item.approvalHistory), scopeViews.flatMap((item) => item.systemApprovalReasons), scopeViews[0]?.grant.sourceKind ?? 'Manual'),
-    shouldExpand: scopeViews.some((item) => item.shouldExpand),
-  }));
+function buildPacsAssignmentRows(views: readonly GrantView[], assignments: readonly PACSAssignmentResponse[], provisionings: readonly PACSProvisioningResponse[]) {
+  const locationLabelByAssignmentId = new Map<string, string>();
+
+  views.forEach((view) => {
+    view.grantAssignments.forEach((assignment) => {
+      locationLabelByAssignmentId.set(assignment.id, view.locationLabels || 'Unscoped');
+    });
+  });
+
+  const systemsById = views[0]?.systemsById ?? new Map<string, AccessControlSystemResponse>();
+  const targetsById = views[0]?.targetsById ?? new Map<string, AccessLevelTargetResponse>();
+
+  return [...assignments]
+    .map((assignment): PacsAssignmentRowView => ({
+      assignment,
+      locationLabel: locationLabelByAssignmentId.get(assignment.id) ?? 'Unscoped',
+      systemName: systemsById.get(assignment.accessControlSystemId)?.name ?? 'Unknown system',
+      targetName: targetsById.get(assignment.accessLevelTargetId)?.name ?? 'Unknown target',
+      provisionings: provisionings.filter((item) => item.sourceAssignmentIds.includes(assignment.id)),
+      shouldExpand: assignment.status !== 'Provisioned' || provisionings.some((item) => item.sourceAssignmentIds.includes(assignment.id) && item.status !== 'Provisioned'),
+    }))
+    .sort((left, right) => left.systemName.localeCompare(right.systemName) || left.locationLabel.localeCompare(right.locationLabel) || left.targetName.localeCompare(right.targetName) || left.assignment.validFrom.localeCompare(right.assignment.validFrom));
+}
+
+function getLocationLabelForOutcome(views: readonly GrantView[], locationId: string) {
+  return views.find((view) => view.locationLabelsById.has(locationId))?.locationLabelsById.get(locationId) ?? locationId;
 }
 
 function groupBy<T>(items: readonly T[], keySelector: (item: T) => string) {
@@ -887,6 +1108,10 @@ function getValidityLabel(views: readonly GrantView[]) {
   const validUntil = views[0]?.grant.validUntil;
   if (!validFrom) return '-';
   return `${formatDateTimeLabel(validFrom)}${validUntil ? ` to ${formatDateTimeLabel(validUntil)}` : ''}`;
+}
+
+function getValidityWindowLabel(validFrom: string, validUntil: string | null) {
+  return validUntil ? `${formatDateTimeLabel(validFrom)} to ${formatDateTimeLabel(validUntil)}` : '';
 }
 
 function getAutomaticReason(view: GrantView | undefined) {
