@@ -40,11 +40,13 @@ public sealed class TenantSeeder(TenantsDbContext dbContext, IOptions<TenancyOpt
         if (tenant.Configuration.Oidc == configuredOidc)
             return;
 
-        tenant.UpdateConfiguration(tenant.Configuration with
-        {
-            Oidc = configuredOidc
-        });
-
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await dbContext.Tenants
+            .Where(item => item.Id == defaultTenant.Id)
+            .ExecuteUpdateAsync(
+                updates => updates
+                    .SetProperty(item => item.Configuration.Oidc.MetadataUrl, _ => configuredOidc.MetadataUrl)
+                    .SetProperty(item => item.Configuration.Oidc.ClientId, _ => configuredOidc.ClientId)
+                    .SetProperty(item => item.Configuration.Oidc.RequireHttpsMetadata, _ => configuredOidc.RequireHttpsMetadata),
+                cancellationToken);
     }
 }
