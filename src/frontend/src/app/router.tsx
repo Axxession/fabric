@@ -12,6 +12,7 @@ import AccessControlPage from '@/features/administration/access-control-page';
 import AccessControlSystemCreatePage from '@/features/administration/access-control-system-create-page';
 import AccessControlSystemEditPage from '@/features/administration/access-control-system-edit-page';
 import AccessModelPage from '@/features/administration/access-model-page';
+import NotificationsPage from '@/features/administration/notifications-page';
 import ApprovalGroupCreatePage from '@/features/administration/approval-group-create-page';
 import ApprovalGroupEditPage from '@/features/administration/approval-group-edit-page';
 import CatalogueCreatePage from '@/features/administration/catalogue-create-page';
@@ -69,8 +70,6 @@ const KioskPage = lazy(() => import('@/features/kiosk/kiosk-page'));
 const KioskSetupPage = lazy(() => import('@/features/kiosk/kiosk-setup-page'));
 const OrganizationsPage = lazy(() => import('@/features/organizations/organizations-page'));
 const ReceptionDeskPage = lazy(() => import('@/features/reception-desk/reception-desk-page'));
-const SettingsLayout = lazy(() => import('@/features/settings/settings-layout'));
-const ReceptionDeskSettingsPage = lazy(() => import('@/features/settings/reception-desk-settings-page'));
 const ReceptionKioskArrivalPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-arrival-page'));
 const ReceptionKioskDocumentScanPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-document-scan-page'));
 const ReceptionKioskFaceScanPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-face-scan-page'));
@@ -80,8 +79,6 @@ const ReceptionKioskPage = lazy(() => import('@/features/reception-kiosk/recepti
 const ReceptionKioskScanQrPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-scan-qr-page'));
 const ReceptionKioskSetupPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-setup-page'));
 const ReceptionKioskSuccessPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-success-page'));
-const TenantSettingsPage = lazy(() => import('@/features/settings/tenant-settings-page'));
-const VisitorsSettingsPage = lazy(() => import('@/features/settings/visitors-settings-page'));
 const VisitorsManagementLayout = lazy(() => import('@/features/visitors-management/visitors-management-layout'));
 const VisitorConfirmationPage = lazy(() => import('@/features/visitor-confirmation/visitor-confirmation-page'));
 const OrganizerCreatePage = lazy(() => import('@/features/visitors-management/organizer-create-page'));
@@ -259,6 +256,12 @@ const administrationAccessControlRoute = createRoute({
   getParentRoute: () => administrationRoute,
   path: '/access-control',
   component: () => <LazyRoute component={<AccessControlPage />} />,
+});
+
+const administrationNotificationsRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/notifications',
+  component: () => <LazyRoute component={<NotificationsPage />} />,
 });
 
 const administrationAccessItemCreateRoute = createRoute({
@@ -643,36 +646,6 @@ const facilityHardwareAgentDetailRoute = createRoute({
   component: () => <LazyRoute component={<FacilityHardwareAgentDetailPage />} />,
 });
 
-const settingsRoute = createRoute({
-  getParentRoute: () => mainLayoutRoute,
-  path: '/old/settings',
-  component: () => <ProtectedLazyRoute component={<SettingsLayout />} />,
-});
-
-const settingsIndexRoute = createRoute({
-  getParentRoute: () => settingsRoute,
-  path: '/',
-  component: () => <LazyRoute component={<TenantSettingsPage />} />,
-});
-
-const visitorsSettingsRoute = createRoute({
-  getParentRoute: () => settingsRoute,
-  path: '/visitors',
-  component: () => <LazyRoute component={<VisitorsSettingsPage />} />,
-});
-
-const receptionDeskSettingsRoute = createRoute({
-  getParentRoute: () => settingsRoute,
-  path: '/reception-desk',
-  component: () => <LazyRoute component={<ReceptionDeskSettingsPage />} />,
-});
-
-const tenantSettingsRoute = createRoute({
-  getParentRoute: () => settingsRoute,
-  path: '/tenant',
-  component: () => <LazyRoute component={<TenantSettingsPage />} />,
-});
-
 const visitorsManagementRoute = createRoute({
   getParentRoute: () => mainLayoutRoute,
   path: '/old/visitors-management',
@@ -823,6 +796,7 @@ const routeTree = rootRoute.addChildren([
       administrationSitesRoute,
       administrationAccessModelRoute,
       administrationAccessControlRoute,
+      administrationNotificationsRoute,
       administrationAccessItemCreateRoute,
       administrationAccessItemEditRoute,
       administrationAccessControlTargetEditRoute,
@@ -884,7 +858,6 @@ const routeTree = rootRoute.addChildren([
     receptionDeskRoute,
     visitorConfirmationRoute,
     facilityRoute.addChildren([facilityHardwareRoute, facilityHardwareAgentDetailRoute]),
-    settingsRoute.addChildren([settingsIndexRoute, visitorsSettingsRoute, receptionDeskSettingsRoute, tenantSettingsRoute]),
     visitorsManagementRoute.addChildren([visitsIndexRoute, visitsRoute, visitCreateRoute, visitEditRoute, visitorsRoute, organizersRoute, organizerCreateRoute, organizerEditRoute, visitorReportingRoute]),
   ]),
   receptionKioskLayoutRoute.addChildren([receptionKioskIndexRoute, receptionKioskSetupRoute, receptionKioskScanQrRoute, receptionKioskArrivalRoute, receptionKioskFaceScanRoute, receptionKioskDocumentScanRoute, receptionKioskSuccessRoute, receptionKioskFailedRoute, receptionKioskNoRegistrationRoute]),

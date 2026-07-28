@@ -77,6 +77,7 @@ export const appPerspectives: readonly AppPerspective[] = [
       { label: 'My Organization', description: 'Review employees, organizational units, and personas.', to: '/administration/my-organization' },
       { label: 'Access Model', description: 'Catalogue, packages and access automation.', to: '/administration/access-model' },
       { label: 'Access Control', description: 'Physical Access Control Configuration.', to: '/administration/access-control' },
+      { label: 'Notifications', description: 'Manage visitor notification templates and delivery toggles.', to: '/administration/notifications' },
     ],
     isAvailable: (actor) => actor.isAdmin,
   },
