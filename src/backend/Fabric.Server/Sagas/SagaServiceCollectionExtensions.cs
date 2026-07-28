@@ -33,10 +33,10 @@ public static class SagaServiceCollectionExtensions
         collection.AddSingleton<VisitorPreOnboardingSagaTrigger>();
         collection.AddScoped<VisitorPreOnboardingSagaService>();
         collection.AddHostedService<VisitorPreOnboardingWorker>();
+        collection.AddSingleton<KioskSagaTrigger>();
 
         if (enableAutomation)
         {
-            collection.AddSingleton<KioskSagaTrigger>();
             collection.AddScoped<KioskSagaService>();
             collection.AddHostedService<KioskWorker>();
         }
