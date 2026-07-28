@@ -96,7 +96,7 @@ const capabilityByType: Record<KioskDeviceType, string> = {
 
 export default function KioskEditPage() {
   const { kioskId } = useParams({
-    from: "/main/old/automation/kiosk/$kioskId/edit",
+    from: "/main/administration/automation/kiosk/$kioskId/edit",
   });
   const auth = useAuth();
   const queryClient = useQueryClient();
@@ -319,7 +319,7 @@ export default function KioskEditPage() {
   return (
     <section className="grid gap-6">
       <Link
-        to="/old/automation/kiosk"
+        to="/administration/automation/kiosk"
         className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground"
       >
         <ArrowLeft className="size-4" />

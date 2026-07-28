@@ -10,7 +10,7 @@ export default function WorkflowInstanceViewerPage() {
   const auth = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { instanceId } = useParams({ from: '/main/old/automation/workflow-instances/$instanceId' });
+  const { instanceId } = useParams({ from: '/main/administration/automation/workflow-instances/$instanceId' });
 
   return (
     <ElsaStudioViewerScreen
@@ -19,7 +19,7 @@ export default function WorkflowInstanceViewerPage() {
       onEditWorkflowDefinition={(definitionId) => {
         void queryClient.invalidateQueries({ queryKey: workflowDefinitionsQueryKey });
         void queryClient.invalidateQueries({ queryKey: workflowHistoryQueryKey });
-        void navigate({ to: '/old/automation/workflow-definitions/$definitionId/edit', params: { definitionId } });
+        void navigate({ to: '/administration/automation/workflow-definitions/$definitionId/edit', params: { definitionId } });
       }}
     />
   );

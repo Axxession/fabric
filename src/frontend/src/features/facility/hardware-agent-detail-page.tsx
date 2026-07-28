@@ -19,7 +19,7 @@ type HardwareDeviceAvailabilityReason = components['schemas']['HardwareDeviceAva
 const agentsQueryKey = ['facility', 'hardware-agents'] as const;
 
 export default function HardwareAgentDetailPage() {
-  const { agentId } = useParams({ from: '/main/old/facility/hardware/$agentId' });
+  const { agentId } = useParams({ from: '/main/administration/clients/hardware-agents/$agentId' });
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
 
   const agentQuery = useQuery({
@@ -98,7 +98,7 @@ export default function HardwareAgentDetailPage() {
 
   return (
     <div className="grid gap-6">
-      <Link to="/old/facility/hardware" className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground">
+      <Link to="/administration/clients" search={{ tab: 'hardware-agents' } as never} className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground">
         <ArrowLeft className="size-4" aria-hidden="true" />
         Back to hardware
       </Link>

@@ -1,4 +1,4 @@
-import { Navigate, Outlet, createRootRoute, createRoute, createRouter, redirect } from '@tanstack/react-router';
+import { Navigate, Outlet, createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 import { lazy, Suspense } from 'react';
 
 import { AppLayout } from '@/shared/layout/app-layout';
@@ -17,6 +17,7 @@ import ApprovalGroupCreatePage from '@/features/administration/approval-group-cr
 import ApprovalGroupEditPage from '@/features/administration/approval-group-edit-page';
 import CatalogueCreatePage from '@/features/administration/catalogue-create-page';
 import CatalogueEditPage from '@/features/administration/catalogue-edit-page';
+import ClientsPage from '@/features/administration/clients-page';
 import PackageCreatePage from '@/features/administration/package-create-page';
 import PackageEditPage from '@/features/administration/package-edit-page';
 import MyOrganizationPage from '@/features/administration/my-organization-page';
@@ -56,7 +57,6 @@ const CardManagementTransformationEditPage = lazy(() => import('@/features/card-
 const CredentialsPage = lazy(() => import('@/features/credentials/credentials-page'));
 const FacilityHardwareAgentDetailPage = lazy(() => import('@/features/facility/hardware-agent-detail-page'));
 const FacilityBuildingEditPage = lazy(() => import('@/features/facility/building-edit-page'));
-const FacilityHardwarePage = lazy(() => import('@/features/facility/hardware-page'));
 const FacilityRoomEditPage = lazy(() => import('@/features/facility/room-edit-page'));
 const FacilitySiteCreatePage = lazy(() => import('@/features/facility/site-create-page'));
 const FacilitySiteEditPage = lazy(() => import('@/features/facility/site-edit-page'));
@@ -264,6 +264,76 @@ const administrationSitesRoute = createRoute({
   component: () => <LazyRoute component={<FacilityLocationsPage />} />,
 });
 
+const administrationClientsRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/clients',
+  component: () => <LazyRoute component={<ClientsPage />} />,
+});
+
+const administrationAutomationRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/automation',
+  component: () => (
+    <ProtectedRoute>
+      <Outlet />
+    </ProtectedRoute>
+  ),
+});
+
+const administrationAutomationIndexRoute = createRoute({
+  getParentRoute: () => administrationAutomationRoute,
+  path: '/',
+  component: () => <Navigate to="/administration/automation/workflow" search={{ tab: 'definitions' } as never} replace />,
+});
+
+const administrationAutomationWorkflowRoute = createRoute({
+  getParentRoute: () => administrationAutomationRoute,
+  path: '/workflow',
+  component: () => <LazyRoute component={<AutomationWorkflowPage />} />,
+});
+
+const administrationAutomationWorkflowDefinitionsRoute = createRoute({
+  getParentRoute: () => administrationAutomationRoute,
+  path: '/workflow-definitions',
+  component: () => <Navigate to="/administration/automation/workflow" search={{ tab: 'definitions' } as never} replace />,
+});
+
+const administrationAutomationWorkflowDefinitionEditorRoute = createRoute({
+  getParentRoute: () => administrationAutomationRoute,
+  path: '/workflow-definitions/$definitionId/edit',
+  component: () => <LazyRoute component={<AutomationWorkflowDefinitionEditorPage />} />,
+});
+
+const administrationAutomationWorkflowInstancesRoute = createRoute({
+  getParentRoute: () => administrationAutomationRoute,
+  path: '/workflow-instances',
+  component: () => <Navigate to="/administration/automation/workflow" search={{ tab: 'history' } as never} replace />,
+});
+
+const administrationAutomationWorkflowInstanceViewerRoute = createRoute({
+  getParentRoute: () => administrationAutomationRoute,
+  path: '/workflow-instances/$instanceId',
+  component: () => <LazyRoute component={<AutomationWorkflowInstanceViewerPage />} />,
+});
+
+const administrationAutomationKioskRoute = createRoute({
+  getParentRoute: () => administrationAutomationRoute,
+  path: '/kiosk',
+  component: () => <LazyRoute component={<AutomationKioskPage />} />,
+});
+
+const administrationAutomationKioskEditRoute = createRoute({
+  getParentRoute: () => administrationAutomationRoute,
+  path: '/kiosk/$kioskId/edit',
+  component: () => <LazyRoute component={<AutomationKioskEditPage />} />,
+});
+
+const administrationAutomationKioskProfileEditRoute = createRoute({
+  getParentRoute: () => administrationAutomationRoute,
+  path: '/kiosk/profiles/$profileId/edit',
+  component: () => <LazyRoute component={<AutomationKioskProfileEditPage />} />,
+});
+
 const administrationAccessModelRoute = createRoute({
   getParentRoute: () => administrationRoute,
   path: '/access-model',
@@ -414,102 +484,10 @@ const administrationRoomEditRoute = createRoute({
   component: () => <LazyRoute component={<FacilityRoomEditPage />} />,
 });
 
-const automationRoute = createRoute({
-  getParentRoute: () => mainLayoutRoute,
-  path: '/old/automation',
-  component: () => (
-    <ProtectedRoute>
-      <Outlet />
-    </ProtectedRoute>
-  ),
-});
-
-const workflowsAliasRoute = createRoute({
-  getParentRoute: () => mainLayoutRoute,
-  path: '/old/workflows',
-  component: () => (
-    <ProtectedRoute>
-      <Outlet />
-    </ProtectedRoute>
-  ),
-});
-
-const automationIndexRoute = createRoute({
-  getParentRoute: () => automationRoute,
-  path: '/',
-  component: () => <Navigate to="/old/automation/workflow" search={{ tab: 'definitions' } as never} />,
-});
-
-const automationWorkflowRoute = createRoute({
-  getParentRoute: () => automationRoute,
-  path: '/workflow',
-  component: () => <LazyRoute component={<AutomationWorkflowPage />} />,
-});
-
-const automationWorkflowDefinitionsRoute = createRoute({
-  getParentRoute: () => automationRoute,
-  path: '/workflow-definitions',
-  component: () => <Navigate to="/old/automation/workflow" search={{ tab: 'definitions' } as never} />,
-});
-
-const automationWorkflowDefinitionEditorRoute = createRoute({
-  getParentRoute: () => automationRoute,
-  path: '/workflow-definitions/$definitionId/edit',
-  component: () => <LazyRoute component={<AutomationWorkflowDefinitionEditorPage />} />,
-});
-
-const automationWorkflowInstancesRoute = createRoute({
-  getParentRoute: () => automationRoute,
-  path: '/workflow-instances',
-  component: () => <Navigate to="/old/automation/workflow" search={{ tab: 'history' } as never} />,
-});
-
-const automationWorkflowInstanceViewerRoute = createRoute({
-  getParentRoute: () => automationRoute,
-  path: '/workflow-instances/$instanceId',
-  component: () => <LazyRoute component={<AutomationWorkflowInstanceViewerPage />} />,
-});
-
-const workflowDefinitionEditorAliasRoute = createRoute({
-  getParentRoute: () => workflowsAliasRoute,
-  path: '/definitions/$definitionId/edit',
-  beforeLoad: ({ params }) => {
-    throw redirect({
-      to: '/old/automation/workflow-definitions/$definitionId/edit',
-      params: { definitionId: params.definitionId },
-      replace: true,
-    });
-  },
-});
-
-const workflowInstanceViewerAliasRoute = createRoute({
-  getParentRoute: () => workflowsAliasRoute,
-  path: '/instances/$instanceId/view',
-  beforeLoad: ({ params }) => {
-    throw redirect({
-      to: '/old/automation/workflow-instances/$instanceId',
-      params: { instanceId: params.instanceId },
-      replace: true,
-    });
-  },
-});
-
-const automationKioskRoute = createRoute({
-  getParentRoute: () => automationRoute,
-  path: '/kiosk',
-  component: () => <LazyRoute component={<AutomationKioskPage />} />,
-});
-
-const automationKioskEditRoute = createRoute({
-  getParentRoute: () => automationRoute,
-  path: '/kiosk/$kioskId/edit',
-  component: () => <LazyRoute component={<AutomationKioskEditPage />} />,
-});
-
-const automationKioskProfileEditRoute = createRoute({
-  getParentRoute: () => automationRoute,
-  path: '/kiosk/profiles/$profileId/edit',
-  component: () => <LazyRoute component={<AutomationKioskProfileEditPage />} />,
+const administrationHardwareAgentDetailRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/clients/hardware-agents/$agentId',
+  component: () => <LazyRoute component={<FacilityHardwareAgentDetailPage />} />,
 });
 
 const cardManagementRoute = createRoute({
@@ -640,28 +618,6 @@ const visitorConfirmationRoute = createRoute({
   getParentRoute: () => mainLayoutRoute,
   path: '/visitor-confirmation/$visitId/$invitationId',
   component: () => <LazyRoute component={<VisitorConfirmationPage />} />,
-});
-
-const facilityRoute = createRoute({
-  getParentRoute: () => mainLayoutRoute,
-  path: '/old/facility',
-  component: () => (
-    <ProtectedRoute>
-      <Outlet />
-    </ProtectedRoute>
-  ),
-});
-
-const facilityHardwareRoute = createRoute({
-  getParentRoute: () => facilityRoute,
-  path: '/hardware',
-  component: () => <LazyRoute component={<FacilityHardwarePage />} />,
-});
-
-const facilityHardwareAgentDetailRoute = createRoute({
-  getParentRoute: () => facilityRoute,
-  path: '/hardware/$agentId',
-  component: () => <LazyRoute component={<FacilityHardwareAgentDetailPage />} />,
 });
 
 const visitorsManagementRoute = createRoute({
@@ -797,6 +753,18 @@ const routeTree = rootRoute.addChildren([
     administrationRoute.addChildren([
       administrationIndexRoute,
       administrationSitesRoute,
+      administrationClientsRoute,
+      administrationAutomationRoute.addChildren([
+        administrationAutomationIndexRoute,
+        administrationAutomationWorkflowRoute,
+        administrationAutomationWorkflowDefinitionsRoute,
+        administrationAutomationWorkflowDefinitionEditorRoute,
+        administrationAutomationWorkflowInstancesRoute,
+        administrationAutomationWorkflowInstanceViewerRoute,
+        administrationAutomationKioskRoute,
+        administrationAutomationKioskEditRoute,
+        administrationAutomationKioskProfileEditRoute,
+      ]),
       administrationAccessModelRoute,
       administrationAccessControlRoute,
       administrationNotificationsRoute,
@@ -822,21 +790,7 @@ const routeTree = rootRoute.addChildren([
       administrationSiteEditRoute,
       administrationBuildingEditRoute,
       administrationRoomEditRoute,
-    ]),
-    automationRoute.addChildren([
-      automationIndexRoute,
-      automationWorkflowRoute,
-      automationWorkflowDefinitionsRoute,
-      automationWorkflowDefinitionEditorRoute,
-      automationWorkflowInstancesRoute,
-      automationWorkflowInstanceViewerRoute,
-      automationKioskRoute,
-      automationKioskEditRoute,
-      automationKioskProfileEditRoute,
-    ]),
-    workflowsAliasRoute.addChildren([
-      workflowDefinitionEditorAliasRoute,
-      workflowInstanceViewerAliasRoute,
+      administrationHardwareAgentDetailRoute,
     ]),
     cardManagementRoute.addChildren([
       cardManagementIndexRoute,
@@ -860,7 +814,6 @@ const routeTree = rootRoute.addChildren([
     ]),
     receptionDeskRoute,
     visitorConfirmationRoute,
-    facilityRoute.addChildren([facilityHardwareRoute, facilityHardwareAgentDetailRoute]),
     visitorsManagementRoute.addChildren([visitsIndexRoute, visitsRoute, visitCreateRoute, visitEditRoute, visitorsRoute, visitorReportingRoute]),
   ]),
   receptionKioskLayoutRoute.addChildren([receptionKioskIndexRoute, receptionKioskSetupRoute, receptionKioskScanQrRoute, receptionKioskArrivalRoute, receptionKioskFaceScanRoute, receptionKioskDocumentScanRoute, receptionKioskSuccessRoute, receptionKioskFailedRoute, receptionKioskNoRegistrationRoute]),

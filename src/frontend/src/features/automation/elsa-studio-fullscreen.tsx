@@ -7,7 +7,7 @@ import { type ElsaRuntimeProps } from './automation-page-shell';
 import { useElsaStudioAssets } from './elsa-studio-assets';
 import { workflowDefinitionsQueryKey, workflowHistoryQueryKey } from './workflow-query-keys';
 
-const fullscreenRouteExpression = /^\/old\/automation\/(workflow-definitions\/[^/]+\/edit|workflow-instances\/[^/]+)$/;
+const fullscreenRouteExpression = /^\/administration\/automation\/(workflow-definitions\/[^/]+\/edit|workflow-instances\/[^/]+)$/;
 const editorElements = ['elsa-workflow-definition-editor'] as const;
 const viewerElements = ['elsa-workflow-instance-viewer'] as const;
 
@@ -21,7 +21,7 @@ export function ElsaStudioEditorScreen({ definitionId, runtime, onWorkflowDefini
   useElsaStudioFullscreenDocument();
 
   return (
-    <ElsaStudioFullscreenFrame title="Workflow Definition Editor" backTo="/old/automation/workflow" backLabel="Back to workflow definitions">
+    <ElsaStudioFullscreenFrame title="Workflow Definition Editor" backTo="/administration/automation/workflow" backLabel="Back to workflow definitions">
       {assets.status === 'ready' ? <WorkflowDefinitionEditor key={`${definitionId}:${runtimeKey}`} {...runtime} definitionId={definitionId} onWorkflowDefinitionExecuted={onWorkflowDefinitionExecuted} className="fabric-elsa-studio-root block h-full w-full" /> : null}
       {assets.status === 'loading' ? <ElsaStudioStatusMessage>Loading Elsa Studio editor...</ElsaStudioStatusMessage> : null}
       {assets.status === 'error' ? <ElsaStudioStatusMessage tone="error">{assets.error ?? 'Could not load Elsa Studio editor.'}</ElsaStudioStatusMessage> : null}
@@ -35,7 +35,7 @@ export function ElsaStudioViewerScreen({ instanceId, runtime, onEditWorkflowDefi
   useElsaStudioFullscreenDocument();
 
   return (
-    <ElsaStudioFullscreenFrame title="Workflow Instance Viewer" backTo="/old/automation/workflow?tab=history" backLabel="Back to workflow instances">
+    <ElsaStudioFullscreenFrame title="Workflow Instance Viewer" backTo="/administration/automation/workflow?tab=history" backLabel="Back to workflow instances">
       {assets.status === 'ready' ? <WorkflowInstanceViewer key={`${instanceId}:${runtimeKey}`} {...runtime} instanceId={instanceId} onEditWorkflowDefinition={onEditWorkflowDefinition} className="fabric-elsa-studio-root block h-full w-full" /> : null}
       {assets.status === 'loading' ? <ElsaStudioStatusMessage>Loading Elsa Studio viewer...</ElsaStudioStatusMessage> : null}
       {assets.status === 'error' ? <ElsaStudioStatusMessage tone="error">{assets.error ?? 'Could not load Elsa Studio viewer.'}</ElsaStudioStatusMessage> : null}

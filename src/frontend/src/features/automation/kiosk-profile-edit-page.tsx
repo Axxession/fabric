@@ -31,7 +31,7 @@ const profilesQueryKey = ['automation', 'kiosk', 'profiles'] as const;
 const assetKinds: readonly KioskAssetKind[] = ['Image', 'Background', 'Logo', 'Video'];
 
 export default function KioskProfileEditPage() {
-  const { profileId } = useParams({ from: '/main/old/automation/kiosk/profiles/$profileId/edit' });
+  const { profileId } = useParams({ from: '/main/administration/automation/kiosk/profiles/$profileId/edit' });
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>('translations');
   const [profileForm, setProfileForm] = useState<ProfileForm>({ name: '', defaultLanguageCode: 'en' });
@@ -84,7 +84,7 @@ export default function KioskProfileEditPage() {
 
   return (
     <section className="grid gap-6">
-      <Link to="/old/automation/kiosk" className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground">
+      <Link to="/administration/automation/kiosk" className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground">
         <ArrowLeft className="size-4" />
         Back to kiosks
       </Link>
