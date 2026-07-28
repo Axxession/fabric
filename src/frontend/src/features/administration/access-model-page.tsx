@@ -28,6 +28,16 @@ type OrganizationUnitResponse = components['schemas']['OrganizationUnitResponse'
 type PersonaResponse = components['schemas']['PersonaResponse'];
 type UpdateEmployeeLifecycleAutomationSettingsRequest = components['schemas']['UpdateEmployeeLifecycleAutomationSettingsRequest'];
 type ReceptionAccessPolicyTrigger = components['schemas']['ReceptionAccessPolicyTrigger'];
+type RuleOption = { readonly value: string; readonly label: string };
+type RuleGroup<T extends { id: string; name: string }> = {
+  readonly source: T;
+  readonly rules: readonly RuleWithPackageName[];
+};
+type RuleWithPackageName = {
+  readonly id: string;
+  readonly packageName: string;
+  readonly isEnabled: boolean;
+};
 
 type PaginationState = {
   readonly currentPage: number;
@@ -234,9 +244,8 @@ function ApprovalGroupsPanel({ name, onNameChange, onOpenApprovalGroup, response
 
 function HrPoliciesPanel({ settings, ouRules, personaRules, organizationUnits, personas, packages, isLoading, isError }: { readonly settings: EmployeeLifecycleAutomationSettingsResponse | undefined; readonly ouRules: OrganizationalUnitPackageRuleResponse[]; readonly personaRules: PersonaPackageRuleResponse[]; readonly organizationUnits: OrganizationUnitResponse[]; readonly personas: PersonaResponse[]; readonly packages: PackageResponse[]; readonly isLoading: boolean; readonly isError: boolean; }) {
   const queryClient = useQueryClient();
-  const organizationUnitById = new Map(organizationUnits.map((item) => [item.id, item]));
-  const personaById = new Map(personas.map((item) => [item.id, item]));
   const packageById = new Map(packages.map((item) => [item.id, item]));
+  const packageOptions = packages.map((item) => ({ value: item.id, label: item.name }));
   const [settingsValues, setSettingsValues] = useState({ isEnabled: false, disableEmployeeOnLeave: false });
   const [isAddOuRuleOpen, setIsAddOuRuleOpen] = useState(false);
   const [selectedOuId, setSelectedOuId] = useState('');
@@ -344,10 +353,10 @@ function HrPoliciesPanel({ settings, ouRules, personaRules, organizationUnits, p
     onError: () => toast.error('Could not remove persona package rule.'),
   });
 
-  const usedOuIds = new Set(ouRules.map((rule) => rule.organizationUnitId));
-  const availableOus = organizationUnits.filter((item) => !usedOuIds.has(item.id));
-  const usedPersonaIds = new Set(personaRules.map((rule) => rule.personaId));
-  const availablePersonas = personas.filter((item) => !usedPersonaIds.has(item.id));
+  const availableOuPackages = getAvailablePackageOptions(packageOptions, new Set(ouRules.filter((rule) => rule.organizationUnitId === selectedOuId).map((rule) => rule.packageId)));
+  const availablePersonaPackages = getAvailablePackageOptions(packageOptions, new Set(personaRules.filter((rule) => rule.personaId === selectedPersonaId).map((rule) => rule.packageId)));
+  const ouGroups = groupOuRules(organizationUnits, ouRules, packageById);
+  const personaGroups = groupPersonaRules(personas, personaRules, packageById);
 
   return (
     <div className="grid gap-6 pt-4">
@@ -378,13 +387,13 @@ function HrPoliciesPanel({ settings, ouRules, personaRules, organizationUnits, p
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <RuleListCard title="OU Package Rules" empty="No organizational unit package rules." action={<Button type="button" variant="outline" size="sm" disabled={addOuRule.isPending || availableOus.length === 0} onClick={() => setIsAddOuRuleOpen((current) => !current)}>{isAddOuRuleOpen ? 'Cancel' : 'Add OU rule'}</Button>}>
-              {isAddOuRuleOpen ? <RuleAddForm labelA="Organizational Unit" valueA={selectedOuId} onChangeA={setSelectedOuId} optionsA={availableOus.map((item) => ({ value: item.id, label: item.name }))} labelB="Package" valueB={selectedOuPackageId} onChangeB={setSelectedOuPackageId} optionsB={packages.map((item) => ({ value: item.id, label: item.name }))} submitLabel="Add rule" disabled={addOuRule.isPending || !selectedOuId || !selectedOuPackageId} onSubmit={() => addOuRule.mutate({ organizationUnitId: selectedOuId, packageId: selectedOuPackageId })} /> : null}
-              {ouRules.map((rule) => <RuleRow key={rule.id} name={organizationUnitById.get(rule.organizationUnitId)?.name ?? rule.organizationUnitId} packageName={packageById.get(rule.packageId)?.name ?? rule.packageId} isEnabled={rule.isEnabled} onToggle={() => toggleOuRule.mutate({ id: rule.id, isEnabled: !rule.isEnabled })} onRemove={() => removeOuRule.mutate(rule.id)} busy={toggleOuRule.isPending || removeOuRule.isPending} />)}
+            <RuleListCard title="OU automation" description="Automatically assign one or more packages when an employee belongs to a matching organizational unit." empty="No OU automation rules." action={<Button type="button" variant="outline" size="sm" disabled={addOuRule.isPending || organizationUnits.length === 0 || packageOptions.length === 0} onClick={() => setIsAddOuRuleOpen((current) => !current)}>{isAddOuRuleOpen ? 'Cancel' : 'Add OU automation'}</Button>}>
+              {isAddOuRuleOpen ? <RuleAddForm labelA="Organizational Unit" valueA={selectedOuId} onChangeA={(value) => { setSelectedOuId(value); setSelectedOuPackageId(''); }} optionsA={organizationUnits.map((item) => ({ value: item.id, label: item.name }))} labelB="Package" valueB={selectedOuPackageId} onChangeB={setSelectedOuPackageId} optionsB={availableOuPackages} submitLabel="Add automation" disabled={addOuRule.isPending || !selectedOuId || !selectedOuPackageId} onSubmit={() => addOuRule.mutate({ organizationUnitId: selectedOuId, packageId: selectedOuPackageId })} emptyStateMessage={selectedOuId && availableOuPackages.length === 0 ? 'All packages already added for this organizational unit.' : undefined} /> : null}
+              {ouGroups.map((group) => <RuleGroupCard key={group.source.id} name={group.source.name} rules={group.rules} onToggle={(rule) => toggleOuRule.mutate({ id: rule.id, isEnabled: !rule.isEnabled })} onRemove={(rule) => removeOuRule.mutate(rule.id)} busy={toggleOuRule.isPending || removeOuRule.isPending} />)}
             </RuleListCard>
-            <RuleListCard title="Persona Package Rules" empty="No persona package rules." action={<Button type="button" variant="outline" size="sm" disabled={addPersonaRule.isPending || availablePersonas.length === 0} onClick={() => setIsAddPersonaRuleOpen((current) => !current)}>{isAddPersonaRuleOpen ? 'Cancel' : 'Add persona rule'}</Button>}>
-              {isAddPersonaRuleOpen ? <RuleAddForm labelA="Persona" valueA={selectedPersonaId} onChangeA={setSelectedPersonaId} optionsA={availablePersonas.map((item) => ({ value: item.id, label: item.name }))} labelB="Package" valueB={selectedPersonaPackageId} onChangeB={setSelectedPersonaPackageId} optionsB={packages.map((item) => ({ value: item.id, label: item.name }))} submitLabel="Add rule" disabled={addPersonaRule.isPending || !selectedPersonaId || !selectedPersonaPackageId} onSubmit={() => addPersonaRule.mutate({ personaId: selectedPersonaId, packageId: selectedPersonaPackageId })} /> : null}
-              {personaRules.map((rule) => <RuleRow key={rule.id} name={personaById.get(rule.personaId)?.name ?? rule.personaId} packageName={packageById.get(rule.packageId)?.name ?? rule.packageId} isEnabled={rule.isEnabled} onToggle={() => togglePersonaRule.mutate({ id: rule.id, isEnabled: !rule.isEnabled })} onRemove={() => removePersonaRule.mutate(rule.id)} busy={togglePersonaRule.isPending || removePersonaRule.isPending} />)}
+            <RuleListCard title="Persona automation" description="Automatically assign one or more packages when an employee matches a persona." empty="No persona automation rules." action={<Button type="button" variant="outline" size="sm" disabled={addPersonaRule.isPending || personas.length === 0 || packageOptions.length === 0} onClick={() => setIsAddPersonaRuleOpen((current) => !current)}>{isAddPersonaRuleOpen ? 'Cancel' : 'Add persona automation'}</Button>}>
+              {isAddPersonaRuleOpen ? <RuleAddForm labelA="Persona" valueA={selectedPersonaId} onChangeA={(value) => { setSelectedPersonaId(value); setSelectedPersonaPackageId(''); }} optionsA={personas.map((item) => ({ value: item.id, label: item.name }))} labelB="Package" valueB={selectedPersonaPackageId} onChangeB={setSelectedPersonaPackageId} optionsB={availablePersonaPackages} submitLabel="Add automation" disabled={addPersonaRule.isPending || !selectedPersonaId || !selectedPersonaPackageId} onSubmit={() => addPersonaRule.mutate({ personaId: selectedPersonaId, packageId: selectedPersonaPackageId })} emptyStateMessage={selectedPersonaId && availablePersonaPackages.length === 0 ? 'All packages already added for this persona.' : undefined} /> : null}
+              {personaGroups.map((group) => <RuleGroupCard key={group.source.id} name={group.source.name} rules={group.rules} onToggle={(rule) => togglePersonaRule.mutate({ id: rule.id, isEnabled: !rule.isEnabled })} onRemove={(rule) => removePersonaRule.mutate(rule.id)} busy={togglePersonaRule.isPending || removePersonaRule.isPending} />)}
             </RuleListCard>
           </div>
         </>
@@ -571,17 +580,58 @@ function SummaryCard({ title, value, hint }: { readonly title: string; readonly 
   return <div className="rounded-structural border border-border bg-background p-4"><p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{title}</p><p className="mt-3 text-[20px] font-semibold tracking-tight text-foreground">{value}</p><p className="mt-2 text-[13px] text-muted-foreground">{hint}</p></div>;
 }
 
-function RuleListCard({ title, empty, action, children }: { readonly title: string; readonly empty: string; readonly action?: React.ReactNode; readonly children: React.ReactNode; }) {
+function RuleListCard({ title, description, empty, action, children }: { readonly title: string; readonly description: string; readonly empty: string; readonly action?: React.ReactNode; readonly children: React.ReactNode; }) {
   const items = Array.isArray(children) ? children.filter(Boolean) : children ? [children] : [];
-  return <div className="rounded-structural border border-border p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><h3 className="text-[18px] font-semibold tracking-tight">{title}</h3>{action ? <div>{action}</div> : null}</div>{items.length === 0 ? <p className="mt-4 text-[14px] text-muted-foreground">{empty}</p> : <div className="mt-4 grid gap-3">{children}</div>}</div>;
+  return <div className="rounded-structural border border-border p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><h3 className="text-[18px] font-semibold tracking-tight">{title}</h3><p className="mt-2 text-[14px] text-muted-foreground">{description}</p></div>{action ? <div>{action}</div> : null}</div>{items.length === 0 ? <p className="mt-4 text-[14px] text-muted-foreground">{empty}</p> : <div className="mt-4 grid gap-3">{children}</div>}</div>;
 }
 
-function RuleRow({ name, packageName, isEnabled, onToggle, onRemove, busy }: { readonly name: string; readonly packageName: string; readonly isEnabled: boolean; readonly onToggle: () => void; readonly onRemove: () => void; readonly busy: boolean; }) {
-  return <div className="flex items-center justify-between gap-4 rounded-structural border border-border p-3"><div className="min-w-0"><p className="font-medium text-foreground">{name}</p><p className="mt-1 text-[14px] text-muted-foreground">Package: {packageName}</p></div><div className="flex items-center gap-2"><Badge variant={isEnabled ? 'success' : 'secondary'}>{isEnabled ? 'Enabled' : 'Disabled'}</Badge><Button type="button" variant="outline" size="sm" disabled={busy} onClick={onToggle}>{isEnabled ? 'Disable' : 'Enable'}</Button><Button type="button" variant="outline" size="sm" disabled={busy} onClick={onRemove}>Remove</Button></div></div>;
+function RuleGroupCard({ name, rules, onToggle, onRemove, busy }: { readonly name: string; readonly rules: readonly RuleWithPackageName[]; readonly onToggle: (rule: RuleWithPackageName) => void; readonly onRemove: (rule: RuleWithPackageName) => void; readonly busy: boolean; }) {
+  return <div className="rounded-structural border border-border p-4"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="font-medium text-foreground">{name}</p><p className="mt-1 text-[14px] text-muted-foreground">{rules.length} package{rules.length === 1 ? '' : 's'} configured</p></div><Badge variant="secondary">{rules.length}</Badge></div><div className="mt-4 grid gap-3">{rules.map((rule) => <RulePackageRow key={rule.id} packageName={rule.packageName} isEnabled={rule.isEnabled} onToggle={() => onToggle(rule)} onRemove={() => onRemove(rule)} busy={busy} />)}</div></div>;
 }
 
-function RuleAddForm({ labelA, valueA, onChangeA, optionsA, labelB, valueB, onChangeB, optionsB, submitLabel, disabled, onSubmit }: { readonly labelA: string; readonly valueA: string; readonly onChangeA: (value: string) => void; readonly optionsA: readonly { value: string; label: string }[]; readonly labelB: string; readonly valueB: string; readonly onChangeB: (value: string) => void; readonly optionsB: readonly { value: string; label: string }[]; readonly submitLabel: string; readonly disabled: boolean; readonly onSubmit: () => void; }) {
-  return <div className="grid gap-3 rounded-structural border border-border p-4"><label className="grid gap-2 text-[14px] font-medium"><span>{labelA}</span><select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={valueA} onChange={(event) => onChangeA(event.target.value)}><option value="">Select {labelA.toLowerCase()}</option>{optionsA.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label className="grid gap-2 text-[14px] font-medium"><span>{labelB}</span><select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={valueB} onChange={(event) => onChangeB(event.target.value)}><option value="">Select {labelB.toLowerCase()}</option>{optionsB.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><div className="flex justify-end"><Button type="button" disabled={disabled} onClick={onSubmit}>{submitLabel}</Button></div></div>;
+function RulePackageRow({ packageName, isEnabled, onToggle, onRemove, busy }: { readonly packageName: string; readonly isEnabled: boolean; readonly onToggle: () => void; readonly onRemove: () => void; readonly busy: boolean; }) {
+  return <div className="flex items-center justify-between gap-4 rounded-structural border border-border bg-background p-3"><div className="min-w-0"><p className="font-medium text-foreground">{packageName}</p><p className="mt-1 text-[14px] text-muted-foreground">Package automation</p></div><div className="flex items-center gap-2"><Badge variant={isEnabled ? 'success' : 'secondary'}>{isEnabled ? 'Enabled' : 'Disabled'}</Badge><Button type="button" variant="outline" size="sm" disabled={busy} onClick={onToggle}>{isEnabled ? 'Disable' : 'Enable'}</Button><Button type="button" variant="outline" size="sm" disabled={busy} onClick={onRemove}>Remove</Button></div></div>;
+}
+
+function RuleAddForm({ labelA, valueA, onChangeA, optionsA, labelB, valueB, onChangeB, optionsB, submitLabel, disabled, onSubmit, emptyStateMessage }: { readonly labelA: string; readonly valueA: string; readonly onChangeA: (value: string) => void; readonly optionsA: readonly RuleOption[]; readonly labelB: string; readonly valueB: string; readonly onChangeB: (value: string) => void; readonly optionsB: readonly RuleOption[]; readonly submitLabel: string; readonly disabled: boolean; readonly onSubmit: () => void; readonly emptyStateMessage?: string; }) {
+  return <div className="grid gap-3 rounded-structural border border-border p-4"><label className="grid gap-2 text-[14px] font-medium"><span>{labelA}</span><select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={valueA} onChange={(event) => onChangeA(event.target.value)}><option value="">Select {labelA.toLowerCase()}</option>{optionsA.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label className="grid gap-2 text-[14px] font-medium"><span>{labelB}</span><select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={valueB} onChange={(event) => onChangeB(event.target.value)} disabled={!valueA || optionsB.length === 0}><option value="">Select {labelB.toLowerCase()}</option>{optionsB.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{emptyStateMessage ? <p className="text-[13px] text-muted-foreground">{emptyStateMessage}</p> : null}<div className="flex justify-end"><Button type="button" disabled={disabled} onClick={onSubmit}>{submitLabel}</Button></div></div>;
+}
+
+function getAvailablePackageOptions(options: readonly RuleOption[], usedPackageIds: ReadonlySet<string>) {
+  return options.filter((option) => !usedPackageIds.has(option.value));
+}
+
+function groupOuRules(organizationUnits: readonly OrganizationUnitResponse[], rules: readonly OrganizationalUnitPackageRuleResponse[], packageById: ReadonlyMap<string, PackageResponse>) {
+  return groupRulesBySource(organizationUnits, rules, (rule) => rule.organizationUnitId, (rule) => ({ id: rule.id, packageName: packageById.get(rule.packageId)?.name ?? rule.packageId, isEnabled: rule.isEnabled }));
+}
+
+function groupPersonaRules(personas: readonly PersonaResponse[], rules: readonly PersonaPackageRuleResponse[], packageById: ReadonlyMap<string, PackageResponse>) {
+  return groupRulesBySource(personas, rules, (rule) => rule.personaId, (rule) => ({ id: rule.id, packageName: packageById.get(rule.packageId)?.name ?? rule.packageId, isEnabled: rule.isEnabled }));
+}
+
+function groupRulesBySource<TSource extends { id: string; name: string }, TRule>(sources: readonly TSource[], rules: readonly TRule[], getSourceId: (rule: TRule) => string, toRule: (rule: TRule) => RuleWithPackageName): RuleGroup<TSource>[] {
+  const sourceById = new Map(sources.map((item) => [item.id, item]));
+  const groups = new Map<string, RuleGroup<TSource>>();
+
+  rules.forEach((rule) => {
+    const sourceId = getSourceId(rule);
+    const source = sourceById.get(sourceId);
+    if (!source) {
+      return;
+    }
+
+    const existingGroup = groups.get(sourceId);
+    const mappedRule = toRule(rule);
+
+    if (existingGroup) {
+      groups.set(sourceId, { ...existingGroup, rules: [...existingGroup.rules, mappedRule] });
+      return;
+    }
+
+    groups.set(sourceId, { source, rules: [mappedRule] });
+  });
+
+  return Array.from(groups.values()).sort((left, right) => left.source.name.localeCompare(right.source.name));
 }
 
 function FilterInput({ label, value, onChange, placeholder }: { readonly label: string; readonly value: string; readonly onChange: (value: string) => void; readonly placeholder: string; }) {
