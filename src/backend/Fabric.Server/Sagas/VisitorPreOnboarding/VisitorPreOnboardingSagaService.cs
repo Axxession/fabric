@@ -1,5 +1,3 @@
-using Fabric.Server.AccessPolicies.Application;
-using Fabric.Server.AccessPolicies.Domain;
 using Fabric.Server.Core;
 using Fabric.Server.Infrastructure.Tenancy;
 using Fabric.Server.Locations.Application;
@@ -24,7 +22,6 @@ public enum SagaStepResult
 public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContext visitorsDb,
         ReceptionService receptionService,
         VisitService visitService,
-        AccessPolicyService accessPolicyService,
         LocationService locationService,
         EmailNotificationSender emailNotificationSender,
         TenantBaseUrlResolver tenantBaseUrlResolver,
@@ -662,28 +659,7 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
         }
 
         if (!saga.AccessPolicyId.HasValue)
-        {
-            Result<AccessPolicyChangeResult, AccessPolicyErrors> result = await accessPolicyService.CreateCredentialPolicy(
-                config.SystemId.Value,
-                Subject.Create(invitation.VisitorId, invitation.FirstName, invitation.LastName, SubjectType.Visitor),
-                config.BadgeTypeId.Value,
-                null,
-                visit.Start,
-                visit.Stop,
-                provisionFrom: null,
-                options: new CreateAccessPolicyOptions(AccessPolicyReconciliationFailureBehavior.FailAndRetractPolicy),
-                cancellationToken: cancellationToken);
-
-            if (!result.IsSuccess(out AccessPolicyChangeResult? change) || change.Policy is null || change.Policy.ReconciliationStatus != ReconciliationStatus.Reconciled)
-            {
-                SagaStepResult retry = ScheduleRetry(saga);
-                await db.SaveChangesAsync(cancellationToken);
-                return retry;
-            }
-
-            saga.AccessPolicyId = change.Policy.Id;
-            saga.QrCode = GetAccessControlArrivalCode(change.Policy);
-        }
+            throw new NotImplementedException("Visitor pre-onboarding PACS policy creation has not been migrated from AccessPolicies yet.");
 
         saga.QrCode ??= saga.AccessPolicyId.Value.ToString();
         saga.State = VisitorPreOnboardingState.UpdatingArrivalQr;
@@ -692,13 +668,6 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
         await db.SaveChangesAsync(cancellationToken);
         return SagaStepResult.Continue;
     }
-
-    private static string GetAccessControlArrivalCode(AccessPolicy policy) =>
-        policy.SatisfiedBy switch
-        {
-            Credential credential => credential.BadgeNumber,
-            _ => policy.Id.ToString()
-        };
 
     private async Task<SagaStepResult> UpdateArrivalQrAsync(VisitorPreOnboardingSaga saga, CancellationToken cancellationToken)
     {
@@ -775,17 +744,7 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
         }
 
         if (saga.AccessPolicyId.HasValue)
-        {
-            Result<AccessPolicyChangeResult, AccessPolicyErrors> retract = await accessPolicyService.RetractPolicy(saga.AccessPolicyId.Value, cancellationToken);
-            if (retract.IsFailure(out AccessPolicyErrors error) && error != AccessPolicyErrors.PolicyNotFound)
-            {
-                SagaStepResult result = ScheduleRetry(saga);
-                await db.SaveChangesAsync(cancellationToken);
-                return result;
-            }
-
-            saga.AccessPolicyId = null;
-        }
+            throw new NotImplementedException("Visitor pre-onboarding PACS policy retraction has not been migrated from AccessPolicies yet.");
 
         VisitorPreOnboardingSagaConfig config = await GetConfigurationAsync(cancellationToken);
         if (config.SendCancellationNotification)
@@ -809,13 +768,7 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
     private async Task<bool> ExpireSagaAsync(VisitorPreOnboardingSaga saga, CancellationToken cancellationToken)
     {
         if (saga.AccessPolicyId.HasValue)
-        {
-            Result<AccessPolicyChangeResult, AccessPolicyErrors> retract = await accessPolicyService.RetractPolicy(saga.AccessPolicyId.Value, cancellationToken);
-            if (retract.IsFailure(out AccessPolicyErrors error) && error != AccessPolicyErrors.PolicyNotFound)
-                return false;
-
-            saga.AccessPolicyId = null;
-        }
+            throw new NotImplementedException("Visitor pre-onboarding PACS policy retraction has not been migrated from AccessPolicies yet.");
 
         saga.State = VisitorPreOnboardingState.Expired;
         saga.RetryCount = 0;

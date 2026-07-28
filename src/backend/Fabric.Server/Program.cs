@@ -4,8 +4,6 @@ using Fabric.Server.AccessCatalog;
 using Fabric.Server.AccessCatalog.Endpoints;
 using Fabric.Server.AccessControl;
 using Fabric.Server.AccessControl.Endpoints;
-using Fabric.Server.AccessPolicies;
-using Fabric.Server.AccessPolicies.Endpoints;
 using Fabric.Server.Automation;
 using Fabric.Server.CredentialManagement;
 using Fabric.Server.CredentialManagement.Endpoints;
@@ -76,7 +74,6 @@ builder.Services
     .SetupCredentialManagement(builder.Configuration)
     .SetupAccessControl(builder.Configuration)
     .SetupAccessCatalog(builder.Configuration)
-    .SetupAccessPolicies(builder.Configuration)
     .SetupVisitors(builder.Configuration)
     .SetupSagas(builder.Configuration)
     .SetupDesfire(builder.Configuration)
@@ -121,8 +118,6 @@ app.MapApprovalDefinitionEndpoints();
 app.MapApprovalInboxEndpoints();
 app.MapPackageRequestEndpoints();
 app.MapApprovalRequirementEndpoints();
-app.MapAccessPolicyEndpoints();
-app.MapAccessControlSystemEndpoints();
 app.MapLocationEndpoints();
 app.MapReceptionEndpoints();
 app.MapReceptionKioskEndpoints();

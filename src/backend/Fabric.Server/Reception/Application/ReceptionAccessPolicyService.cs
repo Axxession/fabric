@@ -1,5 +1,3 @@
-using Fabric.Server.AccessPolicies.Application;
-using Fabric.Server.AccessPolicies.Domain;
 using Fabric.Server.Core;
 using Fabric.Server.Locations.Application;
 using Fabric.Server.Reception.Domain;
@@ -10,7 +8,6 @@ namespace Fabric.Server.Reception.Application;
 
 public class ReceptionAccessPolicyService(
     ReceptionDbContext db,
-    AccessPolicyService accessPolicyService,
     LocationService locationService)
 {
     public async Task ApplyTrigger(ExpectedArrival arrival, ReceptionAccessPolicyTrigger trigger, CancellationToken cancellationToken = default)
@@ -39,8 +36,8 @@ public class ReceptionAccessPolicyService(
             .Where(policy => policy.ArrivalId == arrivalId)
             .ToListAsync(cancellationToken);
 
-        foreach (ReceptionAssignedAccessPolicy assignedPolicy in assignedPolicies)
-            _ = await accessPolicyService.RetractPolicy(assignedPolicy.AccessPolicyId, cancellationToken);
+        if (assignedPolicies.Count > 0)
+            throw new NotImplementedException("Reception PACS policy retraction has not been migrated from AccessPolicies yet.");
 
         db.AssignedAccessPolicies.RemoveRange(assignedPolicies);
         await db.SaveChangesAsync(cancellationToken);
@@ -80,24 +77,9 @@ public class ReceptionAccessPolicyService(
         if (subjectId == Guid.Empty)
             return;
 
-        TimeSpan gracePeriod = TimeSpan.FromMinutes(assignment.GracePeriodMinutes);
-        Result<AccessPolicyChangeResult, AccessPolicyErrors> result = await accessPolicyService.CreateAccessPolicyAsync(
-            assignment.SystemId,
-            Subject.Create(subjectId, arrival.FirstName, arrival.LastName, GetSubjectType(arrival)),
-            assignment.AccessLevelTypeId,
-            arrival.ExpectedArrivalTime.Subtract(gracePeriod),
-            arrival.ExpectedOffboardTime.Add(gracePeriod),
-            cancellationToken: cancellationToken);
-
-        if (!result.IsSuccess(out AccessPolicyChangeResult? change) || change.Policy is null)
-            return;
-
-        db.AssignedAccessPolicies.Add(ReceptionAssignedAccessPolicy.Create(
-            arrival.Id,
-            assignment.Id,
-            change.Policy.Id,
-            assignment.SystemId,
-            assignment.AccessLevelTypeId));
+        _ = assignment;
+        _ = subjectId;
+        throw new NotImplementedException("Reception PACS policy creation has not been migrated from AccessPolicies yet.");
     }
 
     private static bool AppliesToArrival(ExpectedArrival arrival, ReceptionAccessPolicyTrigger trigger) =>
@@ -117,14 +99,6 @@ public class ReceptionAccessPolicyService(
             ArrivalType.Visitor => arrival.VisitorId ?? Guid.Empty,
             ArrivalType.Contractor => arrival.ContractorId ?? Guid.Empty,
             _ => Guid.Empty
-        };
-
-    private static SubjectType GetSubjectType(ExpectedArrival arrival) =>
-        arrival.Type switch
-        {
-            ArrivalType.Visitor => SubjectType.Visitor,
-            ArrivalType.Contractor => SubjectType.Contractor,
-            _ => SubjectType.Employee
         };
 
     private static List<ReceptionAccessPolicyTrigger> GetTriggeredStates(ExpectedArrival arrival)

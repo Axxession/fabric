@@ -3,8 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bell, MailCheck, Route, Send, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { api } from '@/shared/api/client';
-import type { components } from '@/shared/api/generated/schema';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Input } from '@/shared/components/ui/input';
@@ -20,47 +18,20 @@ import {
   type VisitorPreOnboardingSagaConfigRequest,
 } from './visitor-pre-onboarding-config';
 
-type AccessControlSystem = components['schemas']['AccessControlSystemResponse'];
-
 export default function VisitorsSettingsPage() {
   const queryClient = useQueryClient();
   const configQuery = useQuery({
     queryKey: visitorPreOnboardingConfigQueryKey,
     queryFn: fetchVisitorPreOnboardingConfig,
   });
-  const systemsQuery = useQuery({
-    queryKey: ['settings', 'visitors', 'access-control-systems'],
-    queryFn: async () => {
-      const { data, error } = await api.GET('/api/access-policies/access-control-systems', {
-        params: { query: { ids: [] } },
-      });
-
-      if (error) {
-        throw new Error('Could not load access control systems.');
-      }
-
-      return data;
-    },
-  });
   const [values, setValues] = useState<VisitorPreOnboardingSagaConfigRequest>(getDefaultVisitorPreOnboardingConfig);
-  const systems = systemsQuery.data?.items ?? [];
-  const selectedSystem = systems.find((system) => system.id === values.systemId) ?? null;
-  const badgeTypes = selectedSystem?.badgeTypes ?? [];
-  const accessControlQrIncomplete = values.qrGenerationMode === 'AccessControlQr' && (!values.systemId || !values.badgeTypeId);
+  const accessControlQrUnavailable = values.qrGenerationMode === 'AccessControlQr';
 
   useEffect(() => {
     if (configQuery.data) {
       setValues(toRequest(configQuery.data));
     }
   }, [configQuery.data]);
-
-  useEffect(() => {
-    if (values.qrGenerationMode !== 'AccessControlQr' || !systemsQuery.data) {
-      return;
-    }
-
-    setValues((current) => getValidAccessControlSelection(current, systems));
-  }, [systems, systemsQuery.data, values.qrGenerationMode]);
 
   const updateConfig = useMutation({
     mutationFn: updateVisitorPreOnboardingConfig,
@@ -76,8 +47,8 @@ export default function VisitorsSettingsPage() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (accessControlQrIncomplete) {
-      toast.error('Select access control system and badge type.');
+    if (accessControlQrUnavailable) {
+      toast.error('Access control QR is temporarily unavailable during PACS migration.');
       return;
     }
 
@@ -85,20 +56,7 @@ export default function VisitorsSettingsPage() {
   }
 
   function handleQrGenerationModeChange(mode: CredentialGenerationMode) {
-    setValues((current) => {
-      const next = { ...current, qrGenerationMode: mode };
-
-      if (mode === 'PlatformQr' || !systemsQuery.data) {
-        return next;
-      }
-
-      return getValidAccessControlSelection(next, systems);
-    });
-  }
-
-  function handleSystemChange(systemId: string) {
-    const system = systems.find((item) => item.id === systemId);
-    setValues((current) => ({ ...current, systemId, badgeTypeId: system?.badgeTypes[0]?.id ?? null }));
+    setValues((current) => ({ ...current, qrGenerationMode: mode }));
   }
 
   return (
@@ -148,29 +106,11 @@ export default function VisitorsSettingsPage() {
                 <div className="grid gap-4 rounded-structural border border-border bg-background p-4 lg:grid-cols-2">
                   <div className="lg:col-span-2">
                     <h2 className="text-[15px] font-semibold">Access control credential</h2>
-                    <p className="mt-1 text-[13px] text-muted-foreground">Select which access control system and badge type should issue visitor QR credentials.</p>
+                    <p className="mt-1 text-[13px] text-muted-foreground">Access control QR is temporarily unavailable while legacy AccessPolicies flows are removed.</p>
                   </div>
-
-                  {systemsQuery.isLoading ? <p className="text-[14px] text-muted-foreground lg:col-span-2">Loading access control systems...</p> : null}
-                  {systemsQuery.isError ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error lg:col-span-2">Could not load access control systems.</p> : null}
-
-                  {!systemsQuery.isLoading && !systemsQuery.isError ? (
-                    <>
-                      <SelectField label="Access control system" value={values.systemId ?? ''} onChange={handleSystemChange} required>
-                        <option value="" disabled>Select system</option>
-                        {systems.map((system) => (
-                          <option key={system.id} value={system.id}>{system.name}</option>
-                        ))}
-                      </SelectField>
-
-                      <SelectField label="Badge type" value={values.badgeTypeId ?? ''} onChange={(badgeTypeId) => setValues((current) => ({ ...current, badgeTypeId }))} required>
-                        <option value="" disabled>Select badge type</option>
-                        {badgeTypes.map((badgeType) => (
-                          <option key={badgeType.id} value={badgeType.id}>{badgeType.name}</option>
-                        ))}
-                      </SelectField>
-                    </>
-                  ) : null}
+                  <p className="rounded-interactive border border-border px-4 py-3 text-[14px] text-muted-foreground lg:col-span-2">
+                    Save is disabled for this mode until PACS credential issuance is migrated to `AccessControl`.
+                  </p>
                 </div>
               ) : null}
 
@@ -264,7 +204,7 @@ export default function VisitorsSettingsPage() {
               </div>
 
               <div className="flex justify-end border-t border-border pt-6">
-                <Button type="submit" className="w-full sm:w-auto" disabled={updateConfig.isPending || systemsQuery.isLoading || accessControlQrIncomplete}>
+                <Button type="submit" className="w-full sm:w-auto" disabled={updateConfig.isPending || accessControlQrUnavailable}>
                   {updateConfig.isPending ? 'Saving...' : 'Save visitor journey'}
                 </Button>
               </div>
@@ -431,17 +371,6 @@ function normalize(config: VisitorPreOnboardingSagaConfigRequest): VisitorPreOnb
     customRescheduleNotification: normalizeNotification(config.useCustomRescheduleNotification, config.customRescheduleNotification),
     customRelocationNotification: normalizeNotification(config.useCustomRelocationNotification, config.customRelocationNotification),
     customArrivalNotification: normalizeNotification(config.useCustomArrivalNotification, config.customArrivalNotification),
-  };
-}
-
-function getValidAccessControlSelection(config: VisitorPreOnboardingSagaConfigRequest, systems: readonly AccessControlSystem[]): VisitorPreOnboardingSagaConfigRequest {
-  const system = systems.find((item) => item.id === config.systemId) ?? systems[0];
-  const badgeType = system?.badgeTypes.find((item) => item.id === config.badgeTypeId) ?? system?.badgeTypes[0];
-
-  return {
-    ...config,
-    systemId: system?.id ?? null,
-    badgeTypeId: badgeType?.id ?? null,
   };
 }
 

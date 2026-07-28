@@ -1,6 +1,5 @@
 using Fabric.Server.AccessCatalog.Persistence;
 using Fabric.Server.AccessControl.Persistence;
-using Fabric.Server.AccessPolicies.Persistence;
 using Fabric.Server.CredentialManagement.Persistence;
 using Fabric.Server.Desfire.Persistence;
 using Fabric.Server.Employees.Persistence;
@@ -38,7 +37,6 @@ public class MigrationsRunner(IServiceScopeFactory scopeFactory) : IHostedServic
         await new MigrationRunner<CredentialManagementDbContext>(scope).RunMigrationsAsync(cancellationToken);
         await new MigrationRunner<AccessControlDbContext>(scope).RunMigrationsAsync(cancellationToken);
         await new MigrationRunner<AccessCatalogDbContext>(scope).RunMigrationsAsync(cancellationToken);
-        await new MigrationRunner<AccessPoliciesDbContext>(scope).RunMigrationsAsync(cancellationToken);
         await new MigrationRunner<VisitorsDbContext>(scope).RunMigrationsAsync(cancellationToken);
         await new MigrationRunner<SagasDbContext>(scope).RunMigrationsAsync(cancellationToken);
         await new MigrationRunner<DesfireDbContext>(scope).RunMigrationsAsync(cancellationToken);

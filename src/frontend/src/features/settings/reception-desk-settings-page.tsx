@@ -10,8 +10,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/sha
 import { Input } from '@/shared/components/ui/input';
 import { LocationSelector, getLocationLabel } from '@/shared/components/location-selector';
 
-type AccessControlSystem = components['schemas']['AccessControlSystemResponse'];
-type AccessLevelType = components['schemas']['AccessLevelTypeResponse'];
 type AccessRuleAssignment = components['schemas']['AccessRuleAssignmentResponse'];
 type AccessRuleAssignmentRequest = components['schemas']['CreateAccessRuleAssignmentRequest'];
 type CreateReceptionKioskRequest = components['schemas']['CreateReceptionKioskRequest'];
@@ -44,7 +42,6 @@ const identityVerificationOptions: { readonly label: string; readonly value: Ide
 
 const assignmentsQueryKey = ['settings', 'reception-desk', 'access-rule-assignments'] as const;
 const kiosksQueryKey = ['settings', 'reception-desk', 'kiosks'] as const;
-const systemsQueryKey = ['settings', 'reception-desk', 'access-control-systems'] as const;
 const pageSize = 100;
 
 const triggerOptions: { readonly label: string; readonly value: ReceptionAccessPolicyTrigger }[] = [
@@ -95,44 +92,12 @@ export default function ReceptionDeskSettingsPage() {
     },
   });
 
-  const systemsQuery = useQuery({
-    queryKey: systemsQueryKey,
-    queryFn: async () => {
-      const { data, error } = await api.GET('/api/access-policies/access-control-systems', {
-        params: { query: { ids: [] } },
-      });
-
-      if (error) {
-        throw new Error('Could not load access control systems.');
-      }
-
-      return data;
-    },
-  });
-
   const assignments = assignmentsQuery.data?.items ?? [];
   const kiosks = kiosksQuery.data?.items ?? [];
-  const systems = systemsQuery.data?.items ?? [];
-  const selectedSystem = systems.find((system) => system.id === values.systemId) ?? null;
-  const accessLevels = selectedSystem?.accessLevels ?? [];
-  const isLoading = assignmentsQuery.isLoading || systemsQuery.isLoading;
-  const isError = assignmentsQuery.isError || systemsQuery.isError;
+  const isLoading = assignmentsQuery.isLoading;
+  const isError = assignmentsQuery.isError;
   const areKiosksLoading = kiosksQuery.isLoading;
   const areKiosksError = kiosksQuery.isError;
-
-  useEffect(() => {
-    setValues((current) => {
-      const systemId = current.systemId || systems[0]?.id || '';
-      const system = systems.find((item) => item.id === systemId);
-      const accessLevelTypeId = current.accessLevelTypeId || system?.accessLevels[0]?.id || '';
-
-      if (systemId === current.systemId && accessLevelTypeId === current.accessLevelTypeId) {
-        return current;
-      }
-
-      return { ...current, systemId, accessLevelTypeId };
-    });
-  }, [systems]);
 
   const createAssignment = useMutation({
     mutationFn: async (request: AccessRuleAssignmentRequest) => {
@@ -282,13 +247,12 @@ export default function ReceptionDeskSettingsPage() {
   });
 
   function resetForm() {
-    const system = systems[0];
     setEditingAssignmentId(null);
     setIsFormOpen(false);
     setValues({
       locationId: null,
-      systemId: system?.id ?? '',
-      accessLevelTypeId: system?.accessLevels[0]?.id ?? '',
+      systemId: '',
+      accessLevelTypeId: '',
       trigger: 'ExpectedVisitorAdded',
       gracePeriodMinutes: '0',
     });
@@ -301,13 +265,12 @@ export default function ReceptionDeskSettingsPage() {
   }
 
   function openCreateForm() {
-    const system = systems[0];
     setEditingAssignmentId(null);
     setIsFormOpen(true);
     setValues({
       locationId: null,
-      systemId: system?.id ?? '',
-      accessLevelTypeId: system?.accessLevels[0]?.id ?? '',
+      systemId: '',
+      accessLevelTypeId: '',
       trigger: 'ExpectedVisitorAdded',
       gracePeriodMinutes: '0',
     });
@@ -317,11 +280,6 @@ export default function ReceptionDeskSettingsPage() {
     setEditingKioskId(null);
     setIsKioskFormOpen(true);
     setKioskValues(getDefaultKioskFormValues());
-  }
-
-  function handleSystemChange(systemId: string) {
-    const system = systems.find((item) => item.id === systemId);
-    setValues((current) => ({ ...current, systemId, accessLevelTypeId: system?.accessLevels[0]?.id ?? '' }));
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -608,13 +566,9 @@ export default function ReceptionDeskSettingsPage() {
                 Access Level Assignments
               </CardTitle>
               <CardDescription className="mt-2 max-w-3xl">
-                Assign access levels when reception desk events occur. Locations currently use configured sites.
+                Access level assignment setup is temporarily unavailable while legacy AccessPolicies flows are removed.
               </CardDescription>
             </div>
-            <Button type="button" className="w-full sm:w-auto" disabled={isLoading || isError} onClick={openCreateForm}>
-              <Plus className="size-4" aria-hidden="true" />
-              Create Assignment
-            </Button>
           </div>
         </CardHeader>
         <CardContent className="grid gap-6">
@@ -623,72 +577,15 @@ export default function ReceptionDeskSettingsPage() {
 
           {!isLoading && !isError ? (
             <>
-              {isFormOpen ? (
-                <form className="grid gap-5 rounded-structural border border-border bg-background p-4" onSubmit={handleSubmit}>
-                <div>
-                  <h2 className="text-[16px] font-semibold">{editingAssignmentId ? 'Edit assignment' : 'New assignment'}</h2>
-                  <p className="mt-1 text-[13px] text-muted-foreground">Select a site, access system, access level, and trigger.</p>
-                </div>
-
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <div className="lg:col-span-2">
-                    <LocationSelector
-                      value={values.locationId}
-                      onChange={(locationId) => setValues((current) => ({ ...current, locationId }))}
-                      level="Room"
-                    />
-                  </div>
-
-                  <SelectField label="Access control system" value={values.systemId} onChange={handleSystemChange}>
-                    <option value="" disabled>Select system</option>
-                    {systems.map((system) => (
-                      <option key={system.id} value={system.id}>{system.name}</option>
-                    ))}
-                  </SelectField>
-
-                  <SelectField label="Access level" value={values.accessLevelTypeId} onChange={(value) => setValues((current) => ({ ...current, accessLevelTypeId: value }))}>
-                    <option value="" disabled>Select access level</option>
-                    {accessLevels.map((accessLevel) => (
-                      <option key={accessLevel.id} value={accessLevel.id}>{accessLevel.name}</option>
-                    ))}
-                  </SelectField>
-
-                  <SelectField label="Trigger" value={values.trigger} onChange={(value) => setValues((current) => ({ ...current, trigger: value as ReceptionAccessPolicyTrigger }))}>
-                    {triggerOptions.map((trigger) => (
-                      <option key={trigger.value} value={trigger.value}>{trigger.label}</option>
-                    ))}
-                  </SelectField>
-
-                  <Field label="Grace period minutes">
-                    <Input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={values.gracePeriodMinutes}
-                      onChange={(event) => setValues((current) => ({ ...current, gracePeriodMinutes: event.target.value }))}
-                      required
-                    />
-                  </Field>
-                </div>
-
-                <div className="flex flex-col gap-2 border-t border-border pt-5 sm:flex-row sm:justify-end">
-                  {editingAssignmentId ? (
-                    <Button type="button" variant="outline" onClick={resetForm}>Cancel edit</Button>
-                  ) : null}
-                  <Button type="submit" disabled={createAssignment.isPending || updateAssignment.isPending || !values.locationId || systems.length === 0 || accessLevels.length === 0}>
-                    {createAssignment.isPending || updateAssignment.isPending ? 'Saving...' : 'Save assignment'}
-                  </Button>
-                </div>
-                </form>
-              ) : null}
+              <p className="rounded-interactive border border-border bg-background px-4 py-3 text-[14px] text-muted-foreground">
+                Existing assignments remain visible below. Creating or editing PACS-triggered assignments is disabled until reception assignment flows are migrated to `AccessControl`.
+              </p>
 
               <AccessAssignmentsTable
                 assignments={assignments}
                 deleteAssignmentId={deleteAssignment.isPending ? deleteAssignment.variables?.id : null}
                 editingAssignmentId={editingAssignmentId}
-                systems={systems}
                 onDelete={confirmDelete}
-                onEdit={editAssignment}
               />
             </>
           ) : null}
@@ -772,16 +669,12 @@ function AccessAssignmentsTable({
   assignments,
   deleteAssignmentId,
   editingAssignmentId,
-  systems,
   onDelete,
-  onEdit,
 }: {
   readonly assignments: readonly AccessRuleAssignment[];
   readonly deleteAssignmentId: string | null;
   readonly editingAssignmentId: string | null;
-  readonly systems: readonly AccessControlSystem[];
   readonly onDelete: (assignment: AccessRuleAssignment) => void;
-  readonly onEdit: (assignment: AccessRuleAssignment) => void;
 }) {
   if (assignments.length === 0) {
     return <p className="rounded-structural border border-border bg-background p-4 text-[14px] text-muted-foreground">No access level assignments configured.</p>;
@@ -804,15 +697,12 @@ function AccessAssignmentsTable({
           {assignments.map((assignment) => (
             <tr key={assignment.id} className={editingAssignmentId === assignment.id ? 'bg-hover-blue/60' : undefined}>
               <td className="px-4 py-4 font-medium text-foreground"><AssignmentLocationLabel locationId={assignment.locationId} /></td>
-              <td className="px-4 py-4 text-muted-foreground">{getSystemName(systems, assignment.systemId)}</td>
-              <td className="px-4 py-4 text-muted-foreground">{getAccessLevelName(systems, assignment.systemId, assignment.accessLevelTypeId)}</td>
+              <td className="px-4 py-4 text-muted-foreground">{assignment.systemId}</td>
+              <td className="px-4 py-4 text-muted-foreground">{assignment.accessLevelTypeId}</td>
               <td className="px-4 py-4 text-muted-foreground">{getTriggerLabel(assignment.trigger)}</td>
               <td className="px-4 py-4 text-muted-foreground">{assignment.gracePeriodMinutes} min</td>
               <td className="px-4 py-4">
                 <div className="flex justify-end gap-2">
-                  <Button type="button" variant="outline" size="icon-sm" aria-label={`Edit ${getTriggerLabel(assignment.trigger)} assignment`} onClick={() => onEdit(assignment)}>
-                    <Pencil className="size-4" aria-hidden="true" />
-                  </Button>
                   <Button type="button" variant="outline" size="icon-sm" aria-label={`Delete ${getTriggerLabel(assignment.trigger)} assignment`} disabled={deleteAssignmentId === assignment.id} onClick={() => onDelete(assignment)}>
                     <Trash2 className="size-4" aria-hidden="true" />
                   </Button>
@@ -924,15 +814,6 @@ function formatKioskOnboarding(kiosk: ReceptionKiosk): string {
 
   const requirements = parts.length > 0 ? parts.join(' + ') : 'None';
   return `${requirements} • ${kiosk.onboardingGracePeriodMinutes} min grace`;
-}
-
-function getSystemName(systems: readonly AccessControlSystem[], systemId: string) {
-  return systems.find((system) => system.id === systemId)?.name ?? systemId;
-}
-
-function getAccessLevelName(systems: readonly AccessControlSystem[], systemId: string, accessLevelTypeId: string) {
-  const system = systems.find((item) => item.id === systemId);
-  return system?.accessLevels.find((accessLevel) => accessLevel.id === accessLevelTypeId)?.name ?? accessLevelTypeId;
 }
 
 function getTriggerLabel(trigger: ReceptionAccessPolicyTrigger) {
