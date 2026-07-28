@@ -33,6 +33,7 @@ public sealed class MigrationsRunner(IServiceScopeFactory scopeFactory)
         IServiceProvider services = scope.ServiceProvider;
         await new MigrationRunner<TenantsDbContext>(services).RunMigrationsAsync(cancellationToken);
         await services.GetRequiredService<TenantSeeder>().SeedAsync(cancellationToken);
+        await new MigrationRunner<LocationsDbContext>(services).RunMigrationsAsync(cancellationToken);
         await new MigrationRunner<IdentitiesDbContext>(services).RunMigrationsAsync(cancellationToken);
         await new MigrationRunner<EmployeesDbContext>(services).RunMigrationsAsync(cancellationToken);
         await new MigrationRunner<CredentialManagementDbContext>(services).RunMigrationsAsync(cancellationToken);
@@ -43,7 +44,6 @@ public sealed class MigrationsRunner(IServiceScopeFactory scopeFactory)
         await new MigrationRunner<DesfireDbContext>(services).RunMigrationsAsync(cancellationToken);
         await new MigrationRunner<HardwareDbContext>(services).RunMigrationsAsync(cancellationToken);
         await new MigrationRunner<KioskDbContext>(services).RunMigrationsAsync(cancellationToken);
-        await new MigrationRunner<LocationsDbContext>(services).RunMigrationsAsync(cancellationToken);
         await new MigrationRunner<ReceptionDbContext>(services).RunMigrationsAsync(cancellationToken);
     }
 }
