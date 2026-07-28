@@ -89,9 +89,14 @@ if (enableAutomation)
     builder.Services.SetupAutomation(builder.Configuration);
 }
 
-builder.Services.AddHostedService<MigrationsRunner>();
+builder.Services.AddScoped<MigrationsRunner>();
 
 WebApplication app = builder.Build();
+await using (AsyncServiceScope startupScope = app.Services.CreateAsyncScope())
+{
+    await startupScope.ServiceProvider.GetRequiredService<MigrationsRunner>().RunAsync(CancellationToken.None);
+}
+
 string frontendIndexPath = Path.Combine(app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot"), "index.html");
 
 // Configure the HTTP request pipeline.

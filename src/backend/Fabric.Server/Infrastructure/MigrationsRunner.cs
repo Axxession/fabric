@@ -16,35 +16,34 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fabric.Server.Infrastructure;
 
-internal class MigrationRunner<T>(IServiceScope scope) where T : DbContext
+internal sealed class MigrationRunner<T>(IServiceProvider serviceProvider) where T : DbContext
 {
     public async Task RunMigrationsAsync(CancellationToken cancellationToken)
     {
-        T dbContext = scope.ServiceProvider.GetRequiredService<T>();
+        T dbContext = serviceProvider.GetRequiredService<T>();
         await dbContext.Database.MigrateAsync(cancellationToken);
     }
 }
 
-public class MigrationsRunner(IServiceScopeFactory scopeFactory) : IHostedService
+public sealed class MigrationsRunner(IServiceScopeFactory scopeFactory)
 {
-    public async Task StartAsync(CancellationToken cancellationToken)
+    public async Task RunAsync(CancellationToken cancellationToken)
     {
-        using IServiceScope scope = scopeFactory.CreateScope();
-        await new MigrationRunner<TenantsDbContext>(scope).RunMigrationsAsync(cancellationToken);
-        await scope.ServiceProvider.GetRequiredService<TenantSeeder>().SeedAsync(cancellationToken);
-        await new MigrationRunner<IdentitiesDbContext>(scope).RunMigrationsAsync(cancellationToken);
-        await new MigrationRunner<EmployeesDbContext>(scope).RunMigrationsAsync(cancellationToken);
-        await new MigrationRunner<CredentialManagementDbContext>(scope).RunMigrationsAsync(cancellationToken);
-        await new MigrationRunner<AccessControlDbContext>(scope).RunMigrationsAsync(cancellationToken);
-        await new MigrationRunner<AccessCatalogDbContext>(scope).RunMigrationsAsync(cancellationToken);
-        await new MigrationRunner<VisitorsDbContext>(scope).RunMigrationsAsync(cancellationToken);
-        await new MigrationRunner<SagasDbContext>(scope).RunMigrationsAsync(cancellationToken);
-        await new MigrationRunner<DesfireDbContext>(scope).RunMigrationsAsync(cancellationToken);
-        await new MigrationRunner<HardwareDbContext>(scope).RunMigrationsAsync(cancellationToken);
-        await new MigrationRunner<KioskDbContext>(scope).RunMigrationsAsync(cancellationToken);
-        await new MigrationRunner<LocationsDbContext>(scope).RunMigrationsAsync(cancellationToken);
-        await new MigrationRunner<ReceptionDbContext>(scope).RunMigrationsAsync(cancellationToken);
+        await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+        IServiceProvider services = scope.ServiceProvider;
+        await new MigrationRunner<TenantsDbContext>(services).RunMigrationsAsync(cancellationToken);
+        await services.GetRequiredService<TenantSeeder>().SeedAsync(cancellationToken);
+        await new MigrationRunner<IdentitiesDbContext>(services).RunMigrationsAsync(cancellationToken);
+        await new MigrationRunner<EmployeesDbContext>(services).RunMigrationsAsync(cancellationToken);
+        await new MigrationRunner<CredentialManagementDbContext>(services).RunMigrationsAsync(cancellationToken);
+        await new MigrationRunner<AccessControlDbContext>(services).RunMigrationsAsync(cancellationToken);
+        await new MigrationRunner<AccessCatalogDbContext>(services).RunMigrationsAsync(cancellationToken);
+        await new MigrationRunner<VisitorsDbContext>(services).RunMigrationsAsync(cancellationToken);
+        await new MigrationRunner<SagasDbContext>(services).RunMigrationsAsync(cancellationToken);
+        await new MigrationRunner<DesfireDbContext>(services).RunMigrationsAsync(cancellationToken);
+        await new MigrationRunner<HardwareDbContext>(services).RunMigrationsAsync(cancellationToken);
+        await new MigrationRunner<KioskDbContext>(services).RunMigrationsAsync(cancellationToken);
+        await new MigrationRunner<LocationsDbContext>(services).RunMigrationsAsync(cancellationToken);
+        await new MigrationRunner<ReceptionDbContext>(services).RunMigrationsAsync(cancellationToken);
     }
-
-    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }
