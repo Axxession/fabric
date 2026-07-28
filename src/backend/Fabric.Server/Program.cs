@@ -160,7 +160,7 @@ if (enableAutomation)
 
 if (File.Exists(frontendIndexPath))
 {
-    app.MapFallbackToFile("index.html");
+    app.MapFallbackToFile("index.html").AllowAnonymous();
 }
 
 
