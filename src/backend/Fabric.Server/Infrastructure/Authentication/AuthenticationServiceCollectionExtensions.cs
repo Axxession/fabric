@@ -8,6 +8,7 @@ public static class AuthenticationServiceCollectionExtensions
     public static IServiceCollection AddFabricAuthentication(this IServiceCollection services)
     {
         services.AddSingleton<ITenantOidcConfigurationStore, TenantOidcConfigurationStore>();
+        services.AddTransient<IClaimsTransformation, FabricClaimsTransformer>();
 
         services.AddAuthentication(TenantBearerAuthenticationDefaults.AuthenticationScheme)
             .AddScheme<AuthenticationSchemeOptions, TenantBearerAuthenticationHandler>(
@@ -41,6 +42,12 @@ public static class AuthenticationServiceCollectionExtensions
                 policy.AuthenticationSchemes.Add(TenantBearerAuthenticationDefaults.AuthenticationScheme);
                 policy.RequireAuthenticatedUser();
                 policy.RequireRole(FabricRoleDefaults.HostRole);
+            })
+            .AddPolicy(FabricRoleDefaults.ManagerPolicy, policy =>
+            {
+                policy.AuthenticationSchemes.Add(TenantBearerAuthenticationDefaults.AuthenticationScheme);
+                policy.RequireAuthenticatedUser();
+                policy.RequireRole(FabricRoleDefaults.ManagerRole);
             })
             .AddPolicy(FabricRoleDefaults.SecurityOfficerPolicy, policy =>
             {

@@ -31,7 +31,6 @@ function toDatetimeLocal(value: string): string {
 
 function mapVisitToFormValues(visit: VisitResponse): VisitFormValues {
   return {
-    hostEmployeeId: visit.host?.employeeId ?? '',
     summary: visit.summary ?? '',
     start: visit.start ? toDatetimeLocal(visit.start) : '',
     stop: visit.stop ? toDatetimeLocal(visit.stop) : '',
@@ -45,6 +44,10 @@ function formatInvitationName(invitation: VisitInvitationResponse) {
 
 export default function VisitEditPage() {
   const { visitId } = useParams({ from: '/main/old/visitors-management/visits/$visitId/edit' });
+  return <VisitEditPageContent visitId={visitId} />;
+}
+
+export function VisitEditPageContent({ visitId }: { readonly visitId: string }) {
   const queryClient = useQueryClient();
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showInviteForm, setShowInviteForm] = useState(false);
@@ -343,7 +346,7 @@ export default function VisitEditPage() {
               disableSubmit={isCancelledOrCompleted}
               submitLabel="Save changes"
               onSubmit={handleSubmit}
-              disabledFields={isCancelledOrCompleted ? ['host', 'summary', 'start', 'stop', 'location'] : ['host']}
+              disabledFields={isCancelledOrCompleted ? ['summary', 'start', 'stop', 'location'] : undefined}
               footerLeft={
                 !isCancelledOrCompleted && !showCancelConfirm ? (
                   <Button

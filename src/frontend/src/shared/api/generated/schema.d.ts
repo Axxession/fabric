@@ -11907,7 +11907,6 @@ export interface paths {
             parameters: {
                 query: {
                     withStatus: components["schemas"]["VisitStatus"][];
-                    hostEmployeeId?: string;
                     after?: string;
                     before?: string;
                     page?: number | string;
@@ -14142,8 +14141,6 @@ export interface components {
             provisioningTiming: components["schemas"]["ProvisioningTiming"];
         };
         CreateVisitRequest: {
-            /** Format: uuid */
-            hostEmployeeId: string;
             summary: string;
             /** Format: date-time */
             start: string;

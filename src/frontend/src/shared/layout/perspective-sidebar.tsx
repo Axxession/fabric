@@ -1,8 +1,8 @@
 import { Link, useLocation } from '@tanstack/react-router';
 
-import type { AppPerspective } from '@/shared/perspectives/app-perspectives';
+import type { ResolvedAppPerspective } from '@/shared/perspectives/app-perspectives';
 
-export function PerspectiveSidebar({ perspectives, version }: { perspectives: readonly AppPerspective[]; version: string }) {
+export function PerspectiveSidebar({ perspectives, version }: { perspectives: readonly ResolvedAppPerspective[]; version: string }) {
   const location = useLocation();
   const activePerspective = perspectives.find((perspective) => location.pathname === perspective.to || location.pathname.startsWith(`${perspective.to}/`));
 

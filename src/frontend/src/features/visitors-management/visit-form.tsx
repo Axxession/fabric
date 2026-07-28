@@ -1,23 +1,12 @@
-import { type ReactNode, useRef, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQuery } from '@tanstack/react-query';
 import { format, parseISO } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 import { z } from 'zod';
 
-import { api } from '@/shared/api/client';
-import type { components } from '@/shared/api/generated/schema';
 import { Button } from '@/shared/components/ui/button';
 import { Calendar } from '@/shared/components/ui/calendar';
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from '@/shared/components/ui/combobox';
 import {
   Form,
   FormControl,
@@ -34,10 +23,7 @@ import {
 } from '@/shared/components/ui/popover';
 import { LocationSelector } from '@/shared/components/location-selector';
 
-type Host = components['schemas']['HostResponse'];
-
 const formSchema = z.object({
-  hostEmployeeId: z.string().min(1, 'Host is required'),
   summary: z.string().min(1, 'Summary is required'),
   start: z.string().min(1, 'Start time is required'),
   stop: z.string().min(1, 'End time is required'),
@@ -51,7 +37,7 @@ type VisitFormProps = {
   readonly isSubmitting: boolean;
   readonly submitLabel: string;
   readonly onSubmit: (values: VisitFormValues) => void;
-  readonly disabledFields?: ('host' | 'summary' | 'start' | 'stop' | 'location')[];
+  readonly disabledFields?: ('summary' | 'start' | 'stop' | 'location')[];
   readonly disableSubmit?: boolean;
   readonly footerLeft?: ReactNode;
 };
@@ -68,10 +54,6 @@ function toDatetimeLocal(date: Date) {
   return local.toISOString().slice(0, 16);
 }
 
-function getHostName(host: Host) {
-  return [host.firstName, host.lastName].filter(Boolean).join(' ') || host.email || 'Unnamed host';
-}
-
 function splitDatetime(datetime: string): { date: string; time: string } {
   const [date = '', time = ''] = datetime.split('T');
   return { date, time };
@@ -85,7 +67,6 @@ export function getDefaultVisitFormValues(): VisitFormValues {
   const start = getNextHour();
   const stop = new Date(start.getTime() + 60 * 60_000);
   return {
-    hostEmployeeId: '',
     summary: '',
     start: toDatetimeLocal(start),
     stop: toDatetimeLocal(stop),
@@ -94,77 +75,14 @@ export function getDefaultVisitFormValues(): VisitFormValues {
 }
 
 export function VisitForm({ initialValues, isSubmitting, submitLabel, onSubmit, disabledFields, disableSubmit, footerLeft }: VisitFormProps) {
-  const anchorRef = useRef<HTMLDivElement | null>(null);
-
   const form = useForm<VisitFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: initialValues,
   });
 
-  const hostsQuery = useQuery({
-    queryKey: ['visitors-management', 'hosts', 'all'],
-    queryFn: async () => {
-      const { data, error } = await api.GET('/api/visitors/hosts', {
-        params: { query: {} },
-      });
-
-      if (error) {
-        throw new Error('Could not load hosts.');
-      }
-
-      return data;
-    },
-  });
-
-  const hosts = hostsQuery.data?.items ?? [];
-
   return (
     <Form {...form}>
       <form className="grid gap-5" onSubmit={form.handleSubmit(onSubmit)}>
-        <FormField
-          control={form.control}
-          name="hostEmployeeId"
-          render={({ field }) => {
-            const selectedHost = hosts.find((host) => host.employeeId === field.value) ?? null;
-
-            return (
-              <FormItem>
-                <FormLabel>Host</FormLabel>
-                <FormControl>
-                  <div ref={anchorRef}>
-                    <Combobox
-                      value={selectedHost}
-                      onValueChange={(host) => field.onChange(host?.employeeId ?? '')}
-                      items={hosts}
-                      itemToStringLabel={(host) => getHostName(host)}
-                    >
-            <ComboboxInput
-              placeholder="Search hosts..."
-              showClear
-              disabled={disabledFields?.includes('host')}
-            />
-                      <ComboboxContent anchor={anchorRef.current}>
-                        <ComboboxEmpty>No hosts found.</ComboboxEmpty>
-                        <ComboboxList>
-                          {(host) => (
-                            <ComboboxItem key={host.employeeId} value={host}>
-                              <div>
-                                <p className="font-medium text-foreground">{getHostName(host)}</p>
-                                {host.email ? <p className="text-[12px] text-muted-foreground">{host.email}</p> : null}
-                              </div>
-                            </ComboboxItem>
-                          )}
-                        </ComboboxList>
-                      </ComboboxContent>
-                    </Combobox>
-                  </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            );
-          }}
-        />
-
         <FormField
           control={form.control}
           name="summary"

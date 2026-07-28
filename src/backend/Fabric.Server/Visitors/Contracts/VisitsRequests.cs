@@ -18,7 +18,6 @@ public record ListVisitorsRequest : BaseListRequest
 
 
 public record CreateVisitRequest(
-    Guid HostEmployeeId,
     string Summary,
     DateTimeOffset Start,
     DateTimeOffset Stop,

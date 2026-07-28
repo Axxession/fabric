@@ -41,9 +41,15 @@ public sealed class CurrentActorService(
             ? null
             : await identitiesDb.Identities.AsNoTracking().SingleOrDefaultAsync(item => item.Id == employee.IdentityId, cancellationToken);
 
-        string[] effectiveRoles = isHost
-            ? [.. roles.Append(FabricRoleDefaults.HostRole).Distinct(StringComparer.Ordinal).OrderBy(value => value, StringComparer.Ordinal)]
-            : roles;
+        string[] hostRoles = isHost ? [FabricRoleDefaults.HostRole] : Array.Empty<string>();
+        string[] managerRoles = isManager ? [FabricRoleDefaults.ManagerRole] : Array.Empty<string>();
+
+        string[] effectiveRoles = roles
+            .Concat(hostRoles)
+            .Concat(managerRoles)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .ToArray();
 
         return Result.Success<CurrentActorResponse, ActorErrors>(new CurrentActorResponse(
             identity?.Id ?? employee?.IdentityId,

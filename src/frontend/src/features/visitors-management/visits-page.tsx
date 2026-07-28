@@ -10,6 +10,13 @@ import { cn } from '@/shared/utils/cn';
 
 type Visit = components['schemas']['VisitResponse'];
 type VisitStatus = components['schemas']['VisitStatus'];
+type VisitsPageProps = {
+  readonly title?: string;
+  readonly description?: string;
+  readonly createTo?: '/old/visitors-management/visits/new' | '/employee/visitors/new';
+  readonly editTo?: '/old/visitors-management/visits/$visitId/edit' | '/employee/visitors/$visitId/edit';
+  readonly storageKey?: string;
+};
 
 type CalendarView = 'today' | 'work-week' | 'week' | 'month';
 
@@ -29,14 +36,20 @@ type StoredCalendarState = {
   readonly anchorDate?: string;
 };
 
-export default function VisitsPage() {
-  const [calendarState, setCalendarState] = useState(() => getStoredCalendarState());
+export default function VisitsPage(props: VisitsPageProps) {
+  const title = props.title ?? 'Visits';
+  const description = props.description ?? 'Plan visits, check expected arrivals, and coordinate visitor access workflows.';
+  const createTo = props.createTo ?? '/old/visitors-management/visits/new';
+  const editTo = props.editTo ?? '/old/visitors-management/visits/$visitId/edit';
+  const storageKey = props.storageKey ?? visitsCalendarStorageKey;
+
+  const [calendarState, setCalendarState] = useState(() => getStoredCalendarState(storageKey));
   const interval = useMemo(() => getCalendarInterval(calendarState.anchorDate, calendarState.view), [calendarState.anchorDate, calendarState.view]);
   const filteredStatuses = calendarState.statuses.length > 0 && calendarState.statuses.length < visitStatuses.length ? calendarState.statuses : [];
 
   useEffect(() => {
-    window.sessionStorage.setItem(visitsCalendarStorageKey, JSON.stringify(calendarState));
-  }, [calendarState]);
+    window.sessionStorage.setItem(storageKey, JSON.stringify(calendarState));
+  }, [calendarState, storageKey]);
 
   const visitsQuery = useQuery({
     queryKey: ['visitors-management', 'visits', interval.start.toISOString(), interval.end.toISOString(), calendarState.statuses.join(',')],
@@ -86,11 +99,11 @@ export default function VisitsPage() {
     <div className="grid gap-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-[20px] font-semibold tracking-tight">Visits</h2>
-          <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">Plan visits, check expected arrivals, and coordinate visitor access workflows.</p>
+          <h2 className="text-[20px] font-semibold tracking-tight">{title}</h2>
+          <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">{description}</p>
         </div>
         <Link
-          to="/old/visitors-management/visits/new"
+          to={createTo}
           className="inline-flex w-full items-center justify-center gap-2 rounded-interactive bg-primary px-4 py-2 text-[14px] font-semibold text-white transition hover:opacity-90 sm:w-fit"
         >
           <Plus className="size-4" aria-hidden="true" />
@@ -171,13 +184,13 @@ export default function VisitsPage() {
           </div>
         </div>
 
-        <CalendarGrid days={days} visits={visits} view={calendarState.view} isLoading={visitsQuery.isLoading} />
+        <CalendarGrid days={days} visits={visits} view={calendarState.view} isLoading={visitsQuery.isLoading} editTo={editTo} />
       </section>
     </div>
   );
 }
 
-function CalendarGrid({ days, visits, view, isLoading }: { readonly days: Date[]; readonly visits: Visit[]; readonly view: CalendarView; readonly isLoading: boolean }) {
+function CalendarGrid({ days, visits, view, isLoading, editTo }: { readonly days: Date[]; readonly visits: Visit[]; readonly view: CalendarView; readonly isLoading: boolean; readonly editTo: VisitsPageProps['editTo'] }) {
   const columnsClassName = view === 'today' ? 'grid-cols-1' : view === 'work-week' ? 'lg:grid-cols-5' : 'lg:grid-cols-7';
   const desktopColumns = view === 'today' ? 1 : view === 'work-week' ? 5 : 7;
 
@@ -214,7 +227,7 @@ function CalendarGrid({ days, visits, view, isLoading }: { readonly days: Date[]
               {isLoading ? <p className="px-1 py-2 text-[14px] text-muted-foreground">Loading...</p> : null}
               {!isLoading && dayVisits.length === 0 ? <p className="px-1 py-2 text-[13px] text-muted-foreground">No visits</p> : null}
               {dayVisits.map((visit) => (
-                <VisitCard key={visit.id ?? `${visit.summary}-${visit.start}`} visit={visit} />
+                <VisitCard key={visit.id ?? `${visit.summary}-${visit.start}`} visit={visit} editTo={editTo} />
               ))}
             </div>
           </article>
@@ -224,12 +237,12 @@ function CalendarGrid({ days, visits, view, isLoading }: { readonly days: Date[]
   );
 }
 
-function VisitCard({ visit }: { readonly visit: Visit }) {
+function VisitCard({ visit, editTo }: { readonly visit: Visit; readonly editTo: VisitsPageProps['editTo'] }) {
   const participantCount = visit.invitations?.length ?? 0;
 
   return (
     <Link
-      to="/old/visitors-management/visits/$visitId/edit"
+      to={editTo ?? '/old/visitors-management/visits/$visitId/edit'}
       params={{ visitId: visit.id ?? '' }}
       className="grid gap-2 rounded-interactive border border-border bg-content p-3 shadow-sm transition hover:border-primary/40 hover:shadow-md"
     >
@@ -248,11 +261,11 @@ function VisitCard({ visit }: { readonly visit: Visit }) {
   );
 }
 
-function getStoredCalendarState(): Required<StoredCalendarState> {
+function getStoredCalendarState(storageKey: string): Required<StoredCalendarState> {
   const fallback = { view: 'work-week' as const, statuses: [], status: 'all' as const, anchorDate: new Date().toISOString() };
 
   try {
-    const stored = window.sessionStorage.getItem(visitsCalendarStorageKey);
+    const stored = window.sessionStorage.getItem(storageKey);
     if (!stored) {
       return fallback;
     }

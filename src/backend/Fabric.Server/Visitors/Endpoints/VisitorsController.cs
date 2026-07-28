@@ -1,5 +1,7 @@
+using Fabric.Server.Actors.Application;
 using Fabric.Server.Core;
 using Fabric.Server.Employees.Persistence;
+using Fabric.Server.Infrastructure.Authentication;
 using Fabric.Server.Locations.Application;
 using Fabric.Server.Locations.Domain;
 using Fabric.Server.Sagas.VisitorPreOnboarding;
@@ -43,9 +45,11 @@ public static class VisitorEndpoints
             .WithSummary("List visits")
             .Produces<Page<VisitResponse>>();
         visits.MapPost("", CreateVisit)
+            .RequireAuthorization(FabricRoleDefaults.HostPolicy)
             .WithDescription("Create a new visit")
             .WithSummary("Create a new visit")
-            .Produces<VisitResponse>(StatusCodes.Status201Created);
+            .Produces<VisitResponse>(StatusCodes.Status201Created)
+            .Produces<ProblemDetails>(StatusCodes.Status403Forbidden);
         visits.MapPost("/{id:guid}/cancel", CancelVisit)
             .WithDescription("Cancel a visit")
             .WithSummary("Cancel a visit")
@@ -181,8 +185,8 @@ public static class VisitorEndpoints
     }
 
     private static async Task<IResult> ListVisits(
+        HttpContext context,
         [FromQuery] VisitStatus[]? withStatus,
-        [FromQuery] Guid? hostEmployeeId,
         [FromQuery] DateTimeOffset? after,
         [FromQuery] DateTimeOffset? before,
         [FromQuery] int? page,
@@ -192,13 +196,20 @@ public static class VisitorEndpoints
         CancellationToken cancellationToken = default
     )
     {
+        Guid? employeeId = context.User.GetEmployeeId();
+        if (!employeeId.HasValue)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status403Forbidden,
+                detail: "Authenticated actor is not linked to an employee.");
+        }
+
         IQueryable<Visit> query = db.Visits.Include(x => x.Invitations).AsQueryable();
 
         if (withStatus is { Length: > 0 })
             query = query.Where(x => withStatus.Contains(x.Status));
 
-        if (hostEmployeeId.HasValue)
-            query = query.Where(x => hostEmployeeId.Value == x.HostEmployeeId);
+        query = query.Where(x => x.HostEmployeeId == employeeId.Value);
 
         if (after.HasValue)
             query = query.Where(x => x.Start >= after.Value);
@@ -217,13 +228,42 @@ public static class VisitorEndpoints
     }
 
     private static async Task<IResult> CreateVisit(
+        HttpContext context,
         [FromBody] CreateVisitRequest request,
         VisitService visitService,
+        CurrentActorService currentActorService,
         CancellationToken cancellationToken = default
     )
     {
+        Result<Fabric.Server.Actors.Contracts.CurrentActorResponse, ActorErrors> actorResult = await currentActorService.GetCurrentActorAsync(context.User, cancellationToken);
+        if (actorResult.IsFailure(out ActorErrors actorError))
+        {
+            return actorError switch
+            {
+                ActorErrors.AmbiguousEmployeeMatch => Results.Problem(
+                    statusCode: StatusCodes.Status409Conflict,
+                    title: "Ambiguous employee match",
+                    detail: "Multiple employees matched the authenticated actor claims."),
+                _ => Results.Problem(statusCode: StatusCodes.Status500InternalServerError, detail: "Unexpected actor resolution error.")
+            };
+        }
+
+        Guid? employeeId = context.User.GetEmployeeId();
+        if (!employeeId.HasValue)
+        {
+            actorResult.IsSuccess(out Fabric.Server.Actors.Contracts.CurrentActorResponse? actor);
+            employeeId = actor?.EmployeeId;
+        }
+
+        if (!employeeId.HasValue)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status403Forbidden,
+                detail: "Authenticated actor is not linked to an employee.");
+        }
+
         Result<(Visit, HostResponse), VisitErrors> result = await visitService.Create(
-            request.HostEmployeeId,
+            employeeId.Value,
             request.Summary,
             request.Start,
             request.Stop,

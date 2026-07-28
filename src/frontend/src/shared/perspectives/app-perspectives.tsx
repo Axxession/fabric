@@ -13,12 +13,18 @@ export type AppPerspective = {
   to: string;
   icon: ComponentType<{ className?: string }>;
   priority: number;
-  menuItems: readonly {
+  menuItems: readonly PerspectiveMenuItem[] | ((actor: CurrentActor) => readonly PerspectiveMenuItem[]);
+  isAvailable: (actor: CurrentActor) => boolean;
+};
+
+export type PerspectiveMenuItem = {
     label: string;
     description: string;
-    to: string;
-  }[];
-  isAvailable: (actor: CurrentActor) => boolean;
+  to: string;
+};
+
+export type ResolvedAppPerspective = Omit<AppPerspective, 'menuItems'> & {
+  menuItems: readonly PerspectiveMenuItem[];
 };
 
 export const appPerspectives: readonly AppPerspective[] = [
@@ -30,9 +36,10 @@ export const appPerspectives: readonly AppPerspective[] = [
     to: '/employee',
     icon: Briefcase,
     priority: 1,
-    menuItems: [
+    menuItems: (actor) => [
       { label: 'Overview', description: 'Employee homepage.', to: '/employee' },
       { label: 'Request Access', description: 'Request access packages and track your requests.', to: '/employee/request-access' },
+      ...(actor.isHost ? [{ label: 'Visitors', description: 'Review your visits and schedule new ones.', to: '/employee/visitors' }] : []),
     ],
     isAvailable: (actor) => actor.isEmployee,
   },
@@ -83,12 +90,18 @@ export const appPerspectives: readonly AppPerspective[] = [
   },
 ] as const;
 
-export function getAvailablePerspectives(actor: CurrentActor | undefined) {
+export function getAvailablePerspectives(actor: CurrentActor | undefined): ResolvedAppPerspective[] {
   if (!actor) {
     return [];
   }
 
-  return appPerspectives.filter((perspective) => perspective.isAvailable(actor)).sort((left, right) => left.priority - right.priority);
+  return appPerspectives
+    .filter((perspective) => perspective.isAvailable(actor))
+    .map((perspective) => ({
+      ...perspective,
+      menuItems: typeof perspective.menuItems === 'function' ? perspective.menuItems(actor) : perspective.menuItems,
+    }))
+    .sort((left, right) => left.priority - right.priority);
 }
 
 export function getPerspectiveByPathname(pathname: string) {
