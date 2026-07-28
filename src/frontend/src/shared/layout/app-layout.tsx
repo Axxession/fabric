@@ -1,4 +1,5 @@
 import { Link, useLocation } from '@tanstack/react-router';
+import { ChevronDown } from 'lucide-react';
 import { type ReactNode, useEffect } from 'react';
 import { useAuth } from 'react-oidc-context';
 
@@ -6,6 +7,8 @@ import { useCurrentActor } from '@/shared/actors/current-actor';
 import { FabricLogo } from '@/shared/branding/fabric-logo';
 import { useBranding } from '@/shared/branding/branding-context';
 import { isElsaStudioFullscreenRoute } from '@/features/automation/elsa-studio-fullscreen';
+import { Button } from '@/shared/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover';
 import { PerspectiveSidebar } from '@/shared/layout/perspective-sidebar';
 import { NoPerspectiveWarning } from '@/shared/perspectives/no-perspective-warning';
 import { getAvailablePerspectives, getPerspectiveByPathname } from '@/shared/perspectives/app-perspectives';
@@ -22,6 +25,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const activePerspective = getPerspectiveByPathname(location.pathname);
   const showPerspectiveShell = auth.isAuthenticated && !isFullscreenElsaRoute && activePerspective && availablePerspectives.length > 0;
   const showNoPerspectiveWarning = auth.isAuthenticated && !isFullscreenElsaRoute && !actorQuery.isLoading && !actorQuery.isError && availablePerspectives.length === 0;
+  const currentUserName = actorQuery.data?.displayName ?? readProfileValue(auth.user?.profile.name) ?? readProfileValue(auth.user?.profile.preferred_username) ?? readProfileValue(auth.user?.profile.email) ?? 'Signed in';
+  const currentUserSecondary = actorQuery.data?.email ?? readProfileValue(auth.user?.profile.email) ?? readProfileValue(auth.user?.profile.preferred_username);
 
   useEffect(() => {
     document.body.classList.toggle('fabric-app-body', !isFullscreenElsaRoute);
@@ -45,13 +50,21 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </Link>
               <div className="ml-auto">
                 {auth.isAuthenticated ? (
-                  <button
-                    type="button"
-                    className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] font-semibold transition hover:bg-hover-gray sm:px-4"
-                    onClick={() => void auth.signoutRedirect().catch(() => auth.removeUser())}
-                  >
-                    Sign out
-                  </button>
+                  <Popover>
+                    <PopoverTrigger render={<Button type="button" variant="outline" className="max-w-[16rem] justify-between sm:max-w-[20rem]" aria-label="Open account menu" />}>
+                      <span className="truncate text-left text-[14px] font-semibold">{currentUserName}</span>
+                      <ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="grid min-w-64 gap-3 p-3">
+                      <div className="min-w-0 border-b border-border pb-3">
+                        <p className="truncate text-[14px] font-semibold text-foreground">{currentUserName}</p>
+                        {currentUserSecondary && currentUserSecondary !== currentUserName ? <p className="mt-1 truncate text-[13px] text-muted-foreground">{currentUserSecondary}</p> : null}
+                      </div>
+                      <Button type="button" variant="ghost" className="justify-start" onClick={() => void auth.signoutRedirect().catch(() => auth.removeUser())}>
+                        Sign out
+                      </Button>
+                    </PopoverContent>
+                  </Popover>
                 ) : null}
               </div>
             </div>
@@ -76,4 +89,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
       )}
     </div>
   );
+}
+
+function readProfileValue(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value : undefined;
 }

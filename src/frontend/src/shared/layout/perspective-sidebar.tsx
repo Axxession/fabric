@@ -8,9 +8,6 @@ export function PerspectiveSidebar({ perspectives, version }: { perspectives: re
 
   return (
     <aside className="flex w-80 shrink-0 flex-col border-r border-border bg-content p-4 md:sticky md:top-[73px] md:h-[calc(100vh-73px)]">
-      <div className="mb-4 px-1">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Perspectives</p>
-      </div>
       <div className="grid grid-cols-2 gap-2">
         {perspectives.map((perspective) => {
           const isActive = location.pathname === perspective.to || location.pathname.startsWith(`${perspective.to}/`);
