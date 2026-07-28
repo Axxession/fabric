@@ -20,7 +20,7 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:24.0
     environment:
-      KC_HOSTNAME: localhost
+      KC_HOSTNAME: dev.axxession.local
       KC_HOSTNAME_PORT: 7080
       KC_HOSTNAME_STRICT_BACKCHANNEL: "true"
       KEYCLOAK_ADMIN: admin
@@ -39,10 +39,27 @@ services:
       interval: 15s
       timeout: 2s
       retries: 15
+    extra_hosts:
+      - "dev.axxession.local:host-gateway"
     command: ["start-dev", "--http-port", "7080", "--https-port", "7443"]
     ports:
       - "7080:7080"
       - "7443:7443"
+
+  fabric:
+    image: axxessioncr.azurecr.io/axxession/fabric:0.0.1
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      Email__Graph__Secret: ${GRAPH_SECRET}
+    extra_hosts:
+      - "dev.axxession.local:host-gateway"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./fabric/appsettings.json:/app/appsettings.json:ro
 
 volumes:
   fabric_data:

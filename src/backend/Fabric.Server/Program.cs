@@ -92,6 +92,7 @@ if (enableAutomation)
 builder.Services.AddHostedService<MigrationsRunner>();
 
 WebApplication app = builder.Build();
+string frontendIndexPath = Path.Combine(app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot"), "index.html");
 
 // Configure the HTTP request pipeline.
 if (enableOpenApi)
@@ -103,6 +104,12 @@ app.UseCors("ApiCors");
 app.UseMiddleware<TenantContextMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
+
+if (File.Exists(frontendIndexPath))
+{
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
+}
 
 app.MapTenantEndpoints();
 app.MapActorEndpoints();
@@ -133,8 +140,12 @@ app.MapDesfireKeyDiversificationStrategyEndpoints();
 app.MapDesfireKeyGroupEndpoints();
 app.MapDesfireEncodingEndpoints();
 app.MapKioskProfileEndpoints();
-app.MapKioskEndpoints();
-app.MapKioskRuntimeEndpoints();
+app.MapKioskEndpoints(enableAutomation);
+
+if (enableAutomation)
+{
+    app.MapKioskRuntimeEndpoints();
+}
 app.MapVisitorEndpoints();
 app.MapOrganizerEndpoints();
 app.MapVisitorPreOnboardingSagaEndpoints();
@@ -144,6 +155,12 @@ app.MapEmployeeLifecycleAutomationEndpoints();
 if (enableAutomation)
 {
     app.UseAutomation();
+}
+
+
+if (File.Exists(frontendIndexPath))
+{
+    app.MapFallbackToFile("index.html");
 }
 
 

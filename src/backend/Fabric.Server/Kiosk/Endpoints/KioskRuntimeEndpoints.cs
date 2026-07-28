@@ -86,7 +86,7 @@ public static class KioskRuntimeEndpoints
         return Results.NoContent();
     }
 
-    private static async Task<IResult> StartKioskSession([FromBody] StartKioskSessionRequest request, HttpContext context, KioskDbContext db, KioskWorkflowStarter workflowStarter, KioskSagaService kioskSagaService, TimeProvider timeProvider, ILoggerFactory loggerFactory, CancellationToken cancellationToken = default)
+    private static async Task<IResult> StartKioskSession([FromBody] StartKioskSessionRequest request, HttpContext context, KioskDbContext db, [FromServices] KioskWorkflowStarter workflowStarter, [FromServices] KioskSagaService kioskSagaService, TimeProvider timeProvider, [FromServices] ILoggerFactory loggerFactory, CancellationToken cancellationToken = default)
     {
         ILogger logger = loggerFactory.CreateLogger("Fabric.Server.Kiosk.StartKioskSession");
         Domain.Kiosk? kiosk = await GetAuthenticatedKioskAsync(context, db, cancellationToken);

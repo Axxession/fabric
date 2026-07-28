@@ -4,6 +4,8 @@
     <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
     <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
     <BuildInParallel>false</BuildInParallel>
+    <ContainerRepository>axxession/fabric</ContainerRepository>
+    <ContainerRegistry>axxessioncr.azurecr.io</ContainerRegistry>
   </PropertyGroup>
 
   <ItemGroup>
