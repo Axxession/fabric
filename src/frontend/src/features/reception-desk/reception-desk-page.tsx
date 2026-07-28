@@ -921,7 +921,7 @@ function VisitorArrivalDetails({ arrival, invitation, isLoading, saga, visit }: 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <DetailField label="Visit starts" value={visit.start ? formatDateTime(visit.start) : 'Not planned'} />
         <DetailField label="Visit ends" value={visit.stop ? formatDateTime(visit.stop) : 'Not planned'} />
-        <DetailField label="Organizer" value={getOrganizerName(visit.organizer)} />
+        <DetailField label="Host" value={getHostName(visit.host)} />
         <DetailField label="Invitation" value={invitation?.confirmationStatus ?? formatConfirmation(arrival.confirmed)} />
       </div>
 
@@ -1179,8 +1179,8 @@ function getArrivalName(arrival: Arrival) {
   return [arrival.firstName, arrival.lastName].filter(Boolean).join(' ') || 'Unnamed arrival';
 }
 
-function getOrganizerName(organizer: components['schemas']['OrganizerResponse']) {
-  return [organizer.firstName, organizer.lastName].filter(Boolean).join(' ') || 'Unnamed organizer';
+function getHostName(host: components['schemas']['HostResponse']) {
+  return [host.firstName, host.lastName].filter(Boolean).join(' ') || 'Unnamed host';
 }
 
 function getViewLabel(view: ArrivalIntervalView) {

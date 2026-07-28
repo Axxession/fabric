@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Fabric.Server.Core;
+using Fabric.Server.Employees.Persistence;
 using Fabric.Server.Infrastructure.Authentication;
 using Fabric.Server.Reception.Application;
 using Fabric.Server.Reception.Contracts;
@@ -175,6 +176,7 @@ public static class ArrivalEndpoints
         [FromQuery] string code,
         ReceptionService receptionService,
         ReceptionDbContext db,
+        EmployeesDbContext employeesDb,
         VisitorsDbContext visitorsDb,
         HttpContext httpContext,
         CancellationToken cancellationToken = default)
@@ -200,7 +202,7 @@ public static class ArrivalEndpoints
             return Results.NotFound();
 
         ReceptionKioskVisitorDetailsResponse? visitor = arrival.Type == ArrivalType.Visitor && arrival.InvitationId.HasValue
-            ? await GetVisitorDetails(arrival, visitorsDb, cancellationToken)
+            ? await GetVisitorDetails(arrival, employeesDb, visitorsDb, cancellationToken)
             : null;
 
         return Results.Ok(arrival.ToKioskResponse(kiosk, visitor));
@@ -397,6 +399,7 @@ public static class ArrivalEndpoints
 
     private static async Task<ReceptionKioskVisitorDetailsResponse?> GetVisitorDetails(
         ExpectedArrival arrival,
+        EmployeesDbContext employeesDb,
         VisitorsDbContext visitorsDb,
         CancellationToken cancellationToken)
     {
@@ -409,9 +412,9 @@ public static class ArrivalEndpoints
         if (visit is null || invitation is null)
             return null;
 
-        Organizer organizer = await visitorsDb.Organizers
+        Employees.Domain.Employee host = await employeesDb.Employees
             .AsNoTracking()
-            .SingleAsync(x => x.Id == visit.OrganizerId, cancellationToken);
+            .SingleAsync(x => x.Id == visit.HostEmployeeId, cancellationToken);
 
         var visitDetails = new ReceptionKioskVisitDetailsResponse(
             visit.Id,
@@ -420,8 +423,8 @@ public static class ArrivalEndpoints
             visit.Start,
             visit.Stop,
             visit.LocationId,
-            $"{organizer.FirstName} {organizer.LastName}",
-            organizer.Email);
+            $"{host.FirstName} {host.LastName}".Trim(),
+            host.Email);
 
         return new ReceptionKioskVisitorDetailsResponse(
             invitation.VisitorId,

@@ -217,6 +217,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/visitors/visitors/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get visitor
+         * @description Get visitor
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VisitorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/visitors/invitations/{invitationId}/visit": {
         parameters: {
             query?: never;
@@ -5036,11 +5084,9 @@ export interface paths {
         };
         get: {
             parameters: {
-                query: {
+                query?: {
                     IdentityId?: string;
                     AccessControlSystemId?: string;
-                    Page: number | string;
-                    PageSize: number | string;
                 };
                 header?: never;
                 path?: never;
@@ -5770,6 +5816,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/access-catalog/access-grants/{accessGrantId}/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    accessGrantId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/access-catalog/access-grants/{accessGrantId}/revoke": {
         parameters: {
             query?: never;
@@ -5798,48 +5886,6 @@ export interface paths {
                     content: {
                         "application/json": components["schemas"]["AccessGrantResponse"];
                     };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/access-catalog/access-grants/{accessGrantId}/reconcile": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    accessGrantId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Accepted */
-                202: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
                 };
                 /** @description Not Found */
                 404: {
@@ -6232,6 +6278,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/access-catalog/approval-inbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    approverIdentityId: string;
+                    ids: string[];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PageOfApprovalInboxItemResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/access-catalog/package-requests": {
         parameters: {
             query?: never;
@@ -6422,46 +6506,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/access-catalog/approval-inbox": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query: {
-                    approverIdentityId: string;
-                    ids: string[];
-                    Page?: number | string;
-                    PageSize?: number | string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["PageOfApprovalInboxItemResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/access-catalog/approval-requirements": {
         parameters: {
             query?: never;
@@ -6539,859 +6583,6 @@ export interface paths {
             };
         };
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/access-policies/policies": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List access policies
-         * @description List access policies
-         */
-        get: {
-            parameters: {
-                query: {
-                    SystemId?: string;
-                    SubjectId?: string;
-                    Name?: string;
-                    ActiveOnly?: boolean;
-                    ids: string[];
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["PageOfAccessPolicyResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/access-policies/policies/credentials": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create credential policy
-         * @description Create a credential access policy
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["CreateCredentialPolicyRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["AccessPolicyChangeResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/access-policies/policies/access-levels": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create access-level policy
-         * @description Create an access-level policy
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["CreateAccessPolicyRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["AccessPolicyChangeResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/access-policies/policies/{policyId}/retract": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Retract access policy
-         * @description Retract an access policy and reconcile subject access
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    policyId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["AccessPolicyChangeResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/access-policies/access-control-systems": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List access control systems
-         * @description List access control systems
-         */
-        get: {
-            parameters: {
-                query: {
-                    Name?: string;
-                    ids: string[];
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["PageOfAccessControlSystemResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        /**
-         * Register access control system
-         * @description Register access control system
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["CreateAccessControlSystemRequest"];
-                };
-            };
-            responses: {
-                /** @description Created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["AccessControlSystemResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/access-policies/access-control-systems/{systemId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get access control system
-         * @description Get an access control system
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    systemId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["AccessControlSystemResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/access-policies/access-control-systems/{systemId}/metadata": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Fetch access control system metadata
-         * @description Fetch provider metadata for an access control system
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    systemId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["SystemMetadata"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/access-policies/access-control-systems/{systemId}/identity-mappings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List identity mappings
-         * @description List identity mappings for an access control system
-         */
-        get: {
-            parameters: {
-                query: {
-                    Name?: string;
-                    subjectIds: string[];
-                };
-                header?: never;
-                path: {
-                    systemId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["PageOfIdentityMappingResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/access-policies/access-control-systems/{systemId}/identity-mappings/{subjectId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete identity mapping
-         * @description Delete an identity mapping and cleanup subject resources for an access control system
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    systemId: string;
-                    subjectId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description No Content */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/access-policies/access-control-systems/{systemId}/unipass/config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Update Unipass config
-         * @description Update Unipass system config
-         */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    systemId: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["UpdateUnipassConfigRequest"];
-                };
-            };
-            responses: {
-                /** @description No Content */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-            };
-        };
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/access-policies/access-control-systems/{systemId}/lenel/config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Update Lenel config
-         * @description Update Lenel system config
-         */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    systemId: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["UpdateLenelConfigRequest"];
-                };
-            };
-            responses: {
-                /** @description No Content */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-            };
-        };
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/access-policies/access-control-systems/{systemId}/unipass/badge-types": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    systemId: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["AddUnipassBadgeTypeRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["UnipassBadgeTypeResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/access-policies/access-control-systems/{systemId}/lenel/badge-types": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    systemId: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["AddLenelBadgeTypeRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["LenelBadgeTypeResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/access-policies/access-control-systems/{systemId}/badge-types/{badgeTypeId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    systemId: string;
-                    badgeTypeId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description No Content */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/access-policies/access-control-systems/{systemId}/unipass/access-level-types": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    systemId: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["AddUnipassAccessLevelTypeRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["UnipassAccessLevelTypeResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/access-policies/access-control-systems/{systemId}/lenel/access-level-types": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    systemId: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["AddLenelAccessLevelTypeRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["LenelAccessLevelTypeResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/access-policies/access-control-systems/{systemId}/access-level-types/{accessLevelTypeId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    systemId: string;
-                    accessLevelTypeId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description No Content */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
         options?: never;
         head?: never;
         patch?: never;
@@ -11952,145 +11143,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/kiosks/{id}/maintenance": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["KioskResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/kiosks/{id}/disable": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["KioskResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/kiosks/{id}/cancel-session": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["KioskResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/kiosks/{id}/workflow": {
         parameters: {
             query?: never;
@@ -12285,6 +11337,145 @@ export interface paths {
             };
         };
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kiosks/{id}/maintenance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["KioskResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kiosks/{id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["KioskResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kiosks/{id}/cancel-session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["KioskResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -12701,50 +11892,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/visitors/visitors/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["VisitorResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/visitors/visits": {
         parameters: {
             query?: never;
@@ -12760,7 +11907,7 @@ export interface paths {
             parameters: {
                 query: {
                     withStatus: components["schemas"]["VisitStatus"][];
-                    organizerId?: string;
+                    hostEmployeeId?: string;
                     after?: string;
                     before?: string;
                     page?: number | string;
@@ -13317,7 +12464,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/visitors/organizers": {
+    "/api/visitors/hosts": {
         parameters: {
             query?: never;
             header?: never;
@@ -13341,50 +12488,20 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["PageOfOrganizerResponse"];
+                        "application/json": components["schemas"]["PageOfHostResponse"];
                     };
                 };
             };
         };
         put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["AddOrganizerRequest"];
-                };
-            };
-            responses: {
-                /** @description Created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["OrganizerResponse"];
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/visitors/organizers/{organizerId}": {
+    "/api/visitors/hosts/{employeeId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -13396,7 +12513,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    organizerId: string;
+                    employeeId: string;
                 };
                 cookie?: never;
             };
@@ -13408,7 +12525,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["OrganizerResponse"];
+                        "application/json": components["schemas"]["HostResponse"];
                     };
                 };
                 /** @description Not Found */
@@ -13420,28 +12537,25 @@ export interface paths {
                 };
             };
         };
-        put: {
+        put?: never;
+        post: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
-                    organizerId: string;
+                    employeeId: string;
                 };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["UpdateOrganizerRequest"];
-                };
-            };
+            requestBody?: never;
             responses: {
-                /** @description OK */
-                200: {
+                /** @description Created */
+                201: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["OrganizerResponse"];
+                        "application/json": components["schemas"]["HostResponse"];
                     };
                 };
                 /** @description Not Found */
@@ -13449,28 +12563,27 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
                 };
                 /** @description Conflict */
                 409: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
                 };
             };
         };
-        post?: never;
-        /**
-         * Deactivate organizer
-         * @description Deactivate organizer
-         */
         delete: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
-                    organizerId: string;
+                    employeeId: string;
                 };
                 cookie?: never;
             };
@@ -13488,10 +12601,79 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/visitors/host-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HostSettingsResponse"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateHostSettingsRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HostSettingsResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -14148,8 +13330,6 @@ export interface components {
         AccessControlSystemStatus: "Active" | "Inactive";
         /** @enum {unknown} */
         AccessDurationKind: "Permanent" | "Temporary";
-        /** @enum {unknown} */
-        AccessGrantMaterializationOutcomeStatus: "Created" | "SkippedNoTarget" | "Failed";
         AccessGrantMaterializationOutcomeResponse: {
             /** Format: uuid */
             id: string;
@@ -14160,6 +13340,8 @@ export interface components {
             status: components["schemas"]["AccessGrantMaterializationOutcomeStatus"];
             failureReason: null | string;
         };
+        /** @enum {unknown} */
+        AccessGrantMaterializationOutcomeStatus: "Created" | "SkippedNoTarget" | "Failed";
         AccessGrantResponse: {
             /** Format: uuid */
             id: string;
@@ -14218,63 +13400,11 @@ export interface components {
             isEnabled: boolean;
             provisioningTiming: components["schemas"]["ProvisioningTiming"];
         };
-        AccessLevelTypeResponse: components["schemas"]["AccessLevelTypeResponseUnipassAccessLevelTypeResponse"] | components["schemas"]["AccessLevelTypeResponseLenelAccessLevelTypeResponse"];
-        AccessLevelTypeResponseLenelAccessLevelTypeResponse: {
-            /** @enum {string} */
-            type?: "lenel";
-            /** Format: uuid */
-            accessLevelId: string;
-            badgeTypes: components["schemas"]["LenelBadgeTypeResponse"][];
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            systemId: string;
-            name: string;
-        };
-        AccessLevelTypeResponseUnipassAccessLevelTypeResponse: {
-            /** @enum {string} */
-            type?: "unipass";
-            /** Format: int32 */
-            siteId: number | string;
-            /** Format: int32 */
-            accessRuleId: number | string;
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            systemId: string;
-            name: string;
-        };
-        AccessPolicyChangeResponse: {
-            policy: null | components["schemas"]["AccessPolicyResponse"];
-            satisfiedBy: null | components["schemas"]["IssuedResourceResponse"];
-            accessState: components["schemas"]["SubjectSystemAccessStateResponse"];
-        };
-        AccessPolicyResponse: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            systemId: string;
-            subject: components["schemas"]["SubjectResponse"];
-            /** Format: date-time */
-            provisionFrom: string;
-            /** Format: date-time */
-            effectiveFrom: string;
-            /** Format: date-time */
-            effectiveUntil: string;
-            requirement: components["schemas"]["PolicyRequirementResponse"];
-            reconciliationStatus: components["schemas"]["ReconciliationStatus"];
-            reconciliationFailureReason: null | string;
-            satisfiedBy: null | components["schemas"]["IssuedResourceResponse"];
-        };
         AccessRuleAssignmentResponse: {
             /** Format: uuid */
             id: string;
             /** Format: uuid */
-            locationId: string;
-            /** Format: uuid */
-            systemId: string;
-            /** Format: uuid */
-            accessLevelTypeId: string;
+            packageId: string;
             /** Format: int32 */
             gracePeriodMinutes: number | string;
             trigger: components["schemas"]["ReceptionAccessPolicyTrigger"];
@@ -14402,24 +13532,6 @@ export interface components {
             name: string;
             address: null | string;
         };
-        AddLenelAccessLevelTypeRequest: {
-            name: string;
-            /** Format: uuid */
-            accessLevelId: string;
-            badgeTypeIds: string[];
-            metadata: components["schemas"]["LenelMetadata"];
-        };
-        AddLenelBadgeTypeRequest: {
-            name: string;
-            /** Format: uuid */
-            badgeTypeId: string;
-            metadata: components["schemas"]["LenelMetadata"];
-        };
-        AddOrganizerRequest: {
-            firstName: string;
-            lastName: string;
-            email: string;
-        };
         AddPackageAccessItemRequest: {
             /** Format: uuid */
             accessItemId: string;
@@ -14429,21 +13541,6 @@ export interface components {
             /** Format: int32 */
             capacity: number | string;
             wheelchairAccessible: boolean;
-        };
-        AddUnipassAccessLevelTypeRequest: {
-            name: string;
-            /** Format: int32 */
-            siteId: number | string;
-            /** Format: int32 */
-            accessRuleId: number | string;
-            metadata: components["schemas"]["UnipassMetadata"];
-        };
-        AddUnipassBadgeTypeRequest: {
-            name: string;
-            /** Format: int32 */
-            rangeStart: number | string;
-            /** Format: int32 */
-            rangeStop: number | string;
         };
         /**
          * @default Sync
@@ -14508,6 +13605,8 @@ export interface components {
             /** Format: int32 */
             organizationalApprovalLevels: number | string;
         };
+        /** @enum {unknown} */
+        ApprovalFlowStatus: "InProgress" | "Approved" | "Rejected" | "SystemApproved" | "Expired";
         ApprovalGroupMemberResponse: {
             /** Format: uuid */
             id: string;
@@ -14526,38 +13625,6 @@ export interface components {
         };
         /** @enum {unknown} */
         ApprovalGroupStatus: "Active" | "Inactive";
-        ApprovalInboxItemResponse: {
-            /** Format: uuid */
-            approvalRequirementId: string;
-            /** Format: uuid */
-            approvalFlowId: string;
-            /** Format: uuid */
-            requestId: string;
-            /** Format: uuid */
-            packageId: string;
-            packageName: string;
-            /** Format: uuid */
-            beneficiaryIdentityId: string;
-            beneficiaryDisplayName: string;
-            /** Format: uuid */
-            requesterIdentityId: string;
-            requesterDisplayName: string;
-            /** Format: uuid */
-            accessItemId: string;
-            accessItemName: string;
-            /** Format: uuid */
-            siteId: string;
-            siteName: string;
-            requestedLocationLabels: string[];
-            type: components["schemas"]["ApprovalRequirementType"];
-            role: components["schemas"]["ApprovalDecisionRole"];
-            approvalGroupName: null | string;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            expiresAt: string;
-            status: components["schemas"]["ApprovalStatus"];
-        };
         ApprovalInboxItemResponse: {
             /** Format: uuid */
             approvalRequirementId: string;
@@ -14676,6 +13743,8 @@ export interface components {
             checkedIn: boolean;
             /** Format: uuid */
             locationId: null | string;
+            /** Format: uuid */
+            identityId: null | string;
             confirmed: null | boolean;
             /** Format: uuid */
             visitorId: null | string;
@@ -14696,32 +13765,7 @@ export interface components {
         /** @enum {unknown} */
         AssignmentChannel: "CatalogRequest" | "AutomaticConfiguration" | "Manual";
         /** @enum {unknown} */
-        AssignmentSourceKind: "CatalogRequest" | "OrganizationalUnit" | "Persona" | "VisitorLocation" | "Manual";
-        BadgeTypeResponse: components["schemas"]["BadgeTypeResponseUnipassBadgeTypeResponse"] | components["schemas"]["BadgeTypeResponseLenelBadgeTypeResponse"];
-        BadgeTypeResponseLenelBadgeTypeResponse: {
-            /** @enum {string} */
-            type?: "lenel";
-            /** Format: uuid */
-            badgeTypeId: string;
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            systemId: string;
-            name: string;
-        };
-        BadgeTypeResponseUnipassBadgeTypeResponse: {
-            /** @enum {string} */
-            type?: "unipass";
-            /** Format: int32 */
-            rangeStart: number | string;
-            /** Format: int32 */
-            rangeStop: number | string;
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            systemId: string;
-            name: string;
-        };
+        AssignmentSourceKind: "CatalogRequest" | "OrganizationalUnit" | "Persona" | "ReceptionArrival" | "VisitorLocation" | "Manual";
         Bookmark: {
             id?: string;
             name?: string;
@@ -14809,24 +13853,6 @@ export interface components {
             /** Format: int64 */
             count: number | string;
         };
-        CreateAccessControlSystemRequest: components["schemas"]["CreateAccessControlSystemRequestCreateUnipassAccessControlSystemRequest"] | components["schemas"]["CreateAccessControlSystemRequestCreateLenelAccessControlSystemRequest"];
-        CreateAccessControlSystemRequestCreateLenelAccessControlSystemRequest: {
-            /** @enum {string} */
-            type?: "lenel";
-            apiKey: string;
-            name: string;
-            endpoint: string;
-            sslValidation: boolean;
-        };
-        CreateAccessControlSystemRequestCreateUnipassAccessControlSystemRequest: {
-            /** @enum {string} */
-            type?: "unipass";
-            username: string;
-            password: string;
-            name: string;
-            endpoint: string;
-            sslValidation: boolean;
-        };
         CreateAccessGrantRequest: {
             /** Format: uuid */
             packageId: string;
@@ -14848,26 +13874,9 @@ export interface components {
             name: string;
             description: null | string;
         };
-        CreateAccessPolicyRequest: {
-            /** Format: uuid */
-            systemId: string;
-            subject: components["schemas"]["SubjectRequest"];
-            /** Format: uuid */
-            accessLevelTypeId: string;
-            /** Format: date-time */
-            effectiveFrom: string;
-            /** Format: date-time */
-            effectiveUntil: string;
-            /** Format: date-time */
-            provisionFrom: null | string;
-        };
         CreateAccessRuleAssignmentRequest: {
             /** Format: uuid */
-            locationId: string;
-            /** Format: uuid */
-            systemId: string;
-            /** Format: uuid */
-            accessLevelTypeId: string;
+            packageId: string;
             /** Format: int32 */
             gracePeriodMinutes: number | string;
             trigger: components["schemas"]["ReceptionAccessPolicyTrigger"];
@@ -14922,21 +13931,6 @@ export interface components {
             version: null | number | string;
             description: null | string;
             specification: components["schemas"]["TemplateSpecification"];
-        };
-        CreateCredentialPolicyRequest: {
-            /** Format: uuid */
-            systemId: string;
-            subject: components["schemas"]["SubjectRequest"];
-            /** Format: uuid */
-            badgeTypeId: string;
-            /** Format: int32 */
-            badgeNumber: null | number | string;
-            /** Format: date-time */
-            effectiveFrom: string;
-            /** Format: date-time */
-            effectiveUntil: string;
-            /** Format: date-time */
-            provisionFrom: null | string;
         };
         CreateCredentialRangeRequest: {
             /** Format: int64 */
@@ -15149,7 +14143,7 @@ export interface components {
         };
         CreateVisitRequest: {
             /** Format: uuid */
-            organizer: string;
+            hostEmployeeId: string;
             summary: string;
             /** Format: date-time */
             start: string;
@@ -15294,6 +14288,7 @@ export interface components {
             email: null | string;
             directoryId: null | string;
             isEmployee: boolean;
+            isHost: boolean;
             isManager: boolean;
             isAdmin: boolean;
             isSecurityOfficer: boolean;
@@ -15619,6 +14614,19 @@ export interface components {
         };
         /** @enum {unknown} */
         HardwareOperationStatus: "Succeeded" | "Timeout" | "Cancelled" | "DeviceUnavailable" | "Busy" | "Failed";
+        /** @enum {unknown} */
+        HostAssignmentMode: "AllEmployees" | "AllowList";
+        HostResponse: {
+            /** Format: uuid */
+            employeeId: string;
+            firstName: string;
+            lastName: string;
+            email: null | string;
+            isAllowListed: boolean;
+        };
+        HostSettingsResponse: {
+            assignmentMode: components["schemas"]["HostAssignmentMode"];
+        };
         IActivity: {
             id?: string;
             nodeId?: string;
@@ -15642,16 +14650,6 @@ export interface components {
         };
         /** @enum {unknown} */
         IdentityAffiliationType: "Employee" | "Contractor" | "Visitor" | null;
-        IdentityMappingResponse: {
-            /** Format: uuid */
-            subjectId: string;
-            /** Format: uuid */
-            systemId: string;
-            firstName: string;
-            lastName: string;
-            subjectType: components["schemas"]["SubjectType"];
-            externalId: string;
-        };
         IdentityResponse: {
             /** Format: uuid */
             id: string;
@@ -15742,28 +14740,6 @@ export interface components {
             /** Format: uuid */
             requestedByIdentityId: null | string;
             reasonText: string;
-        };
-        IssuedResourceResponse: components["schemas"]["IssuedResourceResponseCredentialResponse"] | components["schemas"]["IssuedResourceResponseAccessLevelResponse"];
-        IssuedResourceResponseAccessLevelResponse: {
-            /** @enum {string} */
-            type?: "access";
-            /** Format: uuid */
-            accessLevelTypeId: string;
-            /** Format: uuid */
-            subjectId: string;
-            /** Format: uuid */
-            systemId: string;
-        };
-        IssuedResourceResponseCredentialResponse: {
-            /** @enum {string} */
-            type?: "credential";
-            /** Format: uuid */
-            badgeTypeId: string;
-            badgeNumber: string;
-            /** Format: uuid */
-            subjectId: string;
-            /** Format: uuid */
-            systemId: string;
         };
         JsonElement: unknown;
         JsonObject: Record<string, never>;
@@ -16013,29 +14989,6 @@ export interface components {
             status: components["schemas"]["HardwareOperationStatus"];
             error: null | components["schemas"]["HardwareErrorResponse"];
         };
-        LenelAccessLevelTypeResponse: {
-            /** Format: uuid */
-            accessLevelId: string;
-            badgeTypes: components["schemas"]["LenelBadgeTypeResponse"][];
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            systemId: string;
-            name: string;
-        };
-        LenelBadgeTypeResponse: {
-            /** Format: uuid */
-            badgeTypeId: string;
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            systemId: string;
-            name: string;
-        };
-        LenelMetadata: {
-            badgeTypes: components["schemas"]["SystemMetadataObject"][];
-            accessLevels: components["schemas"]["SystemMetadataObject"][];
-        };
         Link: {
             href: string;
             rel: string;
@@ -16217,13 +15170,6 @@ export interface components {
             parentId: null | string;
             isActive: boolean;
         };
-        OrganizerResponse: {
-            /** Format: uuid */
-            id: string;
-            firstName: string;
-            lastName: string;
-            email: string;
-        };
         OutputDefinition: {
             type?: components["schemas"]["Type"];
             name?: string;
@@ -16248,30 +15194,15 @@ export interface components {
             /** Format: uuid */
             accessItemId: string;
         };
-        PackageRequestResponse: {
+        PackageRequestDetailDecisionResponse: {
             /** Format: uuid */
             id: string;
-            /** Format: uuid */
-            packageId: string;
-            /** Format: uuid */
-            requesterIdentityId: string;
-            /** Format: uuid */
-            beneficiaryIdentityId: string;
-            requestReason: string;
-            status: components["schemas"]["PackageRequestStatus"];
-            subStatus: null | components["schemas"]["PackageRequestSubStatus"];
-            durationKind: components["schemas"]["AccessDurationKind"];
+            approverDisplayName: string;
+            role: components["schemas"]["ApprovalDecisionRole"];
+            decisionKind: components["schemas"]["ApprovalDecisionKind"];
+            note: null | string;
             /** Format: date-time */
-            validFrom: string;
-            /** Format: date-time */
-            validUntil: null | string;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            expiresAt: string;
-            /** Format: date-time */
-            decidedAt: null | string;
-            locationIds: string[];
+            decidedAt: string;
         };
         PackageRequestDetailFlowResponse: {
             /** Format: uuid */
@@ -16334,16 +15265,6 @@ export interface components {
             completedAt: null | string;
             decisions: components["schemas"]["PackageRequestDetailDecisionResponse"][];
         };
-        PackageRequestDetailDecisionResponse: {
-            /** Format: uuid */
-            id: string;
-            approverDisplayName: string;
-            role: components["schemas"]["ApprovalDecisionRole"];
-            decisionKind: components["schemas"]["ApprovalDecisionKind"];
-            note: null | string;
-            /** Format: date-time */
-            decidedAt: string;
-        };
         PackageRequestDetailResponse: {
             request: components["schemas"]["PackageRequestResponse"];
             package: components["schemas"]["PackageResponse"];
@@ -16351,12 +15272,35 @@ export interface components {
             flows: components["schemas"]["PackageRequestDetailFlowResponse"][];
             grants: components["schemas"]["PackageRequestDetailGrantResponse"][];
         };
-        /** @enum {unknown} */
-        ApprovalFlowStatus: "InProgress" | "Approved" | "Rejected" | "SystemApproved" | "Expired";
+        PackageRequestResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            packageId: string;
+            /** Format: uuid */
+            requesterIdentityId: string;
+            /** Format: uuid */
+            beneficiaryIdentityId: string;
+            requestReason: string;
+            status: components["schemas"]["PackageRequestStatus"];
+            subStatus: null | components["schemas"]["PackageRequestSubStatus"];
+            durationKind: components["schemas"]["AccessDurationKind"];
+            /** Format: date-time */
+            validFrom: string;
+            /** Format: date-time */
+            validUntil: null | string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: date-time */
+            decidedAt: null | string;
+            locationIds: string[];
+        };
         /** @enum {unknown} */
         PackageRequestStatus: "InProgress" | "Completed";
         /** @enum {unknown} */
-        PackageRequestSubStatus: "Approved" | "PartiallyApproved" | "Rejected" | "Expired";
+        PackageRequestSubStatus: "Approved" | "PartiallyApproved" | "Rejected" | "Expired" | null;
         PackageResponse: {
             /** Format: uuid */
             id: string;
@@ -16541,18 +15485,6 @@ export interface components {
             /** Format: int32 */
             totalItems?: null | number | string;
             items?: components["schemas"]["AccessLevelTargetResponse"][];
-            isLastPage?: boolean;
-        };
-        PageOfAccessPolicyResponse: {
-            /** Format: int32 */
-            currentPage?: number | string;
-            /** Format: int32 */
-            totalPages?: null | number | string;
-            /** Format: int32 */
-            pageSize?: number | string;
-            /** Format: int32 */
-            totalItems?: null | number | string;
-            items?: components["schemas"]["AccessPolicyResponse"][];
             isLastPage?: boolean;
         };
         PageOfAccessRuleAssignmentResponse: {
@@ -16783,7 +15715,7 @@ export interface components {
             items?: components["schemas"]["HardwareAgentResponse"][];
             isLastPage?: boolean;
         };
-        PageOfIdentityMappingResponse: {
+        PageOfHostResponse: {
             /** Format: int32 */
             currentPage?: number | string;
             /** Format: int32 */
@@ -16792,7 +15724,7 @@ export interface components {
             pageSize?: number | string;
             /** Format: int32 */
             totalItems?: null | number | string;
-            items?: components["schemas"]["IdentityMappingResponse"][];
+            items?: components["schemas"]["HostResponse"][];
             isLastPage?: boolean;
         };
         PageOfIdentityResponse: {
@@ -16877,18 +15809,6 @@ export interface components {
             /** Format: int32 */
             totalItems?: null | number | string;
             items?: components["schemas"]["OrganizationUnitResponse"][];
-            isLastPage?: boolean;
-        };
-        PageOfOrganizerResponse: {
-            /** Format: int32 */
-            currentPage?: number | string;
-            /** Format: int32 */
-            totalPages?: null | number | string;
-            /** Format: int32 */
-            pageSize?: number | string;
-            /** Format: int32 */
-            totalItems?: null | number | string;
-            items?: components["schemas"]["OrganizerResponse"][];
             isLastPage?: boolean;
         };
         PageOfPackageAccessItemResponse: {
@@ -17122,19 +16042,6 @@ export interface components {
             keySettings?: components["schemas"]["PiccKeySettingsSpecification"];
             config?: components["schemas"]["PiccConfigurationSpecification"];
         };
-        PolicyRequirementResponse: components["schemas"]["PolicyRequirementResponseCredentialRequirementResponse"] | components["schemas"]["PolicyRequirementResponseAccessRequirementResponse"];
-        PolicyRequirementResponseAccessRequirementResponse: {
-            /** @enum {string} */
-            type?: "access";
-            accessLevel: components["schemas"]["AccessLevelTypeResponse"];
-        };
-        PolicyRequirementResponseCredentialRequirementResponse: {
-            /** @enum {string} */
-            type?: "credential";
-            badgeType: components["schemas"]["BadgeTypeResponse"];
-            /** Format: int32 */
-            badgeNumber: null | number | string;
-        };
         Port: {
             name?: string;
             displayName?: null | string;
@@ -17255,8 +16162,8 @@ export interface components {
             stop: string;
             /** Format: uuid */
             locationId: null | string;
-            organizerName: string;
-            organizerEmail: string;
+            hostName: string;
+            hostEmail: null | string;
         };
         ReceptionKioskVisitorDetailsResponse: {
             /** Format: uuid */
@@ -17269,8 +16176,6 @@ export interface components {
             licensePlate: null | string;
             visit: null | components["schemas"]["ReceptionKioskVisitDetailsResponse"];
         };
-        /** @enum {unknown} */
-        ReconciliationStatus: "PendingReconciliation" | "Reconciled" | "ReconciliationFailed";
         RelocateVisitRequest: {
             /** Format: uuid */
             locationId: null | string;
@@ -17345,29 +16250,6 @@ export interface components {
         StartKioskSessionRequest: {
             languageCode: null | string;
         };
-        SubjectRequest: {
-            /** Format: uuid */
-            id: string;
-            firstName: string;
-            lastName: string;
-            subjectType: components["schemas"]["SubjectType"];
-        };
-        SubjectResponse: {
-            /** Format: uuid */
-            id: string;
-            firstName: string;
-            lastName: string;
-            subjectType: components["schemas"]["SubjectType"];
-        };
-        SubjectSystemAccessStateResponse: {
-            /** Format: uuid */
-            subjectId: string;
-            /** Format: uuid */
-            systemId: string;
-            issuedResources: components["schemas"]["IssuedResourceResponse"][];
-        };
-        /** @enum {unknown} */
-        SubjectType: "Employee" | "Contractor" | "Visitor";
         SubmitKioskInstructionResponseRequest: {
             values: {
                 [key: string]: string;
@@ -17490,32 +16372,6 @@ export interface components {
             isEnabled: boolean;
             provisioningTiming: components["schemas"]["ProvisioningTiming"];
         };
-        UnipassAccessLevelTypeResponse: {
-            /** Format: int32 */
-            siteId: number | string;
-            /** Format: int32 */
-            accessRuleId: number | string;
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            systemId: string;
-            name: string;
-        };
-        UnipassBadgeTypeResponse: {
-            /** Format: int32 */
-            rangeStart: number | string;
-            /** Format: int32 */
-            rangeStop: number | string;
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            systemId: string;
-            name: string;
-        };
-        UnipassMetadata: {
-            sites: components["schemas"]["SystemMetadataObject"][];
-            accessRules: components["schemas"]["SystemMetadataObject"][];
-        };
         UpdateAccessItemRequest: {
             name: string;
             description: null | string;
@@ -17523,11 +16379,7 @@ export interface components {
         };
         UpdateAccessRuleAssignmentRequest: {
             /** Format: uuid */
-            locationId: string;
-            /** Format: uuid */
-            systemId: string;
-            /** Format: uuid */
-            accessLevelTypeId: string;
+            packageId: string;
             /** Format: int32 */
             gracePeriodMinutes: number | string;
             trigger: components["schemas"]["ReceptionAccessPolicyTrigger"];
@@ -17626,6 +16478,9 @@ export interface components {
             name: string;
             enabled: boolean;
         };
+        UpdateHostSettingsRequest: {
+            assignmentMode: components["schemas"]["HostAssignmentMode"];
+        };
         UpdateIdentityProfileRequest: {
             firstName: string;
             middleName: null | string;
@@ -17656,11 +16511,6 @@ export interface components {
             /** @default false */
             showDetailedErrors: boolean;
         };
-        UpdateLenelConfigRequest: {
-            endpoint: string;
-            sslValidation: boolean;
-            apiKey: null | string;
-        };
         UpdateOidcSettingsRequest: {
             metadataUrl: string;
             clientId: string;
@@ -17670,11 +16520,6 @@ export interface components {
             name: string;
             code: null | string;
             type: string;
-        };
-        UpdateOrganizerRequest: {
-            firstName: string;
-            lastName: string;
-            email: string;
         };
         UpdatePackageRequest: {
             name: string;
@@ -17747,12 +16592,6 @@ export interface components {
             accessRuleId: number | string;
             isEnabled: boolean;
             provisioningTiming: components["schemas"]["ProvisioningTiming"];
-        };
-        UpdateUnipassConfigRequest: {
-            endpoint: string;
-            sslValidation: boolean;
-            username: string;
-            password: null | string;
         };
         UpdateVisitSummaryRequest: {
             summary: string;
@@ -17881,7 +16720,7 @@ export interface components {
             /** Format: uuid */
             locationId: null | string;
             locationLabel: null | string;
-            organizer: components["schemas"]["OrganizerResponse"];
+            host: components["schemas"]["HostResponse"];
             visitor: components["schemas"]["VisitConfirmationVisitorResponse"];
             confirmationStatus: components["schemas"]["ParticipantConfirmationStatus"];
             /** Format: date-time */
@@ -17954,7 +16793,7 @@ export interface components {
             systemId?: null | string;
             /** Format: uuid */
             badgeTypeId?: null | string;
-            sendConfirmNotificationToOrganizer?: boolean;
+            sendConfirmNotificationToHost?: boolean;
             useCustomConfirmNotification?: boolean;
             customConfirmNotification?: null | components["schemas"]["CustomNotification"];
             sendCancellationNotification?: boolean;
@@ -17966,7 +16805,7 @@ export interface components {
             sendRelocationNotification?: boolean;
             useCustomRelocationNotification?: boolean;
             customRelocationNotification?: null | components["schemas"]["CustomNotification"];
-            sendArrivalNotificationToOrganizer?: boolean;
+            sendArrivalNotificationToHost?: boolean;
             useCustomArrivalNotification?: boolean;
             customArrivalNotification?: null | components["schemas"]["CustomNotification"];
         };
@@ -17978,7 +16817,7 @@ export interface components {
             systemId: null | string;
             /** Format: uuid */
             badgeTypeId: null | string;
-            sendConfirmNotificationToOrganizer: boolean;
+            sendConfirmNotificationToHost: boolean;
             useCustomConfirmNotification: boolean;
             customConfirmNotification: null | components["schemas"]["CustomNotification"];
             sendCancellationNotification: boolean;
@@ -17990,7 +16829,7 @@ export interface components {
             sendRelocationNotification: boolean;
             useCustomRelocationNotification: boolean;
             customRelocationNotification: null | components["schemas"]["CustomNotification"];
-            sendArrivalNotificationToOrganizer: boolean;
+            sendArrivalNotificationToHost: boolean;
             useCustomArrivalNotification: boolean;
             customArrivalNotification: null | components["schemas"]["CustomNotification"];
         };
@@ -18011,7 +16850,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             summary: string;
-            organizer: components["schemas"]["OrganizerResponse"];
+            host: components["schemas"]["HostResponse"];
             status: components["schemas"]["VisitStatus"];
             /** Format: date-time */
             start: null | string;

@@ -109,7 +109,7 @@ public class VisitorPreOnboardingSagaConfig
     public CredentialGenerationMode QrGenerationMode { get; set; }
     public Guid? SystemId { get; set; }
     public Guid? BadgeTypeId { get; set; }
-    public bool SendConfirmNotificationToOrganizer { get; set; }
+    public bool SendConfirmNotificationToHost { get; set; }
     public bool UseCustomConfirmNotification { get; set; }
     public CustomNotification? CustomConfirmNotification { get; set; }
     public bool SendCancellationNotification { get; set; }
@@ -121,7 +121,7 @@ public class VisitorPreOnboardingSagaConfig
     public bool SendRelocationNotification { get; set; }
     public bool UseCustomRelocationNotification { get; set; }
     public CustomNotification? CustomRelocationNotification { get; set; }
-    public bool SendArrivalNotificationToOrganizer { get; set; }
+    public bool SendArrivalNotificationToHost { get; set; }
     public bool UseCustomArrivalNotification { get; set; }
     public CustomNotification? CustomArrivalNotification { get; set; }
 
@@ -133,7 +133,7 @@ public class VisitorPreOnboardingSagaConfig
         QrGenerationMode = CredentialGenerationMode.PlatformQr,
         SystemId = null,
         BadgeTypeId = null,
-        SendConfirmNotificationToOrganizer = false,
+        SendConfirmNotificationToHost = false,
         UseCustomConfirmNotification = false,
         CustomConfirmNotification = null,
         SendCancellationNotification = false,
@@ -145,7 +145,7 @@ public class VisitorPreOnboardingSagaConfig
         SendRelocationNotification = false,
         UseCustomRelocationNotification = false,
         CustomRelocationNotification = null,
-        SendArrivalNotificationToOrganizer = false,
+        SendArrivalNotificationToHost = false,
         UseCustomArrivalNotification = false,
         CustomArrivalNotification = null,
     };
@@ -162,7 +162,7 @@ public record SagaNotificationModel(VisitInvitation Visitor, VisitNotificationMo
 public record VisitNotificationModel(
     Guid Id,
     string Summary,
-    Guid OrganizerId,
+    Guid HostEmployeeId,
     VisitStatus Status,
     DateTimeOffset Start,
     DateTimeOffset Stop,
@@ -171,7 +171,7 @@ public record VisitNotificationModel(
     public static VisitNotificationModel FromVisit(Visit visit) => new(
         visit.Id,
         visit.Summary,
-        visit.OrganizerId,
+        visit.HostEmployeeId,
         visit.Status,
         visit.Start,
         visit.Stop,

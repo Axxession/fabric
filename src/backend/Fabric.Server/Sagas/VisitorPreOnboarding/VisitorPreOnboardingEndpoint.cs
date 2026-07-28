@@ -104,9 +104,9 @@ public static class VisitorPreOnboardingSagaEndpoints
             QrGenerationMode = request.QrGenerationMode,
             SystemId = request.QrGenerationMode == CredentialGenerationMode.AccessControlQr ? request.SystemId : null,
             BadgeTypeId = request.QrGenerationMode == CredentialGenerationMode.AccessControlQr ? request.BadgeTypeId : null,
-            SendConfirmNotificationToOrganizer = request.SendConfirmNotificationToOrganizer,
-            UseCustomConfirmNotification = request.SendConfirmNotificationToOrganizer && request.UseCustomConfirmNotification,
-            CustomConfirmNotification = request.SendConfirmNotificationToOrganizer && request.UseCustomConfirmNotification ? request.CustomConfirmNotification : null,
+            SendConfirmNotificationToHost = request.SendConfirmNotificationToHost,
+            UseCustomConfirmNotification = request.SendConfirmNotificationToHost && request.UseCustomConfirmNotification,
+            CustomConfirmNotification = request.SendConfirmNotificationToHost && request.UseCustomConfirmNotification ? request.CustomConfirmNotification : null,
             SendCancellationNotification = request.SendCancellationNotification,
             UseCustomCancellationNotification = request.SendCancellationNotification && request.UseCustomCancellationNotification,
             CustomCancellationNotification = request.SendCancellationNotification && request.UseCustomCancellationNotification ? request.CustomCancellationNotification : null,
@@ -116,9 +116,9 @@ public static class VisitorPreOnboardingSagaEndpoints
             SendRelocationNotification = request.SendRelocationNotification,
             UseCustomRelocationNotification = request.SendRelocationNotification && request.UseCustomRelocationNotification,
             CustomRelocationNotification = request.SendRelocationNotification && request.UseCustomRelocationNotification ? request.CustomRelocationNotification : null,
-            SendArrivalNotificationToOrganizer = request.SendArrivalNotificationToOrganizer,
-            UseCustomArrivalNotification = request.SendArrivalNotificationToOrganizer && request.UseCustomArrivalNotification,
-            CustomArrivalNotification = request.SendArrivalNotificationToOrganizer && request.UseCustomArrivalNotification ? request.CustomArrivalNotification : null,
+            SendArrivalNotificationToHost = request.SendArrivalNotificationToHost,
+            UseCustomArrivalNotification = request.SendArrivalNotificationToHost && request.UseCustomArrivalNotification,
+            CustomArrivalNotification = request.SendArrivalNotificationToHost && request.UseCustomArrivalNotification ? request.CustomArrivalNotification : null,
         };
 
         VisitorPreOnboardingSagaConfig updated = await service.UpdateConfigurationAsync(config, cancellationToken);
@@ -133,7 +133,7 @@ public static class VisitorPreOnboardingSagaEndpoints
         if (request.QrGenerationMode == CredentialGenerationMode.AccessControlQr && (!request.SystemId.HasValue || !request.BadgeTypeId.HasValue))
             return ValidationProblem("Access control QR requires system and badge type.");
 
-        if (!IsValidCustomNotification(request.SendConfirmNotificationToOrganizer && request.UseCustomConfirmNotification, request.CustomConfirmNotification))
+        if (!IsValidCustomNotification(request.SendConfirmNotificationToHost && request.UseCustomConfirmNotification, request.CustomConfirmNotification))
             return ValidationProblem("Custom confirmation notification requires subject and body.");
 
         if (!IsValidCustomNotification(request.SendCancellationNotification && request.UseCustomCancellationNotification, request.CustomCancellationNotification))
@@ -145,7 +145,7 @@ public static class VisitorPreOnboardingSagaEndpoints
         if (!IsValidCustomNotification(request.SendRelocationNotification && request.UseCustomRelocationNotification, request.CustomRelocationNotification))
             return ValidationProblem("Custom relocation notification requires subject and body.");
 
-        if (!IsValidCustomNotification(request.SendArrivalNotificationToOrganizer && request.UseCustomArrivalNotification, request.CustomArrivalNotification))
+        if (!IsValidCustomNotification(request.SendArrivalNotificationToHost && request.UseCustomArrivalNotification, request.CustomArrivalNotification))
             return ValidationProblem("Custom arrival notification requires subject and body.");
 
         return null;
@@ -208,7 +208,7 @@ public sealed record VisitorPreOnboardingSagaConfigRequest(
     CredentialGenerationMode QrGenerationMode,
     Guid? SystemId,
     Guid? BadgeTypeId,
-    bool SendConfirmNotificationToOrganizer,
+    bool SendConfirmNotificationToHost,
     bool UseCustomConfirmNotification,
     CustomNotification? CustomConfirmNotification,
     bool SendCancellationNotification,
@@ -220,6 +220,6 @@ public sealed record VisitorPreOnboardingSagaConfigRequest(
     bool SendRelocationNotification,
     bool UseCustomRelocationNotification,
     CustomNotification? CustomRelocationNotification,
-    bool SendArrivalNotificationToOrganizer,
+    bool SendArrivalNotificationToHost,
     bool UseCustomArrivalNotification,
     CustomNotification? CustomArrivalNotification);

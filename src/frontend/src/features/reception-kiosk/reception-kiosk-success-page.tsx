@@ -71,7 +71,7 @@ function getSuccessContent(kind: 'onboarding-success' | 'check-in-success' | 'ch
     'onboarding-success': {
       eyebrow: 'Arrival registered',
       title: 'Thank you',
-      message: 'Organizer has been notified of your arrival.',
+      message: 'Host has been notified of your arrival.',
     },
     'check-in-success': {
       eyebrow: 'Checked in',
@@ -86,7 +86,7 @@ function getSuccessContent(kind: 'onboarding-success' | 'check-in-success' | 'ch
     'visit-completed': {
       eyebrow: 'Visit completed',
       title: 'This visit has already been completed',
-      message: 'If you still need access, please contact the reception or organizer.',
+      message: 'If you still need access, please contact the reception or host.',
     },
   }[kind];
 }

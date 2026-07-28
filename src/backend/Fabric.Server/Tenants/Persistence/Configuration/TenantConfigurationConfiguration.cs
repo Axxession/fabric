@@ -106,6 +106,16 @@ public sealed class TenantConfigurationConfiguration : IEntityTypeConfiguration<
                     .HasColumnName("graph_email_save_sent_items")
                     .IsRequired();
             });
+
+            configuration.OwnsOne(c => c.Host, host =>
+            {
+                host.Property(h => h.AssignmentMode)
+                    .HasColumnName("host_assignment_mode")
+                    .HasConversion<string>()
+                    .HasMaxLength(50)
+                    .HasDefaultValue(HostAssignmentMode.AllEmployees)
+                    .IsRequired();
+            });
         });
     }
 }

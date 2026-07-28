@@ -6,6 +6,7 @@ using Fabric.Server.Employees.Persistence;
 using Fabric.Server.Identities.Domain;
 using Fabric.Server.Identities.Persistence;
 using Fabric.Server.Infrastructure.Authentication;
+using Fabric.Server.Visitors.Application;
 using Microsoft.EntityFrameworkCore;
 
 namespace Fabric.Server.Actors.Application;
@@ -13,6 +14,7 @@ namespace Fabric.Server.Actors.Application;
 public sealed class CurrentActorService(
     EmployeesDbContext employeesDb,
     IdentitiesDbContext identitiesDb,
+    HostService hostService,
     ILogger<CurrentActorService> logger)
 {
     public async Task<Result<CurrentActorResponse, ActorErrors>> GetCurrentActorAsync(
@@ -33,10 +35,15 @@ public sealed class CurrentActorService(
 
         bool isManager = employee is not null
             && await employeesDb.Employees.AsNoTracking().AnyAsync(item => item.ManagerEmployeeId == employee.Id, cancellationToken);
+        bool isHost = employee is not null && await hostService.IsEmployeeHostAsync(employee.Id, cancellationToken);
 
         Identity? identity = employee is null
             ? null
             : await identitiesDb.Identities.AsNoTracking().SingleOrDefaultAsync(item => item.Id == employee.IdentityId, cancellationToken);
+
+        string[] effectiveRoles = isHost
+            ? [.. roles.Append(FabricRoleDefaults.HostRole).Distinct(StringComparer.Ordinal).OrderBy(value => value, StringComparer.Ordinal)]
+            : roles;
 
         return Result.Success<CurrentActorResponse, ActorErrors>(new CurrentActorResponse(
             identity?.Id ?? employee?.IdentityId,
@@ -49,10 +56,11 @@ public sealed class CurrentActorService(
             identity?.Email ?? employee?.Email ?? email,
             employee?.DirectoryId,
             employee is not null,
+            isHost,
             isManager,
-            roles.Contains(FabricRoleDefaults.AdminRole, StringComparer.Ordinal),
-            roles.Contains(FabricRoleDefaults.SecurityOfficerRole, StringComparer.Ordinal),
-            roles));
+            effectiveRoles.Contains(FabricRoleDefaults.AdminRole, StringComparer.Ordinal),
+            effectiveRoles.Contains(FabricRoleDefaults.SecurityOfficerRole, StringComparer.Ordinal),
+            effectiveRoles));
     }
 
     private async Task<Employee[]> GetCandidateEmployeesAsync(

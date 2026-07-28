@@ -3,7 +3,7 @@ namespace Fabric.Server.Visitors.Domain;
 public enum VisitErrors
 {
     VisitNotFound,
-    OrganizerNotFound,
+    HostNotFound,
     LicensePlateRequired,
     InvalidStatus,
     Cancelled,

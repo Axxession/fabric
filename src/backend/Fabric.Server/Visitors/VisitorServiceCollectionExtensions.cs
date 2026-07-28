@@ -17,6 +17,7 @@ public static class VisitorServiceCollectionExtensions
         collection.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Add(VisitorsJsonSerializerContext.Default));
 
+        collection.AddScoped<HostService>();
         collection.AddScoped<VisitService>();
         return collection;
     }

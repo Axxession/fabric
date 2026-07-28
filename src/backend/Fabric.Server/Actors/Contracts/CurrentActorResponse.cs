@@ -11,6 +11,7 @@ public sealed record CurrentActorResponse(
     string? Email,
     string? DirectoryId,
     bool IsEmployee,
+    bool IsHost,
     bool IsManager,
     bool IsAdmin,
     bool IsSecurityOfficer,

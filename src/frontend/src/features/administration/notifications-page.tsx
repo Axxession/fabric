@@ -91,7 +91,7 @@ function VisitorNotificationsPanel() {
     <Card>
       <CardHeader>
         <CardTitle className="text-[20px]">Visitor notifications</CardTitle>
-        <CardDescription>Configure invitation and organizer notification templates used by visitor pre-onboarding.</CardDescription>
+        <CardDescription>Configure invitation and host notification templates used by visitor pre-onboarding.</CardDescription>
       </CardHeader>
       <CardContent>
         {configQuery.isLoading ? <p className="text-[14px] text-muted-foreground">Loading visitor notifications...</p> : null}
@@ -114,14 +114,14 @@ function VisitorNotificationsPanel() {
 
               <NotificationTemplateSection
                 icon={<MailCheck className="size-4" aria-hidden="true" />}
-                title="Organizer confirmation"
-                description="Optionally notify organizers when visitor confirms participation."
-                sendEnabled={values.sendConfirmNotificationToOrganizer}
-                sendLabel="Send confirmation to organizer"
+                title="Host confirmation"
+                description="Optionally notify hosts when visitors confirm participation."
+                sendEnabled={values.sendConfirmNotificationToHost}
+                sendLabel="Send confirmation to host"
                 customEnabled={values.useCustomConfirmNotification}
                 customSubject={values.customConfirmNotification?.subject ?? ''}
                 customBody={values.customConfirmNotification?.body ?? ''}
-                onSendEnabledChange={(checked) => setValues((current) => ({ ...current, sendConfirmNotificationToOrganizer: checked, useCustomConfirmNotification: checked ? current.useCustomConfirmNotification : false, customConfirmNotification: checked ? current.customConfirmNotification : null }))}
+                onSendEnabledChange={(checked) => setValues((current) => ({ ...current, sendConfirmNotificationToHost: checked, useCustomConfirmNotification: checked ? current.useCustomConfirmNotification : false, customConfirmNotification: checked ? current.customConfirmNotification : null }))}
                 onCustomEnabledChange={(checked) => setValues((current) => ({ ...current, useCustomConfirmNotification: checked, customConfirmNotification: checked ? current.customConfirmNotification : null }))}
                 onCustomSubjectChange={(subject) => setValues((current) => ({ ...current, customConfirmNotification: updateCustomNotification(current.customConfirmNotification, 'subject', subject) }))}
                 onCustomBodyChange={(body) => setValues((current) => ({ ...current, customConfirmNotification: updateCustomNotification(current.customConfirmNotification, 'body', body) }))}
@@ -129,14 +129,14 @@ function VisitorNotificationsPanel() {
 
               <NotificationTemplateSection
                 icon={<UserCheck className="size-4" aria-hidden="true" />}
-                title="Organizer arrival"
-                description="Optionally notify organizers when reception marks visitor as arrived."
-                sendEnabled={values.sendArrivalNotificationToOrganizer}
-                sendLabel="Send arrival to organizer"
+                title="Host arrival"
+                description="Optionally notify hosts when reception marks visitors as arrived."
+                sendEnabled={values.sendArrivalNotificationToHost}
+                sendLabel="Send arrival to host"
                 customEnabled={values.useCustomArrivalNotification}
                 customSubject={values.customArrivalNotification?.subject ?? ''}
                 customBody={values.customArrivalNotification?.body ?? ''}
-                onSendEnabledChange={(checked) => setValues((current) => ({ ...current, sendArrivalNotificationToOrganizer: checked, useCustomArrivalNotification: checked ? current.useCustomArrivalNotification : false, customArrivalNotification: checked ? current.customArrivalNotification : null }))}
+                onSendEnabledChange={(checked) => setValues((current) => ({ ...current, sendArrivalNotificationToHost: checked, useCustomArrivalNotification: checked ? current.useCustomArrivalNotification : false, customArrivalNotification: checked ? current.customArrivalNotification : null }))}
                 onCustomEnabledChange={(checked) => setValues((current) => ({ ...current, useCustomArrivalNotification: checked, customArrivalNotification: checked ? current.customArrivalNotification : null }))}
                 onCustomSubjectChange={(subject) => setValues((current) => ({ ...current, customArrivalNotification: updateCustomNotification(current.customArrivalNotification, 'subject', subject) }))}
                 onCustomBodyChange={(body) => setValues((current) => ({ ...current, customArrivalNotification: updateCustomNotification(current.customArrivalNotification, 'body', body) }))}

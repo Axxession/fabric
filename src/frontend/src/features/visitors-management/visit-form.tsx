@@ -34,10 +34,10 @@ import {
 } from '@/shared/components/ui/popover';
 import { LocationSelector } from '@/shared/components/location-selector';
 
-type Organizer = components['schemas']['OrganizerResponse'];
+type Host = components['schemas']['HostResponse'];
 
 const formSchema = z.object({
-  organizer: z.string().min(1, 'Organizer is required'),
+  hostEmployeeId: z.string().min(1, 'Host is required'),
   summary: z.string().min(1, 'Summary is required'),
   start: z.string().min(1, 'Start time is required'),
   stop: z.string().min(1, 'End time is required'),
@@ -51,7 +51,7 @@ type VisitFormProps = {
   readonly isSubmitting: boolean;
   readonly submitLabel: string;
   readonly onSubmit: (values: VisitFormValues) => void;
-  readonly disabledFields?: ('organizer' | 'summary' | 'start' | 'stop' | 'location')[];
+  readonly disabledFields?: ('host' | 'summary' | 'start' | 'stop' | 'location')[];
   readonly disableSubmit?: boolean;
   readonly footerLeft?: ReactNode;
 };
@@ -68,8 +68,8 @@ function toDatetimeLocal(date: Date) {
   return local.toISOString().slice(0, 16);
 }
 
-function getOrganizerName(organizer: Organizer) {
-  return [organizer.firstName, organizer.lastName].filter(Boolean).join(' ') || organizer.email || 'Unnamed organizer';
+function getHostName(host: Host) {
+  return [host.firstName, host.lastName].filter(Boolean).join(' ') || host.email || 'Unnamed host';
 }
 
 function splitDatetime(datetime: string): { date: string; time: string } {
@@ -85,7 +85,7 @@ export function getDefaultVisitFormValues(): VisitFormValues {
   const start = getNextHour();
   const stop = new Date(start.getTime() + 60 * 60_000);
   return {
-    organizer: '',
+    hostEmployeeId: '',
     summary: '',
     start: toDatetimeLocal(start),
     stop: toDatetimeLocal(stop),
@@ -101,56 +101,56 @@ export function VisitForm({ initialValues, isSubmitting, submitLabel, onSubmit, 
     defaultValues: initialValues,
   });
 
-  const organizersQuery = useQuery({
-    queryKey: ['visitors-management', 'organizers', 'all'],
+  const hostsQuery = useQuery({
+    queryKey: ['visitors-management', 'hosts', 'all'],
     queryFn: async () => {
-      const { data, error } = await api.GET('/api/visitors/organizers', {
+      const { data, error } = await api.GET('/api/visitors/hosts', {
         params: { query: {} },
       });
 
       if (error) {
-        throw new Error('Could not load organizers.');
+        throw new Error('Could not load hosts.');
       }
 
       return data;
     },
   });
 
-  const organizers = organizersQuery.data?.items ?? [];
+  const hosts = hostsQuery.data?.items ?? [];
 
   return (
     <Form {...form}>
       <form className="grid gap-5" onSubmit={form.handleSubmit(onSubmit)}>
         <FormField
           control={form.control}
-          name="organizer"
+          name="hostEmployeeId"
           render={({ field }) => {
-            const selectedOrganizer = organizers.find((org) => org.id === field.value) ?? null;
+            const selectedHost = hosts.find((host) => host.employeeId === field.value) ?? null;
 
             return (
               <FormItem>
-                <FormLabel>Organizer</FormLabel>
+                <FormLabel>Host</FormLabel>
                 <FormControl>
                   <div ref={anchorRef}>
                     <Combobox
-                      value={selectedOrganizer}
-                      onValueChange={(org) => field.onChange(org?.id ?? '')}
-                      items={organizers}
-                      itemToStringLabel={(org) => getOrganizerName(org)}
+                      value={selectedHost}
+                      onValueChange={(host) => field.onChange(host?.employeeId ?? '')}
+                      items={hosts}
+                      itemToStringLabel={(host) => getHostName(host)}
                     >
             <ComboboxInput
-              placeholder="Search organizers..."
+              placeholder="Search hosts..."
               showClear
-              disabled={disabledFields?.includes('organizer')}
+              disabled={disabledFields?.includes('host')}
             />
                       <ComboboxContent anchor={anchorRef.current}>
-                        <ComboboxEmpty>No organizers found.</ComboboxEmpty>
+                        <ComboboxEmpty>No hosts found.</ComboboxEmpty>
                         <ComboboxList>
-                          {(org) => (
-                            <ComboboxItem key={org.id} value={org}>
+                          {(host) => (
+                            <ComboboxItem key={host.employeeId} value={host}>
                               <div>
-                                <p className="font-medium text-foreground">{getOrganizerName(org)}</p>
-                                {org.email ? <p className="text-[12px] text-muted-foreground">{org.email}</p> : null}
+                                <p className="font-medium text-foreground">{getHostName(host)}</p>
+                                {host.email ? <p className="text-[12px] text-muted-foreground">{host.email}</p> : null}
                               </div>
                             </ComboboxItem>
                           )}

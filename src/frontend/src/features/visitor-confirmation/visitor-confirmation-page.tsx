@@ -26,8 +26,8 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
-function getOrganizerName(visit: VisitConfirmationResponse) {
-  return [visit.organizer.firstName, visit.organizer.lastName].filter(Boolean).join(' ') || visit.organizer.email;
+function getHostName(visit: VisitConfirmationResponse) {
+  return [visit.host.firstName, visit.host.lastName].filter(Boolean).join(' ') || visit.host.email || 'Unnamed host';
 }
 
 function getVisitorName(visit: VisitConfirmationResponse) {
@@ -169,7 +169,7 @@ export default function VisitorConfirmationPage() {
             <Detail icon={<CalendarDays className="size-4" />} label="Starts" value={formatDateTime(visit.start)} />
             <Detail icon={<CalendarDays className="size-4" />} label="Ends" value={formatDateTime(visit.stop)} />
             <Detail icon={<MapPin className="size-4" />} label="Location" value={visit.locationLabel ?? 'Not specified'} />
-            <Detail icon={<UserRound className="size-4" />} label="Organizer" value={getOrganizerName(visit)} hint={visit.organizer.email} />
+            <Detail icon={<UserRound className="size-4" />} label="Host" value={getHostName(visit)} hint={visit.host.email ?? 'No email provided'} />
           </dl>
         </Card>
 

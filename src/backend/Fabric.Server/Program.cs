@@ -148,7 +148,7 @@ if (enableAutomation)
     app.MapKioskRuntimeEndpoints();
 }
 app.MapVisitorEndpoints();
-app.MapOrganizerEndpoints();
+app.MapHostEndpoints();
 app.MapVisitorPreOnboardingSagaEndpoints();
 app.MapEmployeeLifecycleAutomationEndpoints();
 

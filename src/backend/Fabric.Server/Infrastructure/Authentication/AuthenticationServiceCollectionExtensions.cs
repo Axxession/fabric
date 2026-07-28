@@ -36,6 +36,12 @@ public static class AuthenticationServiceCollectionExtensions
                 policy.RequireAuthenticatedUser();
                 policy.RequireRole(FabricRoleDefaults.AdminRole);
             })
+            .AddPolicy(FabricRoleDefaults.HostPolicy, policy =>
+            {
+                policy.AuthenticationSchemes.Add(TenantBearerAuthenticationDefaults.AuthenticationScheme);
+                policy.RequireAuthenticatedUser();
+                policy.RequireRole(FabricRoleDefaults.HostRole);
+            })
             .AddPolicy(FabricRoleDefaults.SecurityOfficerPolicy, policy =>
             {
                 policy.AuthenticationSchemes.Add(TenantBearerAuthenticationDefaults.AuthenticationScheme);

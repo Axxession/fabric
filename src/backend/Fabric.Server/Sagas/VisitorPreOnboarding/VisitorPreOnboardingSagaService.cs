@@ -1,5 +1,7 @@
 using Fabric.Server.Core;
+using Fabric.Server.Employees.Persistence;
 using Fabric.Server.Infrastructure.Tenancy;
+using Fabric.Server.Identities.Application;
 using Fabric.Server.Locations.Application;
 using Fabric.Server.Locations.Domain;
 using Fabric.Server.Notifications.Services;
@@ -20,8 +22,10 @@ public enum SagaStepResult
 }
 
 public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContext visitorsDb,
+        EmployeesDbContext employeesDb,
         ReceptionService receptionService,
         VisitService visitService,
+        IdentityService identityService,
         LocationService locationService,
         EmailNotificationSender emailNotificationSender,
         TenantBaseUrlResolver tenantBaseUrlResolver,
@@ -32,11 +36,11 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
 
     private static readonly TimeSpan _retryInterval = TimeSpan.FromMinutes(10);
     private const string InvitationTemplate = "invitation.html";
-    private const string ConfirmationTemplate = "confirmation-to-organizer.html";
+    private const string ConfirmationTemplate = "confirmation-to-host.html";
     private const string CancellationTemplate = "cancellation.html";
     private const string RescheduleTemplate = "reschedule.html";
     private const string RelocationTemplate = "relocation.html";
-    private const string ArrivalTemplate = "arrival-to-organizer.html";
+    private const string ArrivalTemplate = "arrival-to-host.html";
     private const string InvitationSubject = "You're invited to a visit";
     private const string ConfirmationSubject = "Visitor confirmed participation";
     private const string CancellationSubject = "Your visit has been cancelled";
@@ -69,7 +73,7 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
         existing.QrGenerationMode = config.QrGenerationMode;
         existing.SystemId = config.SystemId;
         existing.BadgeTypeId = config.BadgeTypeId;
-        existing.SendConfirmNotificationToOrganizer = config.SendConfirmNotificationToOrganizer;
+        existing.SendConfirmNotificationToHost = config.SendConfirmNotificationToHost;
         existing.UseCustomConfirmNotification = config.UseCustomConfirmNotification;
         existing.CustomConfirmNotification = config.CustomConfirmNotification;
         existing.SendCancellationNotification = config.SendCancellationNotification;
@@ -81,7 +85,7 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
         existing.SendRelocationNotification = config.SendRelocationNotification;
         existing.UseCustomRelocationNotification = config.UseCustomRelocationNotification;
         existing.CustomRelocationNotification = config.CustomRelocationNotification;
-        existing.SendArrivalNotificationToOrganizer = config.SendArrivalNotificationToOrganizer;
+        existing.SendArrivalNotificationToHost = config.SendArrivalNotificationToHost;
         existing.UseCustomArrivalNotification = config.UseCustomArrivalNotification;
         existing.CustomArrivalNotification = config.CustomArrivalNotification;
 
@@ -172,8 +176,8 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
         await db.SaveChangesAsync(cancellationToken);
 
         VisitorPreOnboardingSagaConfig config = await GetConfigurationAsync(cancellationToken);
-        if (config.SendConfirmNotificationToOrganizer)
-            await SendConfirmationToOrganizerAsync(config, saga, cancellationToken);
+        if (config.SendConfirmNotificationToHost)
+            await SendConfirmationToHostAsync(config, saga, cancellationToken);
     }
 
     public async Task RejectAsync(Guid visitId, Guid invitationId, CancellationToken cancellationToken = default)
@@ -533,9 +537,9 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
             return false;
 
         VisitorPreOnboardingSagaConfig config = await GetConfigurationAsync(cancellationToken);
-        if (config.SendArrivalNotificationToOrganizer && !saga.ArrivalNotificationSentAt.HasValue)
+        if (config.SendArrivalNotificationToHost && !saga.ArrivalNotificationSentAt.HasValue)
         {
-            bool sent = await SendOrganizerNotificationAsync(config, saga, ArrivalTemplate, config.UseCustomArrivalNotification, config.CustomArrivalNotification, ArrivalSubject, cancellationToken);
+            bool sent = await SendHostNotificationAsync(config, saga, ArrivalTemplate, config.UseCustomArrivalNotification, config.CustomArrivalNotification, ArrivalSubject, cancellationToken);
             if (!sent)
                 return false;
 
@@ -601,7 +605,11 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
 
         VisitInvitation invitation = visit.Invitations.Single(x => x.Id == saga.InvitationId);
 
-        Result<ExpectedArrival, ReceptionErrors> result = await receptionService.RegisterVisitorArrival(invitation.FirstName, invitation.LastName, invitation.Company, invitation.VisitorId, invitation.Id, visit.Start, visit.Stop, null, visit.LocationId, cancellationToken);
+        Guid? identityId = await identityService.GetIdentityIdForVisitorAsync(invitation.VisitorId, cancellationToken);
+        if (!identityId.HasValue)
+            return await RetryRegisterArrivalAsync(saga, cancellationToken);
+
+        Result<ExpectedArrival, ReceptionErrors> result = await receptionService.RegisterVisitorArrival(invitation.FirstName, invitation.LastName, invitation.Company, identityId.Value, invitation.VisitorId, invitation.Id, visit.Start, visit.Stop, null, visit.LocationId, cancellationToken);
 
 
         if (result.IsSuccess(out ExpectedArrival? arrival))
@@ -612,16 +620,21 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
             saga.NextRetryAt = null;
         }
 
-        if (result.IsFailure(out ReceptionErrors failure))
-        {
-            saga.ArrivalId = null;
-            saga.RetryCount++;
-            saga.State = VisitorPreOnboardingState.RegisteringArrival;
-            saga.NextRetryAt = timeProvider.GetUtcNow().Add(_retryInterval);
-        }
+        if (result.IsFailure(out _))
+            return await RetryRegisterArrivalAsync(saga, cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
         return saga.NextRetryAt == null ? SagaStepResult.Continue : SagaStepResult.Retry;
+    }
+
+    private async Task<SagaStepResult> RetryRegisterArrivalAsync(VisitorPreOnboardingSaga saga, CancellationToken cancellationToken)
+    {
+        saga.ArrivalId = null;
+        saga.RetryCount++;
+        saga.State = VisitorPreOnboardingState.RegisteringArrival;
+        saga.NextRetryAt = timeProvider.GetUtcNow().Add(_retryInterval);
+        await db.SaveChangesAsync(cancellationToken);
+        return SagaStepResult.Retry;
     }
 
     private async Task<SagaStepResult> GenerateQrCodeAsync(VisitorPreOnboardingSaga saga, CancellationToken cancellationToken)
@@ -790,12 +803,12 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
         return timeProvider.GetUtcNow().Add(capped);
     }
 
-    private async Task SendConfirmationToOrganizerAsync(VisitorPreOnboardingSagaConfig config, VisitorPreOnboardingSaga saga, CancellationToken cancellationToken)
+    private async Task SendConfirmationToHostAsync(VisitorPreOnboardingSagaConfig config, VisitorPreOnboardingSaga saga, CancellationToken cancellationToken)
     {
-        _ = await SendOrganizerNotificationAsync(config, saga, ConfirmationTemplate, config.UseCustomConfirmNotification, config.CustomConfirmNotification, ConfirmationSubject, cancellationToken);
+        _ = await SendHostNotificationAsync(config, saga, ConfirmationTemplate, config.UseCustomConfirmNotification, config.CustomConfirmNotification, ConfirmationSubject, cancellationToken);
     }
 
-    private async Task<bool> SendOrganizerNotificationAsync(
+    private async Task<bool> SendHostNotificationAsync(
         VisitorPreOnboardingSagaConfig config,
         VisitorPreOnboardingSaga saga,
         string defaultTemplate,
@@ -815,8 +828,8 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
         if (invitation is null)
             return false;
 
-        Organizer? organizer = await visitorsDb.Organizers.SingleOrDefaultAsync(x => x.Id == visit.OrganizerId, cancellationToken);
-        if (organizer is null)
+        Employees.Domain.Employee? host = await employeesDb.Employees.AsNoTracking().SingleOrDefaultAsync(x => x.Id == visit.HostEmployeeId, cancellationToken);
+        if (host is null || string.IsNullOrWhiteSpace(host.Email))
             return false;
 
         NotificationContent notification = await GetNotificationContentAsync(subject, defaultTemplate, useCustomTemplate, customNotification, cancellationToken);
@@ -824,7 +837,7 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
             notification.Subject,
             notification.Body,
             await CreateNotificationModelAsync(visit, invitation, saga.QrCode, cancellationToken),
-            [organizer.Email],
+            [host.Email],
             ct: cancellationToken);
 
         return emailResult.IsSuccess(out _);

@@ -27,7 +27,7 @@ export default function ReceptionKioskFailedPage() {
       <p className="mt-8 text-[14px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">Reception kiosk</p>
       <h2 className="mt-3 text-[36px] font-semibold tracking-tight sm:text-[56px]">{title}</h2>
       <p className="mx-auto mt-5 max-w-2xl text-[18px] leading-8 text-muted-foreground sm:text-[22px] sm:leading-9">
-        Contact reception or organizer for help.
+        Contact reception or host for help.
       </p>
 
       <div className="mt-10 grid gap-4 sm:grid-cols-1">

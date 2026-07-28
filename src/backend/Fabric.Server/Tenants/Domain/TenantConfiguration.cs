@@ -8,4 +8,5 @@ public sealed record TenantConfiguration
     public ThemeSettings Theme { get; init; } = ThemeSettings.Default;
     public LogoSettings? Logo { get; init; }
     public GraphEmailSettings? GraphEmail { get; init; }
+    public HostSettings Host { get; init; } = new();
 }

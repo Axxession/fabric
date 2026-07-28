@@ -81,9 +81,6 @@ const ReceptionKioskSetupPage = lazy(() => import('@/features/reception-kiosk/re
 const ReceptionKioskSuccessPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-success-page'));
 const VisitorsManagementLayout = lazy(() => import('@/features/visitors-management/visitors-management-layout'));
 const VisitorConfirmationPage = lazy(() => import('@/features/visitor-confirmation/visitor-confirmation-page'));
-const OrganizerCreatePage = lazy(() => import('@/features/visitors-management/organizer-create-page'));
-const OrganizerEditPage = lazy(() => import('@/features/visitors-management/organizer-edit-page'));
-const OrganizersPage = lazy(() => import('@/features/visitors-management/organizers-page'));
 const VisitorReportingPage = lazy(() => import('@/features/visitors-management/reporting-page'));
 const VisitCreatePage = lazy(() => import('@/features/visitors-management/visit-create-page'));
 const VisitEditPage = lazy(() => import('@/features/visitors-management/visit-edit-page'));
@@ -676,24 +673,6 @@ const visitorsRoute = createRoute({
   component: () => <LazyRoute component={<VisitorsPage />} />,
 });
 
-const organizersRoute = createRoute({
-  getParentRoute: () => visitorsManagementRoute,
-  path: '/organizers',
-  component: () => <LazyRoute component={<OrganizersPage />} />,
-});
-
-const organizerCreateRoute = createRoute({
-  getParentRoute: () => visitorsManagementRoute,
-  path: '/organizers/new',
-  component: () => <LazyRoute component={<OrganizerCreatePage />} />,
-});
-
-const organizerEditRoute = createRoute({
-  getParentRoute: () => visitorsManagementRoute,
-  path: '/organizers/$organizerId/edit',
-  component: () => <LazyRoute component={<OrganizerEditPage />} />,
-});
-
 const visitEditRoute = createRoute({
   getParentRoute: () => visitorsManagementRoute,
   path: '/visits/$visitId/edit',
@@ -858,7 +837,7 @@ const routeTree = rootRoute.addChildren([
     receptionDeskRoute,
     visitorConfirmationRoute,
     facilityRoute.addChildren([facilityHardwareRoute, facilityHardwareAgentDetailRoute]),
-    visitorsManagementRoute.addChildren([visitsIndexRoute, visitsRoute, visitCreateRoute, visitEditRoute, visitorsRoute, organizersRoute, organizerCreateRoute, organizerEditRoute, visitorReportingRoute]),
+    visitorsManagementRoute.addChildren([visitsIndexRoute, visitsRoute, visitCreateRoute, visitEditRoute, visitorsRoute, visitorReportingRoute]),
   ]),
   receptionKioskLayoutRoute.addChildren([receptionKioskIndexRoute, receptionKioskSetupRoute, receptionKioskScanQrRoute, receptionKioskArrivalRoute, receptionKioskFaceScanRoute, receptionKioskDocumentScanRoute, receptionKioskSuccessRoute, receptionKioskFailedRoute, receptionKioskNoRegistrationRoute]),
   kioskLayoutRoute.addChildren([kioskIndexRoute, kioskSetupRoute]),

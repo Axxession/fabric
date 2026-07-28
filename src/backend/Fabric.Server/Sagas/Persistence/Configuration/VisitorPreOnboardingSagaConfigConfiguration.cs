@@ -19,7 +19,7 @@ public sealed class VisitorPreOnboardingSagaConfigConfiguration : IEntityTypeCon
         builder.Property(x => x.QrGenerationMode).HasColumnName("qr_generation_mode").IsRequired().HasConversion<string>().HasMaxLength(50);
         builder.Property(x => x.SystemId).HasColumnName("system_id");
         builder.Property(x => x.BadgeTypeId).HasColumnName("badge_type_id");
-        builder.Property(x => x.SendConfirmNotificationToOrganizer).HasColumnName("send_confirm_notification_to_organizer").IsRequired();
+        builder.Property(x => x.SendConfirmNotificationToHost).HasColumnName("send_confirm_notification_to_host").IsRequired();
         builder.Property(x => x.UseCustomConfirmNotification).HasColumnName("use_custom_confirm_notification").IsRequired();
         ConfigureCustomNotification(builder, x => x.CustomConfirmNotification, "custom_confirm_notification");
         builder.Property(x => x.SendCancellationNotification).HasColumnName("send_cancellation_notification").IsRequired();
@@ -31,7 +31,7 @@ public sealed class VisitorPreOnboardingSagaConfigConfiguration : IEntityTypeCon
         builder.Property(x => x.SendRelocationNotification).HasColumnName("send_relocation_notification").IsRequired();
         builder.Property(x => x.UseCustomRelocationNotification).HasColumnName("use_custom_relocation_notification").IsRequired();
         ConfigureCustomNotification(builder, x => x.CustomRelocationNotification, "custom_relocation_notification");
-        builder.Property(x => x.SendArrivalNotificationToOrganizer).HasColumnName("send_arrival_notification_to_organizer").IsRequired();
+        builder.Property(x => x.SendArrivalNotificationToHost).HasColumnName("send_arrival_notification_to_host").IsRequired();
         builder.Property(x => x.UseCustomArrivalNotification).HasColumnName("use_custom_arrival_notification").IsRequired();
         ConfigureCustomNotification(builder, x => x.CustomArrivalNotification, "custom_arrival_notification");
 

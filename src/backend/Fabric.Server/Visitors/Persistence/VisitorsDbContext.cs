@@ -11,7 +11,7 @@ public class VisitorsDbContext : TenantDbContext
     public DbSet<Visit> Visits { get; set; } = null!;
     public DbSet<VisitInvitation> Invitations { get; set; } = null!;
     public DbSet<Visitor> Visitors { get; set; } = null!;
-    public DbSet<Organizer> Organizers { get; set; } = null!;
+    public DbSet<HostAssignment> HostAssignments { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -20,7 +20,7 @@ public class VisitorsDbContext : TenantDbContext
         modelBuilder.ApplyConfiguration(new VisitConfiguration());
         modelBuilder.ApplyConfiguration(new VisitInvitationConfiguration());
         modelBuilder.ApplyConfiguration(new VisitorConfiguration());
-        modelBuilder.ApplyConfiguration(new OrganizerConfiguration());
+        modelBuilder.ApplyConfiguration(new HostAssignmentConfiguration());
         ApplyTenantFilters(modelBuilder);
     }
 

@@ -1,4 +1,5 @@
 using Fabric.Server.Core;
+using Fabric.Server.Employees.Persistence;
 using Fabric.Server.Locations.Application;
 using Fabric.Server.Locations.Domain;
 using Fabric.Server.Sagas.VisitorPreOnboarding;
@@ -136,6 +137,7 @@ public static class VisitorEndpoints
 
     private static async Task<IResult> GetVisitById(
         VisitorsDbContext db,
+        HostService hostService,
         Guid id,
         CancellationToken cancellationToken = default
     )
@@ -147,12 +149,8 @@ public static class VisitorEndpoints
         if (visitRow is null)
             return Results.NotFound();
 
-        Organizer organizer = await db.Organizers.SingleAsync(
-            x => x.Id == visitRow.OrganizerId,
-            cancellationToken
-        );
-
-        return Results.Ok(visitRow.ToResponse(organizer));
+        HostResponse? host = await hostService.GetHostByEmployeeIdAsync(visitRow.HostEmployeeId, cancellationToken);
+        return host is null ? Results.NotFound() : Results.Ok(visitRow.ToResponse(host));
     }
 
     private static async Task<IResult> GetVisitor(
@@ -167,6 +165,7 @@ public static class VisitorEndpoints
     private static async Task<IResult> GetVisitByInvitationId(
         Guid invitationId,
         VisitorsDbContext db,
+        HostService hostService,
         CancellationToken cancellationToken = default
     )
     {
@@ -177,22 +176,19 @@ public static class VisitorEndpoints
         if (visitRow is null)
             return Results.NotFound();
 
-        Organizer organizer = await db.Organizers.SingleAsync(
-            x => x.Id == visitRow.OrganizerId,
-            cancellationToken
-        );
-
-        return Results.Ok(visitRow.ToResponse(organizer));
+        HostResponse? host = await hostService.GetHostByEmployeeIdAsync(visitRow.HostEmployeeId, cancellationToken);
+        return host is null ? Results.NotFound() : Results.Ok(visitRow.ToResponse(host));
     }
 
     private static async Task<IResult> ListVisits(
         [FromQuery] VisitStatus[]? withStatus,
-        [FromQuery] Guid? organizerId,
+        [FromQuery] Guid? hostEmployeeId,
         [FromQuery] DateTimeOffset? after,
         [FromQuery] DateTimeOffset? before,
         [FromQuery] int? page,
         [FromQuery] int? pageSize,
         VisitorsDbContext db,
+        HostService hostService,
         CancellationToken cancellationToken = default
     )
     {
@@ -201,8 +197,8 @@ public static class VisitorEndpoints
         if (withStatus is { Length: > 0 })
             query = query.Where(x => withStatus.Contains(x.Status));
 
-        if (organizerId.HasValue)
-            query = query.Where(x => organizerId.Value == x.OrganizerId);
+        if (hostEmployeeId.HasValue)
+            query = query.Where(x => hostEmployeeId.Value == x.HostEmployeeId);
 
         if (after.HasValue)
             query = query.Where(x => x.Start >= after.Value);
@@ -214,13 +210,10 @@ public static class VisitorEndpoints
 
         IPaged<Visit> result = await query.GetPageAsync(page ?? 0, pageSize ?? 25, cancellationToken);
 
-        Guid[] organizerIds = result.Items.Select(x => x.OrganizerId).Distinct().ToArray();
-        List<Organizer> organizers = await db.Organizers
-            .Where(x => organizerIds.Contains(x.Id))
-            .ToListAsync(cancellationToken);
-        Dictionary<Guid, Organizer> organizerMap = organizers.ToDictionary(x => x.Id);
+        Guid[] hostEmployeeIds = result.Items.Select(x => x.HostEmployeeId).Distinct().ToArray();
+        Dictionary<Guid, HostResponse> hostMap = await hostService.GetHostMapAsync(hostEmployeeIds, cancellationToken);
 
-        return Results.Ok(result.Map(visit => visit.ToResponse(organizerMap[visit.OrganizerId])));
+        return Results.Ok(result.Map(visit => visit.ToResponse(hostMap[visit.HostEmployeeId])));
     }
 
     private static async Task<IResult> CreateVisit(
@@ -229,8 +222,8 @@ public static class VisitorEndpoints
         CancellationToken cancellationToken = default
     )
     {
-        Result<(Visit, Organizer), VisitErrors> result = await visitService.Create(
-            request.Organizer,
+        Result<(Visit, HostResponse), VisitErrors> result = await visitService.Create(
+            request.HostEmployeeId,
             request.Summary,
             request.Start,
             request.Stop,
@@ -345,6 +338,7 @@ public static class VisitorEndpoints
         Guid visitId,
         Guid invitationId,
         VisitorsDbContext db,
+        HostService hostService,
         LocationService locationService,
         CancellationToken cancellationToken = default
     )
@@ -358,16 +352,15 @@ public static class VisitorEndpoints
         if (visit is null || invitation is null)
             return Results.NotFound();
 
-        Organizer organizer = await db.Organizers.AsNoTracking().SingleAsync(
-            x => x.Id == visit.OrganizerId,
-            cancellationToken
-        );
+        HostResponse? host = await hostService.GetHostByEmployeeIdAsync(visit.HostEmployeeId, cancellationToken);
+        if (host is null)
+            return Results.NotFound();
 
         string? locationLabel = visit.LocationId.HasValue
             ? FormatLocationLabel(await locationService.GetLocationById(visit.LocationId.Value, cancellationToken))
             : null;
 
-        return Results.Ok(visit.ToConfirmationResponse(invitation, organizer, locationLabel));
+        return Results.Ok(visit.ToConfirmationResponse(invitation, host, locationLabel));
     }
 
     private static async Task<IResult> ConfirmInvitation(
@@ -423,9 +416,9 @@ public static class VisitorEndpoints
         return errors switch
         {
             VisitErrors.VisitNotFound => Problem(StatusCodes.Status404NotFound, "Visit not found."),
-            VisitErrors.OrganizerNotFound => Problem(
+            VisitErrors.HostNotFound => Problem(
                 StatusCodes.Status404NotFound,
-                "Organizer not found."
+                "Host not found."
             ),
             VisitErrors.InvitationNotFound => Problem(
                 StatusCodes.Status404NotFound,

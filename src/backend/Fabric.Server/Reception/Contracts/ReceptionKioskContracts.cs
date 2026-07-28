@@ -74,8 +74,8 @@ public record ReceptionKioskVisitDetailsResponse(
     DateTimeOffset Start,
     DateTimeOffset Stop,
     Guid? LocationId,
-    string OrganizerName,
-    string OrganizerEmail
+    string HostName,
+    string? HostEmail
 );
 
 public record ReceptionKioskContractorDetailsResponse();

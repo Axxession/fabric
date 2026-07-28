@@ -17,7 +17,7 @@ export default function VisitCreatePage() {
     mutationFn: async (values: VisitFormValues) => {
       const { error } = await api.POST('/api/visitors/visits', {
         body: {
-          organizer: values.organizer,
+          hostEmployeeId: values.hostEmployeeId,
           summary: values.summary,
           start: new Date(values.start).toISOString(),
           stop: new Date(values.stop).toISOString(),
@@ -54,7 +54,7 @@ export default function VisitCreatePage() {
 
         <div>
           <h2 className="text-[20px] font-semibold tracking-tight">Add visit</h2>
-          <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">Schedule a new visit with an organizer, time range, and summary.</p>
+          <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">Schedule a new visit with a host, time range, and summary.</p>
         </div>
       </header>
 

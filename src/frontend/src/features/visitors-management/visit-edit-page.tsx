@@ -31,7 +31,7 @@ function toDatetimeLocal(value: string): string {
 
 function mapVisitToFormValues(visit: VisitResponse): VisitFormValues {
   return {
-    organizer: visit.organizer?.id ?? '',
+    hostEmployeeId: visit.host?.employeeId ?? '',
     summary: visit.summary ?? '',
     start: visit.start ? toDatetimeLocal(visit.start) : '',
     stop: visit.stop ? toDatetimeLocal(visit.stop) : '',
@@ -316,14 +316,14 @@ export default function VisitEditPage() {
 
             <div className="mb-6 grid gap-3 text-[14px] sm:grid-cols-2">
               <div>
-                <p className="text-[12px] font-medium text-muted-foreground">Organizer</p>
+                <p className="text-[12px] font-medium text-muted-foreground">Host</p>
                 <p className="mt-0.5 text-foreground">
-                  {visit.organizer
-                    ? [visit.organizer.firstName, visit.organizer.lastName].filter(Boolean).join(' ')
+                  {visit.host
+                    ? [visit.host.firstName, visit.host.lastName].filter(Boolean).join(' ')
                     : '—'}
                 </p>
-                {visit.organizer?.email ? (
-                  <p className="text-[13px] text-muted-foreground">{visit.organizer.email}</p>
+                {visit.host?.email ? (
+                  <p className="text-[13px] text-muted-foreground">{visit.host.email}</p>
                 ) : null}
               </div>
               <div>
@@ -343,7 +343,7 @@ export default function VisitEditPage() {
               disableSubmit={isCancelledOrCompleted}
               submitLabel="Save changes"
               onSubmit={handleSubmit}
-              disabledFields={isCancelledOrCompleted ? ['organizer', 'summary', 'start', 'stop', 'location'] : ['organizer']}
+              disabledFields={isCancelledOrCompleted ? ['host', 'summary', 'start', 'stop', 'location'] : ['host']}
               footerLeft={
                 !isCancelledOrCompleted && !showCancelConfirm ? (
                   <Button

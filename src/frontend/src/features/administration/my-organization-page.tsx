@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from '@tanstack/react-router';
 import { Pencil, Plus } from 'lucide-react';
 import { useState } from 'react';
 
+import { HostsPanel } from '@/features/visitors-management/hosts-panel';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { buttonVariants } from '@/shared/components/ui/button';
@@ -15,7 +16,7 @@ type OrganizationUnit = components['schemas']['OrganizationUnitResponse'];
 type Persona = components['schemas']['PersonaResponse'];
 type EmployeeStatus = components['schemas']['EmployeeStatus'];
 
-type OrganizationTab = 'employees' | 'organizational-units' | 'personas';
+type OrganizationTab = 'employees' | 'organizational-units' | 'personas' | 'hosts';
 type PaginationState = {
   readonly currentPage: number;
   readonly firstItem: number;
@@ -129,6 +130,7 @@ export default function MyOrganizationPage() {
             <TabsTrigger value="employees">Employees</TabsTrigger>
             <TabsTrigger value="organizational-units">Organizational Units</TabsTrigger>
             <TabsTrigger value="personas">Personas</TabsTrigger>
+            <TabsTrigger value="hosts">Hosts</TabsTrigger>
           </TabsList>
 
           <TabsContent value="employees">
@@ -189,6 +191,10 @@ export default function MyOrganizationPage() {
               page={personaPage}
               setPage={setPersonaPage}
             />
+          </TabsContent>
+
+          <TabsContent value="hosts">
+            <HostsPanel />
           </TabsContent>
       </Tabs>
     </section>
@@ -634,7 +640,7 @@ function getActiveTab(searchStr: string): OrganizationTab {
 }
 
 function isOrganizationTab(value: string | null | undefined): value is OrganizationTab {
-  return value === 'employees' || value === 'organizational-units' || value === 'personas';
+  return value === 'employees' || value === 'organizational-units' || value === 'personas' || value === 'hosts';
 }
 
 function getPaginationState(page: { currentPage?: number | string; totalPages?: null | number | string; totalItems?: null | number | string } | undefined, itemCount: number, requestedPage: number, resolvedPageSize: number): PaginationState {
