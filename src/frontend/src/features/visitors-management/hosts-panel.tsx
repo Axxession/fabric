@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
@@ -23,7 +23,6 @@ export function HostsPanel() {
   const [page, setPage] = useState(0);
   const [query, setQuery] = useState('');
   const [employeeQuery, setEmployeeQuery] = useState('');
-  const [selectedAssignmentMode, setSelectedAssignmentMode] = useState<HostAssignmentMode | null>(null);
 
   const hostSettingsQuery = useQuery({
     queryKey: hostSettingsQueryKey,
@@ -81,28 +80,9 @@ export function HostsPanel() {
 
       return data;
     },
-    onMutate: async (assignmentMode) => {
-      await queryClient.cancelQueries({ queryKey: hostSettingsQueryKey });
-
-      const previousSettings = queryClient.getQueryData<components['schemas']['HostSettingsResponse']>(hostSettingsQueryKey);
-      setSelectedAssignmentMode(assignmentMode);
-      queryClient.setQueryData(hostSettingsQueryKey, { assignmentMode });
-      return { previousSettings, previousAssignmentMode: selectedAssignmentMode };
-    },
-    onError: (_error, _assignmentMode, context) => {
-      if (context?.previousSettings) {
-        queryClient.setQueryData(hostSettingsQueryKey, context.previousSettings);
-      }
-
-      setSelectedAssignmentMode(context?.previousAssignmentMode ?? context?.previousSettings?.assignmentMode ?? null);
-    },
     onSuccess: async (data) => {
       queryClient.setQueryData(hostSettingsQueryKey, data);
-      setSelectedAssignmentMode(data.assignmentMode);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: hostSettingsQueryKey }),
-        queryClient.invalidateQueries({ queryKey: hostsQueryKey }),
-      ]);
+      await queryClient.invalidateQueries({ queryKey: hostsQueryKey });
     },
   });
 
@@ -144,22 +124,15 @@ export function HostsPanel() {
   const firstItem = totalItems === 0 ? 0 : currentPage * pageSize + 1;
   const lastItem = Math.min((currentPage + 1) * pageSize, totalItems);
   const visiblePages = getVisiblePages(totalPages, currentPage);
-  useEffect(() => {
-    if (!updateHostSettings.isPending && hostSettingsQuery.data?.assignmentMode) {
-      setSelectedAssignmentMode((current) => current ?? hostSettingsQuery.data.assignmentMode);
-    }
-  }, [hostSettingsQuery.data?.assignmentMode, updateHostSettings.isPending]);
-
-  const assignmentMode = selectedAssignmentMode ?? hostSettingsQuery.data?.assignmentMode ?? 'AllEmployees';
-  const canEditAllowList = assignmentMode === 'AllowList';
+  const currentAssignmentMode = hostSettingsQuery.data?.assignmentMode ?? 'AllEmployees';
+  const canEditAllowList = currentAssignmentMode === 'AllowList';
   const allowListedEmployeeIds = useMemo(() => new Set(hosts.filter((host) => host.isAllowListed).map((host) => host.employeeId)), [hosts]);
 
-  function handleModeChange(nextMode: HostAssignmentMode) {
-    if (nextMode === assignmentMode || updateHostSettings.isPending) {
+  function handleModeSelectionChange(nextMode: HostAssignmentMode) {
+    if (nextMode === currentAssignmentMode || updateHostSettings.isPending) {
       return;
     }
 
-    setSelectedAssignmentMode(nextMode);
     updateHostSettings.mutate(nextMode);
   }
 
@@ -177,18 +150,22 @@ export function HostsPanel() {
           <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">Choose whether every active employee can host visits or only an explicit allow list.</p>
         </div>
 
-        <label className="grid gap-2 text-[14px] font-medium text-foreground sm:min-w-64">
-          <span>Host mode</span>
-          <select
-            className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px]"
-            value={assignmentMode}
-            onChange={(event) => handleModeChange(event.target.value as HostAssignmentMode)}
-            disabled={hostSettingsQuery.isLoading || updateHostSettings.isPending}
-          >
-            <option value="AllEmployees">All employees</option>
-            <option value="AllowList">Allow list</option>
-          </select>
-        </label>
+        <div className="grid gap-2 text-[14px] font-medium text-foreground sm:min-w-64">
+          <label htmlFor="host-mode-select">Host mode</label>
+          <div className="flex gap-2">
+            <select
+              id="host-mode-select"
+              className="min-w-0 flex-1 rounded-interactive border border-border bg-content px-3 py-2 text-[14px]"
+              value={currentAssignmentMode}
+              onChange={(event) => handleModeSelectionChange(event.target.value as HostAssignmentMode)}
+              disabled={hostSettingsQuery.isLoading || updateHostSettings.isPending}
+            >
+              <option value="AllEmployees">All employees</option>
+              <option value="AllowList">Allow list</option>
+            </select>
+            {updateHostSettings.isPending ? <Button type="button" disabled>Saving...</Button> : null}
+          </div>
+        </div>
       </div>
 
       {hostsQuery.isError || hostSettingsQuery.isError || addHost.isError || removeHost.isError || updateHostSettings.isError ? (

@@ -58,7 +58,8 @@ public static class HostEndpoints
         return result.AsResponse(MapError);
     }
 
-    private static IResult GetSettings(HostService hostService) => Results.Ok(hostService.GetSettings());
+    private static async Task<IResult> GetSettings(HostService hostService, CancellationToken cancellationToken = default) =>
+        Results.Ok(await hostService.GetSettingsAsync(cancellationToken));
 
     private static async Task<IResult> UpdateSettings([FromBody] UpdateHostSettingsRequest request, HostService hostService, CancellationToken cancellationToken = default) =>
         Results.Ok(await hostService.UpdateSettingsAsync(request.AssignmentMode, cancellationToken));

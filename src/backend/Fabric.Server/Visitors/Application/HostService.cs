@@ -18,29 +18,29 @@ public sealed class HostService(
     ITenantContextAccessor tenantContext,
     ITenantStore tenantStore)
 {
-    public HostSettingsResponse GetSettings() => new(tenantContext.Configuration.Host.AssignmentMode);
+    public async Task<HostSettingsResponse> GetSettingsAsync(CancellationToken cancellationToken = default) =>
+        new(await GetAssignmentModeAsync(cancellationToken));
 
     public async Task<HostSettingsResponse> UpdateSettingsAsync(HostAssignmentMode assignmentMode, CancellationToken cancellationToken = default)
     {
-        Tenant? tenant = await tenantsDb.Tenants.SingleAsync(item => item.Id == tenantContext.TenantId, cancellationToken);
-        TenantConfiguration configuration = tenantContext.Configuration with
-        {
-            Host = new HostSettings
-            {
-                AssignmentMode = assignmentMode
-            }
-        };
+        int affectedRows = await tenantsDb.Tenants
+            .Where(item => item.Id == tenantContext.TenantId)
+            .ExecuteUpdateAsync(
+                updates => updates.SetProperty(
+                    item => item.Configuration.Host.AssignmentMode,
+                    _ => assignmentMode),
+                cancellationToken);
 
-        tenant.UpdateConfiguration(configuration);
-        await tenantsDb.SaveChangesAsync(cancellationToken);
-        tenantStore.InvalidateTenant(tenant.Id);
-        tenantContext.SetTenant(new TenantInfo(tenant.Id, configuration));
-        return new HostSettingsResponse(configuration.Host.AssignmentMode);
+        if (affectedRows == 0)
+            throw new InvalidOperationException($"Tenant '{tenantContext.TenantId}' was not found while updating host settings.");
+
+        tenantStore.InvalidateTenant(tenantContext.TenantId);
+        return await GetSettingsAsync(cancellationToken);
     }
 
     public async Task<Page<HostResponse>> ListHostsAsync(ListHostsRequest request, CancellationToken cancellationToken = default)
     {
-        HostAssignmentMode assignmentMode = tenantContext.Configuration.Host.AssignmentMode;
+        HostAssignmentMode assignmentMode = await GetAssignmentModeAsync(cancellationToken);
         IQueryable<Employee> query = employeesDb.Employees.AsNoTracking().Where(item => item.ArchivedAt == null);
         if (assignmentMode is HostAssignmentMode.AllowList)
         {
@@ -66,7 +66,7 @@ public sealed class HostService(
     {
         IQueryable<Employee> query = employeesDb.Employees.AsNoTracking()
             .Where(item => item.ArchivedAt == null && item.Id == employeeId);
-        if (tenantContext.Configuration.Host.AssignmentMode is HostAssignmentMode.AllowList)
+        if (await GetAssignmentModeAsync(cancellationToken) is HostAssignmentMode.AllowList)
         {
             bool hostIsAllowListed = await visitorsDb.HostAssignments.AsNoTracking().AnyAsync(item => item.EmployeeId == employeeId, cancellationToken);
             if (!hostIsAllowListed)
@@ -88,7 +88,8 @@ public sealed class HostService(
         if (!employeeExists)
             return false;
 
-        return tenantContext.Configuration.Host.AssignmentMode switch
+        HostAssignmentMode assignmentMode = await GetAssignmentModeAsync(cancellationToken);
+        return assignmentMode switch
         {
             HostAssignmentMode.AllEmployees => true,
             HostAssignmentMode.AllowList => await visitorsDb.HostAssignments.AsNoTracking().AnyAsync(item => item.EmployeeId == employeeId, cancellationToken),
@@ -98,7 +99,7 @@ public sealed class HostService(
 
     public async Task<Result<HostResponse, HostErrors>> AddHostAsync(Guid employeeId, CancellationToken cancellationToken = default)
     {
-        if (tenantContext.Configuration.Host.AssignmentMode is not HostAssignmentMode.AllowList)
+        if (await GetAssignmentModeAsync(cancellationToken) is not HostAssignmentMode.AllowList)
             return Result.Failure<HostResponse, HostErrors>(HostErrors.AssignmentModeDoesNotSupportAllowList);
 
         Employee? employee = await employeesDb.Employees.SingleOrDefaultAsync(item => item.Id == employeeId, cancellationToken);
@@ -120,7 +121,7 @@ public sealed class HostService(
 
     public async Task<Result<HostErrors>> RemoveHostAsync(Guid employeeId, CancellationToken cancellationToken = default)
     {
-        if (tenantContext.Configuration.Host.AssignmentMode is not HostAssignmentMode.AllowList)
+        if (await GetAssignmentModeAsync(cancellationToken) is not HostAssignmentMode.AllowList)
             return Result.Failure(HostErrors.AssignmentModeDoesNotSupportAllowList);
 
         HostAssignment? hostAssignment = await visitorsDb.HostAssignments.SingleOrDefaultAsync(item => item.EmployeeId == employeeId, cancellationToken);
@@ -169,6 +170,14 @@ public sealed class HostService(
             .Select(item => item.EmployeeId)
             .ToArrayAsync(cancellationToken);
         return ids.ToHashSet();
+    }
+
+    private async Task<HostAssignmentMode> GetAssignmentModeAsync(CancellationToken cancellationToken)
+    {
+        return await tenantsDb.Tenants.AsNoTracking()
+            .Where(item => item.Id == tenantContext.TenantId)
+            .Select(item => item.Configuration.Host.AssignmentMode)
+            .SingleAsync(cancellationToken);
     }
 
     private static HostResponse ToResponse(Employee employee, bool isAllowListed) =>
