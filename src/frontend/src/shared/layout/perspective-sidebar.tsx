@@ -5,6 +5,7 @@ import type { ResolvedAppPerspective } from '@/shared/perspectives/app-perspecti
 export function PerspectiveSidebar({ perspectives, version }: { perspectives: readonly ResolvedAppPerspective[]; version: string }) {
   const location = useLocation();
   const activePerspective = perspectives.find((perspective) => location.pathname === perspective.to || location.pathname.startsWith(`${perspective.to}/`));
+  const displayVersion = getDisplayVersion(version);
 
   return (
     <aside className="flex w-80 shrink-0 flex-col border-r border-border bg-content p-4 md:sticky md:top-[73px] md:h-[calc(100vh-73px)]">
@@ -42,7 +43,7 @@ export function PerspectiveSidebar({ perspectives, version }: { perspectives: re
         })}
       </nav>
 
-      <div className="mt-auto px-1 pt-6 text-[12px] text-muted-foreground">v{version}</div>
+      <div className="mt-auto px-1 pt-6 text-[12px] text-muted-foreground" title={`v${version}`}>v{displayVersion}</div>
     </aside>
   );
 }
@@ -53,4 +54,9 @@ function isMenuItemActive(pathname: string, itemPath: string) {
   }
 
   return itemPath !== '/employee' && pathname.startsWith(`${itemPath}/`);
+}
+
+function getDisplayVersion(version: string) {
+  const buildMetadataIndex = version.indexOf('+');
+  return buildMetadataIndex === -1 ? version : version.slice(0, buildMetadataIndex);
 }
