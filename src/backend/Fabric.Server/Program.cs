@@ -101,15 +101,16 @@ if (enableOpenApi)
 }
 
 app.UseCors("ApiCors");
-app.UseMiddleware<TenantContextMiddleware>();
-app.UseAuthentication();
-app.UseAuthorization();
 
 if (File.Exists(frontendIndexPath))
 {
     app.UseDefaultFiles();
     app.UseStaticFiles();
 }
+
+app.UseMiddleware<TenantContextMiddleware>();
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapTenantEndpoints();
 app.MapActorEndpoints();
