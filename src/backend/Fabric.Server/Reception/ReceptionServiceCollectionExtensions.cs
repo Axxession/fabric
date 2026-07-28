@@ -18,7 +18,7 @@ public static class ReceptionServiceCollectionExtensions
             options.SerializerOptions.TypeInfoResolverChain.Add(ReceptionJsonSerializerContext.Default));
 
         collection.AddScoped<ReceptionService>();
-        collection.AddScoped<ReceptionAccessPolicyService>();
+        collection.AddScoped<ReceptionTriggeredPackageAssignmentService>();
         collection.AddScoped<ReceptionKioskKeyHasher>();
         return collection;
     }

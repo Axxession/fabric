@@ -15,13 +15,12 @@ public sealed class ReceptionAssignedAccessPolicyConfiguration : IEntityTypeConf
         builder.Property(assignedPolicy => assignedPolicy.Id).HasColumnName("id").ValueGeneratedNever();
         builder.Property(assignedPolicy => assignedPolicy.ArrivalId).HasColumnName("arrival_id").IsRequired();
         builder.Property(assignedPolicy => assignedPolicy.RuleAssignmentId).HasColumnName("rule_assignment_id").IsRequired();
-        builder.Property(assignedPolicy => assignedPolicy.AccessPolicyId).HasColumnName("access_policy_id").IsRequired();
-        builder.Property(assignedPolicy => assignedPolicy.SystemId).HasColumnName("system_id").IsRequired();
-        builder.Property(assignedPolicy => assignedPolicy.AccessLevelTypeId).HasColumnName("access_level_type_id").IsRequired();
+        builder.Property(assignedPolicy => assignedPolicy.AccessGrantId).HasColumnName("access_grant_id").IsRequired();
+        builder.Property(assignedPolicy => assignedPolicy.PackageId).HasColumnName("package_id").IsRequired();
 
         builder.HasIndex(assignedPolicy => assignedPolicy.ArrivalId).HasDatabaseName("ix_assigned_access_policies_arrival_id");
         builder.HasIndex(assignedPolicy => assignedPolicy.RuleAssignmentId).HasDatabaseName("ix_assigned_access_policies_rule_assignment_id");
-        builder.HasIndex(assignedPolicy => assignedPolicy.AccessPolicyId).HasDatabaseName("ix_assigned_access_policies_access_policy_id");
+        builder.HasIndex(assignedPolicy => assignedPolicy.AccessGrantId).HasDatabaseName("ix_assigned_access_policies_access_grant_id");
         builder.HasIndex(assignedPolicy => new { assignedPolicy.ArrivalId, assignedPolicy.RuleAssignmentId })
             .IsUnique()
             .HasDatabaseName("ix_assigned_access_policies_arrival_id_rule_assignment_id");

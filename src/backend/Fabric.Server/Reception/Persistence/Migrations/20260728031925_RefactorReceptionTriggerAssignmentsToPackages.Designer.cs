@@ -3,6 +3,7 @@ using System;
 using Fabric.Server.Reception.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Fabric.Server.Reception.Persistence.Migrations
 {
     [DbContext(typeof(ReceptionDbContext))]
-    partial class ReceptionDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260728031925_RefactorReceptionTriggerAssignmentsToPackages")]
+    partial class RefactorReceptionTriggerAssignmentsToPackages
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

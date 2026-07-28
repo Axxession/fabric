@@ -1,23 +1,26 @@
+using Fabric.Server.AccessCatalog.Application;
+using Fabric.Server.AccessCatalog.Domain;
 using Fabric.Server.Core;
-using Fabric.Server.Locations.Application;
+using Fabric.Server.Identities.Application;
 using Fabric.Server.Reception.Domain;
 using Fabric.Server.Reception.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Fabric.Server.Reception.Application;
 
-public class ReceptionAccessPolicyService(
+public sealed class ReceptionTriggeredPackageAssignmentService(
     ReceptionDbContext db,
-    LocationService locationService)
+    AccessGrantService accessGrantService,
+    IdentityService identityService)
 {
     public async Task ApplyTrigger(ExpectedArrival arrival, ReceptionAccessPolicyTrigger trigger, CancellationToken cancellationToken = default)
     {
         if (!AppliesToArrival(arrival, trigger) || !arrival.LocationId.HasValue)
             return;
 
-        List<ReceptionAccessRuleAssignment> assignments = await GetMatchingAssignments(arrival.LocationId.Value, trigger, cancellationToken);
+        List<ReceptionAccessRuleAssignment> assignments = await GetMatchingAssignments(trigger, cancellationToken);
         foreach (ReceptionAccessRuleAssignment assignment in assignments)
-            await CreatePolicyIfMissing(arrival, assignment, cancellationToken);
+            await CreateGrantIfMissing(arrival, assignment, cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
     }
@@ -36,33 +39,25 @@ public class ReceptionAccessPolicyService(
             .Where(policy => policy.ArrivalId == arrivalId)
             .ToListAsync(cancellationToken);
 
-        if (assignedPolicies.Count > 0)
-            throw new NotImplementedException("Reception PACS policy retraction has not been migrated from AccessPolicies yet.");
+        foreach (ReceptionAssignedAccessPolicy assignedPolicy in assignedPolicies)
+        {
+            Result<AccessGrant, AccessCatalogErrors> revoke = await accessGrantService.RevokeAsync(assignedPolicy.AccessGrantId, cancellationToken);
+            if (revoke.IsFailure(out AccessCatalogErrors error) && error != AccessCatalogErrors.AccessGrantAlreadyRevoked && error != AccessCatalogErrors.AccessGrantNotFound)
+                throw new InvalidOperationException($"Failed to revoke reception access grant {assignedPolicy.AccessGrantId}: {error}.");
+        }
 
         db.AssignedAccessPolicies.RemoveRange(assignedPolicies);
         await db.SaveChangesAsync(cancellationToken);
     }
 
     private async Task<List<ReceptionAccessRuleAssignment>> GetMatchingAssignments(
-        Guid arrivalLocationId,
         ReceptionAccessPolicyTrigger trigger,
-        CancellationToken cancellationToken)
-    {
-        List<ReceptionAccessRuleAssignment> candidates = await db.AccessRuleAssignments
+        CancellationToken cancellationToken) =>
+        await db.AccessRuleAssignments
             .Where(assignment => assignment.Trigger == trigger)
             .ToListAsync(cancellationToken);
 
-        List<ReceptionAccessRuleAssignment> matches = [];
-        foreach (ReceptionAccessRuleAssignment assignment in candidates)
-        {
-            if (await locationService.IsPartOfLocationTree(arrivalLocationId, assignment.LocationId, cancellationToken))
-                matches.Add(assignment);
-        }
-
-        return matches;
-    }
-
-    private async Task CreatePolicyIfMissing(
+    private async Task CreateGrantIfMissing(
         ExpectedArrival arrival,
         ReceptionAccessRuleAssignment assignment,
         CancellationToken cancellationToken)
@@ -73,13 +68,45 @@ public class ReceptionAccessPolicyService(
         if (exists)
             return;
 
-        Guid subjectId = GetSubjectId(arrival);
-        if (subjectId == Guid.Empty)
+        Guid? identityId = await ResolveIdentityIdAsync(arrival, cancellationToken);
+        if (!identityId.HasValue || !arrival.LocationId.HasValue)
             return;
 
-        _ = assignment;
-        _ = subjectId;
-        throw new NotImplementedException("Reception PACS policy creation has not been migrated from AccessPolicies yet.");
+        DateTimeOffset validFrom = arrival.ExpectedArrivalTime.AddMinutes(-assignment.GracePeriodMinutes);
+        DateTimeOffset validUntil = arrival.ExpectedOffboardTime.AddMinutes(assignment.GracePeriodMinutes);
+
+        Result<AccessGrant, AccessCatalogErrors> create = await accessGrantService.CreateAsync(
+            assignment.PackageId,
+            identityId.Value,
+            [arrival.LocationId.Value],
+            AssignmentChannel.AutomaticConfiguration,
+            AssignmentSourceKind.ReceptionArrival,
+            arrival.Id,
+            AccessDurationKind.Temporary,
+            validFrom,
+            validUntil,
+            $"Automatic reception access from trigger {assignment.Trigger}.",
+            cancellationToken);
+
+        if (create.IsFailure(out AccessCatalogErrors error))
+            throw new InvalidOperationException($"Failed to create reception access grant for arrival {arrival.Id}: {error}.");
+
+        create.IsSuccess(out AccessGrant accessGrant);
+        db.AssignedAccessPolicies.Add(ReceptionAssignedAccessPolicy.Create(arrival.Id, assignment.Id, accessGrant.Id, assignment.PackageId));
+    }
+
+    private async Task<Guid?> ResolveIdentityIdAsync(ExpectedArrival arrival, CancellationToken cancellationToken)
+    {
+        if (arrival.IdentityId.HasValue)
+            return arrival.IdentityId.Value;
+
+        if (arrival.Type == ArrivalType.Visitor && arrival.VisitorId.HasValue)
+            return await identityService.GetIdentityIdForVisitorAsync(arrival.VisitorId.Value, cancellationToken);
+
+        if (arrival.Type == ArrivalType.Contractor && arrival.ContractorId.HasValue)
+            return await identityService.GetIdentityIdForContractorAsync(arrival.ContractorId.Value, cancellationToken);
+
+        return null;
     }
 
     private static bool AppliesToArrival(ExpectedArrival arrival, ReceptionAccessPolicyTrigger trigger) =>
@@ -91,14 +118,6 @@ public class ReceptionAccessPolicyService(
             ReceptionAccessPolicyTrigger.ContractorExpectedAdded => arrival.Type == ArrivalType.Contractor,
             ReceptionAccessPolicyTrigger.ContractorOnboarded => arrival.Type == ArrivalType.Contractor,
             _ => false
-        };
-
-    private static Guid GetSubjectId(ExpectedArrival arrival) =>
-        arrival.Type switch
-        {
-            ArrivalType.Visitor => arrival.VisitorId ?? Guid.Empty,
-            ArrivalType.Contractor => arrival.ContractorId ?? Guid.Empty,
-            _ => Guid.Empty
         };
 
     private static List<ReceptionAccessPolicyTrigger> GetTriggeredStates(ExpectedArrival arrival)

@@ -19,6 +19,7 @@ public record ArrivalResponse(
     ReceptionActorResponse? OffboardedBy,
     bool CheckedIn,
     Guid? LocationId,
+    Guid? IdentityId,
     bool? Confirmed,
     Guid? VisitorId,
     Guid? InvitationId,

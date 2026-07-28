@@ -8,7 +8,7 @@ namespace Fabric.Server.Reception.Application;
 public class ReceptionService(
     ReceptionDbContext db,
     TimeProvider timeProvider,
-    ReceptionAccessPolicyService receptionAccessPolicyService)
+    ReceptionTriggeredPackageAssignmentService receptionTriggeredPackageAssignmentService)
 {
     private static readonly TimeSpan CompletedArrivalLookupWindow = TimeSpan.FromHours(12);
     private readonly record struct SubjectIdentity(ArrivalType Type, Guid Id);
@@ -23,6 +23,7 @@ public class ReceptionService(
         string firstName,
         string lastName,
         string? company,
+        Guid identityId,
         Guid visitorId,
         Guid invitationId,
         DateTimeOffset expectedArrivalTime,
@@ -39,11 +40,11 @@ public class ReceptionService(
             return Result.Failure<ExpectedArrival, ReceptionErrors>(validationError);
 
         var arrival = ExpectedArrival.CreateVisitorArrival(
-                firstName, lastName, company, visitorId, invitationId, expectedArrivalTime, expectedOffboardTime, arrivalCode, locationId);
+                firstName, lastName, company, identityId, visitorId, invitationId, expectedArrivalTime, expectedOffboardTime, arrivalCode, locationId);
 
         db.Arrivals.Add(arrival);
         await db.SaveChangesAsync(ct);
-        await receptionAccessPolicyService.ApplyTrigger(arrival, ReceptionAccessPolicyTrigger.ExpectedVisitorAdded, ct);
+        await receptionTriggeredPackageAssignmentService.ApplyTrigger(arrival, ReceptionAccessPolicyTrigger.ExpectedVisitorAdded, ct);
         return Result<ExpectedArrival, ReceptionErrors>.Success(arrival);
     }
 
@@ -79,7 +80,7 @@ public class ReceptionService(
         if (result.IsSuccess(out _))
         {
             await db.SaveChangesAsync(cancellationToken);
-            await receptionAccessPolicyService.RecreateAssignedPolicies(arrival, cancellationToken);
+            await receptionTriggeredPackageAssignmentService.RecreateAssignedPolicies(arrival, cancellationToken);
         }
 
         return result;
@@ -97,7 +98,7 @@ public class ReceptionService(
         if (result.IsSuccess(out _))
         {
             await db.SaveChangesAsync(cancellationToken);
-            await receptionAccessPolicyService.RecreateAssignedPolicies(arrival, cancellationToken);
+            await receptionTriggeredPackageAssignmentService.RecreateAssignedPolicies(arrival, cancellationToken);
         }
 
         return result;
@@ -110,7 +111,7 @@ public class ReceptionService(
         if (arrival is null)
             return Result.Failure(ReceptionErrors.ArrivalNotFound);
 
-        await receptionAccessPolicyService.RetractAssignedPolicies(arrivalId, cancellationToken);
+        await receptionTriggeredPackageAssignmentService.RetractAssignedPolicies(arrivalId, cancellationToken);
         db.Arrivals.Remove(arrival);
         await db.SaveChangesAsync(cancellationToken);
         return Result.Success<ReceptionErrors>();
@@ -120,6 +121,7 @@ public class ReceptionService(
         string firstName,
         string lastName,
         string company,
+        Guid? identityId,
         Guid contractorId,
         Guid jobAssignmentId,
         DateTimeOffset expectedArrivalTime,
@@ -137,11 +139,11 @@ public class ReceptionService(
 
         var arrival = ExpectedArrival.CreateContractorArrival(
                 firstName, lastName, company,
-            contractorId, jobAssignmentId, expectedArrivalTime, expectedOffboardTime, arrivalCode, locationId);
+            identityId, contractorId, jobAssignmentId, expectedArrivalTime, expectedOffboardTime, arrivalCode, locationId);
 
         db.Arrivals.Add(arrival);
         await db.SaveChangesAsync(ct);
-        await receptionAccessPolicyService.ApplyTrigger(arrival, ReceptionAccessPolicyTrigger.ContractorExpectedAdded, ct);
+        await receptionTriggeredPackageAssignmentService.ApplyTrigger(arrival, ReceptionAccessPolicyTrigger.ContractorExpectedAdded, ct);
         return Result<ExpectedArrival, ReceptionErrors>.Success(arrival);
     }
 
@@ -197,7 +199,7 @@ public class ReceptionService(
         ReceptionAccessPolicyTrigger trigger = arrival.Type == ArrivalType.Visitor
             ? ReceptionAccessPolicyTrigger.VisitorOnboarded
             : ReceptionAccessPolicyTrigger.ContractorOnboarded;
-        await receptionAccessPolicyService.ApplyTrigger(arrival, trigger, ct);
+        await receptionTriggeredPackageAssignmentService.ApplyTrigger(arrival, trigger, ct);
     }
 
     public async Task<Result<ReceptionErrors>> Offboard(Guid arrivalId, string operatorEmail, string? operatorDisplayName = null, CancellationToken ct = default)
@@ -210,7 +212,7 @@ public class ReceptionService(
         if (result.IsSuccess(out _))
         {
             await db.SaveChangesAsync(ct);
-            await receptionAccessPolicyService.RetractAssignedPolicies(arrivalId, ct);
+            await receptionTriggeredPackageAssignmentService.RetractAssignedPolicies(arrivalId, ct);
         }
 
         return result;
@@ -226,7 +228,7 @@ public class ReceptionService(
         if (result.IsSuccess(out _))
         {
             await db.SaveChangesAsync(ct);
-            await receptionAccessPolicyService.RetractAssignedPolicies(arrivalId, ct);
+            await receptionTriggeredPackageAssignmentService.RetractAssignedPolicies(arrivalId, ct);
         }
 
         return result;
@@ -296,7 +298,7 @@ public class ReceptionService(
         if (result.IsSuccess(out _))
         {
             await db.SaveChangesAsync(ct);
-            await receptionAccessPolicyService.ApplyTrigger(arrival, ReceptionAccessPolicyTrigger.VisitorConfirmed, ct);
+            await receptionTriggeredPackageAssignmentService.ApplyTrigger(arrival, ReceptionAccessPolicyTrigger.VisitorConfirmed, ct);
         }
 
         return result;

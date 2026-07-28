@@ -18,6 +18,7 @@ public sealed class ExpectedArrival
     public ReceptionActor? OffboardedBy { get; private set; }
     public bool CheckedIn { get; private set; }
     public Guid? LocationId { get; private set; }
+    public Guid? IdentityId { get; private set; }
 
     public List<ArrivalEntry> Entries { get; private set; } = [];
     public List<CheckInDocument> Documents { get; private set; } = [];
@@ -37,6 +38,7 @@ public sealed class ExpectedArrival
         string firstName,
         string lastName,
         string? company,
+        Guid identityId,
         Guid visitorId,
         Guid invitationId,
         DateTimeOffset expectedArrivalTime,
@@ -50,6 +52,7 @@ public sealed class ExpectedArrival
             FirstName = firstName,
             LastName = lastName,
             Company = company,
+            IdentityId = identityId,
             VisitorId = visitorId,
             InvitationId = invitationId,
             Confirmed = false,
@@ -64,6 +67,7 @@ public sealed class ExpectedArrival
         string firstName,
         string lastName,
         string company,
+        Guid? identityId,
         Guid contractorId,
         Guid jobAssignmentId,
         DateTimeOffset expectedArrivalTime,
@@ -77,6 +81,7 @@ public sealed class ExpectedArrival
             FirstName = firstName,
             LastName = lastName,
             Company = company,
+            IdentityId = identityId,
             ContractorId = contractorId,
             JobAssignmentId = jobAssignmentId,
             ExpectedArrivalTime = expectedArrivalTime,

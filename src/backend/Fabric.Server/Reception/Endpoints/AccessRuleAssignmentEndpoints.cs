@@ -50,7 +50,7 @@ public static class AccessRuleAssignmentEndpoints
         IPaged<ReceptionAccessRuleAssignment> result = await db.AccessRuleAssignments
             .AsNoTracking()
             .OrderBy(assignment => assignment.Trigger)
-            .ThenBy(assignment => assignment.LocationId)
+            .ThenBy(assignment => assignment.PackageId)
             .GetPageAsync(request.Page, request.PageSize, cancellationToken);
 
         return Results.Ok(result.Map(assignment => assignment.ToResponse()));
@@ -74,9 +74,7 @@ public static class AccessRuleAssignmentEndpoints
         CancellationToken cancellationToken = default)
     {
         Result<ReceptionAccessRuleAssignment, ReceptionErrors> result = ReceptionAccessRuleAssignment.Create(
-            request.LocationId,
-            request.SystemId,
-            request.AccessLevelTypeId,
+            request.PackageId,
             request.GracePeriodMinutes,
             request.Trigger);
 
@@ -103,9 +101,7 @@ public static class AccessRuleAssignmentEndpoints
             return Results.NotFound();
 
         Result<ReceptionErrors> result = assignment.Update(
-            request.LocationId,
-            request.SystemId,
-            request.AccessLevelTypeId,
+            request.PackageId,
             request.GracePeriodMinutes,
             request.Trigger);
 

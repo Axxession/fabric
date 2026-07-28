@@ -23,6 +23,7 @@ public sealed class ExpectedArrivalConfiguration : IEntityTypeConfiguration<Expe
         builder.Property(a => a.OffboardedAt).HasColumnName("offboarded_at");
         builder.Property(a => a.CheckedIn).HasColumnName("checked_in").IsRequired();
         builder.Property(a => a.LocationId).HasColumnName("location_id");
+        builder.Property(a => a.IdentityId).HasColumnName("identity_id");
 
         builder.Property(a => a.Confirmed).HasColumnName("confirmed");
         builder.Property(a => a.VisitorId).HasColumnName("visitor_id");
@@ -44,6 +45,7 @@ public sealed class ExpectedArrivalConfiguration : IEntityTypeConfiguration<Expe
         TenantDbContext.ConfigureTenantProperty(builder);
         builder.HasIndex(TenantDbContext.TenantIdPropertyName, nameof(ExpectedArrival.ArrivalCode))
             .HasDatabaseName("ix_expected_arrivals_tenant_id_arrival_code");
+        builder.HasIndex(a => a.IdentityId).HasDatabaseName("ix_expected_arrivals_identity_id");
         builder.HasIndex(a => a.VisitorId).HasDatabaseName("ix_expected_arrivals_visitor_id");
         builder.HasIndex(a => a.ContractorId).HasDatabaseName("ix_expected_arrivals_contractor_id");
         builder.HasIndex(a => a.LocationId).HasDatabaseName("ix_expected_arrivals_location_id");

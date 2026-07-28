@@ -36,6 +36,7 @@ public enum AssignmentSourceKind
     CatalogRequest,
     OrganizationalUnit,
     Persona,
+    ReceptionArrival,
     VisitorLocation,
     Manual
 }

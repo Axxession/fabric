@@ -116,6 +116,20 @@ public class IdentityService(IdentitiesDbContext db, TimeProvider timeProvider)
             .Include(identity => identity.VisitorAffiliations)
             .SingleOrDefaultAsync(identity => identity.Id == identityId, cancellationToken);
 
+    public async Task<Guid?> GetIdentityIdForVisitorAsync(Guid visitorId, CancellationToken cancellationToken = default) =>
+        await db.VisitorAffiliations
+            .AsNoTracking()
+            .Where(affiliation => affiliation.VisitorId == visitorId)
+            .Select(affiliation => (Guid?)affiliation.IdentityId)
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<Guid?> GetIdentityIdForContractorAsync(Guid contractorId, CancellationToken cancellationToken = default) =>
+        await db.ContractorAffiliations
+            .AsNoTracking()
+            .Where(affiliation => affiliation.ContractorId == contractorId)
+            .Select(affiliation => (Guid?)affiliation.IdentityId)
+            .SingleOrDefaultAsync(cancellationToken);
+
     public async Task<IPaged<Identity>> SearchIdentitiesAsync(
         ListIdentitiesRequest request,
         CancellationToken cancellationToken = default)
