@@ -14,22 +14,37 @@ public sealed class TenantSeeder(TenantsDbContext dbContext, IOptions<TenancyOpt
 
         DefaultTenantOptions defaultTenant = options.Value.DefaultTenant;
 
-        bool exists = await dbContext.Tenants.AnyAsync(tenant => tenant.Id == defaultTenant.Id, cancellationToken);
-        if (exists)
+        OidcSettings configuredOidc = new()
+        {
+            MetadataUrl = defaultTenant.Oidc.MetadataUrl!,
+            ClientId = defaultTenant.Oidc.ClientId!,
+            RequireHttpsMetadata = defaultTenant.Oidc.RequireHttpsMetadata
+        };
+
+        Tenant? tenant = await dbContext.Tenants
+            .SingleOrDefaultAsync(item => item.Id == defaultTenant.Id, cancellationToken);
+
+        if (tenant is null)
+        {
+            tenant = Tenant.Create(defaultTenant.Id, new TenantConfiguration
+            {
+                Oidc = configuredOidc,
+                GraphEmail = defaultTenant.GraphEmail
+            });
+
+            dbContext.Tenants.Add(tenant);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        if (tenant.Configuration.Oidc == configuredOidc)
             return;
 
-        var tenant = Tenant.Create(defaultTenant.Id, new TenantConfiguration
+        tenant.UpdateConfiguration(tenant.Configuration with
         {
-            Oidc = new OidcSettings
-            {
-                MetadataUrl = defaultTenant.Oidc.MetadataUrl!,
-                ClientId = defaultTenant.Oidc.ClientId!,
-                RequireHttpsMetadata = defaultTenant.Oidc.RequireHttpsMetadata
-            },
-            GraphEmail = defaultTenant.GraphEmail
+            Oidc = configuredOidc
         });
 
-        dbContext.Tenants.Add(tenant);
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }
