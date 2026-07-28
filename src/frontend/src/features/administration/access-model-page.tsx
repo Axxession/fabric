@@ -16,6 +16,8 @@ type AccessModelTab = 'packages' | 'catalogues' | 'approval-groups' | 'hr-polici
 type PackageResponse = components['schemas']['PackageResponse'];
 type CatalogResponse = components['schemas']['CatalogResponse'];
 type ApprovalGroupResponse = components['schemas']['ApprovalGroupResponse'];
+type AccessRuleAssignmentResponse = components['schemas']['AccessRuleAssignmentResponse'];
+type CreateAccessRuleAssignmentRequest = components['schemas']['CreateAccessRuleAssignmentRequest'];
 type EmployeeLifecycleAutomationSettingsResponse = components['schemas']['EmployeeLifecycleAutomationSettingsResponse'];
 type CreateOrganizationalUnitPackageRuleRequest = components['schemas']['CreateOrganizationalUnitPackageRuleRequest'];
 type CreatePersonaPackageRuleRequest = components['schemas']['CreatePersonaPackageRuleRequest'];
@@ -25,7 +27,7 @@ type SetRuleEnabledRequest = components['schemas']['SetRuleEnabledRequest'];
 type OrganizationUnitResponse = components['schemas']['OrganizationUnitResponse'];
 type PersonaResponse = components['schemas']['PersonaResponse'];
 type UpdateEmployeeLifecycleAutomationSettingsRequest = components['schemas']['UpdateEmployeeLifecycleAutomationSettingsRequest'];
-type VisitorPreOnboardingSagaConfig = components['schemas']['VisitorPreOnboardingSagaConfig'];
+type ReceptionAccessPolicyTrigger = components['schemas']['ReceptionAccessPolicyTrigger'];
 
 type PaginationState = {
   readonly currentPage: number;
@@ -37,6 +39,12 @@ type PaginationState = {
 };
 
 const pageSize = 10;
+
+const visitorTriggerOptions: { readonly label: string; readonly value: ReceptionAccessPolicyTrigger }[] = [
+  { label: 'Expected visitor added', value: 'ExpectedVisitorAdded' },
+  { label: 'Visitor confirmed', value: 'VisitorConfirmed' },
+  { label: 'Visitor onboarded', value: 'VisitorOnboarded' },
+];
 
 export default function AccessModelPage() {
   const location = useLocation();
@@ -149,12 +157,14 @@ export default function AccessModelPage() {
     },
   });
 
-  const visitorPoliciesQuery = useQuery({
-    queryKey: ['administration', 'access-model', 'visitor-policies'],
+  const visitorAssignmentsQuery = useQuery({
+    queryKey: ['administration', 'access-model', 'visitor-policies', 'assignments'],
     queryFn: async () => {
-      const { data, error } = await api.GET('/api/sagas/visitor-pre-onboarding/configuration');
-      if (error || !data) throw new Error('Could not load visitor policies.');
-      return data;
+      const { data, error } = await api.GET('/api/reception/access-rule-assignments', {
+        params: { query: { Page: 0, PageSize: 100 } },
+      });
+      if (error) throw new Error('Could not load visitor trigger assignments.');
+      return data?.items ?? [];
     },
   });
 
@@ -194,7 +204,7 @@ export default function AccessModelPage() {
         </TabsContent>
 
         <TabsContent value="visitor-policies">
-          <VisitorPoliciesPanel config={visitorPoliciesQuery.data} isLoading={visitorPoliciesQuery.isLoading} isError={visitorPoliciesQuery.isError} />
+          <VisitorPoliciesPanel assignments={visitorAssignmentsQuery.data ?? []} packages={packagesOptionsQuery.data ?? []} isLoading={visitorAssignmentsQuery.isLoading || packagesOptionsQuery.isLoading} isError={visitorAssignmentsQuery.isError || packagesOptionsQuery.isError} />
         </TabsContent>
       </Tabs>
     </section>
@@ -383,25 +393,144 @@ function HrPoliciesPanel({ settings, ouRules, personaRules, organizationUnits, p
   );
 }
 
-function VisitorPoliciesPanel({ config, isLoading, isError }: { readonly config: VisitorPreOnboardingSagaConfig | undefined; readonly isLoading: boolean; readonly isError: boolean; }) {
+function VisitorPoliciesPanel({ assignments, packages, isLoading, isError }: { readonly assignments: AccessRuleAssignmentResponse[]; readonly packages: PackageResponse[]; readonly isLoading: boolean; readonly isError: boolean; }) {
+  const queryClient = useQueryClient();
+  const [isAddRuleOpen, setIsAddRuleOpen] = useState(false);
+  const [selectedTrigger, setSelectedTrigger] = useState<ReceptionAccessPolicyTrigger>('ExpectedVisitorAdded');
+  const [selectedPackageId, setSelectedPackageId] = useState('');
+  const [gracePeriodMinutes, setGracePeriodMinutes] = useState('0');
+  const packageById = new Map(packages.map((item) => [item.id, item]));
+  const visitorAssignments = assignments.filter((assignment) => assignment.trigger !== 'ContractorExpectedAdded' && assignment.trigger !== 'ContractorOnboarded');
+
+  const createAssignment = useMutation({
+    mutationFn: async (request: CreateAccessRuleAssignmentRequest) => {
+      const { error } = await api.POST('/api/reception/access-rule-assignments', { body: request });
+      if (error) throw new Error('Could not create visitor trigger assignment.');
+    },
+    onSuccess: async () => {
+      setSelectedTrigger('ExpectedVisitorAdded');
+      setSelectedPackageId('');
+      setGracePeriodMinutes('0');
+      setIsAddRuleOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ['administration', 'access-model', 'visitor-policies', 'assignments'] });
+      toast.success('Visitor trigger assignment added.');
+    },
+    onError: () => toast.error('Could not create visitor trigger assignment.'),
+  });
+
+  const removeAssignment = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await api.DELETE('/api/reception/access-rule-assignments/{id}', { params: { path: { id } } });
+      if (error) throw new Error('Could not remove visitor trigger assignment.');
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['administration', 'access-model', 'visitor-policies', 'assignments'] });
+      toast.success('Visitor trigger assignment removed.');
+    },
+    onError: () => toast.error('Could not remove visitor trigger assignment.'),
+  });
+
+  function handleAddAssignment() {
+    const parsedGracePeriodMinutes = Number.parseInt(gracePeriodMinutes, 10);
+    if (!selectedPackageId || Number.isNaN(parsedGracePeriodMinutes) || parsedGracePeriodMinutes < 0) {
+      toast.error('Complete trigger, package and grace period before adding.');
+      return;
+    }
+
+    createAssignment.mutate({
+      packageId: selectedPackageId,
+      trigger: selectedTrigger,
+      gracePeriodMinutes: parsedGracePeriodMinutes,
+    });
+  }
+
   return (
     <div className="grid gap-6 pt-4">
       <div>
         <h2 className="text-[20px] font-semibold tracking-tight">Visitor Policies</h2>
-        <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">Review visitor pre-onboarding policy configuration and notification behavior.</p>
+        <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">Assign access packages automatically when visitor reception triggers occur.</p>
       </div>
 
       {isError ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load visitor policies.</p> : null}
       {isLoading ? <p className="rounded-structural border border-border p-4 text-[14px] text-muted-foreground">Loading visitor policies...</p> : null}
 
       {!isLoading && !isError ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <SummaryCard title="QR Generation" value={config?.qrGenerationMode ?? '-'} hint="Credential generation mode for visitor pre-onboarding." />
-          <SummaryCard title="Credential System" value={config?.systemId ?? 'Unassigned'} hint="Access control system used for visitor credentials." />
-          <SummaryCard title="Badge Type" value={config?.badgeTypeId ?? 'Unassigned'} hint="Badge type used for visitor credentials." />
-          <SummaryCard title="Invite Notifications" value={config?.useCustomInviteNotification ? 'Custom' : 'Default'} hint="Invite notification template mode." />
-          <SummaryCard title="Organizer Confirm Email" value={config?.sendConfirmNotificationToOrganizer ? 'Enabled' : 'Disabled'} hint="Notify organizer on visitor confirmation." />
-          <SummaryCard title="Arrival Notifications" value={config?.sendArrivalNotificationToOrganizer ? 'Enabled' : 'Disabled'} hint="Notify organizer when visitor arrives." />
+        <div className="rounded-structural border border-border p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="text-[18px] font-semibold tracking-tight">Reception Trigger Assignments</h3>
+            </div>
+            <Button type="button" variant="outline" size="sm" disabled={createAssignment.isPending || packages.length === 0} onClick={() => setIsAddRuleOpen((current) => !current)}>{isAddRuleOpen ? 'Cancel' : 'Add trigger assignment'}</Button>
+          </div>
+
+          {isAddRuleOpen ? (
+            <div className="mt-4 grid gap-3 rounded-structural border border-border p-4 lg:grid-cols-3">
+              <label className="grid gap-2 text-[14px] font-medium">
+                <span>Trigger</span>
+                <select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={selectedTrigger} onChange={(event) => setSelectedTrigger(event.target.value as ReceptionAccessPolicyTrigger)}>
+                  {visitorTriggerOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-2 text-[14px] font-medium">
+                <span>Package</span>
+                <select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={selectedPackageId} onChange={(event) => setSelectedPackageId(event.target.value)}>
+                  <option value="">Select package</option>
+                  {packages.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-2 text-[14px] font-medium">
+                <span>Grace Period Minutes</span>
+                <input className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" type="number" min="0" step="1" value={gracePeriodMinutes} onChange={(event) => setGracePeriodMinutes(event.target.value)} />
+              </label>
+              <div className="lg:col-span-3 flex justify-end">
+                <Button type="button" disabled={createAssignment.isPending || !selectedPackageId} onClick={handleAddAssignment}>{createAssignment.isPending ? 'Adding...' : 'Add assignment'}</Button>
+              </div>
+            </div>
+          ) : null}
+
+          {visitorAssignments.length === 0 ? (
+            <p className="mt-4 text-[14px] text-muted-foreground">No visitor trigger assignments configured.</p>
+          ) : (
+            <>
+              <div className="mt-4 grid gap-3 md:hidden">
+                {visitorAssignments.map((assignment) => (
+                  <article key={assignment.id} className="rounded-structural border border-border p-4">
+                    <p className="font-medium text-foreground">{getVisitorTriggerLabel(assignment.trigger)}</p>
+                    <p className="mt-1 text-[14px] text-muted-foreground">Package: {packageById.get(assignment.packageId)?.name ?? assignment.packageId}</p>
+                    <p className="mt-1 text-[14px] text-muted-foreground">Grace: {assignment.gracePeriodMinutes} min</p>
+                    <div className="mt-4 flex justify-end">
+                      <Button type="button" variant="outline" size="sm" disabled={removeAssignment.isPending} onClick={() => removeAssignment.mutate(assignment.id)}>Remove</Button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+
+              <div className="mt-4 hidden overflow-x-auto rounded-structural border border-border md:block">
+                <table className="w-full min-w-[48rem] border-collapse text-left text-[14px]">
+                  <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold">Trigger</th>
+                      <th className="px-4 py-3 font-semibold">Package</th>
+                      <th className="px-4 py-3 font-semibold">Grace</th>
+                      <th className="px-4 py-3 text-right font-semibold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {visitorAssignments.map((assignment) => (
+                      <tr key={assignment.id}>
+                        <td className="px-4 py-4 font-medium text-foreground">{getVisitorTriggerLabel(assignment.trigger)}</td>
+                        <td className="px-4 py-4 text-muted-foreground">{packageById.get(assignment.packageId)?.name ?? assignment.packageId}</td>
+                        <td className="px-4 py-4 text-muted-foreground">{assignment.gracePeriodMinutes} min</td>
+                        <td className="px-4 py-4 text-right">
+                          <Button type="button" variant="outline" size="sm" disabled={removeAssignment.isPending} onClick={() => removeAssignment.mutate(assignment.id)}>Remove</Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </div>
       ) : null}
     </div>
@@ -461,6 +590,10 @@ function FilterInput({ label, value, onChange, placeholder }: { readonly label: 
 
 function StatusBadge({ status }: { readonly status: string; }) {
   return <Badge variant={status === 'Active' || status === 'Enabled' ? 'success' : 'secondary'}>{status}</Badge>;
+}
+
+function getVisitorTriggerLabel(trigger: ReceptionAccessPolicyTrigger) {
+  return visitorTriggerOptions.find((option) => option.value === trigger)?.label ?? trigger;
 }
 
 function getActiveTab(searchStr: string): AccessModelTab {
