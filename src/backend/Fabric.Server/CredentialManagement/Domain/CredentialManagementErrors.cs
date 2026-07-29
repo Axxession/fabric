@@ -13,6 +13,8 @@ public enum CredentialManagementErrors
     CredentialIdentifierOutsideRange,
     CredentialIdentifierUnavailable,
     CredentialIdentifierMustBeNumeric,
+    CredentialRecyclePolicyInvalid,
+    CredentialSlotNotFound,
     CredentialNotFound,
     TemporaryCredentialRequiresValidUntil,
     PermanentCredentialMustNotHaveValidUntil,

@@ -50,8 +50,8 @@ public sealed class CredentialPacsAssignmentWorker(
                 foreach (Guid assignmentId in dueIds)
                     await provisioner.ApplyAsync(assignmentId, cancellationToken);
 
-                IReadOnlyList<Guid> expiredIds = await service.GetExpiredProvisionedAssignmentIdsAsync(cancellationToken);
-                foreach (Guid assignmentId in expiredIds)
+                IReadOnlyList<Guid> revocationIds = await service.GetProvisionedAssignmentIdsNeedingRevocationAsync(cancellationToken);
+                foreach (Guid assignmentId in revocationIds)
                     await provisioner.RevokeAsync(assignmentId, cancellationToken);
             }
             catch (Exception ex)

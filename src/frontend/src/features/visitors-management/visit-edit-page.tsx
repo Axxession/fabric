@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useParams } from '@tanstack/react-router';
-import { ArrowLeft, CalendarX, Mail, Users } from 'lucide-react';
+import { Link, useNavigate, useParams } from '@tanstack/react-router';
+import { ArrowLeft, CalendarX, ChevronRight, Mail, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { api } from '@/shared/api/client';
@@ -11,13 +11,12 @@ import { Card } from '@/shared/components/ui/card';
 import { Input } from '@/shared/components/ui/input';
 import { Separator } from '@/shared/components/ui/separator';
 import { VisitStatusBadge } from '@/shared/components/visit-status-badge';
-
-import { OnboardingJourney } from './onboarding-journey';
 import { VisitForm, type VisitFormValues } from './visit-form';
 
 type VisitResponse = components['schemas']['VisitResponse'];
 type VisitInvitationResponse = components['schemas']['VisitInvitationResponse'];
-type VisitorPreOnboardingSaga = components['schemas']['VisitorPreOnboardingSaga'];
+type CredentialPACSAssignmentResponse = components['schemas']['CredentialPACSAssignmentResponse'];
+type VisitorPreOnboardingSaga = components['schemas']['VisitorPreOnboardingSaga'] & { invitationSentAt?: string | null };
 
 const visitsQueryKey = ['visitors-management', 'visits'] as const;
 const onboardingSagaRefetchIntervalMs = 10_000;
@@ -49,6 +48,7 @@ export default function VisitEditPage() {
 
 export function VisitEditPageContent({ visitId }: { readonly visitId: string }) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [isInviteSuggestionsOpen, setIsInviteSuggestionsOpen] = useState(false);
@@ -191,6 +191,29 @@ export function VisitEditPageContent({ visitId }: { readonly visitId: string }) 
     (sagasQuery.data ?? []).map((saga) => [saga.invitationId, saga]),
   );
 
+  const credentialAssignmentsQuery = useQuery({
+    queryKey: [...visitsQueryKey, visitId, 'credential-pacs-assignments', (sagasQuery.data ?? []).map((saga) => saga.credentialId ?? '').join(',')],
+    queryFn: async () => {
+      const credentialIds = Array.from(new Set((sagasQuery.data ?? []).map((saga) => saga.credentialId).filter((item): item is string => Boolean(item))));
+      if (credentialIds.length === 0) {
+        return [] as CredentialPACSAssignmentResponse[];
+      }
+
+      const { data, error } = await api.GET('/api/access-control/credential-pacs-assignments', {
+        params: { query: { CredentialId: undefined, CredentialIds: credentialIds, AccessControlSystemId: undefined, Status: undefined, Page: 0, PageSize: 500 } as never },
+      });
+
+      if (error) {
+        throw new Error('Could not load QR provisioning state.');
+      }
+
+      return data?.items ?? [];
+    },
+    enabled: !!visit && (sagasQuery.data?.length ?? 0) > 0,
+  });
+
+  const credentialAssignmentsByCredentialId = groupAssignmentsByCredentialId(credentialAssignmentsQuery.data ?? []);
+
   const isSaving = reschedule.isPending || updateSummary.isPending || relocateVisit.isPending;
 
   async function handleSubmit(formValues: VisitFormValues) {
@@ -277,6 +300,8 @@ export function VisitEditPageContent({ visitId }: { readonly visitId: string }) 
             ? 'Could not cancel visit.'
             : inviteVisitor.isError
               ? 'Could not send invitation.'
+              : credentialAssignmentsQuery.isError
+                ? 'Could not load QR provisioning state.'
               : null;
 
   return (
@@ -491,41 +516,82 @@ export function VisitEditPageContent({ visitId }: { readonly visitId: string }) 
             ) : null}
 
             {visit.invitations && visit.invitations.length > 0 ? (
-              <div>
-                {visit.invitations.map((invitation, idx) => (
-                  <div key={invitation.id}>
-                    {idx > 0 ? <Separator /> : null}
-                    <div className="flex flex-col gap-2 px-1 py-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
+              <>
+                <div className="grid gap-3 md:hidden">
+                  {visit.invitations.map((invitation) => {
+                    const saga = sagasByInvitationId.get(invitation.id) ?? null;
+                    const credentialAssignments = saga?.credentialId ? credentialAssignmentsByCredentialId.get(saga.credentialId) ?? [] : [];
+                    const qrStatus = getQrGeneratedStatus(saga, credentialAssignments);
+                    const arrivalStatus = saga?.arrivalId ? 'Registered' : 'Not yet';
+                    const invitationSentStatus = saga?.invitationSentAt ? 'Sent' : 'Not yet';
+
+                    return (
+                      <article key={invitation.id} className="rounded-structural border border-border p-4 transition hover:bg-hover-blue" role="link" tabIndex={0} onClick={() => void navigate({ to: '/employee/visitors/$visitId/invitations/$invitationId', params: { visitId, invitationId: invitation.id } })} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); void navigate({ to: '/employee/visitors/$visitId/invitations/$invitationId', params: { visitId, invitationId: invitation.id } }); } }}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-3 min-w-0">
                           <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-hover-blue">
                             <Mail className="size-4 text-primary" />
                           </div>
                           <div className="min-w-0">
-                            <p className="truncate text-[14px] font-medium text-foreground">
-                              {formatInvitationName(invitation)}
-                            </p>
-                            {invitation.email ? (
-                              <p className="truncate text-[13px] text-muted-foreground">
-                                {invitation.email}
-                              </p>
-                            ) : null}
+                            <p className="truncate text-[14px] font-medium text-foreground">{formatInvitationName(invitation)}</p>
+                            {invitation.email ? <p className="truncate text-[13px] text-muted-foreground">{invitation.email}</p> : null}
                           </div>
+                          </div>
+                          <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-interactive border border-border text-muted-foreground">
+                            <ChevronRight className="size-4" aria-hidden="true" />
+                          </span>
                         </div>
-                      </div>
-                      <div className="flex justify-end">
-                        <OnboardingJourney
-                          saga={
-                            invitation.id
-                              ? sagasByInvitationId.get(invitation.id) ?? null
-                              : null
-                          }
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                        <dl className="mt-4 grid gap-2 text-[14px] text-muted-foreground">
+                          <div className="flex items-center justify-between gap-3"><dt>QR Generated</dt><dd><StatusBadge label={qrStatus} variant={getQrGeneratedVariant(qrStatus)} /></dd></div>
+                          <div className="flex items-center justify-between gap-3"><dt>Arrival Registered</dt><dd><StatusBadge label={arrivalStatus} variant={arrivalStatus === 'Registered' ? 'success' : 'secondary'} /></dd></div>
+                          <div className="flex items-center justify-between gap-3"><dt>Invitation Sent</dt><dd><StatusBadge label={invitationSentStatus} variant={invitationSentStatus === 'Sent' ? 'success' : 'secondary'} /></dd></div>
+                          <div className="flex items-center justify-between gap-3"><dt>Confirmation</dt><dd><StatusBadge label={formatConfirmationStatus(invitation.confirmationStatus)} variant={getConfirmationVariant(invitation.confirmationStatus)} /></dd></div>
+                        </dl>
+                      </article>
+                    );
+                  })}
+                </div>
+
+                <div className="hidden overflow-x-auto rounded-structural border border-border md:block">
+                  <table className="w-full min-w-[56rem] border-collapse text-left text-[14px]">
+                    <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
+                      <tr>
+                        <th className="px-4 py-3 font-semibold">Visitor</th>
+                        <th className="px-4 py-3 font-semibold">QR Generated</th>
+                        <th className="px-4 py-3 font-semibold">Arrival Registered</th>
+                        <th className="px-4 py-3 font-semibold">Invitation Sent</th>
+                        <th className="px-4 py-3 font-semibold">Confirmation Status</th>
+                        <th className="px-4 py-3 text-right font-semibold">Open</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {visit.invitations.map((invitation) => {
+                        const saga = sagasByInvitationId.get(invitation.id) ?? null;
+                        const credentialAssignments = saga?.credentialId ? credentialAssignmentsByCredentialId.get(saga.credentialId) ?? [] : [];
+                        const qrStatus = getQrGeneratedStatus(saga, credentialAssignments);
+                        const arrivalStatus = saga?.arrivalId ? 'Registered' : 'Not yet';
+                        const invitationSentStatus = saga?.invitationSentAt ? 'Sent' : 'Not yet';
+
+                        return (
+                      <tr key={invitation.id} className="cursor-pointer transition hover:bg-hover-blue" role="link" tabIndex={0} onClick={() => void navigate({ to: '/employee/visitors/$visitId/invitations/$invitationId', params: { visitId, invitationId: invitation.id } })} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); void navigate({ to: '/employee/visitors/$visitId/invitations/$invitationId', params: { visitId, invitationId: invitation.id } }); } }}>
+                        <td className="px-4 py-4">
+                          <div className="min-w-0">
+                            <p className="truncate font-medium text-foreground">{formatInvitationName(invitation)}</p>
+                            {invitation.email ? <p className="truncate text-[13px] text-muted-foreground">{invitation.email}</p> : null}
+                          </div>
+                        </td>
+                            <td className="px-4 py-4"><StatusBadge label={qrStatus} variant={getQrGeneratedVariant(qrStatus)} /></td>
+                            <td className="px-4 py-4"><StatusBadge label={arrivalStatus} variant={arrivalStatus === 'Registered' ? 'success' : 'secondary'} /></td>
+                            <td className="px-4 py-4"><StatusBadge label={invitationSentStatus} variant={invitationSentStatus === 'Sent' ? 'success' : 'secondary'} /></td>
+                            <td className="px-4 py-4"><StatusBadge label={formatConfirmationStatus(invitation.confirmationStatus)} variant={getConfirmationVariant(invitation.confirmationStatus)} /></td>
+                            <td className="px-4 py-4 text-right text-muted-foreground"><span className="inline-flex items-center justify-center"><ChevronRight className="size-4" aria-hidden="true" /></span></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             ) : (
               <p className="text-[14px] text-muted-foreground">No invitations yet.</p>
             )}
@@ -534,4 +600,55 @@ export function VisitEditPageContent({ visitId }: { readonly visitId: string }) 
       ) : null}
     </div>
   );
+}
+
+function getQrGeneratedStatus(saga: VisitorPreOnboardingSaga | null, assignments: readonly CredentialPACSAssignmentResponse[]) {
+  if (!saga?.credentialId) {
+    return 'Not yet';
+  }
+
+  if (assignments.some((assignment) => assignment.status === 'Provisioned')) {
+    return 'QR provisioned';
+  }
+
+  return 'QR generated';
+}
+
+function getQrGeneratedVariant(status: ReturnType<typeof getQrGeneratedStatus>) {
+  return status === 'QR provisioned' ? 'success' : status === 'QR generated' ? 'outline' : 'secondary';
+}
+
+function formatConfirmationStatus(status: VisitInvitationResponse['confirmationStatus']) {
+  switch (status) {
+    case 'Confirmed':
+      return 'Confirmed';
+    case 'Rejected':
+      return 'Rejected';
+    default:
+      return 'Pending';
+  }
+}
+
+function getConfirmationVariant(status: VisitInvitationResponse['confirmationStatus']) {
+  switch (status) {
+    case 'Confirmed':
+      return 'success';
+    case 'Rejected':
+      return 'error';
+    default:
+      return 'secondary';
+  }
+}
+
+function StatusBadge({ label, variant }: { readonly label: string; readonly variant: 'success' | 'secondary' | 'outline' | 'error' }) {
+  return <span className={variant === 'success' ? 'inline-flex rounded-full bg-success px-2.5 py-0.5 text-xs font-medium text-success-foreground' : variant === 'error' ? 'inline-flex rounded-full bg-error px-2.5 py-0.5 text-xs font-medium text-error-foreground' : variant === 'outline' ? 'inline-flex rounded-full border border-border px-2.5 py-0.5 text-xs font-medium text-foreground' : 'inline-flex rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground'}>{label}</span>;
+}
+
+function groupAssignmentsByCredentialId(assignments: readonly CredentialPACSAssignmentResponse[]) {
+  return assignments.reduce((map, assignment) => {
+    const current = map.get(assignment.credentialId) ?? [];
+    current.push(assignment);
+    map.set(assignment.credentialId, current);
+    return map;
+  }, new Map<string, CredentialPACSAssignmentResponse[]>());
 }

@@ -11,6 +11,7 @@ public sealed class CredentialManagementDbContext : TenantDbContext
 
     public DbSet<CredentialType> CredentialTypes { get; set; } = null!;
     public DbSet<CredentialRange> CredentialRanges { get; set; } = null!;
+    public DbSet<CredentialSlot> CredentialSlots { get; set; } = null!;
     public DbSet<Credential> Credentials { get; set; } = null!;
 
     public CredentialManagementDbContext(DbContextOptions<CredentialManagementDbContext> options, ITenantContext tenantContext)
@@ -28,6 +29,7 @@ public sealed class CredentialManagementDbContext : TenantDbContext
         modelBuilder.HasDefaultSchema(Schema);
         modelBuilder.ApplyConfiguration(new CredentialTypeConfiguration());
         modelBuilder.ApplyConfiguration(new CredentialRangeConfiguration());
+        modelBuilder.ApplyConfiguration(new CredentialSlotConfiguration());
         modelBuilder.ApplyConfiguration(new CredentialConfiguration());
         ApplyTenantFilters(modelBuilder);
     }

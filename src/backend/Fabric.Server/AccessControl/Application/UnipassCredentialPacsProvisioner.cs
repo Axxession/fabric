@@ -26,32 +26,51 @@ public sealed class UnipassCredentialPacsProvisioner(
         CredentialTypeTarget? target = await db.CredentialTypeTargets.SingleOrDefaultAsync(item => item.Id == assignment.CredentialTypeTargetId, cancellationToken);
         Credential? credential = await credentialDb.Credentials.SingleOrDefaultAsync(item => item.Id == assignment.CredentialId, cancellationToken);
         CredentialType? credentialType = credential is null ? null : await credentialDb.CredentialTypes.SingleOrDefaultAsync(item => item.Id == credential.CredentialTypeId, cancellationToken);
+        DateTimeOffset now = timeProvider.GetUtcNow();
+
+        if (credential is not null && IsProvisioningNoLongerNeeded(credential, now))
+        {
+            assignment.MarkRevoked(now);
+            await db.SaveChangesAsync(cancellationToken);
+            return;
+        }
 
         if (system?.UnipassConfig is null || target is null || credential is null || credentialType is null)
         {
-            assignment.MarkTerminalFailure(CredentialPacsFailureReasons.ProviderConfigurationMissing, "Credential, target, or system not found.", timeProvider.GetUtcNow());
+            assignment.MarkTerminalFailure(CredentialPacsFailureReasons.ProviderConfigurationMissing, "Credential, target, or system not found.", now);
             await db.SaveChangesAsync(cancellationToken);
             return;
         }
 
         if (credentialType.Technology == CredentialTechnology.LicensePlate)
         {
-            assignment.MarkTerminalFailure(CredentialPacsFailureReasons.CredentialTechnologyNotSupported, "License plate provisioning is not supported for Unipass yet.", timeProvider.GetUtcNow());
+            assignment.MarkTerminalFailure(CredentialPacsFailureReasons.CredentialTechnologyNotSupported, "License plate provisioning is not supported for Unipass yet.", now);
             await db.SaveChangesAsync(cancellationToken);
             return;
         }
 
         if (!int.TryParse(credential.Identifier, out int badgeNumber))
         {
-            assignment.MarkTerminalFailure(CredentialPacsFailureReasons.IdentifierNotNumericForUnipass, "Unipass only supports numeric credential identifiers for card provisioning.", timeProvider.GetUtcNow());
+            assignment.MarkTerminalFailure(CredentialPacsFailureReasons.IdentifierNotNumericForUnipass, "Unipass only supports numeric credential identifiers for card provisioning.", now);
             await db.SaveChangesAsync(cancellationToken);
             return;
         }
 
-        Result<PACSSubject, AccessControlErrors> subjectResult = await subjectService.GetOrCreateAsync(credential.IdentityId, system, cancellationToken);
+        Result<PACSSubject, AccessControlErrors> subjectResult;
+        try
+        {
+            subjectResult = await subjectService.GetOrCreateAsync(credential.IdentityId, system, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            assignment.MarkRetryableFailure(CredentialPacsFailureReasons.ProviderUnavailable, ex.Message, GetRetryAt(assignment.AttemptCount + 1, now), now);
+            await db.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
         if (subjectResult.IsFailure(out AccessControlErrors error))
         {
-            assignment.MarkRetryableFailure(CredentialPacsFailureReasons.PacsSubjectCreationFailed, error.ToString(), GetRetryAt(assignment.AttemptCount + 1, timeProvider.GetUtcNow()), timeProvider.GetUtcNow());
+            assignment.MarkRetryableFailure(CredentialPacsFailureReasons.PacsSubjectCreationFailed, error.ToString(), GetRetryAt(assignment.AttemptCount + 1, now), now);
             await db.SaveChangesAsync(cancellationToken);
             return;
         }
@@ -64,17 +83,17 @@ public sealed class UnipassCredentialPacsProvisioner(
             UnipassOperationResponse response = await api.ApplyChangeSet(CardChangeSet.Assign(int.Parse(subject.NativeSubjectId), badgeNumber), cancellationToken);
             if (!response.Success)
             {
-                assignment.MarkRetryableFailure(CredentialPacsFailureReasons.ProviderRejected, response.Message ?? "Unipass card assignment failed.", GetRetryAt(assignment.AttemptCount + 1, timeProvider.GetUtcNow()), timeProvider.GetUtcNow());
+                assignment.MarkRetryableFailure(CredentialPacsFailureReasons.ProviderRejected, response.Message ?? "Unipass card assignment failed.", GetRetryAt(assignment.AttemptCount + 1, now), now);
                 await db.SaveChangesAsync(cancellationToken);
                 return;
             }
 
-            assignment.MarkProvisioned(response.Id ?? string.Empty, timeProvider.GetUtcNow());
+            assignment.MarkProvisioned(response.Id ?? string.Empty, now);
             await db.SaveChangesAsync(cancellationToken);
         }
         catch (Exception ex)
         {
-            assignment.MarkRetryableFailure(CredentialPacsFailureReasons.ProviderUnavailable, ex.Message, GetRetryAt(assignment.AttemptCount + 1, timeProvider.GetUtcNow()), timeProvider.GetUtcNow());
+            assignment.MarkRetryableFailure(CredentialPacsFailureReasons.ProviderUnavailable, ex.Message, GetRetryAt(assignment.AttemptCount + 1, now), now);
             await db.SaveChangesAsync(cancellationToken);
         }
     }
@@ -104,7 +123,18 @@ public sealed class UnipassCredentialPacsProvisioner(
             return;
         }
 
-        Result<PACSSubject, AccessControlErrors> subjectResult = await subjectService.GetOrCreateAsync(credential.IdentityId, system, cancellationToken);
+        Result<PACSSubject, AccessControlErrors> subjectResult;
+        try
+        {
+            subjectResult = await subjectService.GetOrCreateAsync(credential.IdentityId, system, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            assignment.MarkRetryableFailure(CredentialPacsFailureReasons.ProviderUnavailable, ex.Message, GetRetryAt(assignment.AttemptCount + 1, timeProvider.GetUtcNow()), timeProvider.GetUtcNow());
+            await db.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
         if (subjectResult.IsFailure(out AccessControlErrors error))
         {
             assignment.MarkRetryableFailure(CredentialPacsFailureReasons.PacsSubjectCreationFailed, error.ToString(), GetRetryAt(assignment.AttemptCount + 1, timeProvider.GetUtcNow()), timeProvider.GetUtcNow());
@@ -139,4 +169,8 @@ public sealed class UnipassCredentialPacsProvisioner(
 
         return now.Add(delay);
     }
+
+    private static bool IsProvisioningNoLongerNeeded(Credential credential, DateTimeOffset now) =>
+        credential.Status is CredentialStatus.Revoked or CredentialStatus.Archived or CredentialStatus.Expired
+        || (credential.ValidUntil.HasValue && credential.ValidUntil.Value <= now);
 }

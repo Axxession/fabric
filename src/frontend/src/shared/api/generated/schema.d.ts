@@ -3906,6 +3906,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/credential-management/credentials/{id}/qr": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Render credential QR */
+        get: {
+            parameters: {
+                query: {
+                    size?: number | string;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/access-control/systems": {
         parameters: {
             query?: never;
@@ -4702,6 +4756,22 @@ export interface paths {
             };
         };
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/access-control/credential-type-targets/unipass": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
         post: {
             parameters: {
                 query?: never;
@@ -4711,7 +4781,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["CreateCredentialTypeTargetRequest"];
+                    "application/json": components["schemas"]["CreateUnipassCredentialTypeTargetRequest"];
                 };
             };
             responses: {
@@ -4721,7 +4791,25 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["CredentialTypeTargetResponse"];
+                        "application/json": components["schemas"]["UnipassCredentialTypeTargetResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
                     };
                 };
             };
@@ -4732,7 +4820,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/access-control/credential-type-targets/{targetId}": {
+    "/api/access-control/credential-type-targets/unipass/{targetId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -4751,7 +4839,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["UpdateCredentialTypeTargetRequest"];
+                    "application/json": components["schemas"]["UpdateUnipassCredentialTypeTargetRequest"];
                 };
             };
             responses: {
@@ -4761,7 +4849,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["CredentialTypeTargetResponse"];
+                        "application/json": components["schemas"]["UnipassCredentialTypeTargetResponse"];
                     };
                 };
                 /** @description Not Found */
@@ -4791,8 +4879,9 @@ export interface paths {
         };
         get: {
             parameters: {
-                query?: {
+                query: {
                     CredentialId?: string;
+                    CredentialIds: string[];
                     AccessControlSystemId?: string;
                     Status?: components["schemas"]["CredentialPACSAssignmentStatus"];
                 };
@@ -11956,6 +12045,15 @@ export interface paths {
                         "application/json": components["schemas"]["VisitResponse"];
                     };
                 };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -13942,17 +14040,17 @@ export interface components {
             name: string;
             technology: components["schemas"]["CredentialTechnology"];
             allocationMode: components["schemas"]["CredentialAllocationMode"];
+            recyclePolicy: components["schemas"]["CredentialRecyclePolicy"];
+            recycleGracePeriod: string;
+            requiresConfirmedPacsRevocation: boolean;
             /** Format: int32 */
             nearLimitThreshold: null | number | string;
-        };
-        CreateCredentialTypeTargetRequest: {
-            /** Format: uuid */
-            credentialTypeId: string;
-            /** Format: uuid */
-            accessControlSystemId: string;
-            /** Format: uuid */
-            providerCredentialTypeId: null | string;
-            provisioningTiming: components["schemas"]["ProvisioningTiming"];
+            identifierPrefix: null | string;
+            identifierSuffix: null | string;
+            /** Format: int32 */
+            identifierNumberLength: null | number | string;
+            identifierPaddingDirection: null | components["schemas"]["CredentialIdentifierPaddingDirection"];
+            identifierPaddingCharacter: null | string;
         };
         CreateEmployeePeriodRequest: {
             /** Format: date */
@@ -14140,6 +14238,13 @@ export interface components {
             accessRuleId: number | string;
             provisioningTiming: components["schemas"]["ProvisioningTiming"];
         };
+        CreateUnipassCredentialTypeTargetRequest: {
+            /** Format: uuid */
+            credentialTypeId: string;
+            /** Format: uuid */
+            accessControlSystemId: string;
+            provisioningTiming: components["schemas"]["ProvisioningTiming"];
+        };
         CreateVisitRequest: {
             summary: string;
             /** Format: date-time */
@@ -14154,9 +14259,9 @@ export interface components {
         /** @enum {unknown} */
         CredentialCapacityState: "Healthy" | "NearLimit" | "Limit";
         /** @enum {unknown} */
-        CredentialDurationKind: "Permanent" | "Temporary";
+        CredentialIdentifierPaddingDirection: "Left" | "Right";
         /** @enum {unknown} */
-        CredentialGenerationMode: "PlatformQr" | "AccessControlQr";
+        CredentialDurationKind: "Permanent" | "Temporary";
         CredentialPACSAssignmentResponse: {
             /** Format: uuid */
             id: string;
@@ -14200,12 +14305,15 @@ export interface components {
             rangeStop: number | string;
             isActive: boolean;
         };
+        /** @enum {unknown} */
+        CredentialRecyclePolicy: "NeverReuse" | "ReuseAfterExpiry" | "ReuseAfterRevocation" | "ReuseAfterRevocationAndGrace";
         CredentialResponse: {
             /** Format: uuid */
             id: string;
             /** Format: uuid */
             credentialTypeId: string;
             identifier: string;
+            formattedIdentifier: string;
             /** Format: uuid */
             identityId: string;
             durationKind: components["schemas"]["CredentialDurationKind"];
@@ -14238,12 +14346,21 @@ export interface components {
             name: string;
             technology: components["schemas"]["CredentialTechnology"];
             allocationMode: components["schemas"]["CredentialAllocationMode"];
+            recyclePolicy: components["schemas"]["CredentialRecyclePolicy"];
+            recycleGracePeriod: string;
+            requiresConfirmedPacsRevocation: boolean;
             /** Format: int32 */
             usedCount: number | string;
             /** Format: int32 */
             availableCount: number | string;
             /** Format: int32 */
             nearLimitThreshold: null | number | string;
+            identifierPrefix: null | string;
+            identifierSuffix: null | string;
+            /** Format: int32 */
+            identifierNumberLength: null | number | string;
+            identifierPaddingDirection: null | components["schemas"]["CredentialIdentifierPaddingDirection"];
+            identifierPaddingCharacter: null | string;
             capacityState: components["schemas"]["CredentialCapacityState"];
             status: components["schemas"]["CredentialTypeStatus"];
             /** Format: date-time */
@@ -14254,15 +14371,16 @@ export interface components {
         };
         /** @enum {unknown} */
         CredentialTypeStatus: "Active" | "Disabled";
-        CredentialTypeTargetResponse: {
+        CredentialTypeTargetResponse: components["schemas"]["CredentialTypeTargetResponseUnipassCredentialTypeTargetResponse"];
+        CredentialTypeTargetResponseUnipassCredentialTypeTargetResponse: {
+            /** @enum {string} */
+            type?: "unipass";
             /** Format: uuid */
             id: string;
             /** Format: uuid */
             credentialTypeId: string;
             /** Format: uuid */
             accessControlSystemId: string;
-            /** Format: uuid */
-            providerCredentialTypeId: null | string;
             provisioningTiming: components["schemas"]["ProvisioningTiming"];
             isEnabled: boolean;
             /** Format: date-time */
@@ -14737,6 +14855,7 @@ export interface components {
             /** Format: uuid */
             requestedByIdentityId: null | string;
             reasonText: string;
+            locationIds: string[];
         };
         JsonElement: unknown;
         JsonObject: Record<string, never>;
@@ -16369,6 +16488,20 @@ export interface components {
             isEnabled: boolean;
             provisioningTiming: components["schemas"]["ProvisioningTiming"];
         };
+        UnipassCredentialTypeTargetResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            credentialTypeId: string;
+            /** Format: uuid */
+            accessControlSystemId: string;
+            provisioningTiming: components["schemas"]["ProvisioningTiming"];
+            isEnabled: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         UpdateAccessItemRequest: {
             name: string;
             description: null | string;
@@ -16418,14 +16551,17 @@ export interface components {
             name: string;
             technology: components["schemas"]["CredentialTechnology"];
             allocationMode: components["schemas"]["CredentialAllocationMode"];
+            recyclePolicy: components["schemas"]["CredentialRecyclePolicy"];
+            recycleGracePeriod: string;
+            requiresConfirmedPacsRevocation: boolean;
             /** Format: int32 */
             nearLimitThreshold: null | number | string;
-        };
-        UpdateCredentialTypeTargetRequest: {
-            /** Format: uuid */
-            providerCredentialTypeId: null | string;
-            provisioningTiming: components["schemas"]["ProvisioningTiming"];
-            isEnabled: boolean;
+            identifierPrefix: null | string;
+            identifierSuffix: null | string;
+            /** Format: int32 */
+            identifierNumberLength: null | number | string;
+            identifierPaddingDirection: null | components["schemas"]["CredentialIdentifierPaddingDirection"];
+            identifierPaddingCharacter: null | string;
         };
         UpdateEmployeeLifecycleAutomationSettingsRequest: {
             isEnabled: boolean;
@@ -16589,6 +16725,10 @@ export interface components {
             accessRuleId: number | string;
             isEnabled: boolean;
             provisioningTiming: components["schemas"]["ProvisioningTiming"];
+        };
+        UpdateUnipassCredentialTypeTargetRequest: {
+            provisioningTiming: components["schemas"]["ProvisioningTiming"];
+            isEnabled: boolean;
         };
         UpdateVisitSummaryRequest: {
             summary: string;
@@ -16767,6 +16907,8 @@ export interface components {
             arrivalId?: null | string;
             /** Format: uuid */
             accessPolicyId?: null | string;
+            /** Format: uuid */
+            credentialId?: null | string;
             qrCode?: null | string;
             /** Format: date-time */
             arrivalNotificationSentAt?: null | string;
@@ -16778,6 +16920,8 @@ export interface components {
             nextRetryAt?: null | string;
             /** Format: int32 */
             retryCount?: number | string;
+            /** Format: date-time */
+            invitationSentAt?: null | string;
             state?: components["schemas"]["VisitorPreOnboardingState"];
         };
         VisitorPreOnboardingSagaConfig: {
@@ -16785,11 +16929,12 @@ export interface components {
             id?: string;
             useCustomInviteNotification?: boolean;
             customInviteNotification?: null | components["schemas"]["CustomNotification"];
-            qrGenerationMode?: components["schemas"]["CredentialGenerationMode"];
             /** Format: uuid */
-            systemId?: null | string;
-            /** Format: uuid */
-            badgeTypeId?: null | string;
+            qrCredentialTypeId?: null | string;
+            /** Format: int32 */
+            graceStartMinutes?: number | string;
+            /** Format: int32 */
+            graceEndMinutes?: number | string;
             sendConfirmNotificationToHost?: boolean;
             useCustomConfirmNotification?: boolean;
             customConfirmNotification?: null | components["schemas"]["CustomNotification"];
@@ -16809,11 +16954,12 @@ export interface components {
         VisitorPreOnboardingSagaConfigRequest: {
             useCustomInviteNotification: boolean;
             customInviteNotification: null | components["schemas"]["CustomNotification"];
-            qrGenerationMode: components["schemas"]["CredentialGenerationMode"];
             /** Format: uuid */
-            systemId: null | string;
-            /** Format: uuid */
-            badgeTypeId: null | string;
+            qrCredentialTypeId: null | string;
+            /** Format: int32 */
+            graceStartMinutes: number | string;
+            /** Format: int32 */
+            graceEndMinutes: number | string;
             sendConfirmNotificationToHost: boolean;
             useCustomConfirmNotification: boolean;
             customConfirmNotification: null | components["schemas"]["CustomNotification"];
@@ -16831,7 +16977,7 @@ export interface components {
             customArrivalNotification: null | components["schemas"]["CustomNotification"];
         };
         /** @enum {unknown} */
-        VisitorPreOnboardingState: "RegisteringArrival" | "GeneratingQr" | "UpdatingArrivalQr" | "SendingInvitation" | "AwaitingConfirmation" | "Confirmed" | "Rejected" | "Cancelling" | "Cancelled" | "Expired";
+        VisitorPreOnboardingState: "GeneratingQr" | "RegisteringArrival" | "SendingInvitation" | "AwaitingConfirmation" | "Confirmed" | "Rejected" | "Cancelling" | "Cancelled" | "Expired";
         VisitorResponse: {
             /** Format: uuid */
             id: string;

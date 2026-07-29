@@ -16,9 +16,9 @@ public sealed class VisitorPreOnboardingSagaConfigConfiguration : IEntityTypeCon
         builder.Property(x => x.Id).HasColumnName("id").ValueGeneratedNever();
         builder.Property(x => x.UseCustomInviteNotification).HasColumnName("use_custom_invite_notification").IsRequired();
         ConfigureCustomNotification(builder, x => x.CustomInviteNotification, "custom_invite_notification");
-        builder.Property(x => x.QrGenerationMode).HasColumnName("qr_generation_mode").IsRequired().HasConversion<string>().HasMaxLength(50);
-        builder.Property(x => x.SystemId).HasColumnName("system_id");
-        builder.Property(x => x.BadgeTypeId).HasColumnName("badge_type_id");
+        builder.Property(x => x.QrCredentialTypeId).HasColumnName("qr_credential_type_id");
+        builder.Property(x => x.GraceStartMinutes).HasColumnName("grace_start_minutes").IsRequired();
+        builder.Property(x => x.GraceEndMinutes).HasColumnName("grace_end_minutes").IsRequired();
         builder.Property(x => x.SendConfirmNotificationToHost).HasColumnName("send_confirm_notification_to_host").IsRequired();
         builder.Property(x => x.UseCustomConfirmNotification).HasColumnName("use_custom_confirm_notification").IsRequired();
         ConfigureCustomNotification(builder, x => x.CustomConfirmNotification, "custom_confirm_notification");
@@ -43,9 +43,6 @@ public sealed class VisitorPreOnboardingSagaConfigConfiguration : IEntityTypeCon
             AddCustomNotificationCheckConstraint(x, "reschedule", "custom_reschedule_notification");
             AddCustomNotificationCheckConstraint(x, "relocation", "custom_relocation_notification");
             AddCustomNotificationCheckConstraint(x, "arrival", "custom_arrival_notification");
-            x.HasCheckConstraint(
-                "ck_vpo_config_access_control_qr_ids",
-                "(qr_generation_mode <> 'AccessControlQr') OR (system_id IS NOT NULL AND badge_type_id IS NOT NULL)");
         });
 
         TenantDbContext.ConfigureTenantProperty(builder);

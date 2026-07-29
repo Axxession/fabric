@@ -18,6 +18,9 @@ import ApprovalGroupEditPage from '@/features/administration/approval-group-edit
 import CatalogueCreatePage from '@/features/administration/catalogue-create-page';
 import CatalogueEditPage from '@/features/administration/catalogue-edit-page';
 import ClientsPage from '@/features/administration/clients-page';
+import CredentialTypeCreatePage from '@/features/administration/credential-type-create-page';
+import CredentialTypeEditPage from '@/features/administration/credential-type-edit-page';
+import CredentialTypesPage from '@/features/administration/credential-types-page';
 import PackageCreatePage from '@/features/administration/package-create-page';
 import PackageEditPage from '@/features/administration/package-edit-page';
 import MyOrganizationPage from '@/features/administration/my-organization-page';
@@ -86,6 +89,7 @@ const VisitorsManagementLayout = lazy(() => import('@/features/visitors-manageme
 const VisitorConfirmationPage = lazy(() => import('@/features/visitor-confirmation/visitor-confirmation-page'));
 const VisitorReportingPage = lazy(() => import('@/features/visitors-management/reporting-page'));
 const VisitCreatePage = lazy(() => import('@/features/visitors-management/visit-create-page'));
+const VisitInvitationDetailPage = lazy(() => import('@/features/visitors-management/visit-invitation-detail-page'));
 const VisitEditPage = lazy(() => import('@/features/visitors-management/visit-edit-page'));
 const VisitorsPage = lazy(() => import('@/features/visitors-management/visitors-page'));
 const VisitsPage = lazy(() => import('@/features/visitors-management/visits-page'));
@@ -198,6 +202,12 @@ const employeeVisitEditRoute = createRoute({
   getParentRoute: () => mainLayoutRoute,
   path: '/employee/visitors/$visitId/edit',
   component: () => <ProtectedRoute><EmployeeHostRoute><LazyRoute component={<EmployeeVisitEditPage />} /></EmployeeHostRoute></ProtectedRoute>,
+});
+
+const employeeVisitInvitationDetailRoute = createRoute({
+  getParentRoute: () => mainLayoutRoute,
+  path: '/employee/visitors/$visitId/invitations/$invitationId',
+  component: () => <ProtectedRoute><EmployeeHostRoute><LazyRoute component={<VisitInvitationDetailPage />} /></EmployeeHostRoute></ProtectedRoute>,
 });
 
 const managerApprovalInboxRoute = createRoute({
@@ -346,6 +356,12 @@ const administrationAccessControlRoute = createRoute({
   component: () => <LazyRoute component={<AccessControlPage />} />,
 });
 
+const administrationCredentialTypesRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/credential-types',
+  component: () => <LazyRoute component={<CredentialTypesPage />} />,
+});
+
 const administrationNotificationsRoute = createRoute({
   getParentRoute: () => administrationRoute,
   path: '/notifications',
@@ -386,6 +402,18 @@ const administrationPackageCreateRoute = createRoute({
   getParentRoute: () => administrationRoute,
   path: '/access-model/packages/new',
   component: () => <LazyRoute component={<PackageCreatePage />} />,
+});
+
+const administrationCredentialTypeCreateRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/credential-types/new',
+  component: () => <LazyRoute component={<CredentialTypeCreatePage />} />,
+});
+
+const administrationCredentialTypeEditRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/credential-types/$credentialTypeId/edit',
+  component: () => <LazyRoute component={<CredentialTypeEditPage />} />,
 });
 
 const administrationPackageEditRoute = createRoute({
@@ -743,6 +771,7 @@ const routeTree = rootRoute.addChildren([
     employeeVisitorsRoute,
     employeeVisitCreateRoute,
     employeeVisitEditRoute,
+    employeeVisitInvitationDetailRoute,
     managerRoute,
     managerApprovalInboxRoute,
     managerApprovalInboxDetailRoute,
@@ -765,10 +794,13 @@ const routeTree = rootRoute.addChildren([
         administrationAutomationKioskEditRoute,
         administrationAutomationKioskProfileEditRoute,
       ]),
-      administrationAccessModelRoute,
-      administrationAccessControlRoute,
-      administrationNotificationsRoute,
-      administrationAccessItemCreateRoute,
+  administrationAccessModelRoute,
+  administrationCredentialTypesRoute,
+  administrationAccessControlRoute,
+  administrationNotificationsRoute,
+  administrationCredentialTypeCreateRoute,
+  administrationCredentialTypeEditRoute,
+  administrationAccessItemCreateRoute,
       administrationAccessItemEditRoute,
       administrationAccessControlTargetEditRoute,
       administrationAccessControlSystemCreateRoute,

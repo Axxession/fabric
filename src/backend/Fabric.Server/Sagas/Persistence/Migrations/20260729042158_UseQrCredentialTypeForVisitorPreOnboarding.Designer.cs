@@ -3,6 +3,7 @@ using System;
 using Fabric.Server.Sagas;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Fabric.Server.Sagas.Persistence.Migrations
 {
     [DbContext(typeof(SagasDbContext))]
-    partial class SagasDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260729042158_UseQrCredentialTypeForVisitorPreOnboarding")]
+    partial class UseQrCredentialTypeForVisitorPreOnboarding
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -558,10 +561,6 @@ namespace Fabric.Server.Sagas.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("invitation_id");
 
-                    b.Property<DateTimeOffset?>("InvitationSentAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("invitation_sent_at");
-
                     b.Property<DateTimeOffset?>("NextRetryAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("next_retry_at");
@@ -614,14 +613,6 @@ namespace Fabric.Server.Sagas.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
-
-                    b.Property<int>("GraceEndMinutes")
-                        .HasColumnType("integer")
-                        .HasColumnName("grace_end_minutes");
-
-                    b.Property<int>("GraceStartMinutes")
-                        .HasColumnType("integer")
-                        .HasColumnName("grace_start_minutes");
 
                     b.Property<Guid?>("QrCredentialTypeId")
                         .HasColumnType("uuid")

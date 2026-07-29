@@ -32,6 +32,20 @@ public enum CredentialAllocationMode
     Provided
 }
 
+public enum CredentialRecyclePolicy
+{
+    NeverReuse,
+    ReuseAfterExpiry,
+    ReuseAfterRevocation,
+    ReuseAfterRevocationAndGrace
+}
+
+public enum CredentialIdentifierPaddingDirection
+{
+    Left,
+    Right
+}
+
 public enum CredentialStatus
 {
     Issued,
@@ -48,6 +62,15 @@ public enum CredentialReservationStatus
     Consumed,
     Released,
     Expired
+}
+
+public enum CredentialSlotStatus
+{
+    Reserved,
+    Issued,
+    CoolingDown,
+    Blocked,
+    Free
 }
 
 public enum ProvisioningTiming

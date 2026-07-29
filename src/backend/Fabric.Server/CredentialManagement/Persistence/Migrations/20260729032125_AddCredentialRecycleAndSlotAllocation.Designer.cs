@@ -3,6 +3,7 @@ using System;
 using Fabric.Server.CredentialManagement.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Fabric.Server.CredentialManagement.Persistence.Migrations
 {
     [DbContext(typeof(CredentialManagementDbContext))]
-    partial class CredentialManagementDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260729032125_AddCredentialRecycleAndSlotAllocation")]
+    partial class AddCredentialRecycleAndSlotAllocation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -250,30 +253,6 @@ namespace Fabric.Server.CredentialManagement.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
-
-                    b.Property<int?>("IdentifierNumberLength")
-                        .HasColumnType("integer")
-                        .HasColumnName("identifier_number_length");
-
-                    b.Property<string>("IdentifierPaddingCharacter")
-                        .HasMaxLength(1)
-                        .HasColumnType("character varying(1)")
-                        .HasColumnName("identifier_padding_character");
-
-                    b.Property<string>("IdentifierPaddingDirection")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("identifier_padding_direction");
-
-                    b.Property<string>("IdentifierPrefix")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("identifier_prefix");
-
-                    b.Property<string>("IdentifierSuffix")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("identifier_suffix");
 
                     b.Property<string>("Name")
                         .IsRequired()

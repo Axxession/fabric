@@ -17,12 +17,14 @@ public sealed class VisitorPreOnboardingSagaConfiguration : IEntityTypeConfigura
         builder.Property(x => x.InvitationId).HasColumnName("invitation_id").IsRequired();
         builder.Property(x => x.ArrivalId).HasColumnName("arrival_id");
         builder.Property(x => x.AccessPolicyId).HasColumnName("access_policy_id");
+        builder.Property(x => x.CredentialId).HasColumnName("credential_id");
         builder.Property(x => x.QrCode).HasColumnName("qr_code").HasMaxLength(2000);
         builder.Property(x => x.ArrivalNotificationSentAt).HasColumnName("arrival_notification_sent_at");
         builder.Property(x => x.CreatedAt).HasColumnName("created_at").IsRequired();
         builder.Property(x => x.ExpiresAt).HasColumnName("expires_at").IsRequired();
         builder.Property(x => x.NextRetryAt).HasColumnName("next_retry_at");
         builder.Property(x => x.RetryCount).HasColumnName("retry_count").IsRequired();
+        builder.Property(x => x.InvitationSentAt).HasColumnName("invitation_sent_at");
         builder.Property(x => x.State).HasColumnName("state").IsRequired().HasConversion<string>().HasMaxLength(50);
 
         builder.HasIndex(x => new { x.VisitId, x.InvitationId }).HasDatabaseName("ix_visitor_pre_onboarding_sagas_visit_invitation");

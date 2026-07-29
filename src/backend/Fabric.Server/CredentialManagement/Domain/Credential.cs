@@ -22,6 +22,9 @@ public sealed class Credential
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
+    public bool IsExpired(DateTimeOffset now) =>
+        ValidUntil.HasValue && ValidUntil.Value <= now;
+
     public static Result<Credential, CredentialManagementErrors> Create(
         Guid credentialTypeId,
         string identifier,
@@ -69,5 +72,23 @@ public sealed class Credential
             CreatedAt = now,
             UpdatedAt = now
         });
+    }
+
+    public void MarkExpired(DateTimeOffset now)
+    {
+        Status = CredentialStatus.Expired;
+        UpdatedAt = now;
+    }
+
+    public void Archive(DateTimeOffset now)
+    {
+        Status = CredentialStatus.Archived;
+        UpdatedAt = now;
+    }
+
+    public void Revoke(DateTimeOffset now)
+    {
+        Status = CredentialStatus.Revoked;
+        UpdatedAt = now;
     }
 }

@@ -21,13 +21,29 @@ public sealed record CreateCredentialTypeRequest(
     string Name,
     CredentialTechnology Technology,
     CredentialAllocationMode AllocationMode,
-    int? NearLimitThreshold);
+    CredentialRecyclePolicy RecyclePolicy,
+    TimeSpan RecycleGracePeriod,
+    bool RequiresConfirmedPacsRevocation,
+    int? NearLimitThreshold,
+    string? IdentifierPrefix,
+    string? IdentifierSuffix,
+    int? IdentifierNumberLength,
+    CredentialIdentifierPaddingDirection? IdentifierPaddingDirection,
+    string? IdentifierPaddingCharacter);
 
 public sealed record UpdateCredentialTypeRequest(
     string Name,
     CredentialTechnology Technology,
     CredentialAllocationMode AllocationMode,
-    int? NearLimitThreshold);
+    CredentialRecyclePolicy RecyclePolicy,
+    TimeSpan RecycleGracePeriod,
+    bool RequiresConfirmedPacsRevocation,
+    int? NearLimitThreshold,
+    string? IdentifierPrefix,
+    string? IdentifierSuffix,
+    int? IdentifierNumberLength,
+    CredentialIdentifierPaddingDirection? IdentifierPaddingDirection,
+    string? IdentifierPaddingCharacter);
 
 public sealed record CreateCredentialRangeRequest(
     long RangeStart,
@@ -50,4 +66,5 @@ public sealed record IssueCredentialRequest(
     CredentialSourceKind SourceKind,
     Guid? SourceId,
     Guid? RequestedByIdentityId,
-    string ReasonText);
+    string ReasonText,
+    Guid[] LocationIds);

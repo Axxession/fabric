@@ -21,9 +21,17 @@ public static class CredentialManagementMappings
             credentialType.Name,
             credentialType.Technology,
             credentialType.AllocationMode,
+            credentialType.RecyclePolicy,
+            credentialType.RecycleGracePeriod,
+            credentialType.RequiresConfirmedPacsRevocation,
             usedCount,
             availableCount,
             credentialType.NearLimitThreshold,
+            credentialType.IdentifierPrefix,
+            credentialType.IdentifierSuffix,
+            credentialType.IdentifierNumberLength,
+            credentialType.IdentifierPaddingDirection,
+            credentialType.IdentifierPaddingCharacter,
             capacityState,
             credentialType.Status,
             credentialType.CreatedAt,
@@ -34,11 +42,12 @@ public static class CredentialManagementMappings
     public static CredentialRangeResponse ToResponse(this CredentialRange range) =>
         new(range.Id, range.CredentialTypeId, range.RangeStart, range.RangeStop, range.IsActive);
 
-    public static CredentialResponse ToResponse(this Credential credential) =>
+    public static CredentialResponse ToResponse(this Credential credential, CredentialType? credentialType = null) =>
         new(
             credential.Id,
             credential.CredentialTypeId,
             credential.Identifier,
+            credentialType?.FormatIdentifier(credential.Identifier) ?? credential.Identifier,
             credential.IdentityId,
             credential.DurationKind,
             credential.ValidFrom,

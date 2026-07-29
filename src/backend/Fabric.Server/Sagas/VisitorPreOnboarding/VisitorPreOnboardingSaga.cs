@@ -11,12 +11,14 @@ public class VisitorPreOnboardingSaga
     public Guid InvitationId { get; set; }
     public Guid? ArrivalId { get; set; }
     public Guid? AccessPolicyId { get; set; }
+    public Guid? CredentialId { get; set; }
     public string? QrCode { get; set; }
     public DateTimeOffset? ArrivalNotificationSentAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }
     public DateTimeOffset? NextRetryAt { get; set; }
     public int RetryCount { get; set; }
+    public DateTimeOffset? InvitationSentAt { get; set; }
     public VisitorPreOnboardingState State { get; set; }
 }
 
@@ -83,9 +85,8 @@ public enum VisitorPreOnboardingSagaEventType
 
 public enum VisitorPreOnboardingState
 {
-    RegisteringArrival,
     GeneratingQr,
-    UpdatingArrivalQr,
+    RegisteringArrival,
     SendingInvitation,
     AwaitingConfirmation,
     Confirmed,
@@ -95,20 +96,14 @@ public enum VisitorPreOnboardingState
     Expired,
 }
 
-public enum CredentialGenerationMode
-{
-    PlatformQr,
-    AccessControlQr
-}
-
 public class VisitorPreOnboardingSagaConfig
 {
     public Guid Id { get; set; }
     public bool UseCustomInviteNotification { get; set; }
     public CustomNotification? CustomInviteNotification { get; set; }
-    public CredentialGenerationMode QrGenerationMode { get; set; }
-    public Guid? SystemId { get; set; }
-    public Guid? BadgeTypeId { get; set; }
+    public Guid? QrCredentialTypeId { get; set; }
+    public int GraceStartMinutes { get; set; }
+    public int GraceEndMinutes { get; set; }
     public bool SendConfirmNotificationToHost { get; set; }
     public bool UseCustomConfirmNotification { get; set; }
     public CustomNotification? CustomConfirmNotification { get; set; }
@@ -130,9 +125,9 @@ public class VisitorPreOnboardingSagaConfig
         Id = Guid.Empty,
         UseCustomInviteNotification = false,
         CustomInviteNotification = null,
-        QrGenerationMode = CredentialGenerationMode.PlatformQr,
-        SystemId = null,
-        BadgeTypeId = null,
+        QrCredentialTypeId = null,
+        GraceStartMinutes = 30,
+        GraceEndMinutes = 30,
         SendConfirmNotificationToHost = false,
         UseCustomConfirmNotification = false,
         CustomConfirmNotification = null,

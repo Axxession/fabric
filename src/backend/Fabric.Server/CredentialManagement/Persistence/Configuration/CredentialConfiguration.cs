@@ -34,9 +34,8 @@ public sealed class CredentialConfiguration : IEntityTypeConfiguration<Credentia
             .OnDelete(DeleteBehavior.Restrict);
 
         TenantDbContext.ConfigureTenantProperty(builder);
-        builder.HasIndex(TenantDbContext.TenantIdPropertyName, nameof(Credential.Identifier))
-            .IsUnique()
-            .HasDatabaseName("ix_credentials_tenant_id_identifier");
+        builder.HasIndex(TenantDbContext.TenantIdPropertyName, nameof(Credential.CredentialTypeId), nameof(Credential.Identifier))
+            .HasDatabaseName("ix_credentials_tenant_id_credential_type_identifier");
         builder.HasIndex(TenantDbContext.TenantIdPropertyName, nameof(Credential.IdentityId))
             .HasDatabaseName("ix_credentials_tenant_id_identity_id");
         builder.HasIndex(TenantDbContext.TenantIdPropertyName, nameof(Credential.Status))

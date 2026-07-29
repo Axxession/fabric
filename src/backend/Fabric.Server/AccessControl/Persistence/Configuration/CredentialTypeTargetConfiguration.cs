@@ -15,11 +15,13 @@ public sealed class CredentialTypeTargetConfiguration : IEntityTypeConfiguration
         builder.Property(target => target.Id).HasColumnName("id").ValueGeneratedNever();
         builder.Property(target => target.CredentialTypeId).HasColumnName("credential_type_id").IsRequired();
         builder.Property(target => target.AccessControlSystemId).HasColumnName("access_control_system_id").IsRequired();
-        builder.Property(target => target.ProviderCredentialTypeId).HasColumnName("provider_credential_type_id");
         builder.Property(target => target.ProvisioningTiming).HasColumnName("provisioning_timing").HasConversion<string>().HasMaxLength(50).IsRequired();
         builder.Property(target => target.IsEnabled).HasColumnName("is_enabled").IsRequired();
         builder.Property(target => target.CreatedAt).HasColumnName("created_at").IsRequired();
         builder.Property(target => target.UpdatedAt).HasColumnName("updated_at").IsRequired();
+
+        builder.HasDiscriminator<string>("target_type")
+            .HasValue<UnipassCredentialTypeTarget>("unipass");
 
         TenantDbContext.ConfigureTenantProperty(builder);
         builder.HasIndex(TenantDbContext.TenantIdPropertyName, nameof(CredentialTypeTarget.CredentialTypeId), nameof(CredentialTypeTarget.AccessControlSystemId))

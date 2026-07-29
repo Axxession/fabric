@@ -18,6 +18,7 @@ public static class CredentialManagementServiceCollectionExtensions
             options.SerializerOptions.TypeInfoResolverChain.Add(CredentialManagementJsonSerializerContext.Default));
 
         collection.AddScoped<CredentialManagementService>();
+        collection.AddHostedService<CredentialRecycleWorker>();
         return collection;
     }
 }

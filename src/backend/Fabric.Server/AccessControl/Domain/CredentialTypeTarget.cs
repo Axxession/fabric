@@ -1,22 +1,32 @@
 namespace Fabric.Server.AccessControl.Domain;
 
-public sealed class CredentialTypeTarget
+public abstract class CredentialTypeTarget
 {
-    private CredentialTypeTarget() { }
+    private protected CredentialTypeTarget() { }
 
-    public Guid Id { get; private set; }
-    public Guid CredentialTypeId { get; private set; }
-    public Guid AccessControlSystemId { get; private set; }
-    public Guid? ProviderCredentialTypeId { get; private set; }
-    public ProvisioningTiming ProvisioningTiming { get; private set; }
-    public bool IsEnabled { get; private set; }
-    public DateTimeOffset CreatedAt { get; private set; }
-    public DateTimeOffset UpdatedAt { get; private set; }
+    public Guid Id { get; protected set; }
+    public Guid CredentialTypeId { get; protected set; }
+    public Guid AccessControlSystemId { get; protected set; }
+    public ProvisioningTiming ProvisioningTiming { get; protected set; }
+    public bool IsEnabled { get; protected set; }
+    public DateTimeOffset CreatedAt { get; protected set; }
+    public DateTimeOffset UpdatedAt { get; protected set; }
 
-    public static CredentialTypeTarget Create(
+    public void Update(ProvisioningTiming provisioningTiming, bool isEnabled, DateTimeOffset now)
+    {
+        ProvisioningTiming = provisioningTiming;
+        IsEnabled = isEnabled;
+        UpdatedAt = now;
+    }
+}
+
+public sealed class UnipassCredentialTypeTarget : CredentialTypeTarget
+{
+    private UnipassCredentialTypeTarget() { }
+
+    public static UnipassCredentialTypeTarget Create(
         Guid credentialTypeId,
         Guid accessControlSystemId,
-        Guid? providerCredentialTypeId,
         ProvisioningTiming provisioningTiming,
         DateTimeOffset now) =>
         new()
@@ -24,24 +34,9 @@ public sealed class CredentialTypeTarget
             Id = Guid.NewGuid(),
             CredentialTypeId = credentialTypeId,
             AccessControlSystemId = accessControlSystemId,
-            ProviderCredentialTypeId = providerCredentialTypeId,
             ProvisioningTiming = provisioningTiming,
             IsEnabled = true,
             CreatedAt = now,
             UpdatedAt = now
         };
-
-    public void Update(Guid? providerCredentialTypeId, ProvisioningTiming provisioningTiming, bool isEnabled, DateTimeOffset now)
-    {
-        ProviderCredentialTypeId = providerCredentialTypeId;
-        ProvisioningTiming = provisioningTiming;
-        IsEnabled = isEnabled;
-        UpdatedAt = now;
-    }
-
-    public void SetEnabled(bool enabled, DateTimeOffset now)
-    {
-        IsEnabled = enabled;
-        UpdatedAt = now;
-    }
 }

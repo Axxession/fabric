@@ -16,7 +16,15 @@ public sealed class CredentialTypeConfiguration : IEntityTypeConfiguration<Crede
         builder.Property(type => type.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
         builder.Property(type => type.Technology).HasColumnName("technology").HasConversion<string>().HasMaxLength(50).IsRequired();
         builder.Property(type => type.AllocationMode).HasColumnName("allocation_mode").HasConversion<string>().HasMaxLength(50).IsRequired();
+        builder.Property(type => type.RecyclePolicy).HasColumnName("recycle_policy").HasConversion<string>().HasMaxLength(50).IsRequired();
+        builder.Property(type => type.RecycleGracePeriod).HasColumnName("recycle_grace_period").IsRequired();
+        builder.Property(type => type.RequiresConfirmedPacsRevocation).HasColumnName("requires_confirmed_pacs_revocation").IsRequired();
         builder.Property(type => type.NearLimitThreshold).HasColumnName("near_limit_threshold");
+        builder.Property(type => type.IdentifierPrefix).HasColumnName("identifier_prefix").HasMaxLength(100);
+        builder.Property(type => type.IdentifierSuffix).HasColumnName("identifier_suffix").HasMaxLength(100);
+        builder.Property(type => type.IdentifierNumberLength).HasColumnName("identifier_number_length");
+        builder.Property(type => type.IdentifierPaddingDirection).HasColumnName("identifier_padding_direction").HasConversion<string>().HasMaxLength(20);
+        builder.Property(type => type.IdentifierPaddingCharacter).HasColumnName("identifier_padding_character").HasMaxLength(1);
         builder.Property(type => type.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(50).IsRequired();
         builder.Property(type => type.CreatedAt).HasColumnName("created_at").IsRequired();
         builder.Property(type => type.UpdatedAt).HasColumnName("updated_at").IsRequired();
@@ -48,10 +56,43 @@ public sealed class CredentialRangeConfiguration : IEntityTypeConfiguration<Cred
         builder.Property(range => range.CredentialTypeId).HasColumnName("credential_type_id").IsRequired();
         builder.Property(range => range.RangeStart).HasColumnName("range_start").IsRequired();
         builder.Property(range => range.RangeStop).HasColumnName("range_stop").IsRequired();
+        builder.Property(range => range.NextCandidateNumber).HasColumnName("next_candidate_number").IsRequired();
         builder.Property(range => range.IsActive).HasColumnName("is_active").IsRequired();
 
         TenantDbContext.ConfigureTenantProperty(builder);
         builder.HasIndex(TenantDbContext.TenantIdPropertyName, nameof(CredentialRange.CredentialTypeId))
             .HasDatabaseName("ix_credential_ranges_tenant_id_credential_type_id");
+    }
+}
+
+public sealed class CredentialSlotConfiguration : IEntityTypeConfiguration<CredentialSlot>
+{
+    public void Configure(EntityTypeBuilder<CredentialSlot> builder)
+    {
+        builder.ToTable("credential_slots");
+        builder.HasKey(slot => slot.Id).HasName("pk_credential_slots");
+
+        builder.Property(slot => slot.Id).HasColumnName("id").ValueGeneratedNever();
+        builder.Property(slot => slot.CredentialRangeId).HasColumnName("credential_range_id").IsRequired();
+        builder.Property(slot => slot.Number).HasColumnName("number").IsRequired();
+        builder.Property(slot => slot.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(50).IsRequired();
+        builder.Property(slot => slot.CredentialId).HasColumnName("credential_id");
+        builder.Property(slot => slot.ReservationExpiresAt).HasColumnName("reservation_expires_at");
+        builder.Property(slot => slot.ReusableFrom).HasColumnName("reusable_from");
+        builder.Property(slot => slot.LastStateChangedAt).HasColumnName("last_state_changed_at").IsRequired();
+
+        builder.HasOne<CredentialRange>()
+            .WithMany()
+            .HasForeignKey(slot => slot.CredentialRangeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        TenantDbContext.ConfigureTenantProperty(builder);
+        builder.HasIndex(TenantDbContext.TenantIdPropertyName, nameof(CredentialSlot.CredentialRangeId), nameof(CredentialSlot.Number))
+            .IsUnique()
+            .HasDatabaseName("ix_credential_slots_tenant_id_range_number");
+        builder.HasIndex(TenantDbContext.TenantIdPropertyName, nameof(CredentialSlot.Status))
+            .HasDatabaseName("ix_credential_slots_tenant_id_status");
+        builder.HasIndex(TenantDbContext.TenantIdPropertyName, nameof(CredentialSlot.CredentialId))
+            .HasDatabaseName("ix_credential_slots_tenant_id_credential_id");
     }
 }

@@ -56,14 +56,12 @@ public sealed record ListCredentialTypeTargetsRequest : BaseListRequest
     public Guid? AccessControlSystemId { get; set; }
 }
 
-public sealed record CreateCredentialTypeTargetRequest(
+public sealed record CreateUnipassCredentialTypeTargetRequest(
     Guid CredentialTypeId,
     Guid AccessControlSystemId,
-    Guid? ProviderCredentialTypeId,
     ProvisioningTiming ProvisioningTiming);
 
-public sealed record UpdateCredentialTypeTargetRequest(
-    Guid? ProviderCredentialTypeId,
+public sealed record UpdateUnipassCredentialTypeTargetRequest(
     ProvisioningTiming ProvisioningTiming,
     bool IsEnabled);
 
@@ -168,6 +166,7 @@ public sealed record ListPACSProvisioningsRequest : BaseListRequest
 public sealed record ListCredentialPACSAssignmentsRequest : BaseListRequest
 {
     public Guid? CredentialId { get; set; }
+    public Guid[] CredentialIds { get; set; } = [];
     public Guid? AccessControlSystemId { get; set; }
     public CredentialPACSAssignmentStatus? Status { get; set; }
 }
@@ -189,15 +188,20 @@ public sealed record PACSProvisioningResponse(
     DateTimeOffset? CompletedAt,
     Guid[] SourceAssignmentIds);
 
-public sealed record CredentialTypeTargetResponse(
-    Guid Id,
-    Guid CredentialTypeId,
-    Guid AccessControlSystemId,
-    Guid? ProviderCredentialTypeId,
-    ProvisioningTiming ProvisioningTiming,
-    bool IsEnabled,
-    DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
+[JsonDerivedType(typeof(UnipassCredentialTypeTargetResponse), "unipass")]
+public abstract record CredentialTypeTargetResponse
+{
+    public required Guid Id { get; init; }
+    public required Guid CredentialTypeId { get; init; }
+    public required Guid AccessControlSystemId { get; init; }
+    public required ProvisioningTiming ProvisioningTiming { get; init; }
+    public required bool IsEnabled { get; init; }
+    public required DateTimeOffset CreatedAt { get; init; }
+    public required DateTimeOffset UpdatedAt { get; init; }
+}
+
+public sealed record UnipassCredentialTypeTargetResponse : CredentialTypeTargetResponse;
 
 public sealed record CredentialPACSAssignmentResponse(
     Guid Id,
@@ -387,7 +391,20 @@ public static class AccessControlMapper
             sourceAssignmentIds);
 
     public static CredentialTypeTargetResponse ToResponse(this CredentialTypeTarget target) =>
-        new(target.Id, target.CredentialTypeId, target.AccessControlSystemId, target.ProviderCredentialTypeId, target.ProvisioningTiming, target.IsEnabled, target.CreatedAt, target.UpdatedAt);
+        target switch
+        {
+            UnipassCredentialTypeTarget unipass => new UnipassCredentialTypeTargetResponse
+            {
+                Id = unipass.Id,
+                CredentialTypeId = unipass.CredentialTypeId,
+                AccessControlSystemId = unipass.AccessControlSystemId,
+                ProvisioningTiming = unipass.ProvisioningTiming,
+                IsEnabled = unipass.IsEnabled,
+                CreatedAt = unipass.CreatedAt,
+                UpdatedAt = unipass.UpdatedAt
+            },
+            _ => throw new InvalidOperationException("Unknown credential type target type.")
+        };
 
     public static CredentialPACSAssignmentResponse ToResponse(this CredentialPACSAssignment assignment) =>
         new(assignment.Id, assignment.CredentialId, assignment.CredentialTypeTargetId, assignment.AccessControlSystemId, assignment.Status, assignment.ScheduledFor, assignment.AttemptCount, assignment.LastAttemptAt, assignment.NativeAssignmentId, assignment.ProvisionedAt, assignment.RevokedAt, assignment.FailureReasonCode, assignment.ErrorMessage, assignment.CreatedAt, assignment.UpdatedAt);

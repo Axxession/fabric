@@ -11,12 +11,14 @@ import { Button, buttonVariants } from '@/shared/components/ui/button';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/shared/components/ui/empty';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/shared/components/ui/pagination';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { fetchVisitorPreOnboardingConfig, updateVisitorPreOnboardingConfig, visitorPreOnboardingConfigQueryKey } from '@/features/settings/visitor-pre-onboarding-config';
 
 type AccessModelTab = 'packages' | 'catalogues' | 'approval-groups' | 'hr-policies' | 'visitor-policies';
 type PackageResponse = components['schemas']['PackageResponse'];
 type CatalogResponse = components['schemas']['CatalogResponse'];
 type ApprovalGroupResponse = components['schemas']['ApprovalGroupResponse'];
 type AccessRuleAssignmentResponse = components['schemas']['AccessRuleAssignmentResponse'];
+type CredentialTypeResponse = components['schemas']['CredentialTypeResponse'];
 type CreateAccessRuleAssignmentRequest = components['schemas']['CreateAccessRuleAssignmentRequest'];
 type EmployeeLifecycleAutomationSettingsResponse = components['schemas']['EmployeeLifecycleAutomationSettingsResponse'];
 type CreateOrganizationalUnitPackageRuleRequest = components['schemas']['CreateOrganizationalUnitPackageRuleRequest'];
@@ -178,6 +180,22 @@ export default function AccessModelPage() {
     },
   });
 
+  const visitorPreOnboardingConfigQuery = useQuery({
+    queryKey: visitorPreOnboardingConfigQueryKey,
+    queryFn: fetchVisitorPreOnboardingConfig,
+  });
+
+  const qrCredentialTypesQuery = useQuery({
+    queryKey: ['administration', 'access-model', 'visitor-policies', 'qr-credential-types'],
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/credential-management/credential-types', {
+        params: { query: { Query: undefined, Technology: undefined, Status: 'Active', Page: 0, PageSize: 200 } as never },
+      });
+      if (error) throw new Error('Could not load QR credential types.');
+      return (data?.items ?? []).filter((item: CredentialTypeResponse) => item.technology === 'Qr' && item.allocationMode === 'Range');
+    },
+  });
+
   function changeTab(nextTab: string) {
     if (!isAccessModelTab(nextTab)) {
       return;
@@ -214,7 +232,7 @@ export default function AccessModelPage() {
         </TabsContent>
 
         <TabsContent value="visitor-policies">
-          <VisitorPoliciesPanel assignments={visitorAssignmentsQuery.data ?? []} packages={packagesOptionsQuery.data ?? []} isLoading={visitorAssignmentsQuery.isLoading || packagesOptionsQuery.isLoading} isError={visitorAssignmentsQuery.isError || packagesOptionsQuery.isError} />
+          <VisitorPoliciesPanel assignments={visitorAssignmentsQuery.data ?? []} packages={packagesOptionsQuery.data ?? []} qrCredentialTypes={qrCredentialTypesQuery.data ?? []} visitorConfig={visitorPreOnboardingConfigQuery.data} isLoading={visitorAssignmentsQuery.isLoading || packagesOptionsQuery.isLoading || visitorPreOnboardingConfigQuery.isLoading || qrCredentialTypesQuery.isLoading} isError={visitorAssignmentsQuery.isError || packagesOptionsQuery.isError || visitorPreOnboardingConfigQuery.isError || qrCredentialTypesQuery.isError} />
         </TabsContent>
       </Tabs>
     </section>
@@ -402,14 +420,23 @@ function HrPoliciesPanel({ settings, ouRules, personaRules, organizationUnits, p
   );
 }
 
-function VisitorPoliciesPanel({ assignments, packages, isLoading, isError }: { readonly assignments: AccessRuleAssignmentResponse[]; readonly packages: PackageResponse[]; readonly isLoading: boolean; readonly isError: boolean; }) {
+function VisitorPoliciesPanel({ assignments, packages, qrCredentialTypes, visitorConfig, isLoading, isError }: { readonly assignments: AccessRuleAssignmentResponse[]; readonly packages: PackageResponse[]; readonly qrCredentialTypes: CredentialTypeResponse[]; readonly visitorConfig: components['schemas']['VisitorPreOnboardingSagaConfigRequest'] | undefined; readonly isLoading: boolean; readonly isError: boolean; }) {
   const queryClient = useQueryClient();
   const [isAddRuleOpen, setIsAddRuleOpen] = useState(false);
   const [selectedTrigger, setSelectedTrigger] = useState<ReceptionAccessPolicyTrigger>('ExpectedVisitorAdded');
   const [selectedPackageId, setSelectedPackageId] = useState('');
   const [gracePeriodMinutes, setGracePeriodMinutes] = useState('0');
+  const [selectedQrCredentialTypeId, setSelectedQrCredentialTypeId] = useState<string>('');
+  const [credentialGraceStartMinutes, setCredentialGraceStartMinutes] = useState('30');
+  const [credentialGraceEndMinutes, setCredentialGraceEndMinutes] = useState('30');
   const packageById = new Map(packages.map((item) => [item.id, item]));
   const visitorAssignments = assignments.filter((assignment) => assignment.trigger !== 'ContractorExpectedAdded' && assignment.trigger !== 'ContractorOnboarded');
+
+  useEffect(() => {
+    setSelectedQrCredentialTypeId(visitorConfig?.qrCredentialTypeId ?? '');
+    setCredentialGraceStartMinutes(String(visitorConfig?.graceStartMinutes ?? 30));
+    setCredentialGraceEndMinutes(String(visitorConfig?.graceEndMinutes ?? 30));
+  }, [visitorConfig?.qrCredentialTypeId, visitorConfig?.graceStartMinutes, visitorConfig?.graceEndMinutes]);
 
   const createAssignment = useMutation({
     mutationFn: async (request: CreateAccessRuleAssignmentRequest) => {
@@ -439,6 +466,50 @@ function VisitorPoliciesPanel({ assignments, packages, isLoading, isError }: { r
     onError: () => toast.error('Could not remove visitor trigger assignment.'),
   });
 
+  const updateVisitorConfig = useMutation({
+    mutationFn: async () => {
+      const parsedGraceStartMinutes = Number.parseInt(credentialGraceStartMinutes, 10);
+      const parsedGraceEndMinutes = Number.parseInt(credentialGraceEndMinutes, 10);
+
+      if (Number.isNaN(parsedGraceStartMinutes) || parsedGraceStartMinutes < 0 || Number.isNaN(parsedGraceEndMinutes) || parsedGraceEndMinutes < 0) {
+        throw new Error('Grace values must be zero or greater.');
+      }
+
+      return updateVisitorPreOnboardingConfig({
+        ...(visitorConfig ?? {
+          useCustomInviteNotification: false,
+          customInviteNotification: null,
+          qrCredentialTypeId: null,
+          graceStartMinutes: 30,
+          graceEndMinutes: 30,
+          sendConfirmNotificationToHost: false,
+          useCustomConfirmNotification: false,
+          customConfirmNotification: null,
+          sendCancellationNotification: false,
+          useCustomCancellationNotification: false,
+          customCancellationNotification: null,
+          sendRescheduleNotification: false,
+          useCustomRescheduleNotification: false,
+          customRescheduleNotification: null,
+          sendRelocationNotification: false,
+          useCustomRelocationNotification: false,
+          customRelocationNotification: null,
+          sendArrivalNotificationToHost: false,
+          useCustomArrivalNotification: false,
+          customArrivalNotification: null,
+        }),
+        qrCredentialTypeId: selectedQrCredentialTypeId || null,
+        graceStartMinutes: parsedGraceStartMinutes,
+        graceEndMinutes: parsedGraceEndMinutes,
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: visitorPreOnboardingConfigQueryKey });
+      toast.success('Visitor QR credential settings saved.');
+    },
+    onError: (error) => toast.error(error.message === 'Grace values must be zero or greater.' ? error.message : 'Could not save visitor QR credential settings.'),
+  });
+
   function handleAddAssignment() {
     const parsedGracePeriodMinutes = Number.parseInt(gracePeriodMinutes, 10);
     if (!selectedPackageId || Number.isNaN(parsedGracePeriodMinutes) || parsedGracePeriodMinutes < 0) {
@@ -457,23 +528,61 @@ function VisitorPoliciesPanel({ assignments, packages, isLoading, isError }: { r
     <div className="grid gap-6 pt-4">
       <div>
         <h2 className="text-[20px] font-semibold tracking-tight">Visitor Policies</h2>
-        <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">Assign access packages automatically when visitor reception triggers occur.</p>
+        <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">Configure visitor QR credential issuance and map reception triggers to access packages.</p>
       </div>
 
       {isError ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load visitor policies.</p> : null}
       {isLoading ? <p className="rounded-structural border border-border p-4 text-[14px] text-muted-foreground">Loading visitor policies...</p> : null}
 
       {!isLoading && !isError ? (
-        <div className="rounded-structural border border-border p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="grid gap-5">
+          <div className="rounded-structural border border-border bg-content p-5">
             <div>
-              <h3 className="text-[18px] font-semibold tracking-tight">Reception Trigger Assignments</h3>
+              <h3 className="text-[18px] font-semibold tracking-tight">Visitor QR Credential</h3>
+              <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">Choose the QR credential type used by visitor pre-onboarding and define how long it stays valid around the visit window.</p>
             </div>
-            <Button type="button" variant="outline" size="sm" disabled={createAssignment.isPending || packages.length === 0} onClick={() => setIsAddRuleOpen((current) => !current)}>{isAddRuleOpen ? 'Cancel' : 'Add trigger assignment'}</Button>
+
+            <div className="mt-5 grid gap-4 lg:max-w-3xl lg:grid-cols-2">
+              <label className="grid gap-2 text-[14px] font-medium lg:col-span-2">
+                <span>Credential Type</span>
+                <select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={selectedQrCredentialTypeId} onChange={(event) => setSelectedQrCredentialTypeId(event.target.value)}>
+                  <option value="">No credential type configured</option>
+                  {qrCredentialTypes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                </select>
+                <span className="text-[12px] font-normal text-muted-foreground">Only active QR credential types with range allocation are eligible.</span>
+              </label>
+
+              <label className="grid gap-2 text-[14px] font-medium">
+                <span>Grace Before Start (minutes)</span>
+                <input className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" type="number" min="0" step="1" value={credentialGraceStartMinutes} onChange={(event) => setCredentialGraceStartMinutes(event.target.value)} />
+              </label>
+
+              <label className="grid gap-2 text-[14px] font-medium">
+                <span>Grace After End (minutes)</span>
+                <input className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" type="number" min="0" step="1" value={credentialGraceEndMinutes} onChange={(event) => setCredentialGraceEndMinutes(event.target.value)} />
+              </label>
+            </div>
+
+            <div className="mt-4 space-y-2 text-[13px] text-muted-foreground">
+              {!selectedQrCredentialTypeId ? <p>Visitor pre-onboarding keeps retrying QR issuance until a credential type is configured.</p> : null}
+            </div>
+
+            <div className="mt-5 flex justify-end">
+              <Button type="button" variant="outline" disabled={updateVisitorConfig.isPending} onClick={() => updateVisitorConfig.mutate()}>{updateVisitorConfig.isPending ? 'Saving...' : 'Save QR credential settings'}</Button>
+            </div>
           </div>
 
-          {isAddRuleOpen ? (
-            <div className="mt-4 grid gap-3 rounded-structural border border-border p-4 lg:grid-cols-3">
+          <div className="rounded-structural border border-border bg-content p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h3 className="text-[18px] font-semibold tracking-tight">Reception Trigger Assignments</h3>
+                <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">Map reception triggers to visitor access packages and define the trigger-specific grace period around arrival processing.</p>
+              </div>
+              <Button type="button" variant="outline" size="sm" disabled={createAssignment.isPending || packages.length === 0} onClick={() => setIsAddRuleOpen((current) => !current)}>{isAddRuleOpen ? 'Cancel' : 'Add trigger assignment'}</Button>
+            </div>
+
+            {isAddRuleOpen ? (
+            <div className="mt-4 grid gap-3 rounded-structural border border-border p-4 lg:max-w-3xl">
               <label className="grid gap-2 text-[14px] font-medium">
                 <span>Trigger</span>
                 <select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={selectedTrigger} onChange={(event) => setSelectedTrigger(event.target.value as ReceptionAccessPolicyTrigger)}>
@@ -491,11 +600,11 @@ function VisitorPoliciesPanel({ assignments, packages, isLoading, isError }: { r
                 <span>Grace Period Minutes</span>
                 <input className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" type="number" min="0" step="1" value={gracePeriodMinutes} onChange={(event) => setGracePeriodMinutes(event.target.value)} />
               </label>
-              <div className="lg:col-span-3 flex justify-end">
+              <div className="flex justify-end">
                 <Button type="button" disabled={createAssignment.isPending || !selectedPackageId} onClick={handleAddAssignment}>{createAssignment.isPending ? 'Adding...' : 'Add assignment'}</Button>
               </div>
             </div>
-          ) : null}
+            ) : null}
 
           {visitorAssignments.length === 0 ? (
             <p className="mt-4 text-[14px] text-muted-foreground">No visitor trigger assignments configured.</p>
@@ -540,6 +649,7 @@ function VisitorPoliciesPanel({ assignments, packages, isLoading, isError }: { r
               </div>
             </>
           )}
+          </div>
         </div>
       ) : null}
     </div>

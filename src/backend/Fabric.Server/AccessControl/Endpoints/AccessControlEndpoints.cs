@@ -78,10 +78,12 @@ public static class AccessControlEndpoints
 
         credentialTargets.MapGet("", ListCredentialTypeTargets)
             .Produces<Page<CredentialTypeTargetResponse>>();
-        credentialTargets.MapPost("", CreateCredentialTypeTarget)
-            .Produces<CredentialTypeTargetResponse>(StatusCodes.Status201Created);
-        credentialTargets.MapPut("/{targetId:guid}", UpdateCredentialTypeTarget)
-            .Produces<CredentialTypeTargetResponse>()
+        credentialTargets.MapPost("/unipass", CreateUnipassCredentialTypeTarget)
+            .Produces<UnipassCredentialTypeTargetResponse>(StatusCodes.Status201Created)
+            .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound);
+        credentialTargets.MapPut("/unipass/{targetId:guid}", UpdateUnipassCredentialTypeTarget)
+            .Produces<UnipassCredentialTypeTargetResponse>()
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound);
 
         credentialAssignments.MapGet("", ListCredentialPacsAssignments)
@@ -351,23 +353,23 @@ public static class AccessControlEndpoints
         return Results.Ok(result.Map(item => item.ToResponse()));
     }
 
-    private static async Task<IResult> CreateCredentialTypeTarget(
-        [FromBody] CreateCredentialTypeTargetRequest request,
+    private static async Task<IResult> CreateUnipassCredentialTypeTarget(
+        [FromBody] CreateUnipassCredentialTypeTargetRequest request,
         CredentialPACSAssignmentService service,
         CancellationToken cancellationToken = default)
     {
-        Result<CredentialTypeTarget, AccessControlErrors> result = await service.CreateCredentialTypeTargetAsync(request.CredentialTypeId, request.AccessControlSystemId, request.ProviderCredentialTypeId, request.ProvisioningTiming, cancellationToken);
-        return result.Match<IResult>(item => Results.Created($"/api/access-control/credential-type-targets/{item.Id}", item.ToResponse()), error => MapError(error).ToResult());
+        Result<UnipassCredentialTypeTarget, AccessControlErrors> result = await service.CreateUnipassCredentialTypeTargetAsync(request.CredentialTypeId, request.AccessControlSystemId, request.ProvisioningTiming, cancellationToken);
+        return result.Match<IResult>(item => Results.Created($"/api/access-control/credential-type-targets/unipass/{item.Id}", (UnipassCredentialTypeTargetResponse)item.ToResponse()), error => MapError(error).ToResult());
     }
 
-    private static async Task<IResult> UpdateCredentialTypeTarget(
+    private static async Task<IResult> UpdateUnipassCredentialTypeTarget(
         Guid targetId,
-        [FromBody] UpdateCredentialTypeTargetRequest request,
+        [FromBody] UpdateUnipassCredentialTypeTargetRequest request,
         CredentialPACSAssignmentService service,
         CancellationToken cancellationToken = default)
     {
-        Result<CredentialTypeTarget, AccessControlErrors> result = await service.UpdateCredentialTypeTargetAsync(targetId, request.ProviderCredentialTypeId, request.ProvisioningTiming, request.IsEnabled, cancellationToken);
-        return result.Map(item => item.ToResponse()).AsResponse(MapError);
+        Result<UnipassCredentialTypeTarget, AccessControlErrors> result = await service.UpdateUnipassCredentialTypeTargetAsync(targetId, request.ProvisioningTiming, request.IsEnabled, cancellationToken);
+        return result.Map(item => (UnipassCredentialTypeTargetResponse)item.ToResponse()).AsResponse(MapError);
     }
 
     private static async Task<IResult> ListCredentialPacsAssignments(
@@ -376,6 +378,10 @@ public static class AccessControlEndpoints
         CancellationToken cancellationToken = default)
     {
         IQueryable<CredentialPACSAssignment> query = db.CredentialPACSAssignments.AsNoTracking();
+
+        if (request.CredentialIds.Length > 0)
+            query = query.Where(item => request.CredentialIds.Contains(item.CredentialId));
+
         if (request.CredentialId.HasValue)
             query = query.Where(item => item.CredentialId == request.CredentialId.Value);
         if (request.AccessControlSystemId.HasValue)

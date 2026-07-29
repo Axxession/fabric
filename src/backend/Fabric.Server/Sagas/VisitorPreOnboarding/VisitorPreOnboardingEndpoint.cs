@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QRCoder;
+using Fabric.Server.CredentialManagement.Domain;
+using Fabric.Server.CredentialManagement.Persistence;
 
 namespace Fabric.Server.Sagas.VisitorPreOnboarding;
 
@@ -90,10 +92,11 @@ public static class VisitorPreOnboardingSagaEndpoints
     private static async Task<IResult> UpdateConfiguration(
         [FromBody] VisitorPreOnboardingSagaConfigRequest request,
         VisitorPreOnboardingSagaService service,
+        CredentialManagementDbContext credentialDb,
         CancellationToken cancellationToken = default
     )
     {
-        IResult? validationResult = ValidateRequest(request);
+        IResult? validationResult = await ValidateRequestAsync(request, credentialDb, cancellationToken);
         if (validationResult is not null)
             return validationResult;
 
@@ -101,9 +104,9 @@ public static class VisitorPreOnboardingSagaEndpoints
         {
             UseCustomInviteNotification = request.UseCustomInviteNotification,
             CustomInviteNotification = request.UseCustomInviteNotification ? request.CustomInviteNotification : null,
-            QrGenerationMode = request.QrGenerationMode,
-            SystemId = request.QrGenerationMode == CredentialGenerationMode.AccessControlQr ? request.SystemId : null,
-            BadgeTypeId = request.QrGenerationMode == CredentialGenerationMode.AccessControlQr ? request.BadgeTypeId : null,
+            QrCredentialTypeId = request.QrCredentialTypeId,
+            GraceStartMinutes = request.GraceStartMinutes,
+            GraceEndMinutes = request.GraceEndMinutes,
             SendConfirmNotificationToHost = request.SendConfirmNotificationToHost,
             UseCustomConfirmNotification = request.SendConfirmNotificationToHost && request.UseCustomConfirmNotification,
             CustomConfirmNotification = request.SendConfirmNotificationToHost && request.UseCustomConfirmNotification ? request.CustomConfirmNotification : null,
@@ -125,13 +128,32 @@ public static class VisitorPreOnboardingSagaEndpoints
         return Results.Ok(updated);
     }
 
-    private static IResult? ValidateRequest(VisitorPreOnboardingSagaConfigRequest request)
+    private static async Task<IResult?> ValidateRequestAsync(VisitorPreOnboardingSagaConfigRequest request, CredentialManagementDbContext credentialDb, CancellationToken cancellationToken)
     {
         if (!IsValidCustomNotification(request.UseCustomInviteNotification, request.CustomInviteNotification))
             return ValidationProblem("Custom invitation notification requires subject and body.");
 
-        if (request.QrGenerationMode == CredentialGenerationMode.AccessControlQr && (!request.SystemId.HasValue || !request.BadgeTypeId.HasValue))
-            return ValidationProblem("Access control QR requires system and badge type.");
+        if (request.QrCredentialTypeId.HasValue)
+        {
+            CredentialType? credentialType = await credentialDb.CredentialTypes
+                .AsNoTracking()
+                .SingleOrDefaultAsync(item => item.Id == request.QrCredentialTypeId.Value, cancellationToken);
+
+            if (credentialType is null)
+                return ValidationProblem("Configured visitor QR credential type was not found.");
+
+            if (credentialType.Technology != CredentialTechnology.Qr)
+                return ValidationProblem("Configured visitor QR credential type must use QR technology.");
+
+            if (credentialType.AllocationMode != CredentialAllocationMode.Range)
+                return ValidationProblem("Configured visitor QR credential type must use range allocation.");
+        }
+
+        if (request.GraceStartMinutes < 0)
+            return ValidationProblem("Visitor credential grace before start must be zero or greater.");
+
+        if (request.GraceEndMinutes < 0)
+            return ValidationProblem("Visitor credential grace after end must be zero or greater.");
 
         if (!IsValidCustomNotification(request.SendConfirmNotificationToHost && request.UseCustomConfirmNotification, request.CustomConfirmNotification))
             return ValidationProblem("Custom confirmation notification requires subject and body.");
@@ -205,9 +227,9 @@ public static class VisitorPreOnboardingSagaEndpoints
 public sealed record VisitorPreOnboardingSagaConfigRequest(
     bool UseCustomInviteNotification,
     CustomNotification? CustomInviteNotification,
-    CredentialGenerationMode QrGenerationMode,
-    Guid? SystemId,
-    Guid? BadgeTypeId,
+    Guid? QrCredentialTypeId,
+    int GraceStartMinutes,
+    int GraceEndMinutes,
     bool SendConfirmNotificationToHost,
     bool UseCustomConfirmNotification,
     CustomNotification? CustomConfirmNotification,

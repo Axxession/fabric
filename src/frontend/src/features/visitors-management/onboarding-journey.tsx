@@ -5,9 +5,8 @@ type VisitorPreOnboardingState = components['schemas']['VisitorPreOnboardingStat
 
 const STEPS = [
   { key: 'invited', label: 'Invited' },
-  { key: 'arrival', label: 'Registering Arrival' },
   { key: 'qr', label: 'Generate QR' },
-  { key: 'qr-reception', label: 'Register QR at Reception' },
+  { key: 'arrival', label: 'Registering Arrival' },
   { key: 'sent', label: 'Sent Invitation' },
   { key: 'await', label: 'Awaiting Confirmation' },
 ] as const;
@@ -15,9 +14,8 @@ const STEPS = [
 type StepStatus = 'done' | 'current' | 'todo' | 'fail';
 
 const ACTIVE_STATES: readonly VisitorPreOnboardingState[] = [
-  'RegisteringArrival',
   'GeneratingQr',
-  'UpdatingArrivalQr',
+  'RegisteringArrival',
   'SendingInvitation',
   'AwaitingConfirmation',
 ] as const;

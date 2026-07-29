@@ -16,6 +16,9 @@ type AccessLevelTargetResponse = components['schemas']['AccessLevelTargetRespons
 type AccessItemResponse = components['schemas']['AccessItemResponse'];
 type AccessGrantMaterializationOutcomeResponse = components['schemas']['AccessGrantMaterializationOutcomeResponse'];
 type AccessGrantResponse = components['schemas']['AccessGrantResponse'];
+type CredentialPACSAssignmentResponse = components['schemas']['CredentialPACSAssignmentResponse'];
+type CredentialResponse = components['schemas']['CredentialResponse'];
+type CredentialTypeResponse = components['schemas']['CredentialTypeResponse'];
 type EmployeeResponse = components['schemas']['EmployeeResponse'];
 type IdentityAffiliationSummaryResponse = components['schemas']['IdentityAffiliationSummaryResponse'];
 type IdentityResponse = components['schemas']['IdentityResponse'];
@@ -32,11 +35,12 @@ type PackageResponse = components['schemas']['PackageResponse'];
 type PackageRequestStatus = components['schemas']['PackageRequestStatus'];
 type VisitorResponse = components['schemas']['VisitorResponse'];
 
-type IdentitySection = 'overview' | 'assignments' | 'known-in' | 'requests';
+type IdentitySection = 'overview' | 'assignments' | 'credentials' | 'known-in' | 'requests';
 
 const sections: readonly { id: IdentitySection; label: string; description: string }[] = [
   { id: 'overview', label: 'Overview', description: 'Employee and visitor details for this identity.' },
   { id: 'assignments', label: 'Assignments', description: 'Granted access and PACS provisioning state.' },
+  { id: 'credentials', label: 'Credentials', description: 'Issued credentials and PACS provisioning state.' },
   { id: 'known-in', label: 'Known in', description: 'PACS subjects linked to this identity.' },
   { id: 'requests', label: 'Requests', description: 'Catalog requests where this identity is beneficiary.' },
 ];
@@ -59,7 +63,7 @@ export default function IdentityDetailPage() {
 
   const systemsQuery = useQuery({
     queryKey: ['security-officer', 'identity-360', identityId, 'systems'],
-    enabled: section === 'assignments' || section === 'known-in',
+    enabled: section === 'assignments' || section === 'credentials' || section === 'known-in',
     queryFn: async () => {
       const { data, error } = await api.GET('/api/access-control/systems', { params: { query: { Name: undefined, Page: 0, PageSize: 200 } as never } });
       if (error) {
@@ -226,6 +230,50 @@ export default function IdentityDetailPage() {
     },
   });
 
+  const credentialsQuery = useQuery({
+    queryKey: ['security-officer', 'identity-360', identityId, 'credentials'],
+    enabled: section === 'credentials',
+    queryFn: async () => {
+      const credentialsResult = await api.GET('/api/credential-management/credentials', {
+        params: { query: { CredentialTypeId: undefined, IdentityId: identityId, Status: undefined, Page: 0, PageSize: 200 } as never },
+      });
+
+      if (credentialsResult.error) {
+        throw new Error('Could not load credentials.');
+      }
+
+      const credentials = credentialsResult.data?.items ?? [];
+      const credentialIds = credentials.map((item: CredentialResponse) => item.id);
+      const credentialTypeIds = Array.from(new Set(credentials.map((item: CredentialResponse) => item.credentialTypeId)));
+
+      const [assignmentsResult, credentialTypesResult] = await Promise.all([
+        credentialIds.length > 0
+          ? api.GET('/api/access-control/credential-pacs-assignments', {
+            params: { query: { CredentialId: undefined, CredentialIds: credentialIds, AccessControlSystemId: undefined, Status: undefined, Page: 0, PageSize: 500 } as never },
+          })
+          : Promise.resolve({ data: { items: [] }, error: undefined }),
+        credentialTypeIds.length > 0
+          ? api.GET('/api/credential-management/credential-types', {
+            params: { query: { Query: undefined, Technology: undefined, Status: undefined, Page: 0, PageSize: 200 } as never },
+          })
+          : Promise.resolve({ data: { items: [] }, error: undefined }),
+      ]);
+
+      if (assignmentsResult.error || credentialTypesResult.error) {
+        throw new Error('Could not load credential provisioning state.');
+      }
+
+      const assignments = assignmentsResult.data?.items ?? [];
+      const credentialTypes = credentialTypesResult.data?.items ?? [];
+
+      return {
+        credentials,
+        assignmentsByCredentialId: new Map(groupBy(assignments, (item) => item.credentialId)),
+        credentialTypesById: new Map(credentialTypes.filter((item: CredentialTypeResponse) => credentialTypeIds.includes(item.id)).map((item: CredentialTypeResponse) => [item.id, item])),
+      };
+    },
+  });
+
   const requestsQuery = useQuery({
     queryKey: ['security-officer', 'identity-360', identityId, 'requests'],
     enabled: section === 'requests',
@@ -283,6 +331,7 @@ export default function IdentityDetailPage() {
             <div className="grid gap-4">
               {section === 'overview' ? <OverviewSection employeeDetails={employeeDetailsQuery.data ?? []} employeeWorkLocationLabels={employeeWorkLocationLabelsQuery.data ?? new Map<string, string>()} employeeLoading={employeeDetailsQuery.isLoading || employeeWorkLocationLabelsQuery.isLoading} employeeError={employeeDetailsQuery.isError || employeeWorkLocationLabelsQuery.isError} visitorDetails={visitorDetailsQuery.data ?? []} visitorLoading={visitorDetailsQuery.isLoading} visitorError={visitorDetailsQuery.isError} /> : null}
               {section === 'assignments' ? <AssignmentsSection identityId={identityId} data={assignmentsQuery.data} isLoading={assignmentsQuery.isLoading} isError={assignmentsQuery.isError} systemsById={systemsQuery.data ?? new Map<string, AccessControlSystemResponse>()} /> : null}
+              {section === 'credentials' ? <CredentialsSection data={credentialsQuery.data} isLoading={credentialsQuery.isLoading} isError={credentialsQuery.isError} systemsById={systemsQuery.data ?? new Map<string, AccessControlSystemResponse>()} /> : null}
               {section === 'known-in' ? <KnownInSection subjects={subjectsQuery.data ?? []} isLoading={subjectsQuery.isLoading} isError={subjectsQuery.isError} systemsById={systemsQuery.data ?? new Map<string, AccessControlSystemResponse>()} /> : null}
               {section === 'requests' ? <RequestsSection data={requestsQuery.data} isLoading={requestsQuery.isLoading} isError={requestsQuery.isError} onOpenRequest={(requestId) => void navigate({ to: '/security-officer/identities/$identityId/requests/$requestId', params: { identityId, requestId } })} /> : null}
             </div>
@@ -667,6 +716,55 @@ function KnownInSection({ subjects, isLoading, isError, systemsById }: { readonl
   );
 }
 
+function CredentialsSection({ data, isLoading, isError, systemsById }: { readonly data: CredentialsData | undefined; readonly isLoading: boolean; readonly isError: boolean; readonly systemsById: Map<string, AccessControlSystemResponse>; }) {
+  if (isError) {
+    return <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load credentials.</p>;
+  }
+
+  if (isLoading) {
+    return <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">Loading credentials...</p>;
+  }
+
+  const credentials = data?.credentials ?? [];
+  if (credentials.length === 0) {
+    return <Card className="p-6 text-[14px] text-muted-foreground">No issued credentials for this identity.</Card>;
+  }
+
+  return (
+    <div className="grid gap-4">
+      {credentials.map((credential) => {
+        const credentialType = data?.credentialTypesById.get(credential.credentialTypeId);
+        const assignments = data?.assignmentsByCredentialId.get(credential.id) ?? [];
+
+        return (
+          <Card key={credential.id} className="p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-[18px] font-semibold tracking-tight">{credentialType?.name ?? credential.identifier}</h2>
+                <p className="mt-1 text-[14px] text-muted-foreground">Identifier: {credential.identifier}</p>
+              </div>
+              <Badge variant={getCredentialStatusVariant(credential.status)}>{credential.status}</Badge>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <Info label="Credential type" value={credentialType?.name ?? credential.credentialTypeId} />
+              <Info label="Purpose" value={credential.purpose} />
+              <Info label="Duration" value={credential.durationKind} />
+              <Info label="Source" value={credential.sourceKind} />
+              <Info label="Valid from" value={formatDateTimeLabel(credential.validFrom)} />
+              <Info label="Valid until" value={credential.validUntil ? formatDateTimeLabel(credential.validUntil) : 'No end date'} />
+              <Info label="Issued at" value={formatDateTimeLabel(credential.createdAt)} />
+              <Info label="Reason" value={credential.reasonText} />
+            </div>
+            <div className="mt-4">
+              <CredentialProvisioningPanel assignments={assignments} systemsById={systemsById} />
+            </div>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
 function RequestsSection({ data, isLoading, isError, onOpenRequest }: { readonly data: { readonly requests: PackageRequestResponse[]; readonly packagesById: Map<string, PackageResponse>; } | undefined; readonly isLoading: boolean; readonly isError: boolean; readonly onOpenRequest: (requestId: string) => void; }) {
   if (isError) {
     return <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load requests.</p>;
@@ -724,6 +822,17 @@ function ProvisioningInsightPanel({ title, emptyLabel, items }: { readonly title
   );
 }
 
+function CredentialProvisioningPanel({ assignments, systemsById }: { readonly assignments: readonly CredentialPACSAssignmentResponse[]; readonly systemsById: Map<string, AccessControlSystemResponse>; }) {
+  return (
+    <div className="rounded-interactive border border-border p-4">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Provisioning</p>
+      <div className="mt-3 grid gap-2">
+        {assignments.length === 0 ? <p className="text-[14px] text-muted-foreground">No PACS provisioning rows yet.</p> : assignments.map((assignment) => <div key={assignment.id} className="rounded-interactive border border-border bg-background p-3"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-medium text-foreground">{systemsById.get(assignment.accessControlSystemId)?.name ?? assignment.accessControlSystemId}</p><p className="mt-1 text-[13px] text-muted-foreground">Credential assignment</p></div><Badge variant={getInfraStatusVariant(assignment.status)}>{assignment.status}</Badge></div><dl className="mt-3 grid gap-2 text-[13px] text-muted-foreground"><div className="flex items-center justify-between gap-3"><dt>Scheduled</dt><dd className="text-right">{formatDateTimeLabel(assignment.scheduledFor)}</dd></div><div className="flex items-center justify-between gap-3"><dt>Provisioned</dt><dd className="text-right">{assignment.provisionedAt ? formatDateTimeLabel(assignment.provisionedAt) : '-'}</dd></div><div className="flex items-center justify-between gap-3"><dt>Revoked</dt><dd className="text-right">{assignment.revokedAt ? formatDateTimeLabel(assignment.revokedAt) : '-'}</dd></div><div className="flex items-center justify-between gap-3"><dt>Attempts</dt><dd className="text-right">{assignment.attemptCount}</dd></div>{assignment.lastAttemptAt ? <div className="flex items-center justify-between gap-3"><dt>Last attempt</dt><dd className="text-right">{formatDateTimeLabel(assignment.lastAttemptAt)}</dd></div> : null}{assignment.failureReasonCode ? <div className="flex items-center justify-between gap-3"><dt>Failure</dt><dd className="text-right text-error">{assignment.failureReasonCode}</dd></div> : null}{assignment.errorMessage ? <div className="flex items-center justify-between gap-3"><dt>Error</dt><dd className="text-right text-error">{assignment.errorMessage}</dd></div> : null}{assignment.nativeAssignmentId ? <div className="flex items-center justify-between gap-3"><dt>Native assignment</dt><dd className="text-right">{assignment.nativeAssignmentId}</dd></div> : null}</dl></div>)}
+      </div>
+    </div>
+  );
+}
+
 function Info({ label, value }: { readonly label: string; readonly value: string }) {
   return <div className="rounded-interactive border border-border p-3"><div className="text-[12px] uppercase text-muted-foreground">{label}</div><div className="mt-1 break-all text-[14px] font-medium text-foreground">{value}</div></div>;
 }
@@ -741,6 +850,19 @@ function getIdentityStatusVariant(status: IdentityResponse['status']) {
     case 'Active':
       return 'success';
     case 'Suspended':
+      return 'secondary';
+    default:
+      return 'error';
+  }
+}
+
+function getCredentialStatusVariant(status: CredentialResponse['status']) {
+  switch (status) {
+    case 'Active':
+    case 'Issued':
+      return 'success';
+    case 'Suspended':
+    case 'Expired':
       return 'secondary';
     default:
       return 'error';
@@ -839,6 +961,12 @@ type AssignmentData = {
   readonly locationsById: Map<string, LocationResponse>;
   readonly targetsById: Map<string, AccessLevelTargetResponse>;
   readonly requestDetailsById: Map<string, PackageRequestDetailResponse>;
+};
+
+type CredentialsData = {
+  readonly credentials: CredentialResponse[];
+  readonly assignmentsByCredentialId: Map<string, CredentialPACSAssignmentResponse[]>;
+  readonly credentialTypesById: Map<string, CredentialTypeResponse>;
 };
 
 type PackageAssignmentGroupView = {

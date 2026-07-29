@@ -5,6 +5,7 @@ using Fabric.Server.CredentialManagement.Domain;
 using Fabric.Server.CredentialManagement.Persistence;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using QRCoder;
 
 namespace Fabric.Server.CredentialManagement.Endpoints;
 
@@ -58,6 +59,12 @@ public static class CredentialManagementEndpoints
         credentials.MapGet("/{id:guid}", GetCredential)
             .WithSummary("Get credential")
             .Produces<CredentialResponse>()
+            .Produces(StatusCodes.Status404NotFound);
+        credentials.MapGet("/{id:guid}/qr", RenderCredentialQr)
+            .WithSummary("Render credential QR")
+            .AllowAnonymous()
+            .Produces(StatusCodes.Status200OK, contentType: "image/png")
+            .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound);
         credentials.MapPost("", IssueCredential)
             .WithSummary("Issue credential")
@@ -220,7 +227,8 @@ public static class CredentialManagementEndpoints
             .OrderByDescending(credential => credential.CreatedAt)
             .GetPageAsync(request.Page, request.PageSize, cancellationToken);
 
-        return Results.Ok(page.Map(credential => credential.ToResponse()));
+        Dictionary<Guid, CredentialType> credentialTypes = await LoadCredentialTypesAsync(page.Items.Select(credential => credential.CredentialTypeId).Distinct().ToArray(), db, cancellationToken);
+        return Results.Ok(page.Map(credential => credential.ToResponse(credentialTypes.GetValueOrDefault(credential.CredentialTypeId))));
     }
 
     private static async Task<IResult> GetCredential(
@@ -229,18 +237,68 @@ public static class CredentialManagementEndpoints
         CancellationToken cancellationToken = default)
     {
         Credential? credential = await db.Credentials.AsNoTracking().SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
-        return credential is null ? Results.NotFound() : Results.Ok(credential.ToResponse());
+        if (credential is null)
+            return Results.NotFound();
+
+        CredentialType? credentialType = await db.CredentialTypes.AsNoTracking().SingleOrDefaultAsync(item => item.Id == credential.CredentialTypeId, cancellationToken);
+        return Results.Ok(credential.ToResponse(credentialType));
+    }
+
+    private static async Task<IResult> RenderCredentialQr(
+        Guid id,
+        CredentialManagementDbContext db,
+        [FromQuery] int size = 150,
+        CancellationToken cancellationToken = default)
+    {
+        Credential? credential = await db.Credentials.AsNoTracking().SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (credential is null)
+            return Results.NotFound();
+
+        CredentialType? credentialType = await db.CredentialTypes.AsNoTracking().SingleOrDefaultAsync(item => item.Id == credential.CredentialTypeId, cancellationToken);
+        if (credentialType is null)
+            return Results.NotFound();
+
+        if (credentialType.Technology != CredentialTechnology.Qr)
+            return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Credential type must use QR technology.");
+
+        if (size is < 32 or > 1024)
+            return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "QR size must be between 32 and 1024 pixels.");
+
+        string code = credentialType.FormatIdentifier(credential.Identifier);
+        using QRCodeData qrCodeData = QRCodeGenerator.GenerateQrCode(code, QRCodeGenerator.ECCLevel.Q);
+        using var qrCode = new PngByteQRCode(qrCodeData);
+        int pixelsPerModule = Math.Max(1, (int)Math.Round((double)size / qrCodeData.ModuleMatrix.Count));
+        byte[] image = qrCode.GetGraphic(pixelsPerModule);
+        return Results.File(image, "image/png");
     }
 
     private static async Task<IResult> IssueCredential(
         [FromBody] IssueCredentialRequest request,
         CredentialManagementService service,
+        CredentialManagementDbContext db,
         CancellationToken cancellationToken = default)
     {
         Result<Credential, CredentialManagementErrors> result = await service.IssueCredentialAsync(request, cancellationToken);
-        return result.Match<IResult>(
-            credential => Results.Created($"/api/credential-management/credentials/{credential.Id}", credential.ToResponse()),
-            error => ToResult(MapError(error)));
+        if (result.IsFailure(out CredentialManagementErrors error))
+            return ToResult(MapError(error));
+
+        result.IsSuccess(out Credential credential);
+        CredentialType? credentialType = await db.CredentialTypes.AsNoTracking().SingleOrDefaultAsync(item => item.Id == credential.CredentialTypeId, cancellationToken);
+        return Results.Created($"/api/credential-management/credentials/{credential.Id}", credential.ToResponse(credentialType));
+    }
+
+    private static async Task<Dictionary<Guid, CredentialType>> LoadCredentialTypesAsync(
+        Guid[] credentialTypeIds,
+        CredentialManagementDbContext db,
+        CancellationToken cancellationToken)
+    {
+        if (credentialTypeIds.Length == 0)
+            return [];
+
+        return await db.CredentialTypes
+            .AsNoTracking()
+            .Where(item => credentialTypeIds.Contains(item.Id))
+            .ToDictionaryAsync(item => item.Id, cancellationToken);
     }
 
     private static async Task<Dictionary<Guid, (int Used, int Available)>> GetCapacityAsync(
@@ -249,6 +307,11 @@ public static class CredentialManagementEndpoints
         CancellationToken cancellationToken)
     {
         Dictionary<Guid, int> used = await db.Credentials
+            .Join(
+                db.CredentialSlots.Where(slot => slot.Status == CredentialSlotStatus.Issued),
+                credential => credential.Id,
+                slot => slot.CredentialId,
+                (credential, _) => credential)
             .Where(credential => credentialTypeIds.Contains(credential.CredentialTypeId))
             .GroupBy(credential => credential.CredentialTypeId)
             .Select(group => new { CredentialTypeId = group.Key, Count = group.Count() })
@@ -262,7 +325,12 @@ public static class CredentialManagementEndpoints
         foreach (IGrouping<Guid, CredentialRange> group in ranges.GroupBy(range => range.CredentialTypeId))
         {
             long total = group.Sum(range => range.RangeStop - range.RangeStart + 1);
-            available[group.Key] = (int)Math.Max(0, total - used.GetValueOrDefault(group.Key));
+            Guid[] rangeIds = group.Select(range => range.Id).ToArray();
+            int unavailable = await db.CredentialSlots
+                .Where(slot => rangeIds.Contains(slot.CredentialRangeId))
+                .Where(slot => slot.Status != CredentialSlotStatus.Free)
+                .CountAsync(cancellationToken);
+            available[group.Key] = (int)Math.Max(0, total - unavailable);
         }
 
         return credentialTypeIds.ToDictionary(id => id, id => (used.GetValueOrDefault(id), available.GetValueOrDefault(id)));
@@ -294,6 +362,7 @@ public static class CredentialManagementEndpoints
             CredentialManagementErrors.CredentialRangeInvalid => Problem(StatusCodes.Status400BadRequest, "Credential range is invalid."),
             CredentialManagementErrors.CredentialIdentifierOutsideRange => Problem(StatusCodes.Status400BadRequest, "Credential identifier is outside the active credential ranges."),
             CredentialManagementErrors.CredentialIdentifierMustBeNumeric => Problem(StatusCodes.Status400BadRequest, "Credential identifier must be numeric for range allocation."),
+            CredentialManagementErrors.CredentialRecyclePolicyInvalid => Problem(StatusCodes.Status400BadRequest, "Credential recycle policy is invalid for this credential type."),
             CredentialManagementErrors.CredentialIdentifierRequired => Problem(StatusCodes.Status400BadRequest, "Credential identifier is required."),
             CredentialManagementErrors.TemporaryCredentialRequiresValidUntil => Problem(StatusCodes.Status400BadRequest, "Temporary credentials require a valid until value."),
             CredentialManagementErrors.PermanentCredentialMustNotHaveValidUntil => Problem(StatusCodes.Status400BadRequest, "Permanent credentials must not have a valid until value."),

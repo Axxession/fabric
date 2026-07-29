@@ -22,6 +22,8 @@ namespace Fabric.Server.CredentialManagement;
 [JsonSerializable(typeof(CredentialResponse))]
 [JsonSerializable(typeof(CredentialTechnology))]
 [JsonSerializable(typeof(CredentialAllocationMode))]
+[JsonSerializable(typeof(CredentialRecyclePolicy))]
+[JsonSerializable(typeof(CredentialIdentifierPaddingDirection))]
 [JsonSerializable(typeof(CredentialTypeStatus))]
 [JsonSerializable(typeof(CredentialCapacityState))]
 [JsonSerializable(typeof(CredentialDurationKind))]
