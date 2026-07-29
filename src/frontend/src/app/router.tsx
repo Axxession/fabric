@@ -31,6 +31,7 @@ import PersonaEditPage from '@/features/administration/persona-edit-page';
 import { EmployeeHostRoute } from '@/features/perspectives/employee-host-route';
 import { PerspectiveHomePage } from '@/features/perspectives/perspective-home-page';
 import { ReceptionKioskLayout } from '@/features/reception-kiosk/layout/reception-kiosk-layout';
+import { ReceptionDeskWorkstationLayout } from '@/features/reception-desk/layout/reception-desk-workstation-layout';
 
 const AccessPage = lazy(() => import('@/features/access/access-page'));
 const AuditPage = lazy(() => import('@/features/audit/audit-page'));
@@ -75,7 +76,11 @@ const IdentitiesPage = lazy(() => import('@/features/identities/identities-page'
 const KioskPage = lazy(() => import('@/features/kiosk/kiosk-page'));
 const KioskSetupPage = lazy(() => import('@/features/kiosk/kiosk-setup-page'));
 const OrganizationsPage = lazy(() => import('@/features/organizations/organizations-page'));
-const ReceptionDeskPage = lazy(() => import('@/features/reception-desk/reception-desk-page'));
+const ReceptionDeskArrivalsPage = lazy(() => import('@/features/reception-desk/reception-desk-arrivals-page'));
+const ReceptionDeskExpectedArrivalsPage = lazy(() => import('@/features/reception-desk/reception-desk-expected-arrivals-page'));
+const ReceptionDeskHistoryPage = lazy(() => import('@/features/reception-desk/reception-desk-history-page'));
+const ReceptionDeskWorkstationPage = lazy(() => import('@/features/reception-desk/reception-desk-workstation-page'));
+const ReceptionDeskWorkstationSetupPage = lazy(() => import('@/features/reception-desk/reception-desk-workstation-setup-page'));
 const ReceptionKioskArrivalPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-arrival-page'));
 const ReceptionKioskDocumentScanPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-document-scan-page'));
 const ReceptionKioskFaceScanPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-face-scan-page'));
@@ -117,6 +122,16 @@ const receptionKioskLayoutRoute = createRoute({
     <ReceptionKioskLayout>
       <Outlet />
     </ReceptionKioskLayout>
+  ),
+});
+
+const receptionDeskWorkstationLayoutRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/reception-desk-workstation',
+  component: () => (
+    <ReceptionDeskWorkstationLayout>
+      <Outlet />
+    </ReceptionDeskWorkstationLayout>
   ),
 });
 
@@ -636,10 +651,34 @@ const cardManagementPrintRunDetailRoute = createRoute({
   component: () => <LazyRoute component={<CardManagementPrintRunDetailPage />} />,
 });
 
-const receptionDeskRoute = createRoute({
-  getParentRoute: () => mainLayoutRoute,
-  path: '/old/reception-desk',
-  component: () => <ProtectedLazyRoute component={<ReceptionDeskPage />} />,
+const receptionDeskWorkstationIndexRoute = createRoute({
+  getParentRoute: () => receptionDeskWorkstationLayoutRoute,
+  path: '/',
+  component: () => <LazyRoute component={<ReceptionDeskWorkstationPage />} />,
+});
+
+const receptionDeskWorkstationSetupRoute = createRoute({
+  getParentRoute: () => receptionDeskWorkstationLayoutRoute,
+  path: '/setup',
+  component: () => <ProtectedLazyRoute component={<ReceptionDeskWorkstationSetupPage />} />,
+});
+
+const receptionDeskWorkstationExpectedArrivalsRoute = createRoute({
+  getParentRoute: () => receptionDeskWorkstationLayoutRoute,
+  path: '/expected-arrivals',
+  component: () => <ProtectedLazyRoute component={<ReceptionDeskExpectedArrivalsPage />} />,
+});
+
+const receptionDeskWorkstationArrivalsRoute = createRoute({
+  getParentRoute: () => receptionDeskWorkstationLayoutRoute,
+  path: '/arrivals',
+  component: () => <ProtectedLazyRoute component={<ReceptionDeskArrivalsPage />} />,
+});
+
+const receptionDeskWorkstationHistoryRoute = createRoute({
+  getParentRoute: () => receptionDeskWorkstationLayoutRoute,
+  path: '/history',
+  component: () => <ProtectedLazyRoute component={<ReceptionDeskHistoryPage />} />,
 });
 
 const visitorConfirmationRoute = createRoute({
@@ -844,11 +883,17 @@ const routeTree = rootRoute.addChildren([
       cardManagementEncoderEditRoute,
       cardManagementPrintRunDetailRoute,
     ]),
-    receptionDeskRoute,
     visitorConfirmationRoute,
     visitorsManagementRoute.addChildren([visitsIndexRoute, visitsRoute, visitCreateRoute, visitEditRoute, visitorsRoute, visitorReportingRoute]),
   ]),
   receptionKioskLayoutRoute.addChildren([receptionKioskIndexRoute, receptionKioskSetupRoute, receptionKioskScanQrRoute, receptionKioskArrivalRoute, receptionKioskFaceScanRoute, receptionKioskDocumentScanRoute, receptionKioskSuccessRoute, receptionKioskFailedRoute, receptionKioskNoRegistrationRoute]),
+  receptionDeskWorkstationLayoutRoute.addChildren([
+    receptionDeskWorkstationIndexRoute,
+    receptionDeskWorkstationSetupRoute,
+    receptionDeskWorkstationExpectedArrivalsRoute,
+    receptionDeskWorkstationArrivalsRoute,
+    receptionDeskWorkstationHistoryRoute,
+  ]),
   kioskLayoutRoute.addChildren([kioskIndexRoute, kioskSetupRoute]),
 ]);
 

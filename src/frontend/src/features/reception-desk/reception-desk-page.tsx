@@ -10,7 +10,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/shared/components/ui/pagination';
 import { cn } from '@/shared/utils/cn';
 
-import { OnboardingJourney } from '../visitors-management/onboarding-journey';
+import { getReceptionDeskWorkstationHeaders } from './reception-desk-workstation-settings';
 
 type Arrival = components['schemas']['ArrivalResponse'];
 type ArrivalEntry = components['schemas']['ArrivalEntryResponse'];
@@ -20,7 +20,6 @@ type Visit = components['schemas']['VisitResponse'];
 type VisitInvitation = components['schemas']['VisitInvitationResponse'];
 type VisitorPreOnboardingSaga = components['schemas']['VisitorPreOnboardingSaga'];
 type ArrivalIntervalView = 'today' | 'week';
-type ReceptionDeskTab = 'expected-arrivals' | 'arrivals' | 'history';
 type ArrivalListMode = 'expected' | 'onboarded' | 'history';
 
 const arrivalIntervalStorageKey = 'fabric.reception-desk.expected-arrivals';
@@ -37,55 +36,45 @@ type StoredArrivalIntervalState = {
   readonly anchorDate?: string;
 };
 
-export default function ReceptionDeskPage() {
-  const [activeTab, setActiveTab] = useState<ReceptionDeskTab>('expected-arrivals');
-
+export function ReceptionDeskExpectedArrivalsPage() {
   return (
-    <div className="grid gap-6">
+    <div className="grid gap-4">
       <div>
-        <h2 className="text-[20px] font-semibold tracking-tight">Reception Desk</h2>
-        <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">Prepare front desk workflows around expected arrivals and visitor reception.</p>
+        <h2 className="text-[18px] font-semibold tracking-tight">Expected arrivals</h2>
+        <p className="mt-1 text-[14px] text-muted-foreground">Review upcoming arrivals for this workstation location scope.</p>
       </div>
-
       <div className="rounded-structural border border-border bg-content">
-        <div className="border-b border-border px-4 pt-4 sm:px-6">
-          <div className="flex flex-wrap gap-2" role="tablist" aria-label="Reception desk sections">
-            <ReceptionDeskTabButton isActive={activeTab === 'expected-arrivals'} onClick={() => setActiveTab('expected-arrivals')}>
-              Expected Arrivals
-            </ReceptionDeskTabButton>
-            <ReceptionDeskTabButton isActive={activeTab === 'arrivals'} onClick={() => setActiveTab('arrivals')}>
-              Arrivals
-            </ReceptionDeskTabButton>
-            <ReceptionDeskTabButton isActive={activeTab === 'history'} onClick={() => setActiveTab('history')}>
-              History
-            </ReceptionDeskTabButton>
-          </div>
-        </div>
-
-        {activeTab === 'expected-arrivals' ? <ExpectedArrivalsTab /> : null}
-        {activeTab === 'arrivals' ? <ArrivalsTab /> : null}
-        {activeTab === 'history' ? <HistoryTab /> : null}
+        <ExpectedArrivalsTab />
       </div>
     </div>
   );
 }
 
-function ReceptionDeskTabButton({ children, disabled = false, isActive, onClick }: { readonly children: React.ReactNode; readonly disabled?: boolean; readonly isActive: boolean; readonly onClick?: () => void }) {
+export function ReceptionDeskArrivalsPage() {
   return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={isActive}
-      disabled={disabled}
-      className={cn(
-        'rounded-t-interactive border border-b-0 border-border px-4 py-2 text-[14px] font-semibold transition',
-        isActive ? 'bg-content text-foreground' : 'bg-hover-gray text-muted-foreground hover:bg-hover-blue hover:text-foreground',
-        disabled && 'cursor-not-allowed opacity-70 hover:bg-hover-gray hover:text-muted-foreground',
-      )}
-      onClick={onClick}
-    >
-      {children}
-    </button>
+    <div className="grid gap-4">
+      <div>
+        <h2 className="text-[18px] font-semibold tracking-tight">Arrivals</h2>
+        <p className="mt-1 text-[14px] text-muted-foreground">Manage onboarded arrivals and front desk check-in state.</p>
+      </div>
+      <div className="rounded-structural border border-border bg-content">
+        <ArrivalsTab />
+      </div>
+    </div>
+  );
+}
+
+export function ReceptionDeskHistoryPage() {
+  return (
+    <div className="grid gap-4">
+      <div>
+        <h2 className="text-[18px] font-semibold tracking-tight">History</h2>
+        <p className="mt-1 text-[14px] text-muted-foreground">Review offboarded arrivals and check-in history for this workstation scope.</p>
+      </div>
+      <div className="rounded-structural border border-border bg-content">
+        <HistoryTab />
+      </div>
+    </div>
   );
 }
 
@@ -103,6 +92,7 @@ function ExpectedArrivalsTab() {
     queryKey: ['reception-desk', 'expected-arrivals', interval.start.toISOString(), interval.end.toISOString(), page, pageSize],
     queryFn: async () => {
       const { data, error } = await api.GET('/api/reception/arrivals', {
+        headers: getReceptionDeskWorkstationHeaders(),
         params: {
           query: {
             Status: 'NotYetOnboarded',
@@ -215,6 +205,7 @@ function ArrivalsTab() {
     queryKey: ['reception-desk', 'arrivals', page, pageSize],
     queryFn: async () => {
       const { data, error } = await api.GET('/api/reception/arrivals', {
+        headers: getReceptionDeskWorkstationHeaders(),
         params: {
           query: {
             Status: 'Onboarded',
@@ -240,6 +231,7 @@ function ArrivalsTab() {
     mutationFn: async (arrival: Arrival) => {
       const path = arrival.checkedIn ? '/api/reception/arrivals/{id}/check-out' : '/api/reception/arrivals/{id}/check-in';
       const { error } = await api.POST(path, {
+        headers: getReceptionDeskWorkstationHeaders(),
         params: { path: { id: arrival.id } },
       });
 
@@ -261,6 +253,7 @@ function ArrivalsTab() {
   const offboardArrival = useMutation({
     mutationFn: async (arrival: Arrival) => {
       const { error } = await api.POST('/api/reception/arrivals/{id}/offboard', {
+        headers: getReceptionDeskWorkstationHeaders(),
         params: { path: { id: arrival.id } },
       });
 
@@ -327,6 +320,7 @@ function HistoryTab() {
     queryKey: ['reception-desk', 'history', interval.start.toISOString(), interval.end.toISOString(), page, pageSize],
     queryFn: async () => {
       const { data, error } = await api.GET('/api/reception/arrivals', {
+        headers: getReceptionDeskWorkstationHeaders(),
         params: {
           query: {
             Status: 'Offboarded',
@@ -655,6 +649,7 @@ function HistoryArrivalDetails({ arrivalId, onClose }: { readonly arrivalId: str
     queryKey: ['reception-desk', 'arrival', arrivalId],
     queryFn: async () => {
       const { data, error } = await api.GET('/api/reception/arrivals/{id}', {
+        headers: getReceptionDeskWorkstationHeaders(),
         params: { path: { id: arrivalId } },
       });
 
@@ -745,6 +740,7 @@ function ExpectedArrivalDetails({ arrivalId, onClose }: { readonly arrivalId: st
     queryKey: ['reception-desk', 'arrival', arrivalId],
     queryFn: async () => {
       const { data, error } = await api.GET('/api/reception/arrivals/{id}', {
+        headers: getReceptionDeskWorkstationHeaders(),
         params: { path: { id: arrivalId } },
       });
 
@@ -822,6 +818,7 @@ function ExpectedArrivalDetails({ arrivalId, onClose }: { readonly arrivalId: st
   const onboardArrival = useMutation({
     mutationFn: async () => {
       const { error } = await api.POST('/api/reception/arrivals/{id}/onboard', {
+        headers: getReceptionDeskWorkstationHeaders(),
         params: { path: { id: arrivalId } },
         body: {},
       });
@@ -934,9 +931,38 @@ function VisitorArrivalDetails({ arrival, invitation, isLoading, saga, visit }: 
         </div>
       ) : null}
 
-      <div className="overflow-x-auto rounded-interactive border border-border p-3">
-        <p className="mb-3 text-[13px] font-semibold text-foreground">Visit journey</p>
-        {saga ? <OnboardingJourney saga={saga} /> : <p className="text-[14px] text-muted-foreground">No onboarding journey found.</p>}
+      <ReceptionDeskJourneyDetails invitation={invitation} saga={saga} />
+    </section>
+  );
+}
+
+function ReceptionDeskJourneyDetails({ invitation, saga }: { readonly invitation: VisitInvitation | null; readonly saga: VisitorPreOnboardingSaga | null }) {
+  return (
+    <section className="grid gap-3 rounded-structural border border-border p-4">
+      <div>
+        <h4 className="text-[15px] font-semibold tracking-tight">Visit journey</h4>
+        <p className="mt-1 text-[14px] text-muted-foreground">Workflow and invitation milestones for this visitor onboarding flow.</p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <DetailField label="Workflow state" value={formatSagaState(saga?.state)} />
+        <DetailField label="Retry count" value={formatRetryCount(saga?.retryCount)} />
+        <DetailField label="Invitation" value={invitation?.confirmationStatus ?? 'No invitation status'} />
+        <DetailField label="Confirmed at" value={invitation?.confirmedAt ? formatDateTime(invitation.confirmedAt) : 'Not confirmed'} />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <DetailField label="Workflow created" value={saga?.createdAt ? formatDateTime(saga.createdAt) : 'Not started'} />
+        <DetailField label="Invitation sent" value={saga?.invitationSentAt ? formatDateTime(saga.invitationSentAt) : 'Not sent'} />
+        <DetailField label="Arrival notice sent" value={saga?.arrivalNotificationSentAt ? formatDateTime(saga.arrivalNotificationSentAt) : 'Not sent'} />
+        <DetailField label="Next retry" value={saga?.nextRetryAt ? formatDateTime(saga.nextRetryAt) : 'No retry scheduled'} />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <DetailField label="Workflow expires" value={saga?.expiresAt ? formatDateTime(saga.expiresAt) : 'No expiry'} />
+        <DetailField label="Arrival link" value={saga?.arrivalId ? 'Linked' : 'Not linked'} />
+        <DetailField label="Credential" value={saga?.credentialId ? 'Issued' : 'Not issued'} />
+        <DetailField label="Access policy" value={saga?.accessPolicyId ? 'Assigned' : 'Not assigned'} />
       </div>
     </section>
   );
@@ -1061,6 +1087,19 @@ function DetailField({ label, value }: { readonly label: string; readonly value:
       <p className="mt-1 text-[14px] text-foreground">{value}</p>
     </div>
   );
+}
+
+function formatSagaState(value: VisitorPreOnboardingSaga['state']) {
+  return value ?? 'Not started';
+}
+
+function formatRetryCount(value: VisitorPreOnboardingSaga['retryCount']) {
+  if (value === null || value === undefined) {
+    return '0';
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? String(parsed) : String(value);
 }
 
 function ConfirmationBadge({ confirmed }: { readonly confirmed: boolean }) {

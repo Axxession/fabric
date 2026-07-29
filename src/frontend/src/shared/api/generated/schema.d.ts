@@ -3916,7 +3916,7 @@ export interface paths {
         /** Render credential QR */
         get: {
             parameters: {
-                query: {
+                query?: {
                     size?: number | string;
                 };
                 header?: never;
@@ -7974,6 +7974,237 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ReceptionKioskKeyResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reception/workstations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List reception desk workstations
+         * @description List reception desk workstations
+         */
+        get: {
+            parameters: {
+                query: {
+                    Page: number | string;
+                    PageSize: number | string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PageOfReceptionDeskWorkstationResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create reception desk workstation
+         * @description Create a reception desk workstation
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateReceptionDeskWorkstationRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReceptionDeskWorkstationKeyResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reception/workstations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve reception desk workstation
+         * @description Retrieve a reception desk workstation
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReceptionDeskWorkstationResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /**
+         * Update reception desk workstation
+         * @description Update a reception desk workstation
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateReceptionDeskWorkstationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReceptionDeskWorkstationResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Disable reception desk workstation
+         * @description Disable a reception desk workstation
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reception/workstations/{id}/rotate-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate reception desk workstation key
+         * @description Rotate a reception desk workstation API key
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReceptionDeskWorkstationKeyResponse"];
                     };
                 };
                 /** @description Not Found */
@@ -14192,6 +14423,11 @@ export interface components {
         CreatePersonaRequest: {
             name: string;
         };
+        CreateReceptionDeskWorkstationRequest: {
+            name: string;
+            /** Format: uuid */
+            locationId: string;
+        };
         CreateReceptionKioskRequest: {
             name: string;
             /** Format: uuid */
@@ -14259,9 +14495,9 @@ export interface components {
         /** @enum {unknown} */
         CredentialCapacityState: "Healthy" | "NearLimit" | "Limit";
         /** @enum {unknown} */
-        CredentialIdentifierPaddingDirection: "Left" | "Right";
-        /** @enum {unknown} */
         CredentialDurationKind: "Permanent" | "Temporary";
+        /** @enum {unknown} */
+        CredentialIdentifierPaddingDirection: "Left" | "Right" | null;
         CredentialPACSAssignmentResponse: {
             /** Format: uuid */
             id: string;
@@ -16035,6 +16271,18 @@ export interface components {
             items?: components["schemas"]["PersonaResponse"][];
             isLastPage?: boolean;
         };
+        PageOfReceptionDeskWorkstationResponse: {
+            /** Format: int32 */
+            currentPage?: number | string;
+            /** Format: int32 */
+            totalPages?: null | number | string;
+            /** Format: int32 */
+            pageSize?: number | string;
+            /** Format: int32 */
+            totalItems?: null | number | string;
+            items?: components["schemas"]["ReceptionDeskWorkstationResponse"][];
+            isLastPage?: boolean;
+        };
         PageOfReceptionKioskResponse: {
             /** Format: int32 */
             currentPage?: number | string;
@@ -16227,6 +16475,18 @@ export interface components {
         };
         /** @enum {unknown} */
         ReceptionActorType: "Operator" | "Kiosk";
+        ReceptionDeskWorkstationKeyResponse: {
+            workstation: components["schemas"]["ReceptionDeskWorkstationResponse"];
+            apiKey: string;
+        };
+        ReceptionDeskWorkstationResponse: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: uuid */
+            locationId: string;
+            enabled: boolean;
+        };
         ReceptionKioskContractorDetailsResponse: Record<string, never>;
         ReceptionKioskExpectedArrivalResponse: {
             /** Format: uuid */
@@ -16661,6 +16921,12 @@ export interface components {
         };
         UpdatePersonaRequest: {
             name: string;
+        };
+        UpdateReceptionDeskWorkstationRequest: {
+            name: string;
+            /** Format: uuid */
+            locationId: string;
+            enabled: boolean;
         };
         UpdateReceptionKioskRequest: {
             name: string;

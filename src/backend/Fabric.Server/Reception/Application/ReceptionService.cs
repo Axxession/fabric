@@ -8,6 +8,7 @@ namespace Fabric.Server.Reception.Application;
 public class ReceptionService(
     ReceptionDbContext db,
     TimeProvider timeProvider,
+    ReceptionLocationScopeService locationScopeService,
     ReceptionTriggeredPackageAssignmentService receptionTriggeredPackageAssignmentService)
 {
     private static readonly TimeSpan CompletedArrivalLookupWindow = TimeSpan.FromHours(12);
@@ -378,6 +379,64 @@ public class ReceptionService(
             return Result<ExpectedArrival?, ReceptionErrors>.Success(null);
 
         return Result<ExpectedArrival?, ReceptionErrors>.Success(SelectBestKioskArrival(candidates, kiosk.LocationId, now));
+    }
+
+    public async Task<Result<ExpectedArrival?, ReceptionErrors>> ResolveArrivalForWorkstation(string code, ReceptionDeskWorkstation workstation, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return Result<ExpectedArrival?, ReceptionErrors>.Success(null);
+
+        HashSet<Guid>? scopedLocationIds = await locationScopeService.GetScopedLocationIds(workstation.LocationId, ct);
+        if (scopedLocationIds is null || scopedLocationIds.Count == 0)
+            return Result<ExpectedArrival?, ReceptionErrors>.Success(null);
+
+        List<ExpectedArrival> matches = await db.Arrivals
+            .AsNoTracking()
+            .Where(x => x.ArrivalCode == code && x.LocationId.HasValue && scopedLocationIds.Contains(x.LocationId.Value))
+            .ToListAsync(ct);
+
+        if (matches.Count == 0)
+            return Result<ExpectedArrival?, ReceptionErrors>.Success(null);
+
+        List<ExpectedArrival> activeMatches = matches
+            .Where(x => x.Status is OnboardingStatus.NotYetOnboarded or OnboardingStatus.Onboarded)
+            .ToList();
+
+        if (HasActiveCrossSubjectConflict(activeMatches))
+            return Result.Failure<ExpectedArrival?, ReceptionErrors>(ReceptionErrors.ArrivalCodeConflictAcrossSubjects);
+
+        List<ExpectedArrival> onboardedMatches = activeMatches
+            .Where(x => x.Status == OnboardingStatus.Onboarded)
+            .ToList();
+
+        if (onboardedMatches.Count > 1)
+            return Result.Failure<ExpectedArrival?, ReceptionErrors>(ReceptionErrors.SubjectAlreadyHasOnboardedArrival);
+
+        if (onboardedMatches.Count == 1)
+        {
+            ExpectedArrival selectedOnboarded = onboardedMatches[0];
+            if (await HasAnotherOnboardedArrival(GetSubjectIdentity(selectedOnboarded), selectedOnboarded.Id, ct))
+                return Result.Failure<ExpectedArrival?, ReceptionErrors>(ReceptionErrors.SubjectAlreadyHasOnboardedArrival);
+
+            return Result<ExpectedArrival?, ReceptionErrors>.Success(selectedOnboarded);
+        }
+
+        DateTimeOffset now = timeProvider.GetUtcNow();
+        List<ExpectedArrival> notYetOnboardedMatches = activeMatches
+            .Where(x => x.Status == OnboardingStatus.NotYetOnboarded)
+            .ToList();
+
+        if (notYetOnboardedMatches.Count > 0)
+            return Result<ExpectedArrival?, ReceptionErrors>.Success(SelectBestKioskArrival(notYetOnboardedMatches, workstation.LocationId, now));
+
+        List<ExpectedArrival> candidates = matches
+            .Where(x => x.Status == OnboardingStatus.Offboarded && now - GetArrivalEndTime(x) <= CompletedArrivalLookupWindow)
+            .ToList();
+
+        if (candidates.Count == 0)
+            return Result<ExpectedArrival?, ReceptionErrors>.Success(null);
+
+        return Result<ExpectedArrival?, ReceptionErrors>.Success(SelectBestKioskArrival(candidates, workstation.LocationId, now));
     }
 
     private async Task<Result<ReceptionErrors>> ValidateArrivalCodeAssignment(

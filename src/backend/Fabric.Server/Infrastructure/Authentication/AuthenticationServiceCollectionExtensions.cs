@@ -17,6 +17,9 @@ public static class AuthenticationServiceCollectionExtensions
             .AddScheme<AuthenticationSchemeOptions, ReceptionKioskAuthenticationHandler>(
                 ReceptionKioskAuthenticationDefaults.AuthenticationScheme,
                 _ => { })
+            .AddScheme<AuthenticationSchemeOptions, ReceptionDeskWorkstationAuthenticationHandler>(
+                ReceptionDeskWorkstationAuthenticationDefaults.AuthenticationScheme,
+                _ => { })
             .AddScheme<AuthenticationSchemeOptions, KioskAuthenticationHandler>(
                 KioskAuthenticationDefaults.AuthenticationScheme,
                 _ => { })

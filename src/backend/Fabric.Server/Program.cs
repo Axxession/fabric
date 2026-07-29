@@ -134,6 +134,7 @@ app.MapApprovalRequirementEndpoints();
 app.MapLocationEndpoints();
 app.MapReceptionEndpoints();
 app.MapReceptionKioskEndpoints();
+app.MapReceptionDeskWorkstationEndpoints();
 app.MapReceptionAccessRuleAssignmentEndpoints();
 app.MapHardwareManagementEndpoints();
 app.MapHardwareOperationEndpoints();

@@ -1,8 +1,8 @@
 import { useLocation, useNavigate } from '@tanstack/react-router';
 
+import { ReceptionDeskWorkstationAdminPanel } from '@/features/reception-desk/reception-desk-workstation-admin-panel';
 import { HardwareAgentsPanel } from '@/features/facility/hardware-agents-panel';
 import { ReceptionKioskAdminPanel } from '@/features/reception-kiosk/reception-kiosk-admin-panel';
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/shared/components/ui/empty';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 
 type ClientsTab = 'hardware-agents' | 'reception-desk-kiosk' | 'reception-desk-workstations';
@@ -38,14 +38,7 @@ export default function ClientsPage() {
         </TabsContent>
 
         <TabsContent value="reception-desk-workstations" className="pt-4">
-          <div className="rounded-structural border border-border p-6">
-            <Empty>
-              <EmptyHeader>
-                <EmptyTitle>Reception desk workstations not available yet</EmptyTitle>
-                <EmptyDescription>This section is reserved for future workstation management in the reception desk domain.</EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          </div>
+          <ReceptionDeskWorkstationAdminPanel />
         </TabsContent>
       </Tabs>
     </section>

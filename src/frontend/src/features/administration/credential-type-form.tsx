@@ -5,7 +5,7 @@ import { DurationInput, getDefaultDurationInputValue, type DurationInputValue } 
 type CredentialTechnology = components['schemas']['CredentialTechnology'];
 type CredentialAllocationMode = components['schemas']['CredentialAllocationMode'];
 type CredentialRecyclePolicy = components['schemas']['CredentialRecyclePolicy'];
-type CredentialIdentifierPaddingDirection = components['schemas']['CredentialIdentifierPaddingDirection'];
+type CredentialIdentifierPaddingDirection = Exclude<components['schemas']['CredentialIdentifierPaddingDirection'], null>;
 type CredentialTypeStatus = components['schemas']['CredentialTypeStatus'];
 
 export type CredentialTypeFormValues = {
