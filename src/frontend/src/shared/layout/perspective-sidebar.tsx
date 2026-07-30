@@ -53,7 +53,18 @@ function isMenuItemActive(pathname: string, itemPath: string) {
     return true;
   }
 
-  return itemPath !== '/employee' && pathname.startsWith(`${itemPath}/`);
+  if (isPerspectiveRootPath(itemPath)) {
+    return false;
+  }
+
+  return pathname.startsWith(`${itemPath}/`);
+}
+
+function isPerspectiveRootPath(itemPath: string) {
+  return itemPath === '/employee'
+    || itemPath === '/manager'
+    || itemPath === '/security-officer'
+    || itemPath === '/administration';
 }
 
 function getDisplayVersion(version: string) {
