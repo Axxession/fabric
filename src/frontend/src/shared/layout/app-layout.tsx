@@ -75,7 +75,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <div className="flex min-h-[calc(100vh-73px)] items-stretch">
                 <PerspectiveSidebar perspectives={availablePerspectives} version={tenantSettings.version} />
                 <div className="min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-6 md:px-10 md:py-8">
-                  <div className="mx-auto w-full max-w-6xl">{children}</div>
+                  <div className="mx-auto w-full max-w-7xl">{children}</div>
                 </div>
               </div>
             ) : null}

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { toast } from 'sonner';
 
 import { api } from '@/shared/api/client';
@@ -328,7 +328,7 @@ export default function IdentityDetailPage() {
               </nav>
             </Card>
 
-            <div className="grid gap-4">
+            <div className="min-w-0 grid gap-4">
               {section === 'overview' ? <OverviewSection employeeDetails={employeeDetailsQuery.data ?? []} employeeWorkLocationLabels={employeeWorkLocationLabelsQuery.data ?? new Map<string, string>()} employeeLoading={employeeDetailsQuery.isLoading || employeeWorkLocationLabelsQuery.isLoading} employeeError={employeeDetailsQuery.isError || employeeWorkLocationLabelsQuery.isError} visitorDetails={visitorDetailsQuery.data ?? []} visitorLoading={visitorDetailsQuery.isLoading} visitorError={visitorDetailsQuery.isError} /> : null}
               {section === 'assignments' ? <AssignmentsSection identityId={identityId} data={assignmentsQuery.data} isLoading={assignmentsQuery.isLoading} isError={assignmentsQuery.isError} systemsById={systemsQuery.data ?? new Map<string, AccessControlSystemResponse>()} /> : null}
               {section === 'credentials' ? <CredentialsSection data={credentialsQuery.data} isLoading={credentialsQuery.isLoading} isError={credentialsQuery.isError} systemsById={systemsQuery.data ?? new Map<string, AccessControlSystemResponse>()} /> : null}
@@ -436,7 +436,7 @@ function CatalogueAssignmentGroups({ views, requestDetailsById }: { readonly vie
     return null;
   }
 
-  return <AssignmentsTreeSection title="Catalog requests" description="Access granted from catalog requests, grouped by access package." groups={requestGroups.map((group) => <PackageAssignmentGroup key={`${group.sourceType}-${group.sourceId}-${group.packageId}`} group={group} />)} />;
+  return <CatalogAssignmentGroupsTable groups={requestGroups} />;
 }
 
 function AutomatedAssignmentGroups({ identityId, views, packageAccessItemsByPackageId, targetsById }: { readonly identityId: string; readonly views: readonly GrantView[]; readonly packageAccessItemsByPackageId: Map<string, AccessItemResponse[]>; readonly targetsById: Map<string, AccessLevelTargetResponse>; }) {
@@ -445,7 +445,7 @@ function AutomatedAssignmentGroups({ identityId, views, packageAccessItemsByPack
     return null;
   }
 
-  return <AssignmentsTreeSection title="Automated grants" description="Access granted from policy automation, grouped by access package." groups={policyGroups.map((group) => <AutomatedPackageAssignmentGroup key={`${group.sourceType}-${group.sourceId}-${group.packageId}`} identityId={identityId} group={group} />)} />;
+  return <AutomatedAssignmentGroupsTable identityId={identityId} groups={policyGroups} />;
 }
 
 function AssignmentsTreeSection({ title, description, groups }: { readonly title: string; readonly description: string; readonly groups: React.ReactNode[] }) {
@@ -460,9 +460,178 @@ function AssignmentsTreeSection({ title, description, groups }: { readonly title
   );
 }
 
+function CatalogAssignmentGroupsTable({ groups }: { readonly groups: readonly PackageAssignmentGroupView[] }) {
+  const [expandedGroupKeys, setExpandedGroupKeys] = useState<string[]>([]);
+
+  return (
+    <AssignmentGroupTableSection title="Catalog requests" description="Access granted from catalog requests, grouped by access package.">
+      {groups.map((group) => {
+        const groupKey = `${group.sourceType}-${group.sourceId}-${group.packageId}`;
+        const isExpanded = expandedGroupKeys.includes(groupKey);
+        const detailsId = `assignment-group-details-${groupKey}`;
+        const provisionStatus = getCatalogAssignmentGroupProvisionStatus(group);
+
+        return (
+          <Fragment key={groupKey}>
+            <tr className={isExpanded ? 'bg-hover-blue/50' : 'transition hover:bg-hover-blue'}>
+              <td className="px-3 py-3 font-medium text-foreground">{group.packageName}</td>
+              <td className="px-3 py-3 text-muted-foreground">{group.sourceLabel}</td>
+              <td className="px-3 py-3 text-muted-foreground">{group.sourceReason}</td>
+              <td className="px-3 py-3 text-muted-foreground">{group.validityLabel}</td>
+              <td className="px-3 py-3"><Badge variant={provisionStatus.variant}>{provisionStatus.label}</Badge></td>
+              <td className="px-3 py-3 text-right">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-interactive border border-border px-3 py-2 text-[13px] font-medium text-foreground transition hover:bg-hover-blue"
+                  aria-expanded={isExpanded}
+                  aria-controls={detailsId}
+                  onClick={() => setExpandedGroupKeys((current) => current.includes(groupKey) ? current.filter((item) => item !== groupKey) : [...current, groupKey])}
+                >
+                  {isExpanded ? 'Hide' : 'Show'}
+                  <ChevronRight className={isExpanded ? 'size-4 shrink-0 rotate-90 text-muted-foreground transition' : 'size-4 shrink-0 text-muted-foreground transition'} aria-hidden="true" />
+                </button>
+              </td>
+            </tr>
+            {isExpanded ? (
+              <tr id={detailsId} className="bg-background">
+                      <td colSpan={6} className="px-3 py-3">
+                  <div className="grid gap-3">
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <Info label="Request status" value={group.requestStatus ? formatRequestStatus(group.requestStatus, group.requestSubStatus ?? null) : '-'} />
+                      <Info label="Approved by" value={group.approvalSummary} />
+                      <Info label="Provisionings" value={String(group.provisioningCount)} />
+                      <Info label="Created" value={group.requestCreatedAt ? formatDateTimeLabel(group.requestCreatedAt) : '-'} />
+                    </div>
+                    <div className="grid gap-3">
+                      {group.accessItems.map((item) => <AccessItemGroup key={`${group.packageId}-${item.accessItemId}`} group={item} />)}
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            ) : null}
+          </Fragment>
+        );
+      })}
+    </AssignmentGroupTableSection>
+  );
+}
+
+function AutomatedAssignmentGroupsTable({ identityId, groups }: { readonly identityId: string; readonly groups: readonly AutomatedPackageAssignmentGroupView[] }) {
+  const [expandedGroupKeys, setExpandedGroupKeys] = useState<string[]>([]);
+
+  return (
+    <AssignmentGroupTableSection title="Automated grants" description="Access granted from policy automation, grouped by access package.">
+      {groups.map((group) => {
+        const groupKey = `${group.sourceType}-${group.sourceId}-${group.packageId}`;
+        const isExpanded = expandedGroupKeys.includes(groupKey);
+        const detailsId = `assignment-group-details-${groupKey}`;
+        const provisionStatus = getAutomatedAssignmentGroupProvisionStatus(group);
+
+        return (
+          <Fragment key={groupKey}>
+            <tr className={isExpanded ? 'bg-hover-blue/50' : 'transition hover:bg-hover-blue'}>
+              <td className="px-3 py-3 font-medium text-foreground">{group.packageName}</td>
+              <td className="px-3 py-3 text-muted-foreground">{group.sourceLabel}</td>
+              <td className="px-3 py-3 text-muted-foreground">{group.sourceReason}</td>
+              <td className="px-3 py-3 text-muted-foreground">{group.validityLabel}</td>
+              <td className="px-3 py-3"><Badge variant={provisionStatus.variant}>{provisionStatus.label}</Badge></td>
+              <td className="px-3 py-3 text-right">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-interactive border border-border px-3 py-2 text-[13px] font-medium text-foreground transition hover:bg-hover-blue"
+                  aria-expanded={isExpanded}
+                  aria-controls={detailsId}
+                  onClick={() => setExpandedGroupKeys((current) => current.includes(groupKey) ? current.filter((item) => item !== groupKey) : [...current, groupKey])}
+                >
+                  {isExpanded ? 'Hide' : 'Show'}
+                  <ChevronRight className={isExpanded ? 'size-4 shrink-0 rotate-90 text-muted-foreground transition' : 'size-4 shrink-0 text-muted-foreground transition'} aria-hidden="true" />
+                </button>
+              </td>
+            </tr>
+            {isExpanded ? (
+              <tr id={detailsId} className="bg-background">
+                <td colSpan={6} className="px-3 py-3">
+                  <div className="grid gap-3">
+                    <div className="flex justify-end pb-1">
+                      <AutomatedGrantReconcileButton identityId={identityId} group={group} />
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      <Info label="Approved by" value={group.approvalSummary} />
+                      <Info label="Provisionings" value={String(group.provisioningCount)} />
+                      <Info label="Locations" value={group.locationSummary || '-'} />
+                    </div>
+                    <div className="grid gap-3">
+                      {group.accessItems.map((item) => <AutomatedAccessItemGroup key={`${group.packageId}-${item.accessItemId}`} group={item} />)}
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            ) : null}
+          </Fragment>
+        );
+      })}
+    </AssignmentGroupTableSection>
+  );
+}
+
+function AssignmentGroupTableSection({ title, description, children }: { readonly title: string; readonly description: string; readonly children: React.ReactNode; }) {
+  return (
+    <section className="grid gap-3">
+      <div>
+        <h2 className="text-[20px] font-semibold tracking-tight">{title}</h2>
+        <p className="mt-2 text-[14px] text-muted-foreground">{description}</p>
+      </div>
+      <Card className="p-3 sm:p-4">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[56rem] border-collapse text-left text-[14px]">
+            <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
+              <tr>
+                <th className="px-3 py-3 font-semibold">Package</th>
+                <th className="px-3 py-3 font-semibold">Source</th>
+                <th className="px-3 py-3 font-semibold">Reason</th>
+                <th className="px-3 py-3 font-semibold">Validity</th>
+                <th className="px-3 py-3 font-semibold">Provision Status</th>
+                <th className="px-3 py-3 text-right font-semibold">Details</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">{children}</tbody>
+          </table>
+        </div>
+      </Card>
+    </section>
+  );
+}
+
+function AutomatedGrantReconcileButton({ identityId, group }: { readonly identityId: string; readonly group: AutomatedPackageAssignmentGroupView }) {
+  const queryClient = useQueryClient();
+  const reconcileGrant = useMutation({
+    mutationFn: async () => {
+      await Promise.all(group.grantIds.map(async (accessGrantId) => {
+        const { error } = await api.POST('/api/access-catalog/access-grants/{accessGrantId}/reconcile', { params: { path: { accessGrantId } } });
+        if (error) {
+          throw new Error('Could not queue grant reconciliation.');
+        }
+      }));
+    },
+    onSuccess: async () => {
+      toast.success('Grant reconciliation queued.');
+      await queryClient.invalidateQueries({ queryKey: ['security-officer', 'identity-360', identityId, 'assignments'] });
+    },
+    onError: () => {
+      toast.error('Could not queue grant reconciliation.');
+    },
+  });
+
+  return (
+    <Button type="button" variant="outline" size="sm" disabled={reconcileGrant.isPending} onClick={() => reconcileGrant.mutate()}>
+      {reconcileGrant.isPending ? 'Reconciling...' : 'Reconcile grant'}
+    </Button>
+  );
+}
+
 function PackageAssignmentGroup({ group }: { readonly group: PackageAssignmentGroupView }) {
   return (
-    <details className="rounded-structural border border-border bg-content" open={group.shouldExpand}>
+    <details className="rounded-structural border border-border bg-content">
       <summary className="cursor-pointer list-none p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
@@ -497,7 +666,7 @@ function AccessItemGroup({ group }: { readonly group: AccessItemGroupView }) {
   const hasFailedOutcome = group.materializationOutcomes.some((item) => item.status === 'Failed');
 
   return (
-    <details className="rounded-interactive border border-border bg-background" open={group.shouldExpand}>
+    <details className="rounded-interactive border border-border bg-background">
       <summary className="cursor-pointer list-none p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
@@ -520,27 +689,8 @@ function AccessItemGroup({ group }: { readonly group: AccessItemGroupView }) {
 }
 
 function AutomatedPackageAssignmentGroup({ identityId, group }: { readonly identityId: string; readonly group: AutomatedPackageAssignmentGroupView }) {
-  const queryClient = useQueryClient();
-  const reconcileGrant = useMutation({
-    mutationFn: async () => {
-      await Promise.all(group.grantIds.map(async (accessGrantId) => {
-        const { error } = await api.POST('/api/access-catalog/access-grants/{accessGrantId}/reconcile', { params: { path: { accessGrantId } } });
-        if (error) {
-          throw new Error('Could not queue grant reconciliation.');
-        }
-      }));
-    },
-    onSuccess: async () => {
-      toast.success('Grant reconciliation queued.');
-      await queryClient.invalidateQueries({ queryKey: ['security-officer', 'identity-360', identityId, 'assignments'] });
-    },
-    onError: () => {
-      toast.error('Could not queue grant reconciliation.');
-    },
-  });
-
   return (
-    <details className="rounded-structural border border-border bg-content" open={group.shouldExpand}>
+    <details className="rounded-structural border border-border bg-content">
       <summary className="cursor-pointer list-none p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
@@ -559,19 +709,12 @@ function AutomatedPackageAssignmentGroup({ identityId, group }: { readonly ident
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={reconcileGrant.isPending}
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                reconcileGrant.mutate();
-              }}
-            >
-              {reconcileGrant.isPending ? 'Reconciling...' : 'Reconcile grant'}
-            </Button>
+            <div onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}>
+              <AutomatedGrantReconcileButton identityId={identityId} group={group} />
+            </div>
             <ChevronRight className="mt-1 size-5 shrink-0 text-muted-foreground transition group-open:rotate-90" aria-hidden="true" />
           </div>
         </div>
@@ -588,7 +731,7 @@ function AutomatedAccessItemGroup({ group }: { readonly group: AutomatedAccessIt
   const hasFailedOutcome = group.materializationOutcomes.some((item) => item.status === 'Failed');
 
   return (
-    <details className="rounded-interactive border border-border bg-background" open={group.shouldExpand}>
+    <details className="rounded-interactive border border-border bg-background">
       <summary className="cursor-pointer list-none p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
@@ -653,7 +796,7 @@ function PacsAssignmentRow({ row, provisioningTitle }: { readonly row: PacsAssig
   const validityLabel = getValidityWindowLabel(row.assignment.validFrom, row.assignment.validUntil);
 
   return (
-    <details className="rounded-interactive border border-border bg-background" open={row.shouldExpand}>
+    <details className="rounded-interactive border border-border bg-background">
       <summary className="cursor-pointer list-none p-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
@@ -717,6 +860,8 @@ function KnownInSection({ subjects, isLoading, isError, systemsById }: { readonl
 }
 
 function CredentialsSection({ data, isLoading, isError, systemsById }: { readonly data: CredentialsData | undefined; readonly isLoading: boolean; readonly isError: boolean; readonly systemsById: Map<string, AccessControlSystemResponse>; }) {
+  const [expandedCredentialIds, setExpandedCredentialIds] = useState<string[]>([]);
+
   if (isError) {
     return <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load credentials.</p>;
   }
@@ -731,37 +876,75 @@ function CredentialsSection({ data, isLoading, isError, systemsById }: { readonl
   }
 
   return (
-    <div className="grid gap-4">
-      {credentials.map((credential) => {
-        const credentialType = data?.credentialTypesById.get(credential.credentialTypeId);
-        const assignments = data?.assignmentsByCredentialId.get(credential.id) ?? [];
+    <Card className="p-4 sm:p-5">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[56rem] border-collapse text-left text-[14px]">
+          <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
+            <tr>
+              <th className="px-4 py-3 font-semibold">Credential</th>
+              <th className="px-4 py-3 font-semibold">Duration</th>
+              <th className="px-4 py-3 font-semibold">Status</th>
+              <th className="px-4 py-3 font-semibold">Provision Status</th>
+              <th className="px-4 py-3 text-right font-semibold">Details</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {credentials.map((credential) => {
+              const credentialType = data?.credentialTypesById.get(credential.credentialTypeId);
+              const assignments = data?.assignmentsByCredentialId.get(credential.id) ?? [];
+              const provisionStatus = getCredentialProvisionStatus(credential, assignments);
+              const isExpanded = expandedCredentialIds.includes(credential.id);
+              const detailsId = `credential-details-${credential.id}`;
 
-        return (
-          <Card key={credential.id} className="p-6">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-[18px] font-semibold tracking-tight">{credentialType?.name ?? credential.identifier}</h2>
-                <p className="mt-1 text-[14px] text-muted-foreground">Identifier: {credential.identifier}</p>
-              </div>
-              <Badge variant={getCredentialStatusVariant(credential.status)}>{credential.status}</Badge>
-            </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              <Info label="Credential type" value={credentialType?.name ?? credential.credentialTypeId} />
-              <Info label="Purpose" value={credential.purpose} />
-              <Info label="Duration" value={credential.durationKind} />
-              <Info label="Source" value={credential.sourceKind} />
-              <Info label="Valid from" value={formatDateTimeLabel(credential.validFrom)} />
-              <Info label="Valid until" value={credential.validUntil ? formatDateTimeLabel(credential.validUntil) : 'No end date'} />
-              <Info label="Issued at" value={formatDateTimeLabel(credential.createdAt)} />
-              <Info label="Reason" value={credential.reasonText} />
-            </div>
-            <div className="mt-4">
-              <CredentialProvisioningPanel assignments={assignments} systemsById={systemsById} />
-            </div>
-          </Card>
-        );
-      })}
-    </div>
+              return (
+                <Fragment key={credential.id}>
+                  <tr className={isExpanded ? 'bg-hover-blue/50' : 'transition hover:bg-hover-blue'}>
+                    <td className="px-4 py-4">
+                      <div className="font-medium text-foreground">{credentialType?.name ?? credential.credentialTypeId}</div>
+                      <div className="mt-1 text-muted-foreground">{credential.identifier}{credential.purpose ? ` - ${credential.purpose}` : ''}</div>
+                    </td>
+                    <td className="px-4 py-4 text-muted-foreground">
+                      <div>{credential.durationKind}</div>
+                      {credential.durationKind === 'Temporary' && credential.validUntil ? <div className="mt-1">{formatDateLabel(credential.validFrom)} - {formatDateLabel(credential.validUntil)}</div> : null}
+                    </td>
+                    <td className="px-4 py-4"><Badge variant={getCredentialStatusVariant(credential.status)}>{credential.status}</Badge></td>
+                    <td className="px-4 py-4"><Badge variant={provisionStatus.variant}>{provisionStatus.label}</Badge></td>
+                    <td className="px-4 py-4 text-right">
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-2 rounded-interactive border border-border px-3 py-2 text-[13px] font-medium text-foreground transition hover:bg-hover-blue"
+                        aria-expanded={isExpanded}
+                        aria-controls={detailsId}
+                        onClick={() => setExpandedCredentialIds((current) => current.includes(credential.id) ? current.filter((item) => item !== credential.id) : [...current, credential.id])}
+                      >
+                        {isExpanded ? 'Hide' : 'Show'}
+                        <ChevronRight className={isExpanded ? 'size-4 shrink-0 rotate-90 text-muted-foreground transition' : 'size-4 shrink-0 text-muted-foreground transition'} aria-hidden="true" />
+                      </button>
+                    </td>
+                  </tr>
+                  {isExpanded ? (
+                    <tr id={detailsId} className="bg-background">
+                      <td colSpan={5} className="px-4 py-4">
+                        <div className="grid gap-4">
+                          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                            <Info label="Source" value={credential.sourceKind} />
+                            <Info label="Valid from" value={formatDateTimeLabel(credential.validFrom)} />
+                            <Info label="Valid until" value={credential.validUntil ? formatDateTimeLabel(credential.validUntil) : 'No end date'} />
+                            <Info label="Issued at" value={formatDateTimeLabel(credential.createdAt)} />
+                            <Info label="Reason" value={credential.reasonText} />
+                          </div>
+                          <CredentialProvisioningPanel assignments={assignments} systemsById={systemsById} />
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   );
 }
 
@@ -780,7 +963,7 @@ function RequestsSection({ data, isLoading, isError, onOpenRequest }: { readonly
   }
 
   return (
-    <Card className="p-6">
+    <Card className="p-4 sm:p-5">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[56rem] border-collapse text-left text-[14px]">
           <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
@@ -867,6 +1050,52 @@ function getCredentialStatusVariant(status: CredentialResponse['status']) {
     default:
       return 'error';
   }
+}
+
+function getCredentialProvisionStatus(
+  credential: CredentialResponse,
+  assignments: readonly CredentialPACSAssignmentResponse[],
+) {
+  const activeStatuses = new Set(['Provisioned', 'Active']);
+  const inactiveStatuses = new Set(['Revoked', 'Archived']);
+  const hasAssignments = assignments.length > 0;
+  const hasActiveAssignment = assignments.some((assignment) => activeStatuses.has(assignment.status));
+  const hasInactiveOnlyAssignments = hasAssignments && assignments.every((assignment) => inactiveStatuses.has(assignment.status));
+  const hasPendingOrFailedAssignments = assignments.some((assignment) => !activeStatuses.has(assignment.status) && !inactiveStatuses.has(assignment.status));
+
+  if (credential.status === 'Expired') {
+    return hasAssignments ? { label: 'NO', variant: 'error' as const } : { label: 'YES', variant: 'success' as const };
+  }
+
+  if (credential.status === 'Revoked') {
+    return hasActiveAssignment || hasPendingOrFailedAssignments
+      ? { label: 'NO', variant: 'error' as const }
+      : { label: 'YES', variant: 'success' as const };
+  }
+
+  if (!hasAssignments || hasInactiveOnlyAssignments || hasPendingOrFailedAssignments) {
+    return { label: 'NO', variant: 'error' as const };
+  }
+
+  return { label: 'YES', variant: 'success' as const };
+}
+
+function getCatalogAssignmentGroupProvisionStatus(group: PackageAssignmentGroupView) {
+  const hasIssues = group.accessItems.some((item) => {
+    const hasMaterializationIssue = item.materializationOutcomes.some((outcome) => outcome.status === 'SkippedNoTarget' || outcome.status === 'Failed');
+    return hasMaterializationIssue || item.provisioningSummary.variant !== 'success';
+  });
+
+  return hasIssues ? { label: 'NO', variant: 'error' as const } : { label: 'YES', variant: 'success' as const };
+}
+
+function getAutomatedAssignmentGroupProvisionStatus(group: AutomatedPackageAssignmentGroupView) {
+  const hasIssues = group.accessItems.some((item) => {
+    const hasMaterializationIssue = item.materializationOutcomes.some((outcome) => outcome.status === 'SkippedNoTarget' || outcome.status === 'Failed');
+    return hasMaterializationIssue || !item.hasTargets || item.provisioningSummary.variant !== 'success';
+  });
+
+  return hasIssues ? { label: 'NO', variant: 'error' as const } : { label: 'YES', variant: 'success' as const };
 }
 
 function getRequestStatusVariant(status: PackageRequestStatus, subStatus: PackageRequestResponse['subStatus']) {
@@ -1119,23 +1348,17 @@ function groupAutomaticViews(
   packageAccessItemsByPackageId: Map<string, AccessItemResponse[]>,
   targetsById: Map<string, AccessLevelTargetResponse>,
 ) {
-  const groups = new Map<string, GrantView[]>();
+  return groupBy(views, (item) => `${item.grant.sourceKind}:${item.grant.sourceId}:${item.grant.packageId}`).map(([, packageViews]): AutomatedPackageAssignmentGroupView => {
+    const packageId = packageViews[0]?.grant.packageId ?? '';
+    const sourceId = packageViews[0]?.grant.sourceId ?? '';
 
-  views.forEach((view) => {
-    const key = formatSourceLabel(view.grant.sourceKind);
-    const current = groups.get(key) ?? [];
-    current.push(view);
-    groups.set(key, current);
-  });
-
-  return Array.from(groups.entries()).flatMap(([policyLabel, policyViews]) =>
-    groupBy(policyViews, (item) => item.grant.packageId).map(([packageId, packageViews]): AutomatedPackageAssignmentGroupView => ({
+    return {
       packageId,
-      sourceId: packageViews[0]?.grant.sourceId ?? '',
+      sourceId,
       sourceType: 'Automated',
       grantIds: Array.from(new Set(packageViews.map((item) => item.grant.id))),
       packageName: packageViews[0]?.packageName ?? packageId,
-      sourceLabel: policyLabel,
+      sourceLabel: formatSourceLabel(packageViews[0]?.grant.sourceKind ?? 'Manual'),
       sourceReason: getAutomaticReason(packageViews[0]),
       validityLabel: getValidityLabel(packageViews),
       locationSummary: getLocationSummary(packageViews),
@@ -1144,8 +1367,8 @@ function groupAutomaticViews(
       provisioningCount: packageViews.flatMap((item) => item.grantProvisionings).length,
       approvalSummary: getApprovalSummary([], [], packageViews[0]?.grant.sourceKind ?? 'Manual'),
       shouldExpand: packageViews.some((item) => item.shouldExpand),
-    })),
-  );
+    };
+  });
 }
 
 function groupAutomaticAccessItems(views: readonly GrantView[], accessItems: readonly AccessItemResponse[], targetsById: Map<string, AccessLevelTargetResponse>) {
