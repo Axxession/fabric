@@ -757,6 +757,19 @@ public static class EmployeeEndpoints
             .Include(employee => employee.LeavePeriods)
             .Include(employee => employee.SuspensionPeriods);
 
+        if (request.ManagerEmployeeId.HasValue)
+        {
+            if (request.IncludeIndirectReports == true)
+            {
+                Guid[] reportIds = await GetReportIdsAsync(request.ManagerEmployeeId.Value, db, cancellationToken);
+                query = query.Where(employee => reportIds.Contains(employee.Id));
+            }
+            else
+            {
+                query = query.Where(employee => employee.ManagerEmployeeId == request.ManagerEmployeeId.Value);
+            }
+        }
+
         if (request.OrganizationUnitId.HasValue)
         {
             if (request.IncludeDescendants)
@@ -797,6 +810,39 @@ public static class EmployeeEndpoints
             employees = employees.Where(employee => request.Status.Contains(EmployeeLifecycleCalculator.Calculate(employee, today))).ToList();
 
         return employees;
+    }
+
+    private static async Task<Guid[]> GetReportIdsAsync(Guid managerEmployeeId, EmployeesDbContext db, CancellationToken cancellationToken)
+    {
+        var reportingLines = await db.Employees
+            .AsNoTracking()
+            .Select(employee => new { employee.Id, employee.ManagerEmployeeId })
+            .ToArrayAsync(cancellationToken);
+
+        var directReportsByManagerId = reportingLines
+            .Where(item => item.ManagerEmployeeId.HasValue)
+            .GroupBy(item => item.ManagerEmployeeId!.Value, item => item.Id)
+            .ToDictionary(group => group.Key, group => group.ToArray());
+
+        HashSet<Guid> reportIds = [];
+        Queue<Guid> pendingManagerIds = new([managerEmployeeId]);
+
+        while (pendingManagerIds.Count > 0)
+        {
+            Guid currentManagerId = pendingManagerIds.Dequeue();
+            if (!directReportsByManagerId.TryGetValue(currentManagerId, out Guid[]? directReports))
+                continue;
+
+            foreach (Guid reportId in directReports)
+            {
+                if (!reportIds.Add(reportId))
+                    continue;
+
+                pendingManagerIds.Enqueue(reportId);
+            }
+        }
+
+        return [.. reportIds];
     }
 
     private static async Task<int> GetUnitDepthAsync(Guid id, EmployeesDbContext db, CancellationToken cancellationToken)

@@ -8,6 +8,8 @@ public sealed record ListEmployeesRequest : BaseListRequest
     public string? Query { get; set; }
     public EmployeeStatus[]? Status { get; set; }
     public Guid? OrganizationUnitId { get; set; }
+    public Guid? ManagerEmployeeId { get; set; }
+    public bool? IncludeIndirectReports { get; set; }
     public bool IncludeDescendants { get; set; }
 }
 

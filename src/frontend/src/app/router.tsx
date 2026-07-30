@@ -71,6 +71,8 @@ const EmployeeRequestDetailPage = lazy(() => import('@/features/perspectives/emp
 const EmployeeVisitorsPage = lazy(() => import('@/features/perspectives/employee-visitors-page'));
 const EmployeeVisitEditPage = lazy(() => import('@/features/perspectives/employee-visit-edit-page'));
 const ManagerApprovalInboxPage = lazy(() => import('@/features/perspectives/manager-approval-inbox-page'));
+const ManagerMyTeamPage = lazy(() => import('@/features/perspectives/manager-my-team-page'));
+const ManagerTeamMemberDetailPage = lazy(() => import('@/features/perspectives/manager-team-member-detail-page'));
 const IdentityDetailPage = lazy(() => import('@/features/identities/identity-detail-page'));
 const IdentitiesPage = lazy(() => import('@/features/identities/identities-page'));
 const KioskPage = lazy(() => import('@/features/kiosk/kiosk-page'));
@@ -236,6 +238,18 @@ const managerApprovalInboxDetailRoute = createRoute({
   getParentRoute: () => mainLayoutRoute,
   path: '/manager/approval-inbox/$requestId',
   component: () => <ProtectedLazyRoute component={<EmployeeRequestDetailPage />} />,
+});
+
+const managerMyTeamRoute = createRoute({
+  getParentRoute: () => mainLayoutRoute,
+  path: '/manager/my-team',
+  component: () => <ProtectedLazyRoute component={<ManagerMyTeamPage />} />,
+});
+
+const managerTeamMemberDetailRoute = createRoute({
+  getParentRoute: () => mainLayoutRoute,
+  path: '/manager/my-team/$employeeId',
+  component: () => <ProtectedLazyRoute component={<ManagerTeamMemberDetailPage />} />,
 });
 
 const managerRoute = createRoute({
@@ -819,8 +833,10 @@ const routeTree = rootRoute.addChildren([
     employeeVisitEditRoute,
     employeeVisitInvitationDetailRoute,
     managerRoute,
+    managerMyTeamRoute,
     managerApprovalInboxRoute,
     managerApprovalInboxDetailRoute,
+    managerTeamMemberDetailRoute,
     securityOfficerRoute,
     securityOfficerIdentitiesRoute,
     securityOfficerIdentityDetailRoute,

@@ -53,6 +53,7 @@ export const appPerspectives: readonly AppPerspective[] = [
     priority: 2,
     menuItems: [
       { label: 'Overview', description: 'Manager homepage.', to: '/manager' },
+      { label: 'My Team', description: 'Review employees who report to you.', to: '/manager/my-team' },
       { label: 'Approval Inbox', description: 'Review approvals you can give.', to: '/manager/approval-inbox' },
     ],
     isAvailable: (actor) => actor.isManager,

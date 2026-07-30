@@ -41,17 +41,111 @@ export function PerspectiveHomePage({ perspectiveId }: { perspectiveId: Perspect
     return <EmployeeOverviewPage />;
   }
 
+  if (perspectiveId === 'manager') {
+    return <ManagerOverviewPage />;
+  }
+
   return (
     <section className="grid gap-6">
       <div className="rounded-structural border border-border bg-content p-6 sm:p-8">
         <p className="text-[14px] font-semibold uppercase text-primary">Perspective</p>
         <h1 className="mt-3 text-[30px] font-semibold tracking-tight">{perspective.label}</h1>
         <p className="mt-3 max-w-2xl text-[14px] leading-6 text-muted-foreground">{perspective.description}</p>
-        {perspectiveId === 'manager' ? <Link to="/manager/approval-inbox" className={`${buttonVariants()} mt-6`}>Open Approval Inbox</Link> : null}
       </div>
 
       <div className="rounded-structural border border-dashed border-border bg-content p-6 text-[14px] text-muted-foreground">
         No pages moved into this perspective yet.
+      </div>
+    </section>
+  );
+}
+
+function ManagerOverviewPage() {
+  const actorQuery = useCurrentActor();
+  const employeeId = actorQuery.data?.employeeId ?? null;
+
+  const directReportsQuery = useQuery({
+    queryKey: ['manager', 'overview', 'team', employeeId, 'direct'],
+    enabled: Boolean(employeeId),
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/employees/employees', {
+        params: { query: { Query: undefined, Status: [], OrganizationUnitId: undefined, ManagerEmployeeId: employeeId ?? undefined, IncludeIndirectReports: false, IncludeDescendants: true, Page: 0, PageSize: 200 } as never },
+      });
+
+      if (error) {
+        throw new Error('Could not load direct reports.');
+      }
+
+      return data?.items ?? [];
+    },
+  });
+
+  const totalReportsQuery = useQuery({
+    queryKey: ['manager', 'overview', 'team', employeeId, 'all'],
+    enabled: Boolean(employeeId),
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/employees/employees', {
+        params: { query: { Query: undefined, Status: [], OrganizationUnitId: undefined, ManagerEmployeeId: employeeId ?? undefined, IncludeIndirectReports: true, IncludeDescendants: true, Page: 0, PageSize: 500 } as never },
+      });
+
+      if (error) {
+        throw new Error('Could not load team.');
+      }
+
+      return data?.items ?? [];
+    },
+  });
+
+  return (
+    <section className="grid gap-6">
+      <div className="rounded-structural border border-border bg-content p-6 sm:p-8">
+        <p className="text-[14px] font-semibold uppercase text-primary">Perspective</p>
+        <h1 className="mt-3 text-[30px] font-semibold tracking-tight">Manager Overview</h1>
+        <p className="mt-3 max-w-2xl text-[14px] leading-6 text-muted-foreground">
+          {actorQuery.data?.displayName ? `Signed in as ${actorQuery.data.displayName}. Review your team and act on approvals.` : 'Review your team and act on approvals.'}
+        </p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link to="/manager/my-team" className={buttonVariants()}>Open My Team</Link>
+          <Link to="/manager/approval-inbox" className={buttonVariants({ variant: 'outline' })}>Open Approval Inbox</Link>
+        </div>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>My Team</CardTitle>
+            <CardDescription>Direct reports by default, with optional indirect reporting line view.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {directReportsQuery.isError || totalReportsQuery.isError ? <ErrorText message="Could not load team summary." /> : null}
+            {directReportsQuery.isLoading || totalReportsQuery.isLoading ? <MutedText message="Loading team summary..." /> : null}
+            {!directReportsQuery.isLoading && !totalReportsQuery.isLoading ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-structural border border-border p-4">
+                  <p className="text-[12px] uppercase tracking-[0.18em] text-muted-foreground">Direct reports</p>
+                  <p className="mt-3 text-[28px] font-semibold tracking-tight text-foreground">{directReportsQuery.data?.length ?? 0}</p>
+                </div>
+                <div className="rounded-structural border border-border p-4">
+                  <p className="text-[12px] uppercase tracking-[0.18em] text-muted-foreground">Direct + indirect</p>
+                  <p className="mt-3 text-[28px] font-semibold tracking-tight text-foreground">{totalReportsQuery.data?.length ?? 0}</p>
+                </div>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Approval Inbox</CardTitle>
+            <CardDescription>Open pending approval work from the manager perspective.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-[14px] text-muted-foreground">Review requests waiting for your decision, then open the full request for context.</p>
+            <Link to="/manager/approval-inbox" className={`${buttonVariants({ variant: 'outline' })} mt-4`}>
+              Review Approvals
+            </Link>
+          </CardContent>
+        </Card>
       </div>
     </section>
   );
