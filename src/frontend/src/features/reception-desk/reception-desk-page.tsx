@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Clock, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-import { api } from '@/shared/api/client';
+import { api, apiBaseUrl, getAccessToken } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
@@ -19,6 +19,7 @@ type Location = components['schemas']['LocationResponse'];
 type Visit = components['schemas']['VisitResponse'];
 type VisitInvitation = components['schemas']['VisitInvitationResponse'];
 type VisitorPreOnboardingSaga = components['schemas']['VisitorPreOnboardingSaga'];
+type CheckInDocument = components['schemas']['CheckInDocumentResponse'];
 type ArrivalIntervalView = 'today' | 'week';
 type ArrivalListMode = 'expected' | 'onboarded' | 'history';
 
@@ -663,6 +664,11 @@ function HistoryArrivalDetails({ arrivalId, onClose }: { readonly arrivalId: str
 
   const arrival = arrivalQuery.data;
   const entries = [...(arrival?.entries ?? [])].sort((first, second) => new Date(first.timestamp).getTime() - new Date(second.timestamp).getTime());
+  const [documentsExpanded, setDocumentsExpanded] = useState(false);
+
+  useEffect(() => {
+    setDocumentsExpanded(false);
+  }, [arrivalId]);
 
   return (
     <aside className="rounded-structural border border-border bg-content p-4 shadow-sm sm:p-6" aria-label="Arrival history details">
@@ -726,6 +732,38 @@ function HistoryArrivalDetails({ arrivalId, onClose }: { readonly arrivalId: str
             ) : (
               <p className="rounded-interactive border border-border bg-hover-gray px-4 py-3 text-[14px] text-muted-foreground">No check-in history recorded.</p>
             )}
+          </section>
+
+          <section className="grid gap-3 rounded-structural border border-border p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h4 className="text-[15px] font-semibold tracking-tight">Documents</h4>
+                <p className="mt-1 text-[14px] text-muted-foreground">Captured kiosk onboarding documents saved with this arrival.</p>
+              </div>
+              {arrival.documents.length > 0 ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-expanded={documentsExpanded}
+                  onClick={() => setDocumentsExpanded((current) => !current)}
+                >
+                  {documentsExpanded ? 'Hide documents' : 'See documents'}
+                </Button>
+              ) : null}
+            </div>
+
+            {arrival.documents.length === 0 ? (
+              <p className="rounded-interactive border border-border bg-hover-gray px-4 py-3 text-[14px] text-muted-foreground">No documents were stored for this arrival.</p>
+            ) : null}
+
+            {documentsExpanded ? (
+              <div className="grid gap-4 lg:grid-cols-2">
+                {arrival.documents.map((document) => (
+                  <ArrivalDocumentPreview key={document.id} arrivalId={arrival.id} arrivalName={getArrivalName(arrival)} document={document} />
+                ))}
+              </div>
+            ) : null}
           </section>
         </div>
       ) : null}
@@ -809,7 +847,7 @@ function ExpectedArrivalDetails({ arrivalId, onClose }: { readonly arrivalId: st
         return false;
       }
 
-      return saga.state !== 'AwaitingConfirmation' && saga.state !== 'Confirmed' && saga.state !== 'Rejected' && saga.state !== 'Cancelled' && saga.state !== 'Expired'
+      return isSagaStillProcessing(saga)
         ? onboardingSagaRefetchIntervalMs
         : false;
     },
@@ -945,7 +983,7 @@ function ReceptionDeskJourneyDetails({ invitation, saga }: { readonly invitation
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <DetailField label="Workflow state" value={formatSagaState(saga?.state)} />
+        <DetailField label="Workflow state" value={formatSagaState(saga)} />
         <DetailField label="Retry count" value={formatRetryCount(saga?.retryCount)} />
         <DetailField label="Invitation" value={invitation?.confirmationStatus ?? 'No invitation status'} />
         <DetailField label="Confirmed at" value={invitation?.confirmedAt ? formatDateTime(invitation.confirmedAt) : 'Not confirmed'} />
@@ -1089,8 +1127,123 @@ function DetailField({ label, value }: { readonly label: string; readonly value:
   );
 }
 
-function formatSagaState(value: VisitorPreOnboardingSaga['state']) {
-  return value ?? 'Not started';
+function ArrivalDocumentPreview({
+  arrivalId,
+  arrivalName,
+  document,
+}: {
+  readonly arrivalId: string;
+  readonly arrivalName: string;
+  readonly document: CheckInDocument;
+}) {
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    let disposed = false;
+
+    async function loadDocument() {
+      setIsLoading(true);
+      setHasError(false);
+
+      try {
+        const accessToken = getAccessToken();
+        const response = await fetch(`${apiBaseUrl}/api/reception/arrivals/${arrivalId}/documents/${document.id}`, {
+          headers: {
+            ...getReceptionDeskWorkstationHeaders(),
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Could not load arrival document.');
+        }
+
+        const blob = await response.blob();
+        objectUrl = URL.createObjectURL(blob);
+        if (!disposed) {
+          setImageUrl(objectUrl);
+        }
+      } catch {
+        if (!disposed) {
+          setImageUrl(null);
+          setHasError(true);
+        }
+      } finally {
+        if (!disposed) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadDocument();
+
+    return () => {
+      disposed = true;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [arrivalId, document.id]);
+
+  const label = formatCheckInDocumentType(document.documentType);
+
+  return (
+    <article className="grid gap-3 rounded-interactive border border-border bg-hover-gray/40 p-4">
+      <div>
+        <p className="text-[14px] font-medium text-foreground">{document.name}</p>
+        <p className="text-[13px] text-muted-foreground">{label}</p>
+      </div>
+
+      <div className="overflow-hidden rounded-interactive border border-border bg-content">
+        {isLoading ? <div className="grid aspect-[4/3] place-items-center text-[13px] text-muted-foreground">Loading preview...</div> : null}
+        {!isLoading && hasError ? <div className="grid aspect-[4/3] place-items-center px-4 text-center text-[13px] text-muted-foreground">Could not load document preview.</div> : null}
+        {!isLoading && imageUrl ? <img src={imageUrl} alt={`${label} for ${arrivalName}`} className="aspect-[4/3] w-full object-contain" /> : null}
+      </div>
+    </article>
+  );
+}
+
+function formatSagaState(saga: VisitorPreOnboardingSaga | null) {
+  if (!saga) {
+    return 'Not started';
+  }
+
+  if (saga.cancelledAt) {
+    return 'Cancelled';
+  }
+
+  if (saga.cancellationRequestedAt) {
+    return 'Cancelling';
+  }
+
+  if (saga.expiredAt) {
+    return 'Expired';
+  }
+
+  if (saga.visitorResponseStatus === 'Confirmed') {
+    return 'Confirmed';
+  }
+
+  if (saga.visitorResponseStatus === 'Rejected') {
+    return 'Rejected';
+  }
+
+  if (saga.isCompleteOnOurEnd) {
+    return 'Awaiting confirmation';
+  }
+
+  if (saga.arrivalId) {
+    return 'Sending invitation';
+  }
+
+  if (saga.credentialId || saga.qrCode) {
+    return 'Registering arrival';
+  }
+
+  return 'Generating QR';
 }
 
 function formatRetryCount(value: VisitorPreOnboardingSaga['retryCount']) {
@@ -1100,6 +1253,12 @@ function formatRetryCount(value: VisitorPreOnboardingSaga['retryCount']) {
 
   const parsed = Number(value);
   return Number.isFinite(parsed) ? String(parsed) : String(value);
+}
+
+function isSagaStillProcessing(saga: VisitorPreOnboardingSaga) {
+  const cancelling = Boolean(saga.cancellationRequestedAt && !saga.cancelledAt);
+  const activeRegistration = !saga.cancelledAt && !saga.expiredAt && !saga.isCompleteOnOurEnd;
+  return cancelling || activeRegistration;
 }
 
 function ConfirmationBadge({ confirmed }: { readonly confirmed: boolean }) {
@@ -1236,6 +1395,19 @@ function formatNullableDateTime(value: string | null) {
 
 function formatArrivalEntryType(value: ArrivalEntry['type']) {
   return value === 'CheckedIn' ? 'Checked in' : 'Checked out';
+}
+
+function formatCheckInDocumentType(value: CheckInDocument['documentType']) {
+  switch (value) {
+    case 'FacePicture':
+      return 'Face picture';
+    case 'IdentityDocumentImage':
+      return 'Identity document';
+    case 'GenericPage':
+      return 'Document page';
+    default:
+      return value;
+  }
 }
 
 function formatReceptionActor(actor: ReceptionActor | null) {

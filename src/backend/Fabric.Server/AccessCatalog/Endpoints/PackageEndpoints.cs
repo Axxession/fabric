@@ -25,9 +25,11 @@ public static class PackageEndpoints
         return app;
     }
 
-    private static async Task<IResult> ListPackages([AsParameters] ListPackagesRequest request, AccessCatalogDbContext db, CancellationToken cancellationToken = default)
+    private static async Task<IResult> ListPackages([AsParameters] ListPackagesRequest request, [FromQuery] Guid[]? ids, AccessCatalogDbContext db, CancellationToken cancellationToken = default)
     {
         IQueryable<Package> query = db.Packages.AsNoTracking();
+        if (ids is { Length: > 0 })
+            query = query.Where(item => ids.Contains(item.Id));
         if (!string.IsNullOrWhiteSpace(request.Name))
             query = query.Where(item => item.Name.ToLower().Contains(request.Name.ToLower()));
 

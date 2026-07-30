@@ -425,12 +425,15 @@ public static class VisitorEndpoints
             cancellationToken
         );
 
-        if (result.IsSuccess(out Visitor visitor))
+        if (result.IsSuccess(out _))
         {
             await onboardingSagaService.EnqueueVisitorConfirmedAsync(visitId, invitationId, cancellationToken);
+            return Results.NoContent();
         }
 
-        return result.AsResponse(MapError);
+        result.IsFailure(out VisitErrors error);
+        (int statusCode, ProblemDetails? problemDetails) = MapError(error);
+        return problemDetails is not null ? Results.Json(problemDetails, statusCode: statusCode) : Results.StatusCode(statusCode);
     }
 
     private static async Task<IResult> RejectInvitation(

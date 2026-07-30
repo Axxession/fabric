@@ -181,7 +181,7 @@ export function VisitEditPageContent({ visitId }: { readonly visitId: string }) 
         return false;
       }
 
-      return sagas.some((saga) => saga.state !== 'AwaitingConfirmation' && saga.state !== 'Confirmed' && saga.state !== 'Rejected' && saga.state !== 'Cancelled' && saga.state !== 'Expired')
+      return sagas.some(isSagaStillProcessing)
         ? onboardingSagaRefetchIntervalMs
         : false;
     },
@@ -651,4 +651,10 @@ function groupAssignmentsByCredentialId(assignments: readonly CredentialPACSAssi
     map.set(assignment.credentialId, current);
     return map;
   }, new Map<string, CredentialPACSAssignmentResponse[]>());
+}
+
+function isSagaStillProcessing(saga: VisitorPreOnboardingSaga) {
+  const cancelling = Boolean(saga.cancellationRequestedAt && !saga.cancelledAt);
+  const activeRegistration = !saga.cancelledAt && !saga.expiredAt && !saga.isCompleteOnOurEnd;
+  return cancelling || activeRegistration;
 }

@@ -19,7 +19,38 @@ public class VisitorPreOnboardingSaga
     public DateTimeOffset? NextRetryAt { get; set; }
     public int RetryCount { get; set; }
     public DateTimeOffset? InvitationSentAt { get; set; }
-    public VisitorPreOnboardingState State { get; set; }
+    public DateTimeOffset? CancellationRequestedAt { get; set; }
+    public DateTimeOffset? CancelledAt { get; set; }
+    public DateTimeOffset? ExpiredAt { get; set; }
+    public VisitorPreOnboardingResponseStatus VisitorResponseStatus { get; set; }
+    public bool IsCompleteOnOurEnd => ArrivalId.HasValue
+        && InvitationSentAt.HasValue
+        && (CredentialId.HasValue || !string.IsNullOrWhiteSpace(QrCode));
+}
+
+public sealed class VisitorPreOnboardingSagaAuditEntry
+{
+    private VisitorPreOnboardingSagaAuditEntry() { }
+
+    public Guid Id { get; private set; }
+    public Guid SagaId { get; private set; }
+    public VisitorPreOnboardingSagaAuditEntryType Type { get; private set; }
+    public DateTimeOffset OccurredAt { get; private set; }
+    public string? DetailsJson { get; private set; }
+
+    public static VisitorPreOnboardingSagaAuditEntry Create(
+        Guid sagaId,
+        VisitorPreOnboardingSagaAuditEntryType type,
+        DateTimeOffset occurredAt,
+        string? detailsJson = null) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            SagaId = sagaId,
+            Type = type,
+            OccurredAt = occurredAt,
+            DetailsJson = string.IsNullOrWhiteSpace(detailsJson) ? null : detailsJson,
+        };
 }
 
 public sealed class VisitorPreOnboardingSagaEvent
@@ -83,17 +114,34 @@ public enum VisitorPreOnboardingSagaEventType
     VisitorArrived,
 }
 
-public enum VisitorPreOnboardingState
+public enum VisitorPreOnboardingResponseStatus
 {
-    GeneratingQr,
-    RegisteringArrival,
-    SendingInvitation,
-    AwaitingConfirmation,
+    Pending,
     Confirmed,
     Rejected,
-    Cancelling,
-    Cancelled,
-    Expired,
+}
+
+public enum VisitorPreOnboardingSagaAuditEntryType
+{
+    SagaStarted,
+    QrGenerated,
+    ArrivalRegistered,
+    InvitationSent,
+    VisitorConfirmed,
+    VisitorRejected,
+    VisitRescheduled,
+    ArrivalRescheduled,
+    CredentialValidityUpdated,
+    RescheduleNotificationSent,
+    VisitRelocated,
+    ArrivalRelocated,
+    RelocationNotificationSent,
+    VisitCancelled,
+    ArrivalCancelled,
+    CredentialRevoked,
+    CancellationNotificationSent,
+    SagaCancelled,
+    SagaExpired,
 }
 
 public class VisitorPreOnboardingSagaConfig

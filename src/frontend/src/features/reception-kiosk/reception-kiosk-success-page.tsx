@@ -35,7 +35,7 @@ export default function ReceptionKioskSuccessPage() {
     return <Navigate to="/reception-kiosk/setup" replace />;
   }
 
-  if (!result || result.kind === 'action-failed') {
+  if (!result || result.kind === 'action-failed' || result.kind === 'wrong-location') {
     return <Navigate to="/reception-kiosk" replace />;
   }
 

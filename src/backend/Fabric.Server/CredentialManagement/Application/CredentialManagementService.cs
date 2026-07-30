@@ -272,6 +272,24 @@ public sealed class CredentialManagementService(
         return Result.Success<CredentialManagementErrors>();
     }
 
+    public async Task<Result<CredentialManagementErrors>> UpdateCredentialValidityWindowAsync(
+        Guid credentialId,
+        DateTimeOffset validFrom,
+        DateTimeOffset? validUntil,
+        CancellationToken cancellationToken = default)
+    {
+        Credential? credential = await db.Credentials.SingleOrDefaultAsync(item => item.Id == credentialId, cancellationToken);
+        if (credential is null)
+            return Result.Failure(CredentialManagementErrors.CredentialNotFound);
+
+        Result<CredentialManagementErrors> update = credential.UpdateValidityWindow(validFrom, validUntil, timeProvider.GetUtcNow());
+        if (update.IsFailure(out CredentialManagementErrors error))
+            return Result.Failure(error);
+
+        await db.SaveChangesAsync(cancellationToken);
+        return Result.Success<CredentialManagementErrors>();
+    }
+
     public async Task<int> ProcessExpiredCredentialsAsync(CancellationToken cancellationToken = default)
     {
         DateTimeOffset now = timeProvider.GetUtcNow();

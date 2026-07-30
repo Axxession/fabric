@@ -5571,8 +5571,9 @@ export interface paths {
         };
         get: {
             parameters: {
-                query?: {
+                query: {
                     Name?: string;
+                    ids: string[];
                 };
                 header?: never;
                 path?: never;
@@ -7266,6 +7267,63 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["PageOfArrivalResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reception/arrivals/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Workstation lookup arrival
+         * @description Look up an arrival from a staffed reception desk workstation
+         */
+        get: {
+            parameters: {
+                query: {
+                    code: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ArrivalResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
                     };
                 };
             };
@@ -17162,6 +17220,8 @@ export interface components {
             /** Format: date-time */
             noShowAt: null | string;
         };
+        /** @enum {unknown} */
+        VisitorPreOnboardingResponseStatus: "Pending" | "Confirmed" | "Rejected";
         VisitorPreOnboardingSaga: {
             /** Format: uuid */
             id?: string;
@@ -17188,7 +17248,14 @@ export interface components {
             retryCount?: number | string;
             /** Format: date-time */
             invitationSentAt?: null | string;
-            state?: components["schemas"]["VisitorPreOnboardingState"];
+            /** Format: date-time */
+            cancellationRequestedAt?: null | string;
+            /** Format: date-time */
+            cancelledAt?: null | string;
+            /** Format: date-time */
+            expiredAt?: null | string;
+            visitorResponseStatus?: components["schemas"]["VisitorPreOnboardingResponseStatus"];
+            isCompleteOnOurEnd?: boolean;
         };
         VisitorPreOnboardingSagaConfig: {
             /** Format: uuid */
@@ -17242,8 +17309,6 @@ export interface components {
             useCustomArrivalNotification: boolean;
             customArrivalNotification: null | components["schemas"]["CustomNotification"];
         };
-        /** @enum {unknown} */
-        VisitorPreOnboardingState: "GeneratingQr" | "RegisteringArrival" | "SendingInvitation" | "AwaitingConfirmation" | "Confirmed" | "Rejected" | "Cancelling" | "Cancelled" | "Expired";
         VisitorResponse: {
             /** Format: uuid */
             id: string;

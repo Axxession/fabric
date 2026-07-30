@@ -90,6 +90,7 @@ const ReceptionKioskPage = lazy(() => import('@/features/reception-kiosk/recepti
 const ReceptionKioskScanQrPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-scan-qr-page'));
 const ReceptionKioskSetupPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-setup-page'));
 const ReceptionKioskSuccessPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-success-page'));
+const ReceptionKioskWrongLocationPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-wrong-location-page'));
 const VisitorsManagementLayout = lazy(() => import('@/features/visitors-management/visitors-management-layout'));
 const VisitorConfirmationPage = lazy(() => import('@/features/visitor-confirmation/visitor-confirmation-page'));
 const VisitorReportingPage = lazy(() => import('@/features/visitors-management/reporting-page'));
@@ -783,6 +784,12 @@ const receptionKioskNoRegistrationRoute = createRoute({
   component: () => <LazyRoute component={<ReceptionKioskNoRegistrationPage />} />,
 });
 
+const receptionKioskWrongLocationRoute = createRoute({
+  getParentRoute: () => receptionKioskLayoutRoute,
+  path: '/wrong-location',
+  component: () => <LazyRoute component={<ReceptionKioskWrongLocationPage />} />,
+});
+
 const kioskIndexRoute = createRoute({
   getParentRoute: () => kioskLayoutRoute,
   path: '/',
@@ -886,7 +893,7 @@ const routeTree = rootRoute.addChildren([
     visitorConfirmationRoute,
     visitorsManagementRoute.addChildren([visitsIndexRoute, visitsRoute, visitCreateRoute, visitEditRoute, visitorsRoute, visitorReportingRoute]),
   ]),
-  receptionKioskLayoutRoute.addChildren([receptionKioskIndexRoute, receptionKioskSetupRoute, receptionKioskScanQrRoute, receptionKioskArrivalRoute, receptionKioskFaceScanRoute, receptionKioskDocumentScanRoute, receptionKioskSuccessRoute, receptionKioskFailedRoute, receptionKioskNoRegistrationRoute]),
+  receptionKioskLayoutRoute.addChildren([receptionKioskIndexRoute, receptionKioskSetupRoute, receptionKioskScanQrRoute, receptionKioskArrivalRoute, receptionKioskFaceScanRoute, receptionKioskDocumentScanRoute, receptionKioskSuccessRoute, receptionKioskFailedRoute, receptionKioskNoRegistrationRoute, receptionKioskWrongLocationRoute]),
   receptionDeskWorkstationLayoutRoute.addChildren([
     receptionDeskWorkstationIndexRoute,
     receptionDeskWorkstationSetupRoute,

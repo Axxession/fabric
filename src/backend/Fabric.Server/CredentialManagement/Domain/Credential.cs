@@ -91,4 +91,21 @@ public sealed class Credential
         Status = CredentialStatus.Revoked;
         UpdatedAt = now;
     }
+
+    public Result<CredentialManagementErrors> UpdateValidityWindow(DateTimeOffset validFrom, DateTimeOffset? validUntil, DateTimeOffset now)
+    {
+        if (DurationKind == CredentialDurationKind.Temporary && !validUntil.HasValue)
+            return Result.Failure(CredentialManagementErrors.TemporaryCredentialRequiresValidUntil);
+
+        if (DurationKind == CredentialDurationKind.Permanent && validUntil.HasValue)
+            return Result.Failure(CredentialManagementErrors.PermanentCredentialMustNotHaveValidUntil);
+
+        if (validUntil.HasValue && validUntil.Value <= validFrom)
+            return Result.Failure(CredentialManagementErrors.ValidUntilMustBeAfterValidFrom);
+
+        ValidFrom = validFrom;
+        ValidUntil = validUntil;
+        UpdatedAt = now;
+        return Result.Success<CredentialManagementErrors>();
+    }
 }

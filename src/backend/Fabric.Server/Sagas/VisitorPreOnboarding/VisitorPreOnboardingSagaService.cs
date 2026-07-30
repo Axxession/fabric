@@ -15,6 +15,7 @@ using Fabric.Server.Visitors.Application;
 using Fabric.Server.Visitors.Domain;
 using Fabric.Server.Visitors.Persistence;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace Fabric.Server.Sagas.VisitorPreOnboarding;
 
@@ -101,9 +102,8 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
 
     public async Task<VisitorPreOnboardingSaga> StartAsync(Guid visitId, Guid invitationId, DateTimeOffset expiresAt, CancellationToken cancellationToken = default)
     {
-        VisitorPreOnboardingState[] terminalStates = [VisitorPreOnboardingState.Cancelled, VisitorPreOnboardingState.Expired];
         bool existing = await db.VisitorPreOnboardingSagas
-            .AnyAsync(x => x.VisitId == visitId && x.InvitationId == invitationId && !terminalStates.Contains(x.State), cancellationToken);
+            .AnyAsync(x => x.VisitId == visitId && x.InvitationId == invitationId && !x.CancelledAt.HasValue && !x.ExpiredAt.HasValue, cancellationToken);
 
         if (existing)
             throw new InvalidOperationException($"Saga already exists for visit {visitId} and invitation {invitationId}");
@@ -116,10 +116,11 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
             CreatedAt = timeProvider.GetUtcNow(),
             ExpiresAt = expiresAt,
             RetryCount = 0,
-            State = VisitorPreOnboardingState.GeneratingQr,
+            VisitorResponseStatus = VisitorPreOnboardingResponseStatus.Pending,
         };
 
         db.VisitorPreOnboardingSagas.Add(saga);
+        AppendAuditEntry(saga.Id, VisitorPreOnboardingSagaAuditEntryType.SagaStarted);
         db.VisitorPreOnboardingSagaEvents.Add(VisitorPreOnboardingSagaEvent.Create(
             VisitorPreOnboardingSagaEventType.Started,
             timeProvider.GetUtcNow(),
@@ -172,13 +173,14 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
         .Where(x => x.VisitId == visitId && x.InvitationId == invitationId)
         .SingleOrDefaultAsync(cancellationToken);
 
-        if (saga is null || saga.State is VisitorPreOnboardingState.Confirmed or VisitorPreOnboardingState.Cancelled or VisitorPreOnboardingState.Expired)
+        if (saga is null || saga.CancelledAt.HasValue || saga.ExpiredAt.HasValue || saga.VisitorResponseStatus != VisitorPreOnboardingResponseStatus.Pending || !saga.IsCompleteOnOurEnd)
             return;
 
         if (saga.ArrivalId.HasValue)
             _ = await receptionService.ConfirmVisitor(visitor.FirstName, visitor.LastName, visitor.Company, saga.ArrivalId.Value, cancellationToken);
 
-        saga.State = VisitorPreOnboardingState.Confirmed;
+        saga.VisitorResponseStatus = VisitorPreOnboardingResponseStatus.Confirmed;
+        AppendAuditEntry(saga.Id, VisitorPreOnboardingSagaAuditEntryType.VisitorConfirmed);
         await db.SaveChangesAsync(cancellationToken);
 
         VisitorPreOnboardingSagaConfig config = await GetConfigurationAsync(cancellationToken);
@@ -192,38 +194,63 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
         .Where(x => x.VisitId == visitId && x.InvitationId == invitationId)
         .SingleOrDefaultAsync(cancellationToken);
 
-        if (saga is null || saga.State is VisitorPreOnboardingState.Rejected or VisitorPreOnboardingState.Cancelled or VisitorPreOnboardingState.Expired)
+        if (saga is null || saga.CancelledAt.HasValue || saga.ExpiredAt.HasValue || saga.VisitorResponseStatus != VisitorPreOnboardingResponseStatus.Pending || !saga.IsCompleteOnOurEnd)
             return;
 
         if (saga.ArrivalId.HasValue)
             _ = await receptionService.RejectConfirmationVisitor(saga.ArrivalId.Value, cancellationToken);
 
-        saga.State = VisitorPreOnboardingState.Rejected;
+        saga.VisitorResponseStatus = VisitorPreOnboardingResponseStatus.Rejected;
+        AppendAuditEntry(saga.Id, VisitorPreOnboardingSagaAuditEntryType.VisitorRejected);
         await db.SaveChangesAsync(cancellationToken);
     }
 
     public async Task VisitRescheduled(Guid visitId, DateTimeOffset startDate, DateTimeOffset stopDate, CancellationToken cancellationToken = default)
     {
+        VisitorPreOnboardingSagaConfig config = await GetConfigurationAsync(cancellationToken);
         List<VisitorPreOnboardingSaga> sagas = await db.VisitorPreOnboardingSagas
-      .Where(x => x.VisitId == visitId)
-      .ToListAsync(cancellationToken);
+            .Where(x => x.VisitId == visitId)
+            .Where(x => !x.CancelledAt.HasValue && !x.ExpiredAt.HasValue)
+            .ToListAsync(cancellationToken);
 
         foreach (VisitorPreOnboardingSaga? saga in sagas)
         {
             saga.ExpiresAt = startDate;
+            AppendAuditEntry(saga.Id, VisitorPreOnboardingSagaAuditEntryType.VisitRescheduled, new
+            {
+                start = startDate,
+                stop = stopDate,
+            });
 
             if (saga.ArrivalId.HasValue)
-                _ = await receptionService.Reschedule(saga.ArrivalId.Value, startDate, stopDate, cancellationToken);
+            {
+                Result<ReceptionErrors> arrivalResult = await receptionService.Reschedule(saga.ArrivalId.Value, startDate, stopDate, cancellationToken);
+                if (arrivalResult.IsSuccess(out _))
+                    AppendAuditEntry(saga.Id, VisitorPreOnboardingSagaAuditEntryType.ArrivalRescheduled, new { start = startDate, stop = stopDate });
+            }
+
+            if (saga.CredentialId.HasValue)
+            {
+                (DateTimeOffset validFrom, DateTimeOffset validUntil) = GetCredentialValidityWindow(startDate, stopDate, config);
+                Result<CredentialManagementErrors> credentialResult = await credentialManagementService.UpdateCredentialValidityWindowAsync(saga.CredentialId.Value, validFrom, validUntil, cancellationToken);
+                if (credentialResult.IsSuccess(out _))
+                    AppendAuditEntry(saga.Id, VisitorPreOnboardingSagaAuditEntryType.CredentialValidityUpdated, new { validFrom, validUntil });
+            }
         }
 
         await db.SaveChangesAsync(cancellationToken);
 
-        VisitorPreOnboardingSagaConfig config = await GetConfigurationAsync(cancellationToken);
         if (!config.SendRescheduleNotification)
             return;
 
         foreach (VisitorPreOnboardingSaga saga in sagas)
-            await SendVisitorNotificationAsync(saga.VisitId, saga.InvitationId, saga.QrCode, RescheduleTemplate, config.UseCustomRescheduleNotification, config.CustomRescheduleNotification, RescheduleSubject, cancellationToken);
+        {
+            bool sent = await SendVisitorNotificationAsync(saga.VisitId, saga.InvitationId, saga.QrCode, RescheduleTemplate, config.UseCustomRescheduleNotification, config.CustomRescheduleNotification, RescheduleSubject, cancellationToken);
+            if (sent)
+                AppendAuditEntry(saga.Id, VisitorPreOnboardingSagaAuditEntryType.RescheduleNotificationSent);
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
 
     }
 
@@ -231,35 +258,50 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
     {
         List<VisitorPreOnboardingSaga> sagas = await db.VisitorPreOnboardingSagas
             .Where(x => x.VisitId == visitId)
+            .Where(x => !x.CancelledAt.HasValue && !x.ExpiredAt.HasValue)
             .ToListAsync(cancellationToken);
 
         foreach (VisitorPreOnboardingSaga saga in sagas)
         {
+            AppendAuditEntry(saga.Id, VisitorPreOnboardingSagaAuditEntryType.VisitRelocated, new { locationId });
+
             if (saga.ArrivalId.HasValue)
-                _ = await receptionService.Relocate(saga.ArrivalId.Value, locationId, cancellationToken);
+            {
+                Result<ReceptionErrors> relocateResult = await receptionService.Relocate(saga.ArrivalId.Value, locationId, cancellationToken);
+                if (relocateResult.IsSuccess(out _))
+                    AppendAuditEntry(saga.Id, VisitorPreOnboardingSagaAuditEntryType.ArrivalRelocated, new { locationId });
+            }
         }
+
+        await db.SaveChangesAsync(cancellationToken);
 
         VisitorPreOnboardingSagaConfig config = await GetConfigurationAsync(cancellationToken);
         if (!config.SendRelocationNotification)
             return;
 
         foreach (VisitorPreOnboardingSaga saga in sagas)
-            await SendVisitorNotificationAsync(saga.VisitId, saga.InvitationId, saga.QrCode, RelocationTemplate, config.UseCustomRelocationNotification, config.CustomRelocationNotification, RelocationSubject, cancellationToken);
+        {
+            bool sent = await SendVisitorNotificationAsync(saga.VisitId, saga.InvitationId, saga.QrCode, RelocationTemplate, config.UseCustomRelocationNotification, config.CustomRelocationNotification, RelocationSubject, cancellationToken);
+            if (sent)
+                AppendAuditEntry(saga.Id, VisitorPreOnboardingSagaAuditEntryType.RelocationNotificationSent);
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     public async Task CancelForVisitAsync(Guid visitId, CancellationToken cancellationToken = default)
     {
         List<VisitorPreOnboardingSaga> sagas = await db.VisitorPreOnboardingSagas
         .Where(x => x.VisitId == visitId)
-        .Where(x => x.State != VisitorPreOnboardingState.Cancelled
-                 && x.State != VisitorPreOnboardingState.Expired)
+        .Where(x => !x.CancelledAt.HasValue && !x.ExpiredAt.HasValue)
         .ToListAsync(cancellationToken);
 
         foreach (VisitorPreOnboardingSaga? saga in sagas)
         {
-            saga.State = VisitorPreOnboardingState.Cancelling;
+            saga.CancellationRequestedAt = timeProvider.GetUtcNow();
             saga.RetryCount = 0;
             saga.NextRetryAt = null;
+            AppendAuditEntry(saga.Id, VisitorPreOnboardingSagaAuditEntryType.VisitCancelled);
         }
 
         await db.SaveChangesAsync(cancellationToken);
@@ -272,7 +314,7 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
     {
         VisitorPreOnboardingSaga saga = await db.VisitorPreOnboardingSagas
         .Where(x => x.Id == sagaId)
-        .Where(x => x.State == VisitorPreOnboardingState.Expired)
+        .Where(x => x.ExpiredAt.HasValue)
         .SingleAsync(cancellationToken);
 
         if (timeProvider.GetUtcNow() > saga.ExpiresAt)
@@ -280,6 +322,7 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
 
         saga.RetryCount = 0;
         saga.NextRetryAt = null;
+        saga.ExpiredAt = null;
         await db.SaveChangesAsync(cancellationToken);
     }
 
@@ -288,12 +331,15 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
         DateTimeOffset now = timeProvider.GetUtcNow();
 
         return await db.VisitorPreOnboardingSagas
-            .Where(x => x.State == VisitorPreOnboardingState.RegisteringArrival
-                     || x.State == VisitorPreOnboardingState.GeneratingQr
-                     || x.State == VisitorPreOnboardingState.SendingInvitation
-                     || x.State == VisitorPreOnboardingState.Cancelling)
+            .Where(x => !x.CancelledAt.HasValue)
+            .Where(x => !x.ExpiredAt.HasValue)
+            .Where(x => (x.CancellationRequestedAt.HasValue && !x.CancelledAt.HasValue)
+                     || (!x.CancellationRequestedAt.HasValue
+                        && !(x.ArrivalId != null
+                             && x.InvitationSentAt != null
+                             && (x.CredentialId != null || (x.QrCode != null && x.QrCode != "")))))
             .Where(x => x.NextRetryAt == null || x.NextRetryAt <= now)
-            .Where(x => x.ExpiresAt > now)
+            .Where(x => (x.CancellationRequestedAt.HasValue && !x.CancelledAt.HasValue) || x.ExpiresAt > now)
             .ToListAsync(cancellationToken);
     }
 
@@ -303,12 +349,15 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
 
         return await db.VisitorPreOnboardingSagas
             .IgnoreQueryFilters()
-            .Where(x => x.State == VisitorPreOnboardingState.RegisteringArrival
-                     || x.State == VisitorPreOnboardingState.GeneratingQr
-                     || x.State == VisitorPreOnboardingState.SendingInvitation
-                     || x.State == VisitorPreOnboardingState.Cancelling)
+            .Where(x => !x.CancelledAt.HasValue)
+            .Where(x => !x.ExpiredAt.HasValue)
+            .Where(x => (x.CancellationRequestedAt.HasValue && !x.CancelledAt.HasValue)
+                     || (!x.CancellationRequestedAt.HasValue
+                        && !(x.ArrivalId != null
+                             && x.InvitationSentAt != null
+                             && (x.CredentialId != null || (x.QrCode != null && x.QrCode != "")))))
             .Where(x => x.NextRetryAt == null || x.NextRetryAt <= now)
-            .Where(x => x.ExpiresAt > now)
+            .Where(x => (x.CancellationRequestedAt.HasValue && !x.CancelledAt.HasValue) || x.ExpiresAt > now)
             .Select(x => new VisitorPreOnboardingSagaWorkItem(
                 EF.Property<string>(x, TenantDbContext.TenantIdPropertyName),
                 x.Id))
@@ -320,10 +369,12 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
         DateTimeOffset now = timeProvider.GetUtcNow();
 
         List<VisitorPreOnboardingSaga> expired = await db.VisitorPreOnboardingSagas
-        .Where(x => x.State == VisitorPreOnboardingState.RegisteringArrival
-                 || x.State == VisitorPreOnboardingState.GeneratingQr
-                 || x.State == VisitorPreOnboardingState.SendingInvitation
-                 || x.State == VisitorPreOnboardingState.AwaitingConfirmation)
+        .Where(x => !x.CancelledAt.HasValue)
+        .Where(x => !x.ExpiredAt.HasValue)
+        .Where(x => !x.CancellationRequestedAt.HasValue)
+        .Where(x => !(x.ArrivalId != null
+                     && x.InvitationSentAt != null
+                     && (x.CredentialId != null || (x.QrCode != null && x.QrCode != ""))))
         .Where(x => x.ExpiresAt <= now)
         .ToListAsync(cancellationToken);
 
@@ -344,10 +395,12 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
 
         return await db.VisitorPreOnboardingSagas
             .IgnoreQueryFilters()
-            .Where(x => x.State == VisitorPreOnboardingState.RegisteringArrival
-                     || x.State == VisitorPreOnboardingState.GeneratingQr
-                     || x.State == VisitorPreOnboardingState.SendingInvitation
-                      || x.State == VisitorPreOnboardingState.AwaitingConfirmation)
+            .Where(x => !x.CancelledAt.HasValue)
+            .Where(x => !x.ExpiredAt.HasValue)
+            .Where(x => !x.CancellationRequestedAt.HasValue)
+            .Where(x => !(x.ArrivalId != null
+                         && x.InvitationSentAt != null
+                         && (x.CredentialId != null || (x.QrCode != null && x.QrCode != ""))))
             .Where(x => x.ExpiresAt <= now)
             .Select(x => new VisitorPreOnboardingSagaWorkItem(
                 EF.Property<string>(x, TenantDbContext.TenantIdPropertyName),
@@ -360,10 +413,12 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
         DateTimeOffset now = timeProvider.GetUtcNow();
         VisitorPreOnboardingSaga? saga = await db.VisitorPreOnboardingSagas
             .Where(x => x.Id == sagaId)
-            .Where(x => x.State == VisitorPreOnboardingState.RegisteringArrival
-                     || x.State == VisitorPreOnboardingState.GeneratingQr
-                     || x.State == VisitorPreOnboardingState.SendingInvitation
-                     || x.State == VisitorPreOnboardingState.AwaitingConfirmation)
+            .Where(x => !x.CancelledAt.HasValue)
+            .Where(x => !x.ExpiredAt.HasValue)
+            .Where(x => !x.CancellationRequestedAt.HasValue)
+            .Where(x => !(x.ArrivalId != null
+                         && x.InvitationSentAt != null
+                         && (x.CredentialId != null || (x.QrCode != null && x.QrCode != ""))))
             .Where(x => x.ExpiresAt <= now)
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -462,10 +517,13 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
         if (saga is null)
             return false;
 
-        if (saga.State is VisitorPreOnboardingState.Confirmed or VisitorPreOnboardingState.Cancelled or VisitorPreOnboardingState.Expired)
+        if (saga.CancelledAt.HasValue || saga.ExpiredAt.HasValue)
             return true;
 
-        if (saga.State != VisitorPreOnboardingState.AwaitingConfirmation)
+        if (saga.VisitorResponseStatus != VisitorPreOnboardingResponseStatus.Pending)
+            return true;
+
+        if (!saga.IsCompleteOnOurEnd)
             return false;
 
         Visit? visit = await visitorsDb.Visits
@@ -490,10 +548,13 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
         if (saga is null)
             return false;
 
-        if (saga.State is VisitorPreOnboardingState.Rejected or VisitorPreOnboardingState.Cancelled or VisitorPreOnboardingState.Expired)
+        if (saga.CancelledAt.HasValue || saga.ExpiredAt.HasValue)
             return true;
 
-        if (saga.State != VisitorPreOnboardingState.AwaitingConfirmation)
+        if (saga.VisitorResponseStatus != VisitorPreOnboardingResponseStatus.Pending)
+            return true;
+
+        if (!saga.IsCompleteOnOurEnd)
             return false;
 
         await RejectAsync(visitId, invitationId, cancellationToken);
@@ -574,25 +635,31 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
         {
             result = await StepAsync(saga, cancellationToken);
         }
-        while (result == SagaStepResult.Continue && IsRetryableState(saga.State));
+        while (result == SagaStepResult.Continue && NeedsProcessing(saga));
     }
 
-    private static bool IsRetryableState(VisitorPreOnboardingState state) =>
-        state is VisitorPreOnboardingState.GeneratingQr
-            or VisitorPreOnboardingState.RegisteringArrival
-            or VisitorPreOnboardingState.SendingInvitation
-            or VisitorPreOnboardingState.Cancelling;
+    private static bool NeedsProcessing(VisitorPreOnboardingSaga saga) =>
+        (saga.CancellationRequestedAt.HasValue && !saga.CancelledAt.HasValue)
+        || (!saga.CancellationRequestedAt.HasValue
+            && !saga.CancelledAt.HasValue
+            && !saga.ExpiredAt.HasValue
+            && !saga.IsCompleteOnOurEnd);
 
     internal async Task<SagaStepResult> StepAsync(VisitorPreOnboardingSaga saga, CancellationToken cancellationToken)
     {
-        return saga.State switch
-        {
-            VisitorPreOnboardingState.GeneratingQr => await GenerateQrCodeAsync(saga, cancellationToken),
-            VisitorPreOnboardingState.RegisteringArrival => await RegisterArrivalAsync(saga, cancellationToken),
-            VisitorPreOnboardingState.SendingInvitation => await SendInvitationAsync(saga, cancellationToken),
-            VisitorPreOnboardingState.Cancelling => await CancelSagaAsync(saga, cancellationToken),
-            _ => SagaStepResult.Continue,
-        };
+        if (saga.CancellationRequestedAt.HasValue && !saga.CancelledAt.HasValue)
+            return await CancelSagaAsync(saga, cancellationToken);
+
+        if (!HasQrGenerated(saga))
+            return await GenerateQrCodeAsync(saga, cancellationToken);
+
+        if (!saga.ArrivalId.HasValue)
+            return await RegisterArrivalAsync(saga, cancellationToken);
+
+        if (!saga.InvitationSentAt.HasValue)
+            return await SendInvitationAsync(saga, cancellationToken);
+
+        return SagaStepResult.Continue;
     }
 
     private async Task<SagaStepResult> RegisterArrivalAsync(VisitorPreOnboardingSaga saga, CancellationToken cancellationToken)
@@ -621,9 +688,9 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
         if (result.IsSuccess(out ExpectedArrival? arrival))
         {
             saga.ArrivalId = arrival.Id;
-            saga.State = VisitorPreOnboardingState.SendingInvitation;
             saga.RetryCount = 0;
             saga.NextRetryAt = null;
+            AppendAuditEntry(saga.Id, VisitorPreOnboardingSagaAuditEntryType.ArrivalRegistered, new { arrivalId = arrival.Id });
         }
 
         if (result.IsFailure(out _))
@@ -637,7 +704,6 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
     {
         saga.ArrivalId = null;
         saga.RetryCount++;
-        saga.State = VisitorPreOnboardingState.RegisteringArrival;
         saga.NextRetryAt = timeProvider.GetUtcNow().Add(_retryInterval);
         await db.SaveChangesAsync(cancellationToken);
         return SagaStepResult.Retry;
@@ -675,8 +741,7 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
         Credential? credential = await ResolveSagaCredentialAsync(saga, config.QrCredentialTypeId.Value, invitation.Id, cancellationToken);
         if (credential is null)
         {
-            DateTimeOffset validFrom = visit.Start.AddMinutes(-config.GraceStartMinutes);
-            DateTimeOffset validUntil = visit.Stop.AddMinutes(config.GraceEndMinutes);
+            (DateTimeOffset validFrom, DateTimeOffset validUntil) = GetCredentialValidityWindow(visit.Start, visit.Stop, config);
 
             Result<Credential, CredentialManagementErrors> issueResult = await credentialManagementService.IssueCredentialAsync(
                 new IssueCredentialRequest(
@@ -708,24 +773,15 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
         saga.QrCode = config.QrCredentialTypeId.HasValue
             ? await GetFormattedQrCodeAsync(credential, config.QrCredentialTypeId.Value, cancellationToken)
             : credential.Identifier;
-        saga.State = VisitorPreOnboardingState.RegisteringArrival;
         saga.RetryCount = 0;
         saga.NextRetryAt = null;
+        AppendAuditEntry(saga.Id, VisitorPreOnboardingSagaAuditEntryType.QrGenerated, new { credentialId = credential.Id });
         await db.SaveChangesAsync(cancellationToken);
         return SagaStepResult.Continue;
     }
 
     private async Task<SagaStepResult> SendInvitationAsync(VisitorPreOnboardingSaga saga, CancellationToken cancellationToken)
     {
-        if (saga.InvitationSentAt.HasValue)
-        {
-            saga.State = VisitorPreOnboardingState.AwaitingConfirmation;
-            saga.RetryCount = 0;
-            saga.NextRetryAt = null;
-            await db.SaveChangesAsync(cancellationToken);
-            return SagaStepResult.Continue;
-        }
-
         Visit? visit = await visitorsDb.Visits
         .Include(x => x.Invitations)
         .SingleOrDefaultAsync(x => x.Id == saga.VisitId, cancellationToken);
@@ -761,10 +817,10 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
             return result;
         }
 
-        saga.State = VisitorPreOnboardingState.AwaitingConfirmation;
         saga.InvitationSentAt = timeProvider.GetUtcNow();
         saga.RetryCount = 0;
         saga.NextRetryAt = null;
+        AppendAuditEntry(saga.Id, VisitorPreOnboardingSagaAuditEntryType.InvitationSent);
         await db.SaveChangesAsync(cancellationToken);
         return SagaStepResult.Continue;
     }
@@ -774,7 +830,15 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
     {
         if (saga.ArrivalId.HasValue)
         {
-            _ = await receptionService.Cancel(saga.ArrivalId.Value, cancellationToken);
+            Result<ReceptionErrors> cancelArrivalResult = await receptionService.Cancel(saga.ArrivalId.Value, cancellationToken);
+            if (cancelArrivalResult.IsFailure(out _))
+            {
+                SagaStepResult result = ScheduleRetry(saga);
+                await db.SaveChangesAsync(cancellationToken);
+                return result;
+            }
+
+            AppendAuditEntry(saga.Id, VisitorPreOnboardingSagaAuditEntryType.ArrivalCancelled, new { arrivalId = saga.ArrivalId.Value });
         }
 
         if (saga.CredentialId.HasValue)
@@ -786,6 +850,8 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
                 await db.SaveChangesAsync(cancellationToken);
                 return result;
             }
+
+            AppendAuditEntry(saga.Id, VisitorPreOnboardingSagaAuditEntryType.CredentialRevoked, new { credentialId = saga.CredentialId.Value });
         }
 
         if (saga.AccessPolicyId.HasValue)
@@ -801,30 +867,39 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
                 await db.SaveChangesAsync(cancellationToken);
                 return result;
             }
+
+            AppendAuditEntry(saga.Id, VisitorPreOnboardingSagaAuditEntryType.CancellationNotificationSent);
         }
 
-        saga.State = VisitorPreOnboardingState.Cancelled;
+        saga.CancelledAt = timeProvider.GetUtcNow();
         saga.RetryCount = 0;
         saga.NextRetryAt = null;
+        AppendAuditEntry(saga.Id, VisitorPreOnboardingSagaAuditEntryType.SagaCancelled);
         await db.SaveChangesAsync(cancellationToken);
         return SagaStepResult.Continue;
     }
 
     private async Task<bool> ExpireSagaAsync(VisitorPreOnboardingSaga saga, CancellationToken cancellationToken)
     {
+        if (saga.IsCompleteOnOurEnd || saga.CancelledAt.HasValue || saga.CancellationRequestedAt.HasValue)
+            return false;
+
         if (saga.CredentialId.HasValue)
         {
             Result<CredentialManagementErrors> revokeResult = await credentialManagementService.RevokeCredentialAsync(saga.CredentialId.Value, cancellationToken);
             if (revokeResult.IsFailure(out _))
                 return false;
+
+            AppendAuditEntry(saga.Id, VisitorPreOnboardingSagaAuditEntryType.CredentialRevoked, new { credentialId = saga.CredentialId.Value });
         }
 
         if (saga.AccessPolicyId.HasValue)
             throw new NotImplementedException("Visitor pre-onboarding PACS policy retraction has not been migrated from AccessPolicies yet.");
 
-        saga.State = VisitorPreOnboardingState.Expired;
+        saga.ExpiredAt = timeProvider.GetUtcNow();
         saga.RetryCount = 0;
         saga.NextRetryAt = null;
+        AppendAuditEntry(saga.Id, VisitorPreOnboardingSagaAuditEntryType.SagaExpired);
         return true;
     }
 
@@ -840,6 +915,24 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
         var delay = TimeSpan.FromMinutes(5 * Math.Pow(2, retryCount - 1));
         var capped = TimeSpan.FromMinutes(Math.Min(delay.TotalMinutes, 60));
         return timeProvider.GetUtcNow().Add(capped);
+    }
+
+    private static bool HasQrGenerated(VisitorPreOnboardingSaga saga) =>
+        saga.CredentialId.HasValue || !string.IsNullOrWhiteSpace(saga.QrCode);
+
+    private static (DateTimeOffset ValidFrom, DateTimeOffset ValidUntil) GetCredentialValidityWindow(
+        DateTimeOffset visitStart,
+        DateTimeOffset visitStop,
+        VisitorPreOnboardingSagaConfig config) =>
+        (visitStart.AddMinutes(-config.GraceStartMinutes), visitStop.AddMinutes(config.GraceEndMinutes));
+
+    private void AppendAuditEntry(Guid sagaId, VisitorPreOnboardingSagaAuditEntryType type, object? details = null)
+    {
+        db.VisitorPreOnboardingSagaAuditEntries.Add(VisitorPreOnboardingSagaAuditEntry.Create(
+            sagaId,
+            type,
+            timeProvider.GetUtcNow(),
+            details is null ? null : JsonSerializer.Serialize(details)));
     }
 
     private async Task SendConfirmationToHostAsync(VisitorPreOnboardingSagaConfig config, VisitorPreOnboardingSaga saga, CancellationToken cancellationToken)

@@ -326,7 +326,7 @@ public class ReceptionService(
 
         List<ExpectedArrival> matches = await db.Arrivals
             .AsNoTracking()
-            .Where(x => x.ArrivalCode == code && (x.LocationId == null || x.LocationId == kiosk.LocationId))
+            .Where(x => x.ArrivalCode == code)
             .ToListAsync(ct);
 
         if (matches.Count == 0)
@@ -339,7 +339,18 @@ public class ReceptionService(
         if (HasActiveCrossSubjectConflict(activeMatches))
             return Result.Failure<ExpectedArrival?, ReceptionErrors>(ReceptionErrors.ArrivalCodeConflictAcrossSubjects);
 
-        List<ExpectedArrival> onboardedMatches = activeMatches
+        List<ExpectedArrival> kioskMatches = matches
+            .Where(x => x.LocationId is null || x.LocationId == kiosk.LocationId)
+            .ToList();
+
+        if (kioskMatches.Count == 0)
+            return Result.Failure<ExpectedArrival?, ReceptionErrors>(ReceptionErrors.ArrivalAssignedToDifferentLocation);
+
+        List<ExpectedArrival> kioskActiveMatches = kioskMatches
+            .Where(x => x.Status is OnboardingStatus.NotYetOnboarded or OnboardingStatus.Onboarded)
+            .ToList();
+
+        List<ExpectedArrival> onboardedMatches = kioskActiveMatches
             .Where(x => x.Status == OnboardingStatus.Onboarded)
             .ToList();
 
@@ -356,7 +367,7 @@ public class ReceptionService(
         }
 
         DateTimeOffset now = timeProvider.GetUtcNow();
-        List<ExpectedArrival> notYetOnboardedMatches = activeMatches
+        List<ExpectedArrival> notYetOnboardedMatches = kioskActiveMatches
             .Where(x => x.Status == OnboardingStatus.NotYetOnboarded)
             .ToList();
 
@@ -371,7 +382,7 @@ public class ReceptionService(
                 : Result.Failure<ExpectedArrival?, ReceptionErrors>(ReceptionErrors.ArrivalOutsideKioskOnboardingWindow);
         }
 
-        List<ExpectedArrival> candidates = matches
+        List<ExpectedArrival> candidates = kioskMatches
             .Where(x => x.Status == OnboardingStatus.Offboarded && now - GetArrivalEndTime(x) <= CompletedArrivalLookupWindow)
             .ToList();
 

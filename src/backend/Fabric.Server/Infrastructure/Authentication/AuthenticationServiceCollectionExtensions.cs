@@ -70,6 +70,12 @@ public static class AuthenticationServiceCollectionExtensions
                 policy.RequireAuthenticatedUser();
                 policy.RequireRole(ReceptionKioskAuthenticationDefaults.Role);
             })
+            .AddPolicy(ReceptionDeskWorkstationAuthenticationDefaults.Policy, policy =>
+            {
+                policy.AuthenticationSchemes.Add(ReceptionDeskWorkstationAuthenticationDefaults.AuthenticationScheme);
+                policy.RequireAuthenticatedUser();
+                policy.RequireRole(ReceptionDeskWorkstationAuthenticationDefaults.Role);
+            })
             .AddPolicy(KioskAuthenticationDefaults.Policy, policy =>
             {
                 policy.AuthenticationSchemes.Add(KioskAuthenticationDefaults.AuthenticationScheme);

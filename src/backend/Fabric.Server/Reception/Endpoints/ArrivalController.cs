@@ -36,6 +36,11 @@ public static class ArrivalEndpoints
             .Produces<ArrivalResponse>()
             .Produces<ProblemDetails>(StatusCodes.Status409Conflict)
             .Produces(StatusCodes.Status404NotFound);
+        arrivals.MapGet("/{id:guid}/documents/{documentId:guid}", GetArrivalDocument)
+            .WithDescription("Retrieve a stored arrival document")
+            .WithSummary("Retrieve arrival document")
+            .Produces(StatusCodes.Status200OK, contentType: "image/jpeg")
+            .Produces(StatusCodes.Status404NotFound);
         arrivals.MapPost("/{id:guid}/onboard", OnboardArrival)
             .WithDescription("Onboard an arrival with documents")
             .WithSummary("Onboard arrival")
@@ -186,6 +191,34 @@ public static class ArrivalEndpoints
 
         IPaged<ExpectedArrival> result = await query.GetPageAsync(page ?? 0, pageSize ?? 25, cancellationToken);
         return Results.Ok(result.Map(a => a.ToResponse()));
+    }
+
+    private static async Task<IResult> GetArrivalDocument(
+        Guid id,
+        Guid documentId,
+        ReceptionDbContext db,
+        ReceptionLocationScopeService locationScopeService,
+        IAuthenticationService authenticationService,
+        HttpContext httpContext,
+        CancellationToken cancellationToken = default)
+    {
+        ReceptionDeskWorkstationActor? workstation = await AuthenticateWorkstation(httpContext, authenticationService);
+        if (workstation is null)
+            return Results.Unauthorized();
+
+        HashSet<Guid>? scopedLocationIds = await locationScopeService.GetScopedLocationIds(workstation.LocationId, cancellationToken);
+        if (scopedLocationIds is null)
+            return Results.NotFound();
+
+        ExpectedArrival? arrival = await db.Arrivals
+            .Include(x => x.Documents)
+            .SingleOrDefaultAsync(x => x.Id == id && x.LocationId.HasValue && scopedLocationIds.Contains(x.LocationId.Value), cancellationToken);
+
+        CheckInDocument? document = arrival?.Documents.SingleOrDefault(x => x.Id == documentId);
+        if (document is null)
+            return Results.NotFound();
+
+        return Results.File(document.Content, GetDocumentContentType(document.DocumentType));
     }
 
     private static async Task<IResult> OnboardArrival(
@@ -589,6 +622,11 @@ public static class ArrivalEndpoints
             ReceptionErrors.ArrivalNotFound => Problem(StatusCodes.Status404NotFound, "Arrival not found."),
             ReceptionErrors.NotYetOnboarded => Problem(StatusCodes.Status409Conflict, "Arrival is not yet onboarded."),
             ReceptionErrors.AlreadyOffboarded => Problem(StatusCodes.Status409Conflict, "Arrival is already offboarded."),
+            ReceptionErrors.ArrivalAssignedToDifferentLocation => Problem(
+                StatusCodes.Status409Conflict,
+                "This kiosk cannot serve your location.",
+                "Please use the correct reception kiosk or contact reception.",
+                "arrival-assigned-to-different-location"),
             ReceptionErrors.ArrivalOutsideKioskOnboardingWindow => Problem(StatusCodes.Status409Conflict, "Arrival is outside kiosk onboarding window."),
             ReceptionErrors.ArrivalCodeConflictAcrossSubjects => Problem(StatusCodes.Status409Conflict, "Arrival code is already assigned to another active subject."),
             ReceptionErrors.InvalidStatus => Problem(StatusCodes.Status409Conflict, "Arrival status does not allow this operation."),
@@ -603,7 +641,29 @@ public static class ArrivalEndpoints
 
     private static (int statusCode, ProblemDetails problemDetails) Problem(int statusCode, string detail) => (statusCode, new ProblemDetails { Status = statusCode, Detail = detail });
 
+    private static (int statusCode, ProblemDetails problemDetails) Problem(int statusCode, string title, string detail, string? code)
+    {
+        ProblemDetails problemDetails = new()
+        {
+            Status = statusCode,
+            Title = title,
+            Detail = detail,
+        };
+
+        if (!string.IsNullOrWhiteSpace(code))
+            problemDetails.Extensions["code"] = code;
+
+        return (statusCode, problemDetails);
+    }
+
     private sealed record ReceptionOperatorActor(string Identifier, string? DisplayName);
     private sealed record ReceptionKioskActor(Guid Id, string Name);
     private sealed record ReceptionDeskWorkstationActor(Guid Id, string Name, Guid LocationId);
+
+    private static string GetDocumentContentType(CheckInDocumentType documentType) => documentType switch
+    {
+        CheckInDocumentType.FacePicture => "image/jpeg",
+        CheckInDocumentType.IdentityDocumentImage => "image/jpeg",
+        _ => "application/octet-stream",
+    };
 }
