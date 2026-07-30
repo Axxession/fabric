@@ -470,6 +470,7 @@ function CatalogAssignmentGroupsTable({ groups }: { readonly groups: readonly Pa
         const isExpanded = expandedGroupKeys.includes(groupKey);
         const detailsId = `assignment-group-details-${groupKey}`;
         const provisionStatus = getCatalogAssignmentGroupProvisionStatus(group);
+        const grantStatus = getCatalogAssignmentGroupStatus(group);
 
         return (
           <Fragment key={groupKey}>
@@ -478,6 +479,7 @@ function CatalogAssignmentGroupsTable({ groups }: { readonly groups: readonly Pa
               <td className="px-3 py-3 text-muted-foreground">{group.sourceLabel}</td>
               <td className="px-3 py-3 text-muted-foreground">{group.sourceReason}</td>
               <td className="px-3 py-3 text-muted-foreground">{group.validityLabel}</td>
+              <td className="px-3 py-3"><Badge variant={getAccessGrantStatusVariant(grantStatus)}>{grantStatus}</Badge></td>
               <td className="px-3 py-3"><Badge variant={provisionStatus.variant}>{provisionStatus.label}</Badge></td>
               <td className="px-3 py-3 text-right">
                 <button
@@ -494,9 +496,10 @@ function CatalogAssignmentGroupsTable({ groups }: { readonly groups: readonly Pa
             </tr>
             {isExpanded ? (
               <tr id={detailsId} className="bg-background">
-                      <td colSpan={6} className="px-3 py-3">
+                      <td colSpan={7} className="px-3 py-3">
                   <div className="grid gap-3">
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <Info label="Grant status" value={grantStatus} />
                       <Info label="Request status" value={group.requestStatus ? formatRequestStatus(group.requestStatus, group.requestSubStatus ?? null) : '-'} />
                       <Info label="Approved by" value={group.approvalSummary} />
                       <Info label="Provisionings" value={String(group.provisioningCount)} />
@@ -534,6 +537,7 @@ function AutomatedAssignmentGroupsTable({ identityId, groups }: { readonly ident
               <td className="px-3 py-3 text-muted-foreground">{group.sourceLabel}</td>
               <td className="px-3 py-3 text-muted-foreground">{group.sourceReason}</td>
               <td className="px-3 py-3 text-muted-foreground">{group.validityLabel}</td>
+              <td className="px-3 py-3"><Badge variant={getAccessGrantStatusVariant(group.status)}>{group.status}</Badge></td>
               <td className="px-3 py-3"><Badge variant={provisionStatus.variant}>{provisionStatus.label}</Badge></td>
               <td className="px-3 py-3 text-right">
                 <button
@@ -550,15 +554,18 @@ function AutomatedAssignmentGroupsTable({ identityId, groups }: { readonly ident
             </tr>
             {isExpanded ? (
               <tr id={detailsId} className="bg-background">
-                <td colSpan={6} className="px-3 py-3">
+                <td colSpan={7} className="px-3 py-3">
                   <div className="grid gap-3">
                     <div className="flex justify-end pb-1">
                       <AutomatedGrantReconcileButton identityId={identityId} group={group} />
                     </div>
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      <Info label="Grant status" value={group.status} />
                       <Info label="Approved by" value={group.approvalSummary} />
                       <Info label="Provisionings" value={String(group.provisioningCount)} />
                       <Info label="Locations" value={group.locationSummary || '-'} />
+                      {group.revokeCause ? <Info label="Revoke cause" value={formatAccessGrantRevokeCause(group.revokeCause)} /> : null}
+                      {group.revokedBy ? <Info label="Revoked by" value={group.revokedBy} /> : null}
                     </div>
                     <div className="grid gap-3">
                       {group.accessItems.map((item) => <AutomatedAccessItemGroup key={`${group.packageId}-${item.accessItemId}`} group={item} />)}
@@ -583,13 +590,14 @@ function AssignmentGroupTableSection({ title, description, children }: { readonl
       </div>
       <Card className="p-3 sm:p-4">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[56rem] border-collapse text-left text-[14px]">
+          <table className="w-full min-w-[62rem] border-collapse text-left text-[14px]">
             <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
               <tr>
                 <th className="px-3 py-3 font-semibold">Package</th>
                 <th className="px-3 py-3 font-semibold">Source</th>
                 <th className="px-3 py-3 font-semibold">Reason</th>
                 <th className="px-3 py-3 font-semibold">Validity</th>
+                <th className="px-3 py-3 font-semibold">Status</th>
                 <th className="px-3 py-3 font-semibold">Provision Status</th>
                 <th className="px-3 py-3 text-right font-semibold">Details</th>
               </tr>
@@ -1052,6 +1060,10 @@ function getCredentialStatusVariant(status: CredentialResponse['status']) {
   }
 }
 
+function getAccessGrantStatusVariant(status: AccessGrantResponse['status']) {
+  return status === 'Active' ? 'success' : 'secondary';
+}
+
 function getCredentialProvisionStatus(
   credential: CredentialResponse,
   assignments: readonly CredentialPACSAssignmentResponse[],
@@ -1089,6 +1101,10 @@ function getCatalogAssignmentGroupProvisionStatus(group: PackageAssignmentGroupV
   return hasIssues ? { label: 'NO', variant: 'error' as const } : { label: 'YES', variant: 'success' as const };
 }
 
+function getCatalogAssignmentGroupStatus(group: PackageAssignmentGroupView): AccessGrantResponse['status'] {
+  return group.accessItems.some((item) => item.leafViews.some((view) => view.grant.status === 'Active')) ? 'Active' : 'Revoked';
+}
+
 function getAutomatedAssignmentGroupProvisionStatus(group: AutomatedPackageAssignmentGroupView) {
   const hasIssues = group.accessItems.some((item) => {
     const hasMaterializationIssue = item.materializationOutcomes.some((outcome) => outcome.status === 'SkippedNoTarget' || outcome.status === 'Failed');
@@ -1096,6 +1112,25 @@ function getAutomatedAssignmentGroupProvisionStatus(group: AutomatedPackageAssig
   });
 
   return hasIssues ? { label: 'NO', variant: 'error' as const } : { label: 'YES', variant: 'success' as const };
+}
+
+function formatAccessGrantRevokeCause(cause: AccessGrantResponse['revokeCause']) {
+  switch (cause) {
+    case 'Manual':
+      return 'Manually revoked';
+    case 'VisitRescheduled':
+      return 'Visit rescheduled';
+    case 'ArrivalRelocated':
+      return 'Arrival relocated';
+    case 'VisitCancelled':
+      return 'Visit cancelled';
+    case 'VisitOffboarded':
+      return 'Visit offboarded';
+    case 'EmployeeLifecycleAutomation':
+      return 'Employee lifecycle automation';
+    default:
+      return '-';
+  }
 }
 
 function getRequestStatusVariant(status: PackageRequestStatus, subStatus: PackageRequestResponse['subStatus']) {
@@ -1233,6 +1268,7 @@ type AutomatedPackageAssignmentGroupView = {
   readonly sourceId: string;
   readonly sourceType: 'Automated';
   readonly grantIds: string[];
+  readonly status: AccessGrantResponse['status'];
   readonly packageName: string;
   readonly sourceLabel: string;
   readonly sourceReason: string;
@@ -1243,6 +1279,8 @@ type AutomatedPackageAssignmentGroupView = {
   readonly provisioningCount: number;
   readonly approvalSummary: string;
   readonly shouldExpand: boolean;
+  readonly revokedBy: string | null;
+  readonly revokeCause: AccessGrantResponse['revokeCause'];
 };
 
 type AutomatedAccessItemGroupView = {
@@ -1348,25 +1386,28 @@ function groupAutomaticViews(
   packageAccessItemsByPackageId: Map<string, AccessItemResponse[]>,
   targetsById: Map<string, AccessLevelTargetResponse>,
 ) {
-  return groupBy(views, (item) => `${item.grant.sourceKind}:${item.grant.sourceId}:${item.grant.packageId}`).map(([, packageViews]): AutomatedPackageAssignmentGroupView => {
-    const packageId = packageViews[0]?.grant.packageId ?? '';
-    const sourceId = packageViews[0]?.grant.sourceId ?? '';
+  return views.map((view): AutomatedPackageAssignmentGroupView => {
+    const packageId = view.grant.packageId;
+    const sourceId = view.grant.sourceId;
 
     return {
       packageId,
       sourceId,
       sourceType: 'Automated',
-      grantIds: Array.from(new Set(packageViews.map((item) => item.grant.id))),
-      packageName: packageViews[0]?.packageName ?? packageId,
-      sourceLabel: formatSourceLabel(packageViews[0]?.grant.sourceKind ?? 'Manual'),
-      sourceReason: getAutomaticReason(packageViews[0]),
-      validityLabel: getValidityLabel(packageViews),
-      locationSummary: getLocationSummary(packageViews),
-      accessItems: groupAutomaticAccessItems(packageViews, packageAccessItemsByPackageId.get(packageId) ?? [], targetsById),
-      provisioningSummary: getProvisioningSummary(packageViews.flatMap((item) => item.grantProvisionings)),
-      provisioningCount: packageViews.flatMap((item) => item.grantProvisionings).length,
-      approvalSummary: getApprovalSummary([], [], packageViews[0]?.grant.sourceKind ?? 'Manual'),
-      shouldExpand: packageViews.some((item) => item.shouldExpand),
+      grantIds: [view.grant.id],
+      status: view.grant.status,
+      packageName: view.packageName,
+      sourceLabel: formatSourceLabel(view.grant.sourceKind),
+      sourceReason: getAutomaticReason(view),
+      validityLabel: getValidityLabel([view]),
+      locationSummary: getLocationSummary([view]),
+      accessItems: groupAutomaticAccessItems([view], packageAccessItemsByPackageId.get(packageId) ?? [], targetsById),
+      provisioningSummary: getProvisioningSummary(view.grantProvisionings),
+      provisioningCount: view.grantProvisionings.length,
+      approvalSummary: getApprovalSummary([], [], view.grant.sourceKind),
+      shouldExpand: view.shouldExpand,
+      revokedBy: view.grant.revokedBy,
+      revokeCause: view.grant.revokeCause ?? null,
     };
   });
 }
@@ -1532,8 +1573,9 @@ function formatSourceLabel(sourceKind: AccessGrantResponse['sourceKind']) {
     case 'OrganizationalUnit':
     case 'Persona':
       return 'HR Policy';
+    case 'ReceptionArrival':
     case 'VisitorLocation':
-      return 'Visitors Policy';
+      return 'Visitor Policy';
     case 'Manual':
       return 'Manual grant';
     default:

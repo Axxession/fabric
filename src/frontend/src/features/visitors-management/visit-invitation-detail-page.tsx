@@ -109,10 +109,10 @@ export default function VisitInvitationDetailPage() {
 
   return (
     <div className="grid gap-6">
-      <Link to="/employee/visitors/$visitId/edit" params={{ visitId }} className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground">
+      <button type="button" onClick={() => window.history.back()} className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground">
         <ArrowLeft className="size-4" aria-hidden="true" />
-        Back to visit
-      </Link>
+        Back
+      </button>
 
       <header className="rounded-structural border border-border bg-content p-5 sm:p-6">
         <div className="flex flex-wrap items-center gap-3">
@@ -171,8 +171,15 @@ export default function VisitInvitationDetailPage() {
                 <tbody className="divide-y divide-border">
                   {assignedPackages.map((item) => (
                     <tr key={item.grant.id}>
-                      <td className="px-4 py-4 font-medium text-foreground">{item.packageName}</td>
-                      <td className="px-4 py-4"><Badge variant={getAccessGrantVariant(item.grant.status)}>{item.grant.status}</Badge></td>
+                      <td className="px-4 py-4">
+                        <div className="font-medium text-foreground">{item.packageName}</div>
+                        <div className="mt-1 text-muted-foreground">{formatValidityRange(item.grant.validFrom, item.grant.validUntil)}</div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <Badge variant={getAccessGrantVariant(item.grant.status)}>{item.grant.status}</Badge>
+                        {item.grant.status === 'Revoked' && item.grant.revokeCause ? <div className="mt-2 text-[13px] text-muted-foreground">{formatAccessGrantRevokeCause(item.grant.revokeCause)}</div> : null}
+                        {item.grant.status === 'Revoked' && item.grant.revokedBy ? <div className="mt-1 text-[13px] text-muted-foreground">{item.grant.revokedBy}</div> : null}
+                      </td>
                       <td className="px-4 py-4"><Badge variant={item.isProvisioned ? 'success' : 'secondary'}>{item.isProvisioned ? 'Provisioned' : 'Not yet'}</Badge></td>
                     </tr>
                   ))}
@@ -211,6 +218,29 @@ function formatInvitationName(invitation: VisitInvitationResponse) {
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+}
+
+function formatValidityRange(validFrom: string, validUntil: string | null) {
+  return validUntil ? `${formatDateTime(validFrom)} - ${formatDateTime(validUntil)}` : formatDateTime(validFrom);
+}
+
+function formatAccessGrantRevokeCause(cause: AccessGrantResponse['revokeCause']) {
+  switch (cause) {
+    case 'Manual':
+      return 'Manually revoked';
+    case 'VisitRescheduled':
+      return 'Visit rescheduled';
+    case 'ArrivalRelocated':
+      return 'Arrival relocated';
+    case 'VisitCancelled':
+      return 'Visit cancelled';
+    case 'VisitOffboarded':
+      return 'Visit offboarded';
+    case 'EmployeeLifecycleAutomation':
+      return 'Employee lifecycle automation';
+    default:
+      return '-';
+  }
 }
 
 function formatConfirmationStatus(status: VisitInvitationResponse['confirmationStatus']) {

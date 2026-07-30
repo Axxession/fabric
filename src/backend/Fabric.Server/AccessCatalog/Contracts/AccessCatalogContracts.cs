@@ -114,6 +114,8 @@ public sealed record AccessGrantResponse(
     DateTimeOffset? ValidUntil,
     AccessGrantStatus Status,
     string ReasonText,
+    string? RevokedBy,
+    AccessGrantRevokeCause? RevokeCause,
     Guid[] LocationIds,
     AccessGrantMaterializationOutcomeResponse[] MaterializationOutcomes);
 
@@ -173,6 +175,8 @@ public static class AccessCatalogMapper
             grant.ValidUntil,
             grant.Status,
             grant.ReasonText,
+            grant.RevokedBy,
+            grant.RevokeCause,
             locationIds,
             materializationOutcomes);
 }

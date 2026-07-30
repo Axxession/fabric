@@ -7,6 +7,7 @@ using Fabric.Server.Sagas;
 using Fabric.Server.Sagas.AccessGrantProvisioning;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace Fabric.Server.AccessCatalog.Endpoints;
 
@@ -78,9 +79,9 @@ public static class AccessGrantEndpoints
         return Results.Ok(grant.ToResponse(locationIds, outcomes.GetValueOrDefault(accessGrantId, [])));
     }
 
-    private static async Task<IResult> RevokeAccessGrant(Guid accessGrantId, AccessGrantService service, AccessCatalogDbContext db, SagasDbContext sagasDb, CancellationToken cancellationToken = default)
+    private static async Task<IResult> RevokeAccessGrant(Guid accessGrantId, AccessGrantService service, AccessCatalogDbContext db, SagasDbContext sagasDb, HttpContext httpContext, CancellationToken cancellationToken = default)
     {
-        Result<AccessGrant, AccessCatalogErrors> result = await service.RevokeAsync(accessGrantId, cancellationToken);
+        Result<AccessGrant, AccessCatalogErrors> result = await service.RevokeAsync(accessGrantId, AccessGrantRevokeCause.Manual, GetRevokedBy(httpContext.User), cancellationToken);
 
         return await result.Match<Task<IResult>>(
             async item =>
@@ -120,6 +121,20 @@ public static class AccessGrantEndpoints
             .Where(item => accessGrantIds.Contains(item.AccessGrantId))
             .GroupBy(item => item.AccessGrantId)
             .ToDictionaryAsync(group => group.Key, group => group.Select(item => item.ToResponse()).ToArray(), cancellationToken);
+    }
+
+    private static string? GetRevokedBy(ClaimsPrincipal user)
+    {
+        string? email = user.FindFirstValue(ClaimTypes.Email)
+            ?? user.FindFirstValue("email")
+            ?? user.FindFirstValue("preferred_username");
+        string? displayName = user.FindFirstValue(ClaimTypes.Name) ?? user.FindFirstValue("name");
+
+        return !string.IsNullOrWhiteSpace(displayName) && !string.IsNullOrWhiteSpace(email)
+            ? $"{displayName} ({email})"
+            : !string.IsNullOrWhiteSpace(displayName)
+                ? displayName
+                : email;
     }
 
     private static (int statusCode, ProblemDetails? problemDetails) MapError(AccessCatalogErrors error) =>

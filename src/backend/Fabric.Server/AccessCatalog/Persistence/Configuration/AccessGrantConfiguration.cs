@@ -25,6 +25,8 @@ public sealed class AccessGrantConfiguration : IEntityTypeConfiguration<AccessGr
         builder.Property(item => item.ValidUntil).HasColumnName("valid_until");
         builder.Property(item => item.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(50).IsRequired();
         builder.Property(item => item.ReasonText).HasColumnName("reason_text").HasMaxLength(2_000).IsRequired();
+        builder.Property(item => item.RevokedBy).HasColumnName("revoked_by").HasMaxLength(250);
+        builder.Property(item => item.RevokeCause).HasColumnName("revoke_cause").HasConversion<string>().HasMaxLength(100);
 
         builder.HasOne<Package>()
             .WithMany()

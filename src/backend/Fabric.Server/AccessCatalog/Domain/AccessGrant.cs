@@ -20,6 +20,8 @@ public sealed class AccessGrant
     public DateTimeOffset? ValidUntil { get; private set; }
     public AccessGrantStatus Status { get; private set; }
     public string ReasonText { get; private set; } = null!;
+    public string? RevokedBy { get; private set; }
+    public AccessGrantRevokeCause? RevokeCause { get; private set; }
 
     public static Result<AccessGrant, AccessCatalogErrors> Create(
         Guid packageId,
@@ -66,12 +68,14 @@ public sealed class AccessGrant
         });
     }
 
-    public Result<AccessCatalogErrors> Revoke()
+    public Result<AccessCatalogErrors> Revoke(string? revokedBy, AccessGrantRevokeCause revokeCause)
     {
         if (Status == AccessGrantStatus.Revoked)
             return Result.Failure(AccessCatalogErrors.AccessGrantAlreadyRevoked);
 
         Status = AccessGrantStatus.Revoked;
+        RevokedBy = string.IsNullOrWhiteSpace(revokedBy) ? null : revokedBy.Trim();
+        RevokeCause = revokeCause;
         return Result.Success<AccessCatalogErrors>();
     }
 }

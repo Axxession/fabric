@@ -25,15 +25,23 @@ public sealed class ReceptionTriggeredPackageAssignmentService(
         await db.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task RecreateAssignedPolicies(ExpectedArrival arrival, CancellationToken cancellationToken = default)
+    public async Task RecreateAssignedPolicies(
+        ExpectedArrival arrival,
+        AccessGrantRevokeCause revokeCause,
+        string revokedBy,
+        CancellationToken cancellationToken = default)
     {
-        await RetractAssignedPolicies(arrival.Id, cancellationToken);
+        await RetractAssignedPolicies(arrival.Id, revokeCause, revokedBy, cancellationToken);
 
         foreach (ReceptionAccessPolicyTrigger trigger in GetTriggeredStates(arrival))
             await ApplyTrigger(arrival, trigger, cancellationToken);
     }
 
-    public async Task RetractAssignedPolicies(Guid arrivalId, CancellationToken cancellationToken = default)
+    public async Task RetractAssignedPolicies(
+        Guid arrivalId,
+        AccessGrantRevokeCause revokeCause,
+        string revokedBy,
+        CancellationToken cancellationToken = default)
     {
         List<ReceptionAssignedAccessPolicy> assignedPolicies = await db.AssignedAccessPolicies
             .Where(policy => policy.ArrivalId == arrivalId)
@@ -41,7 +49,7 @@ public sealed class ReceptionTriggeredPackageAssignmentService(
 
         foreach (ReceptionAssignedAccessPolicy assignedPolicy in assignedPolicies)
         {
-            Result<AccessGrant, AccessCatalogErrors> revoke = await accessGrantService.RevokeAsync(assignedPolicy.AccessGrantId, cancellationToken);
+            Result<AccessGrant, AccessCatalogErrors> revoke = await accessGrantService.RevokeAsync(assignedPolicy.AccessGrantId, revokeCause, revokedBy, cancellationToken);
             if (revoke.IsFailure(out AccessCatalogErrors error) && error != AccessCatalogErrors.AccessGrantAlreadyRevoked && error != AccessCatalogErrors.AccessGrantNotFound)
                 throw new InvalidOperationException($"Failed to revoke reception access grant {assignedPolicy.AccessGrantId}: {error}.");
         }

@@ -92,13 +92,17 @@ public sealed class AccessGrantService(
             cancellationToken);
     }
 
-    public async Task<Result<AccessGrant, AccessCatalogErrors>> RevokeAsync(Guid accessGrantId, CancellationToken cancellationToken = default)
+    public async Task<Result<AccessGrant, AccessCatalogErrors>> RevokeAsync(
+        Guid accessGrantId,
+        AccessGrantRevokeCause revokeCause,
+        string? revokedBy,
+        CancellationToken cancellationToken = default)
     {
         AccessGrant? grant = await db.AccessGrants.SingleOrDefaultAsync(item => item.Id == accessGrantId, cancellationToken);
         if (grant is null)
             return Result.Failure<AccessGrant, AccessCatalogErrors>(AccessCatalogErrors.AccessGrantNotFound);
 
-        Result<AccessCatalogErrors> revoke = grant.Revoke();
+        Result<AccessCatalogErrors> revoke = grant.Revoke(revokedBy, revokeCause);
         if (revoke.IsFailure(out AccessCatalogErrors error))
             return Result.Failure<AccessGrant, AccessCatalogErrors>(error);
 

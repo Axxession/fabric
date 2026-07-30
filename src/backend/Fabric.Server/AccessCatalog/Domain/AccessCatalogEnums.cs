@@ -18,6 +18,16 @@ public enum AccessGrantStatus
     Revoked
 }
 
+public enum AccessGrantRevokeCause
+{
+    Manual,
+    VisitRescheduled,
+    ArrivalRelocated,
+    VisitCancelled,
+    VisitOffboarded,
+    EmployeeLifecycleAutomation
+}
+
 public enum AccessDurationKind
 {
     Permanent,

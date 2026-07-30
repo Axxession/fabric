@@ -261,7 +261,7 @@ public sealed class EmployeeLifecycleAutomationService(
             if (stillDesired)
                 continue;
 
-            Result<AccessGrant, AccessCatalogErrors> revoke = await accessGrantService.RevokeAsync(grant.Id, cancellationToken);
+            Result<AccessGrant, AccessCatalogErrors> revoke = await accessGrantService.RevokeAsync(grant.Id, AccessGrantRevokeCause.EmployeeLifecycleAutomation, "Employee lifecycle automation", cancellationToken);
             if (revoke.IsFailure(out AccessCatalogErrors error))
                 throw new InvalidOperationException($"Failed to revoke automatic access grant: {error}.");
         }

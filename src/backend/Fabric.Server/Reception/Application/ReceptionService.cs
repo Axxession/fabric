@@ -1,3 +1,4 @@
+using Fabric.Server.AccessCatalog.Domain;
 using Fabric.Server.Core;
 using Fabric.Server.Reception.Domain;
 using Fabric.Server.Reception.Persistence;
@@ -81,7 +82,7 @@ public class ReceptionService(
         if (result.IsSuccess(out _))
         {
             await db.SaveChangesAsync(cancellationToken);
-            await receptionTriggeredPackageAssignmentService.RecreateAssignedPolicies(arrival, cancellationToken);
+            await receptionTriggeredPackageAssignmentService.RecreateAssignedPolicies(arrival, AccessGrantRevokeCause.VisitRescheduled, "Reception automation", cancellationToken);
         }
 
         return result;
@@ -99,7 +100,7 @@ public class ReceptionService(
         if (result.IsSuccess(out _))
         {
             await db.SaveChangesAsync(cancellationToken);
-            await receptionTriggeredPackageAssignmentService.RecreateAssignedPolicies(arrival, cancellationToken);
+            await receptionTriggeredPackageAssignmentService.RecreateAssignedPolicies(arrival, AccessGrantRevokeCause.ArrivalRelocated, "Reception automation", cancellationToken);
         }
 
         return result;
@@ -112,7 +113,7 @@ public class ReceptionService(
         if (arrival is null)
             return Result.Failure(ReceptionErrors.ArrivalNotFound);
 
-        await receptionTriggeredPackageAssignmentService.RetractAssignedPolicies(arrivalId, cancellationToken);
+        await receptionTriggeredPackageAssignmentService.RetractAssignedPolicies(arrivalId, AccessGrantRevokeCause.VisitCancelled, "Reception automation", cancellationToken);
         db.Arrivals.Remove(arrival);
         await db.SaveChangesAsync(cancellationToken);
         return Result.Success<ReceptionErrors>();
@@ -213,7 +214,7 @@ public class ReceptionService(
         if (result.IsSuccess(out _))
         {
             await db.SaveChangesAsync(ct);
-            await receptionTriggeredPackageAssignmentService.RetractAssignedPolicies(arrivalId, ct);
+            await receptionTriggeredPackageAssignmentService.RetractAssignedPolicies(arrivalId, AccessGrantRevokeCause.VisitOffboarded, operatorDisplayName ?? operatorEmail, ct);
         }
 
         return result;
@@ -229,7 +230,7 @@ public class ReceptionService(
         if (result.IsSuccess(out _))
         {
             await db.SaveChangesAsync(ct);
-            await receptionTriggeredPackageAssignmentService.RetractAssignedPolicies(arrivalId, ct);
+            await receptionTriggeredPackageAssignmentService.RetractAssignedPolicies(arrivalId, AccessGrantRevokeCause.VisitOffboarded, kioskName, ct);
         }
 
         return result;

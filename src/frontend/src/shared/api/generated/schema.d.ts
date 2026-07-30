@@ -13752,9 +13752,13 @@ export interface components {
             validUntil: null | string;
             status: components["schemas"]["AccessGrantStatus"];
             reasonText: string;
+            revokedBy: null | string;
+            revokeCause: null | components["schemas"]["AccessGrantRevokeCause"];
             locationIds: string[];
             materializationOutcomes: components["schemas"]["AccessGrantMaterializationOutcomeResponse"][];
         };
+        /** @enum {unknown} */
+        AccessGrantRevokeCause: "Manual" | "VisitRescheduled" | "ArrivalRelocated" | "VisitCancelled" | "VisitOffboarded" | "EmployeeLifecycleAutomation";
         /** @enum {unknown} */
         AccessGrantStatus: "Active" | "Revoked";
         AccessItemResponse: {
