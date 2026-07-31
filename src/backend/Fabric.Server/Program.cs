@@ -17,6 +17,7 @@ using Fabric.Server.Identities;
 using Fabric.Server.Identities.Endpoints;
 using Fabric.Server.Infrastructure;
 using Fabric.Server.Infrastructure.Authentication;
+using Fabric.Server.Infrastructure.Storage;
 using Fabric.Server.Infrastructure.Tenancy;
 using Fabric.Server.Kiosk;
 using Fabric.Server.Kiosk.Endpoints;
@@ -50,6 +51,7 @@ if (enableOpenApi)
 builder.Services.AddTransient(_ => TimeProvider.System);
 builder.Services.AddSingleton<IApplicationVersionProvider, ApplicationVersionProvider>();
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Clear());
+builder.Services.SetupStorage(builder.Configuration);
 builder.Services.AddTenancy(builder.Configuration);
 builder.Services.AddFabricAuthentication();
 

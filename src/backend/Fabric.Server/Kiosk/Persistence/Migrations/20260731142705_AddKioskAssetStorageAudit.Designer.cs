@@ -3,6 +3,7 @@ using System;
 using Fabric.Server.Kiosk.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Fabric.Server.Kiosk.Persistence.Migrations
 {
     [DbContext(typeof(KioskDbContext))]
-    partial class KioskDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260731142705_AddKioskAssetStorageAudit")]
+    partial class AddKioskAssetStorageAudit
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

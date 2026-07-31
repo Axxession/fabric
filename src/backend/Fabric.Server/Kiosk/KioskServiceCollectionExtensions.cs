@@ -20,7 +20,6 @@ public static class KioskServiceCollectionExtensions
         collection.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Add(KioskJsonSerializerContext.Default));
 
-        collection.Configure<KioskAssetStorageOptions>(configuration.GetSection("Kiosk:AssetStorage"));
         collection.AddScoped<KioskKeyHasher>();
         collection.AddScoped<IKioskAssetStorage, KioskAssetStorage>();
         collection.AddScoped<KioskHardwareBindingResolver>();

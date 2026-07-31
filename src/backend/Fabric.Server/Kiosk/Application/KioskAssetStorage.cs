@@ -1,49 +1,43 @@
-using Fabric.Server.Infrastructure.Tenancy;
-using Microsoft.Extensions.Options;
+using Fabric.Server.Infrastructure.Storage;
+using ManagedCode.Communication;
+using ManagedCode.Storage.Core;
+using ManagedCode.Storage.Core.Models;
 
 namespace Fabric.Server.Kiosk.Application;
 
 public interface IKioskAssetStorage
 {
-    Task<string> SaveAsync(Guid profileId, Guid assetId, string fileName, Stream stream, CancellationToken cancellationToken);
+    Task<string> SaveAsync(Guid profileId, Guid assetId, string fileName, string? contentType, Stream stream, CancellationToken cancellationToken);
     Task<Stream?> OpenReadAsync(string relativePath, CancellationToken cancellationToken);
     Task DeleteAsync(string relativePath, CancellationToken cancellationToken);
 }
 
-public sealed class KioskAssetStorage(IOptions<KioskAssetStorageOptions> options, ITenantContext tenantContext) : IKioskAssetStorage
+public sealed class KioskAssetStorage(IStorage storage, IStoragePathBuilder pathBuilder) : IKioskAssetStorage
 {
-    public async Task<string> SaveAsync(Guid profileId, Guid assetId, string fileName, Stream stream, CancellationToken cancellationToken)
+    public async Task<string> SaveAsync(Guid profileId, Guid assetId, string fileName, string? contentType, Stream stream, CancellationToken cancellationToken)
     {
-        string safeFileName = Path.GetFileName(fileName);
-        string relativePath = Path.Combine(tenantContext.TenantId, profileId.ToString("N"), assetId.ToString("N"), safeFileName);
-        string fullPath = GetFullPath(relativePath);
-        string? directory = Path.GetDirectoryName(fullPath);
-        if (directory is not null)
-            Directory.CreateDirectory(directory);
+        string relativePath = pathBuilder.BuildTenantScopedPath("kiosk", "profiles", profileId.ToString("N"), "assets", assetId.ToString("N"));
+        UploadOptions options = new(fileName: assetId.ToString("N"), directory: Path.GetDirectoryName(relativePath)?.Replace('\\', '/'), mimeType: ResolveContentType(contentType));
+        Result<BlobMetadata> result = await storage.UploadAsync(stream, options, cancellationToken);
+        if (!result.IsSuccess)
+            throw new InvalidOperationException($"Could not store kiosk asset '{relativePath}'.");
 
-        await using FileStream fileStream = File.Create(fullPath);
-        await stream.CopyToAsync(fileStream, cancellationToken);
         return relativePath;
     }
 
-    public Task<Stream?> OpenReadAsync(string relativePath, CancellationToken cancellationToken)
+    public async Task<Stream?> OpenReadAsync(string relativePath, CancellationToken cancellationToken)
     {
-        string fullPath = GetFullPath(relativePath);
-        if (!File.Exists(fullPath))
-            return Task.FromResult<Stream?>(null);
+        Result<LocalFile> result = await storage.DownloadAsync(relativePath, cancellationToken);
+        if (!result.IsSuccess || result.Value is null)
+            return null;
 
-        Stream stream = File.OpenRead(fullPath);
-        return Task.FromResult<Stream?>(stream);
+        return result.Value.OpenReadStream();
     }
 
-    public Task DeleteAsync(string relativePath, CancellationToken cancellationToken)
+    public async Task DeleteAsync(string relativePath, CancellationToken cancellationToken)
     {
-        string fullPath = GetFullPath(relativePath);
-        if (File.Exists(fullPath))
-            File.Delete(fullPath);
-
-        return Task.CompletedTask;
+        await storage.DeleteAsync(relativePath, cancellationToken);
     }
 
-    private string GetFullPath(string relativePath) => Path.GetFullPath(Path.Combine(options.Value.Path, relativePath));
+    private static string ResolveContentType(string? contentType) => string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType.Trim();
 }

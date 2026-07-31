@@ -26,10 +26,87 @@ Secrets should not be committed. Use environment-specific config, user secrets, 
       }
     }
   },
+  "Storage": {
+    "Provider": "FileSystem"
+  },
   "AllowedHosts": "*",
   "EnableSwagger": true
 }
 ```
+
+## File Storage
+
+Fabric uses `ManagedCode.Storage` as the default storage abstraction for uploaded files.
+
+Config lives under `Storage`.
+
+If `Storage` is missing or `Storage:Provider` is omitted, Fabric falls back to local file system storage.
+
+### Default File System Storage
+
+Default file system root path:
+
+- Linux: `~/.local/share/fabric/storage`
+- Other platforms: the current user's local application data folder plus `fabric/storage`
+
+Override it with `Storage:FileSystem:BasePath`.
+
+```json
+{
+  "Storage": {
+    "Provider": "FileSystem",
+    "FileSystem": {
+      "BasePath": "/var/lib/fabric/storage"
+    }
+  }
+}
+```
+
+### Azure Blob Storage
+
+```json
+{
+  "Storage": {
+    "Provider": "Azure",
+    "Azure": {
+      "ConnectionString": "UseDevelopmentStorage=true",
+      "Container": "fabric"
+    }
+  }
+}
+```
+
+Required Azure fields:
+
+- `ConnectionString`
+- `Container`
+
+`PublicAccessType` is optional and defaults to `None`.
+
+### Storage Path Convention
+
+Tenant-scoped stored files use this path layout inside the configured storage root or blob container:
+
+`/{tenant}/{domain}/{owner-scope}/{fileId}`
+
+Example for kiosk assets:
+
+`/main-tenant/kiosk/profiles/{profileId}/assets/{fileId}`
+
+This keeps tenant deletion simple because a whole tenant can be removed by deleting the `{tenant}` prefix.
+
+### Stored File Metadata
+
+Uploaded files should persist app metadata in the domain database table that owns them. At minimum store:
+
+- storage path
+- visibility (`Public` or `Private`)
+- file name
+- content type
+- size
+- uploader snapshot (`oid`, `email`, `displayName`)
+
+Public files should still be exposed through Fabric-owned endpoints by default. Private files should only be served through authenticated or policy-protected endpoints.
 
 ## Tenancy Modes
 
@@ -185,4 +262,8 @@ Email__Graph__FromName="Fabric"
 Email__Graph__AzureTenantId="00000000-0000-0000-0000-000000000000"
 Email__Graph__ApplicationId="00000000-0000-0000-0000-000000000000"
 Email__Graph__Secret="replace-with-secret"
+Storage__Provider="FileSystem"
+Storage__FileSystem__BasePath="/var/lib/fabric/storage"
+Storage__Azure__ConnectionString="UseDevelopmentStorage=true"
+Storage__Azure__Container="fabric"
 ```
