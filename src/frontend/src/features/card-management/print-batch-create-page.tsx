@@ -75,7 +75,7 @@ export default function PrintBatchCreatePage() {
     onSuccess: async (batch) => {
       await queryClient.invalidateQueries({ queryKey: printingBatchesQueryKey });
       toast.success('Print batch scheduled.');
-      window.location.assign(`/old/card-management/printing/${batch.id}`);
+      window.location.assign(`/desfire-studio/printing/${batch.id}`);
     },
     onError: () => toast.error('Could not schedule print batch.'),
   });
@@ -142,7 +142,7 @@ export default function PrintBatchCreatePage() {
 
   return (
     <section className="grid gap-6">
-      <Link to="/old/card-management/printing" className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground"><ArrowLeft className="size-4" />Back to printing</Link>
+      <Link to="/desfire-studio/printing" className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground"><ArrowLeft className="size-4" />Back to printing</Link>
       <Card>
         <CardHeader>
           <CardTitle>Schedule Print Batch</CardTitle>

@@ -30,6 +30,7 @@ import PersonaCreatePage from '@/features/administration/persona-create-page';
 import PersonaEditPage from '@/features/administration/persona-edit-page';
 import { EmployeeHostRoute } from '@/features/perspectives/employee-host-route';
 import { PerspectiveHomePage } from '@/features/perspectives/perspective-home-page';
+import { DesfireStudioLayout } from '@/features/desfire-studio/desfire-studio-layout';
 import { ReceptionKioskLayout } from '@/features/reception-kiosk/layout/reception-kiosk-layout';
 import { ReceptionDeskWorkstationLayout } from '@/features/reception-desk/layout/reception-desk-workstation-layout';
 
@@ -43,21 +44,25 @@ const AutomationKioskPage = lazy(() => import('@/features/automation/kiosk-admin
 const AutomationKioskEditPage = lazy(() => import('@/features/automation/kiosk-edit-page'));
 const AutomationKioskProfileEditPage = lazy(() => import('@/features/automation/kiosk-profile-edit-page'));
 const CardManagementChipDesignCreatePage = lazy(() => import('@/features/card-management/chip-design-create-page'));
-const CardManagementChipDesignEditPage = lazy(() => import('@/features/card-management/chip-design-form-page'));
+const CardManagementChipDesignEditPageDesfireStudio = lazy(() => import('@/features/card-management/chip-design-edit-page-desfire-studio'));
 const CardManagementChipDesignerPage = lazy(() => import('@/features/card-management/chip-designer-page'));
 const CardManagementKeyGroupCreatePage = lazy(() => import('@/features/card-management/key-group-create-page'));
-const CardManagementKeyGroupEditPage = lazy(() => import('@/features/card-management/key-group-form-page'));
+const CardManagementKeyGroupEditPageDesfireStudio = lazy(() => import('@/features/card-management/key-group-edit-page-desfire-studio'));
 const CardManagementKeyManagementPage = lazy(() => import('@/features/card-management/key-management-page'));
 const CardManagementPrintBatchCreatePage = lazy(() => import('@/features/card-management/print-batch-create-page'));
-const CardManagementPrintBatchDetailPage = lazy(() => import('@/features/card-management/print-batch-detail-page'));
+const CardManagementPrintBatchDetailPageDesfireStudio = lazy(() => import('@/features/card-management/print-batch-detail-page-desfire-studio'));
 const CardManagementEncoderFormPage = lazy(() => import('@/features/card-management/encoder-form-page'));
-const CardManagementPrintRunDetailPage = lazy(() => import('@/features/card-management/print-run-detail-page'));
+const CardManagementEncoderFormPageDesfireStudio = lazy(() => import('@/features/card-management/encoder-form-page-desfire-studio'));
+const CardManagementPrintRunDetailPageDesfireStudio = lazy(() => import('@/features/card-management/print-run-detail-page-desfire-studio'));
 const CardManagementPrintingPage = lazy(() => import('@/features/card-management/printing-page'));
 const CardManagementStrategyCreatePage = lazy(() => import('@/features/card-management/diversification-strategy-create-page'));
-const CardManagementStrategyEditPage = lazy(() => import('@/features/card-management/diversification-strategy-form-page'));
+const CardManagementStrategyEditPageDesfireStudio = lazy(() => import('@/features/card-management/diversification-strategy-edit-page-desfire-studio'));
 const CardManagementSystemProviderCreatePage = lazy(() => import('@/features/card-management/system-provider-create-page'));
 const CardManagementTransformationCreatePage = lazy(() => import('@/features/card-management/transformation-create-page'));
-const CardManagementTransformationEditPage = lazy(() => import('@/features/card-management/transformation-form-page'));
+const CardManagementTransformationEditPageDesfireStudio = lazy(() => import('@/features/card-management/transformation-edit-page-desfire-studio'));
+const DesfireStudioHardwareAgentDetailPage = lazy(() => import('@/features/desfire-studio/desfire-studio-hardware-agent-detail-page'));
+const DesfireStudioHardwareAgentsPage = lazy(() => import('@/features/desfire-studio/desfire-studio-hardware-agents-page'));
+const DesfireStudioPage = lazy(() => import('@/features/desfire-studio/desfire-studio-page'));
 const CredentialsPage = lazy(() => import('@/features/credentials/credentials-page'));
 const FacilityHardwareAgentDetailPage = lazy(() => import('@/features/facility/hardware-agent-detail-page'));
 const FacilityBuildingEditPage = lazy(() => import('@/features/facility/building-edit-page'));
@@ -135,6 +140,16 @@ const receptionDeskWorkstationLayoutRoute = createRoute({
     <ReceptionDeskWorkstationLayout>
       <Outlet />
     </ReceptionDeskWorkstationLayout>
+  ),
+});
+
+const desfireStudioLayoutRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/desfire-studio',
+  component: () => (
+    <DesfireStudioLayout>
+      <Outlet />
+    </DesfireStudioLayout>
   ),
 });
 
@@ -548,122 +563,124 @@ const administrationHardwareAgentDetailRoute = createRoute({
   component: () => <LazyRoute component={<FacilityHardwareAgentDetailPage />} />,
 });
 
-const cardManagementRoute = createRoute({
-  getParentRoute: () => mainLayoutRoute,
-  path: '/old/card-management',
-  component: () => (
-    <ProtectedRoute>
-      <Outlet />
-    </ProtectedRoute>
-  ),
-});
-
-const cardManagementIndexRoute = createRoute({
-  getParentRoute: () => cardManagementRoute,
+const desfireStudioIndexRoute = createRoute({
+  getParentRoute: () => desfireStudioLayoutRoute,
   path: '/',
-  component: () => <Navigate to="/old/card-management/key-management" />,
+  component: () => <LazyRoute component={<DesfireStudioPage />} />,
 });
 
-const cardManagementKeyManagementRoute = createRoute({
-  getParentRoute: () => cardManagementRoute,
+const desfireStudioHardwareAgentsRoute = createRoute({
+  getParentRoute: () => desfireStudioLayoutRoute,
+  path: '/hardware-agents',
+  component: () => <ProtectedLazyRoute component={<DesfireStudioHardwareAgentsPage />} />,
+});
+
+const desfireStudioHardwareAgentDetailRoute = createRoute({
+  getParentRoute: () => desfireStudioLayoutRoute,
+  path: '/hardware-agents/$agentId',
+  component: () => <ProtectedLazyRoute component={<DesfireStudioHardwareAgentDetailPage />} />,
+});
+
+const desfireStudioKeyManagementRoute = createRoute({
+  getParentRoute: () => desfireStudioLayoutRoute,
   path: '/key-management',
-  component: () => <LazyRoute component={<CardManagementKeyManagementPage />} />,
+  component: () => <ProtectedLazyRoute component={<CardManagementKeyManagementPage />} />,
 });
 
-const cardManagementChipDesignerRoute = createRoute({
-  getParentRoute: () => cardManagementRoute,
-  path: '/chip-designer',
-  component: () => <LazyRoute component={<CardManagementChipDesignerPage />} />,
-});
-
-const cardManagementChipDesignCreateRoute = createRoute({
-  getParentRoute: () => cardManagementRoute,
-  path: '/chip-designs/new',
-  component: () => <LazyRoute component={<CardManagementChipDesignCreatePage />} />,
-});
-
-const cardManagementChipDesignEditRoute = createRoute({
-  getParentRoute: () => cardManagementRoute,
-  path: '/chip-designs/$chipDesignId/edit',
-  component: () => <LazyRoute component={<CardManagementChipDesignEditPage />} />,
-});
-
-const cardManagementKeyGroupCreateRoute = createRoute({
-  getParentRoute: () => cardManagementRoute,
+const desfireStudioKeyGroupCreateRoute = createRoute({
+  getParentRoute: () => desfireStudioLayoutRoute,
   path: '/key-groups/new',
-  component: () => <LazyRoute component={<CardManagementKeyGroupCreatePage />} />,
+  component: () => <ProtectedLazyRoute component={<CardManagementKeyGroupCreatePage />} />,
 });
 
-const cardManagementKeyGroupEditRoute = createRoute({
-  getParentRoute: () => cardManagementRoute,
+const desfireStudioKeyGroupEditRoute = createRoute({
+  getParentRoute: () => desfireStudioLayoutRoute,
   path: '/key-groups/$keyGroupId/edit',
-  component: () => <LazyRoute component={<CardManagementKeyGroupEditPage />} />,
+  component: () => <ProtectedLazyRoute component={<CardManagementKeyGroupEditPageDesfireStudio />} />,
 });
 
-const cardManagementStrategyCreateRoute = createRoute({
-  getParentRoute: () => cardManagementRoute,
+const desfireStudioStrategyCreateRoute = createRoute({
+  getParentRoute: () => desfireStudioLayoutRoute,
   path: '/diversification-strategies/new',
-  component: () => <LazyRoute component={<CardManagementStrategyCreatePage />} />,
+  component: () => <ProtectedLazyRoute component={<CardManagementStrategyCreatePage />} />,
 });
 
-const cardManagementStrategyEditRoute = createRoute({
-  getParentRoute: () => cardManagementRoute,
+const desfireStudioStrategyEditRoute = createRoute({
+  getParentRoute: () => desfireStudioLayoutRoute,
   path: '/diversification-strategies/$strategyId/edit',
-  component: () => <LazyRoute component={<CardManagementStrategyEditPage />} />,
+  component: () => <ProtectedLazyRoute component={<CardManagementStrategyEditPageDesfireStudio />} />,
 });
 
-const cardManagementTransformationCreateRoute = createRoute({
-  getParentRoute: () => cardManagementRoute,
+const desfireStudioChipDesignerRoute = createRoute({
+  getParentRoute: () => desfireStudioLayoutRoute,
+  path: '/chip-designer',
+  component: () => <ProtectedLazyRoute component={<CardManagementChipDesignerPage />} />,
+});
+
+const desfireStudioChipDesignCreateRoute = createRoute({
+  getParentRoute: () => desfireStudioLayoutRoute,
+  path: '/chip-designs/new',
+  component: () => <ProtectedLazyRoute component={<CardManagementChipDesignCreatePage />} />,
+});
+
+const desfireStudioChipDesignEditRoute = createRoute({
+  getParentRoute: () => desfireStudioLayoutRoute,
+  path: '/chip-designs/$chipDesignId/edit',
+  component: () => <ProtectedLazyRoute component={<CardManagementChipDesignEditPageDesfireStudio />} />,
+});
+
+const desfireStudioTransformationCreateRoute = createRoute({
+  getParentRoute: () => desfireStudioLayoutRoute,
   path: '/transformations/new',
-  component: () => <LazyRoute component={<CardManagementTransformationCreatePage />} />,
+  component: () => <ProtectedLazyRoute component={<CardManagementTransformationCreatePage />} />,
 });
 
-const cardManagementTransformationEditRoute = createRoute({
-  getParentRoute: () => cardManagementRoute,
+const desfireStudioTransformationEditRoute = createRoute({
+  getParentRoute: () => desfireStudioLayoutRoute,
   path: '/transformations/$transformationId/edit',
-  component: () => <LazyRoute component={<CardManagementTransformationEditPage />} />,
+  component: () => <ProtectedLazyRoute component={<CardManagementTransformationEditPageDesfireStudio />} />,
 });
 
-const cardManagementSystemProviderCreateRoute = createRoute({
-  getParentRoute: () => cardManagementRoute,
+const desfireStudioSystemProviderCreateRoute = createRoute({
+  getParentRoute: () => desfireStudioLayoutRoute,
   path: '/system-providers/new',
-  component: () => <LazyRoute component={<CardManagementSystemProviderCreatePage />} />,
+  component: () => <ProtectedLazyRoute component={<CardManagementSystemProviderCreatePage />} />,
 });
 
-const cardManagementPrintingRoute = createRoute({
-  getParentRoute: () => cardManagementRoute,
+const desfireStudioPrintingRoute = createRoute({
+  getParentRoute: () => desfireStudioLayoutRoute,
   path: '/printing',
-  component: () => <LazyRoute component={<CardManagementPrintingPage />} />,
+  component: () => <ProtectedLazyRoute component={<CardManagementPrintingPage />} />,
 });
 
-const cardManagementPrintBatchCreateRoute = createRoute({
-  getParentRoute: () => cardManagementRoute,
+const desfireStudioPrintBatchCreateRoute = createRoute({
+  getParentRoute: () => desfireStudioLayoutRoute,
   path: '/printing/new',
-  component: () => <LazyRoute component={<CardManagementPrintBatchCreatePage />} />,
+  component: () => <ProtectedLazyRoute component={<CardManagementPrintBatchCreatePage />} />,
 });
 
-const cardManagementPrintBatchDetailRoute = createRoute({
-  getParentRoute: () => cardManagementRoute,
+const desfireStudioPrintBatchDetailRoute = createRoute({
+  getParentRoute: () => desfireStudioLayoutRoute,
   path: '/printing/$batchId',
-  component: () => <LazyRoute component={<CardManagementPrintBatchDetailPage />} />,
+  component: () => <ProtectedLazyRoute component={<CardManagementPrintBatchDetailPageDesfireStudio />} />,
 });
 
-const cardManagementEncoderCreateRoute = createRoute({
-  getParentRoute: () => cardManagementRoute,
+const desfireStudioEncoderCreateRoute = createRoute({
+  getParentRoute: () => desfireStudioLayoutRoute,
   path: '/printing/encoders/new',
-  component: () => <LazyRoute component={<CardManagementEncoderFormPage />} />,
+  component: () => <ProtectedLazyRoute component={<CardManagementEncoderFormPage />} />,
 });
 
-const cardManagementEncoderEditRoute = createRoute({
-  getParentRoute: () => cardManagementRoute,
+const desfireStudioEncoderEditRoute = createRoute({
+  getParentRoute: () => desfireStudioLayoutRoute,
   path: '/printing/encoders/$encoderId/edit',
-  component: () => <LazyRoute component={<CardManagementEncoderFormPage />} />,
+  component: () => <ProtectedLazyRoute component={<CardManagementEncoderFormPageDesfireStudio />} />,
 });
 
-const cardManagementPrintRunDetailRoute = createRoute({
-  getParentRoute: () => cardManagementRoute,
+const desfireStudioPrintRunDetailRoute = createRoute({
+  getParentRoute: () => desfireStudioLayoutRoute,
   path: '/printing/runs/$runId',
-  component: () => <LazyRoute component={<CardManagementPrintRunDetailPage />} />,
+  component: () => <ProtectedLazyRoute component={<CardManagementPrintRunDetailPageDesfireStudio />} />,
 });
 
 const receptionDeskWorkstationIndexRoute = createRoute({
@@ -886,26 +903,6 @@ const routeTree = rootRoute.addChildren([
       administrationRoomEditRoute,
       administrationHardwareAgentDetailRoute,
     ]),
-    cardManagementRoute.addChildren([
-      cardManagementIndexRoute,
-      cardManagementKeyManagementRoute,
-      cardManagementChipDesignerRoute,
-      cardManagementChipDesignCreateRoute,
-      cardManagementChipDesignEditRoute,
-      cardManagementKeyGroupCreateRoute,
-      cardManagementKeyGroupEditRoute,
-      cardManagementStrategyCreateRoute,
-      cardManagementStrategyEditRoute,
-      cardManagementTransformationCreateRoute,
-      cardManagementTransformationEditRoute,
-      cardManagementSystemProviderCreateRoute,
-      cardManagementPrintingRoute,
-      cardManagementPrintBatchCreateRoute,
-      cardManagementPrintBatchDetailRoute,
-      cardManagementEncoderCreateRoute,
-      cardManagementEncoderEditRoute,
-      cardManagementPrintRunDetailRoute,
-    ]),
     visitorConfirmationRoute,
     visitorsManagementRoute.addChildren([visitsIndexRoute, visitsRoute, visitCreateRoute, visitEditRoute, visitorsRoute, visitorReportingRoute]),
   ]),
@@ -916,6 +913,28 @@ const routeTree = rootRoute.addChildren([
     receptionDeskWorkstationExpectedArrivalsRoute,
     receptionDeskWorkstationArrivalsRoute,
     receptionDeskWorkstationHistoryRoute,
+  ]),
+  desfireStudioLayoutRoute.addChildren([
+    desfireStudioIndexRoute,
+    desfireStudioHardwareAgentsRoute,
+    desfireStudioHardwareAgentDetailRoute,
+    desfireStudioKeyManagementRoute,
+    desfireStudioKeyGroupCreateRoute,
+    desfireStudioKeyGroupEditRoute,
+    desfireStudioStrategyCreateRoute,
+    desfireStudioStrategyEditRoute,
+    desfireStudioChipDesignerRoute,
+    desfireStudioChipDesignCreateRoute,
+    desfireStudioChipDesignEditRoute,
+    desfireStudioTransformationCreateRoute,
+    desfireStudioTransformationEditRoute,
+    desfireStudioSystemProviderCreateRoute,
+    desfireStudioPrintingRoute,
+    desfireStudioPrintBatchCreateRoute,
+    desfireStudioPrintBatchDetailRoute,
+    desfireStudioEncoderCreateRoute,
+    desfireStudioEncoderEditRoute,
+    desfireStudioPrintRunDetailRoute,
   ]),
   kioskLayoutRoute.addChildren([kioskIndexRoute, kioskSetupRoute]),
 ]);

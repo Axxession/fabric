@@ -21,10 +21,12 @@ type FormValues = {
   readonly name: string;
 };
 
+type HardwareAgentDetailPath = '/administration/clients/hardware-agents/$agentId' | '/desfire-studio/hardware-agents/$agentId';
+
 const agentsQueryKey = ['facility', 'hardware-agents'] as const;
 const emptyFormValues: FormValues = { id: '', name: '' };
 
-export function HardwareAgentsPanel() {
+export function HardwareAgentsPanel({ detailPath = '/administration/clients/hardware-agents/$agentId' }: { readonly detailPath?: HardwareAgentDetailPath }) {
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [values, setValues] = useState<FormValues>(emptyFormValues);
@@ -187,7 +189,7 @@ export function HardwareAgentsPanel() {
               {agentsQuery.isLoading ? <p className="rounded-structural border border-border p-4 text-[14px] text-muted-foreground">Loading hardware agents...</p> : null}
               {agentsQuery.isError && !hasAgentData ? <p className="rounded-structural border border-border p-4 text-[14px] text-error">Could not load hardware agents.</p> : null}
               {agents.map((agent) => (
-                <AgentCard key={agent.id} agent={agent} onRotate={() => rotateKey.mutate(agent.id)} onDelete={() => deleteAgent.mutate(agent)} busy={rotateKey.isPending || deleteAgent.isPending} />
+                <AgentCard key={agent.id} agent={agent} detailPath={detailPath} onRotate={() => rotateKey.mutate(agent.id)} onDelete={() => deleteAgent.mutate(agent)} busy={rotateKey.isPending || deleteAgent.isPending} />
               ))}
             </div>
 
@@ -220,7 +222,7 @@ export function HardwareAgentsPanel() {
                   ) : null}
 
                   {agents.map((agent) => (
-                    <AgentRow key={agent.id} agent={agent} onRotate={() => rotateKey.mutate(agent.id)} onDelete={() => deleteAgent.mutate(agent)} busy={rotateKey.isPending || deleteAgent.isPending} />
+                    <AgentRow key={agent.id} agent={agent} detailPath={detailPath} onRotate={() => rotateKey.mutate(agent.id)} onDelete={() => deleteAgent.mutate(agent)} busy={rotateKey.isPending || deleteAgent.isPending} />
                   ))}
                 </tbody>
               </table>
@@ -263,7 +265,7 @@ function AgentKeyPanel({ response, onClose }: { response: HardwareAgentKeyRespon
   );
 }
 
-function AgentCard({ agent, onRotate, onDelete, busy }: AgentActionsProps) {
+function AgentCard({ agent, detailPath, onRotate, onDelete, busy }: AgentActionsProps) {
   return (
     <article className="rounded-structural border border-border p-4">
       <div className="flex items-start justify-between gap-3">
@@ -280,12 +282,12 @@ function AgentCard({ agent, onRotate, onDelete, busy }: AgentActionsProps) {
           </dl>
         </div>
       </div>
-      <AgentActions agent={agent} onRotate={onRotate} onDelete={onDelete} busy={busy} className="mt-4" />
+      <AgentActions agent={agent} detailPath={detailPath} onRotate={onRotate} onDelete={onDelete} busy={busy} className="mt-4" />
     </article>
   );
 }
 
-function AgentRow({ agent, onRotate, onDelete, busy }: AgentActionsProps) {
+function AgentRow({ agent, detailPath, onRotate, onDelete, busy }: AgentActionsProps) {
   return (
     <tr>
       <td className="px-4 py-4">
@@ -296,7 +298,7 @@ function AgentRow({ agent, onRotate, onDelete, busy }: AgentActionsProps) {
       <td className="px-4 py-4 text-muted-foreground">{formatDate(agent.lastInventoryAt)}</td>
       <td className="px-4 py-4"><div className="flex flex-wrap gap-2"><StatusBadge enabled={agent.enabled} /><ConnectionStatusBadge status={agent.connectionStatus} /></div></td>
       <td className="px-4 py-4">
-        <AgentActions agent={agent} onRotate={onRotate} onDelete={onDelete} busy={busy} className="justify-end" />
+        <AgentActions agent={agent} detailPath={detailPath} onRotate={onRotate} onDelete={onDelete} busy={busy} className="justify-end" />
       </td>
     </tr>
   );
@@ -304,13 +306,14 @@ function AgentRow({ agent, onRotate, onDelete, busy }: AgentActionsProps) {
 
 type AgentActionsProps = {
   readonly agent: HardwareAgent;
+  readonly detailPath: HardwareAgentDetailPath;
   readonly onRotate: () => void;
   readonly onDelete: () => void;
   readonly busy: boolean;
   readonly className?: string;
 };
 
-function AgentActions({ agent, onRotate, onDelete, busy, className }: AgentActionsProps) {
+function AgentActions({ agent, detailPath, onRotate, onDelete, busy, className }: AgentActionsProps) {
   function confirmDelete() {
     if (window.confirm(`Delete hardware agent "${agent.name}"? This removes its reported devices and event inbox entries.`)) {
       onDelete();
@@ -323,7 +326,7 @@ function AgentActions({ agent, onRotate, onDelete, busy, className }: AgentActio
         <RotateCcw className="size-4" aria-hidden="true" />
         Rotate key
       </Button>
-      <Link className={buttonVariants({ variant: 'outline', size: 'sm' })} to="/administration/clients/hardware-agents/$agentId" params={{ agentId: agent.id }}>
+      <Link className={buttonVariants({ variant: 'outline', size: 'sm' })} to={detailPath} params={{ agentId: agent.id }}>
         <Eye className="size-4" aria-hidden="true" />
         Details
       </Link>

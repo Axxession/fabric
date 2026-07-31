@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { ArrowLeft, Save } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
@@ -17,8 +17,12 @@ type FormValues = { readonly name: string; readonly hardwareRef: string; readonl
 const emptyValues: FormValues = { name: '', hardwareRef: '', enabled: true };
 
 export default function EncoderFormPage() {
+  return <EncoderFormPageContent encoderId={getEncoderIdFromPath()} />;
+}
+
+export function EncoderFormPageContent({ encoderId = null }: { readonly encoderId?: string | null }) {
   const queryClient = useQueryClient();
-  const encoderId = getEncoderIdFromPath();
+  const navigate = useNavigate();
   const mode = encoderId ? 'edit' : 'create';
   const [values, setValues] = useState<FormValues>(emptyValues);
 
@@ -82,7 +86,7 @@ export default function EncoderFormPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: encodersQueryKey });
       toast.success(mode === 'create' ? 'Encoder created.' : 'Encoder updated.');
-      window.location.assign('/old/card-management/printing');
+      await navigate({ to: '/desfire-studio/printing' });
     },
     onError: () => toast.error(mode === 'create' ? 'Could not create encoder.' : 'Could not update encoder.'),
   });
@@ -102,7 +106,7 @@ export default function EncoderFormPage() {
 
   return (
     <section className="grid gap-6">
-      <Link to="/old/card-management/printing" className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground"><ArrowLeft className="size-4" />Back to printing</Link>
+      <Link to="/desfire-studio/printing" className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground"><ArrowLeft className="size-4" />Back to printing</Link>
       <Card>
         <CardHeader>
           <CardTitle>{mode === 'create' ? 'Add Encoder' : 'Edit Encoder'}</CardTitle>

@@ -87,7 +87,7 @@ export default function PrintingPage() {
           <h1 className="text-[20px] font-semibold tracking-tight">Printing</h1>
           <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">Schedule DESFire card print batches and inspect every card encoding run.</p>
         </div>
-        <Link to="/old/card-management/printing/new" className={buttonVariants({ className: 'w-full sm:w-fit' })}>
+        <Link to="/desfire-studio/printing/new" className={buttonVariants({ className: 'w-full sm:w-fit' })}>
           <Plus className="size-4" aria-hidden="true" />
           Schedule print batch
         </Link>
@@ -110,7 +110,7 @@ export default function PrintingPage() {
             {runsQuery.isError ? <PanelError>Could not load encoding runs.</PanelError> : null}
             {runsQuery.isLoading ? <p className="rounded-structural border border-border p-4 text-[14px] text-muted-foreground">Loading encoding runs...</p> : null}
             {!runsQuery.isLoading && !runsQuery.isError && runs.length === 0 ? <Empty><EmptyHeader><EmptyTitle>No runs yet</EmptyTitle><EmptyDescription>Single kiosk runs and batch item runs will appear here.</EmptyDescription></EmptyHeader></Empty> : null}
-            {runs.length > 0 ? <RunsTable runs={runs} transformationById={transformationById} encoders={encoders} onOpenRun={(runId) => navigate({ to: '/old/card-management/printing/runs/$runId', params: { runId } })} /> : null}
+            {runs.length > 0 ? <RunsTable runs={runs} transformationById={transformationById} encoders={encoders} onOpenRun={(runId) => navigate({ to: '/desfire-studio/printing/runs/$runId', params: { runId } })} /> : null}
           </TabsContent>
           <TabsContent value="encoders">
             <EncodersPanel encoders={encoders} isLoading={encodersQuery.isLoading} isError={encodersQuery.isError} isDeleting={deleteEncoder.isPending} onDelete={(encoder) => {
@@ -133,7 +133,7 @@ function EncodersPanel({ encoders, isLoading, isError, isDeleting, onDelete }: {
           <h2 className="text-[16px] font-semibold tracking-tight">Encoders</h2>
           <p className="mt-1 text-[14px] text-muted-foreground">Named DESFire encoder bindings used when scheduling print batches.</p>
         </div>
-        <Link to="/old/card-management/printing/encoders/new" className={buttonVariants({ className: 'w-full sm:w-fit' })}><Plus className="size-4" aria-hidden="true" />Add encoder</Link>
+        <Link to="/desfire-studio/printing/encoders/new" className={buttonVariants({ className: 'w-full sm:w-fit' })}><Plus className="size-4" aria-hidden="true" />Add encoder</Link>
       </div>
       {isError ? <PanelError>Could not load encoders.</PanelError> : null}
       {isLoading ? <p className="rounded-structural border border-border p-4 text-[14px] text-muted-foreground">Loading encoders...</p> : null}
@@ -149,7 +149,7 @@ function EncodersTable({ encoders, isDeleting, onDelete }: { readonly encoders: 
       <table className="w-full min-w-[68rem] border-collapse text-left text-[14px]">
         <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground"><tr><th className="px-4 py-3 font-semibold">Name</th><th className="px-4 py-3 font-semibold">Hardware</th><th className="px-4 py-3 font-semibold">State</th><th className="px-4 py-3 font-semibold">Capabilities</th><th className="px-4 py-3 font-semibold">Updated</th><th className="px-4 py-3 text-right font-semibold">Actions</th></tr></thead>
         <tbody className="divide-y divide-border">
-          {encoders.map((encoder) => <tr key={encoder.id}><td className="px-4 py-4 font-medium text-foreground">{encoder.name}</td><td className="px-4 py-4 text-muted-foreground">{encoder.agentId} / {encoder.deviceId}</td><td className="px-4 py-4"><Badge variant={encoder.enabled ? 'success' : 'secondary'}>{encoder.enabled ? 'Enabled' : 'Disabled'}</Badge></td><td className="px-4 py-4"><div className="flex flex-wrap gap-2"><Badge variant={encoder.supportsEncoding ? 'success' : 'secondary'}>Encoding</Badge><Badge variant={encoder.supportsPrinting ? 'success' : 'secondary'}>{encoder.supportsPrinting ? 'Printing' : 'No printing'}</Badge></div></td><td className="px-4 py-4 text-muted-foreground">{formatDateTime(encoder.updatedAt)}</td><td className="px-4 py-4"><div className="flex justify-end gap-2"><Link to="/old/card-management/printing/encoders/$encoderId/edit" params={{ encoderId: encoder.id }} className={buttonVariants({ variant: 'outline', size: 'sm' })}><Pencil className="size-4" aria-hidden="true" />Edit</Link><Button type="button" variant="outline" size="sm" disabled={isDeleting} onClick={() => onDelete(encoder)}><Trash2 className="size-4" aria-hidden="true" />Delete</Button></div></td></tr>)}
+          {encoders.map((encoder) => <tr key={encoder.id}><td className="px-4 py-4 font-medium text-foreground">{encoder.name}</td><td className="px-4 py-4 text-muted-foreground">{encoder.agentId} / {encoder.deviceId}</td><td className="px-4 py-4"><Badge variant={encoder.enabled ? 'success' : 'secondary'}>{encoder.enabled ? 'Enabled' : 'Disabled'}</Badge></td><td className="px-4 py-4"><div className="flex flex-wrap gap-2"><Badge variant={encoder.supportsEncoding ? 'success' : 'secondary'}>Encoding</Badge><Badge variant={encoder.supportsPrinting ? 'success' : 'secondary'}>{encoder.supportsPrinting ? 'Printing' : 'No printing'}</Badge></div></td><td className="px-4 py-4 text-muted-foreground">{formatDateTime(encoder.updatedAt)}</td><td className="px-4 py-4"><div className="flex justify-end gap-2"><Link to="/desfire-studio/printing/encoders/$encoderId/edit" params={{ encoderId: encoder.id }} className={buttonVariants({ variant: 'outline', size: 'sm' })}><Pencil className="size-4" aria-hidden="true" />Edit</Link><Button type="button" variant="outline" size="sm" disabled={isDeleting} onClick={() => onDelete(encoder)}><Trash2 className="size-4" aria-hidden="true" />Delete</Button></div></td></tr>)}
         </tbody>
       </table>
     </div>
@@ -174,7 +174,7 @@ function PrintBatchesTable({ batches, transformationById }: { readonly batches: 
               <td className="px-4 py-4 text-muted-foreground">{formatDateTime(batch.createdAt)}</td>
               <td className="px-4 py-4">
                 <div className="flex justify-end gap-2">
-                  <Link to="/old/card-management/printing/$batchId" params={{ batchId: batch.id }} className={buttonVariants({ variant: 'outline', size: 'sm' })}><Eye className="size-4" aria-hidden="true" />View</Link>
+                  <Link to="/desfire-studio/printing/$batchId" params={{ batchId: batch.id }} className={buttonVariants({ variant: 'outline', size: 'sm' })}><Eye className="size-4" aria-hidden="true" />View</Link>
                 </div>
               </td>
             </tr>
@@ -202,7 +202,7 @@ function RunsTable({ runs, transformationById, encoders, onOpenRun }: { readonly
               <td className="px-4 py-4 text-muted-foreground">{run.cardUid ?? 'Not read'}</td>
               <td className="px-4 py-4 text-muted-foreground">{formatRunDevice(run, encoders)}</td>
               <td className="px-4 py-4 text-muted-foreground">{formatDateTime(run.requestedAt)}</td>
-              <td className="px-4 py-4" onClick={(event) => event.stopPropagation()}><div className="flex justify-end"><Link to="/old/card-management/printing/runs/$runId" params={{ runId: run.id }} className={buttonVariants({ variant: 'outline', size: 'sm' })}><Eye className="size-4" aria-hidden="true" />View</Link></div></td>
+              <td className="px-4 py-4" onClick={(event) => event.stopPropagation()}><div className="flex justify-end"><Link to="/desfire-studio/printing/runs/$runId" params={{ runId: run.id }} className={buttonVariants({ variant: 'outline', size: 'sm' })}><Eye className="size-4" aria-hidden="true" />View</Link></div></td>
             </tr>
           ))}
         </tbody>

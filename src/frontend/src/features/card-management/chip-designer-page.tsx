@@ -165,7 +165,7 @@ function SystemProvidersPanel({ providers, isLoading, isError, isDeleting, onDel
           <h2 className="text-[16px] font-semibold tracking-tight">System providers</h2>
           <p className="mt-1 text-[14px] text-muted-foreground">Named fixed values and sequence counters used by system-provided transformation variables.</p>
         </div>
-        <Link to="/old/card-management/system-providers/new" className={buttonVariants({ className: 'w-full sm:w-fit' })}>
+        <Link to="/desfire-studio/system-providers/new" className={buttonVariants({ className: 'w-full sm:w-fit' })}>
           <Plus className="size-4" aria-hidden="true" />
           Add system provider
         </Link>
@@ -214,7 +214,7 @@ function ChipDesignsPanel({ designs, isLoading, isError, isDeleting, onDelete }:
           <h2 className="text-[16px] font-semibold tracking-tight">Chip designs</h2>
           <p className="mt-1 text-[14px] text-muted-foreground">Versioned DESFire template specifications used as transformation sources and targets.</p>
         </div>
-        <Link to="/old/card-management/chip-designs/new" className={buttonVariants({ className: 'w-full sm:w-fit' })}>
+        <Link to="/desfire-studio/chip-designs/new" className={buttonVariants({ className: 'w-full sm:w-fit' })}>
           <Plus className="size-4" aria-hidden="true" />
           Add chip design
         </Link>
@@ -245,7 +245,7 @@ function ChipDesignsTable({ designs, isDeleting, onDelete }: { readonly designs:
               <td className="px-4 py-4 text-muted-foreground">{formatDateTime(design.createdAt)}</td>
               <td className="px-4 py-4">
                 <div className="flex justify-end gap-2">
-                  <Link to="/old/card-management/chip-designs/$chipDesignId/edit" params={{ chipDesignId: design.id }} className={buttonVariants({ variant: 'outline', size: 'sm' })}><Pencil className="size-4" aria-hidden="true" />Edit</Link>
+                  <Link to="/desfire-studio/chip-designs/$chipDesignId/edit" params={{ chipDesignId: design.id }} className={buttonVariants({ variant: 'outline', size: 'sm' })}><Pencil className="size-4" aria-hidden="true" />Edit</Link>
                   <Button type="button" variant="outline" size="sm" disabled={isDeleting} onClick={() => onDelete(design)}><Trash2 className="size-4" aria-hidden="true" />Delete</Button>
                 </div>
               </td>
@@ -265,7 +265,7 @@ function TransformationsPanel({ transformations, isLoading, isError, isDeleting,
           <h2 className="text-[16px] font-semibold tracking-tight">Transformations</h2>
           <p className="mt-1 text-[14px] text-muted-foreground">Conversion definitions from a blank card or existing chip design to a target chip design.</p>
         </div>
-        <Link to="/old/card-management/transformations/new" className={buttonVariants({ className: 'w-full sm:w-fit' })}>
+        <Link to="/desfire-studio/transformations/new" className={buttonVariants({ className: 'w-full sm:w-fit' })}>
           <Plus className="size-4" aria-hidden="true" />
           Add transformation
         </Link>
@@ -297,7 +297,7 @@ function TransformationsTable({ transformations, isDeleting, onDelete }: { reado
               <td className="px-4 py-4 text-muted-foreground">{formatDateTime(transformation.updatedAt)}</td>
               <td className="px-4 py-4">
                 <div className="flex justify-end gap-2">
-                  <Link to="/old/card-management/transformations/$transformationId/edit" params={{ transformationId: transformation.id }} className={buttonVariants({ variant: 'outline', size: 'sm' })}><Pencil className="size-4" aria-hidden="true" />Edit</Link>
+                  <Link to="/desfire-studio/transformations/$transformationId/edit" params={{ transformationId: transformation.id }} className={buttonVariants({ variant: 'outline', size: 'sm' })}><Pencil className="size-4" aria-hidden="true" />Edit</Link>
                   <Button type="button" variant="outline" size="sm" disabled={isDeleting} onClick={() => onDelete(transformation)}><Trash2 className="size-4" aria-hidden="true" />Delete</Button>
                 </div>
               </td>

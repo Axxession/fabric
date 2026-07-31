@@ -20,6 +20,11 @@ const agentsQueryKey = ['facility', 'hardware-agents'] as const;
 
 export default function HardwareAgentDetailPage() {
   const { agentId } = useParams({ from: '/main/administration/clients/hardware-agents/$agentId' });
+
+  return <HardwareAgentDetailPageContent agentId={agentId} backTo="/administration/clients" />;
+}
+
+export function HardwareAgentDetailPageContent({ agentId, backTo }: { readonly agentId: string; readonly backTo: '/administration/clients' | '/desfire-studio/hardware-agents' }) {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
 
   const agentQuery = useQuery({
@@ -98,7 +103,7 @@ export default function HardwareAgentDetailPage() {
 
   return (
     <div className="grid gap-6">
-      <Link to="/administration/clients" search={{ tab: 'hardware-agents' } as never} className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground">
+      <Link to={backTo} search={backTo === '/administration/clients' ? ({ tab: 'hardware-agents' } as never) : undefined} className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground">
         <ArrowLeft className="size-4" aria-hidden="true" />
         Back to hardware
       </Link>

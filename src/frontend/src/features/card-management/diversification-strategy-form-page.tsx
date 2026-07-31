@@ -25,7 +25,11 @@ export function DiversificationStrategyCreatePage() {
 }
 
 export default function DiversificationStrategyEditPage() {
-  const { strategyId } = useParams({ from: '/main/old/card-management/diversification-strategies/$strategyId/edit' });
+  const { strategyId } = useParams({ from: '/desfire-studio/diversification-strategies/$strategyId/edit' });
+  return <DiversificationStrategyEditPageContent strategyId={strategyId} />;
+}
+
+export function DiversificationStrategyEditPageContent({ strategyId }: { readonly strategyId: string }) {
   return <DiversificationStrategyFormPage mode="edit" strategyId={strategyId} />;
 }
 

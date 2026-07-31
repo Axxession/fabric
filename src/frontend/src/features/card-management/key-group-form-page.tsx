@@ -47,7 +47,7 @@ export function KeyGroupCreatePage() {
     onSuccess: async (keyGroup) => {
       await queryClient.invalidateQueries({ queryKey: keyGroupsQueryKey });
       toast.success('Key group generated.');
-      await navigate({ to: '/old/card-management/key-groups/$keyGroupId/edit', params: { keyGroupId: keyGroup.id } });
+      await navigate({ to: '/desfire-studio/key-groups/$keyGroupId/edit', params: { keyGroupId: keyGroup.id } });
     },
     onError: () => toast.error('Could not generate key group.'),
   });
@@ -116,7 +116,11 @@ export function KeyGroupCreatePage() {
 }
 
 export default function KeyGroupEditPage() {
-  const { keyGroupId } = useParams({ from: '/main/old/card-management/key-groups/$keyGroupId/edit' });
+  const { keyGroupId } = useParams({ from: '/desfire-studio/key-groups/$keyGroupId/edit' });
+  return <KeyGroupEditPageContent keyGroupId={keyGroupId} />;
+}
+
+export function KeyGroupEditPageContent({ keyGroupId }: { readonly keyGroupId: string }) {
   return <KeyGroupFormPage mode="edit" keyGroupId={keyGroupId} />;
 }
 

@@ -28,7 +28,11 @@ export function TransformationCreatePage() {
 }
 
 export default function TransformationEditPage() {
-  const { transformationId } = useParams({ from: '/main/old/card-management/transformations/$transformationId/edit' });
+  const { transformationId } = useParams({ from: '/desfire-studio/transformations/$transformationId/edit' });
+  return <TransformationEditPageContent transformationId={transformationId} />;
+}
+
+export function TransformationEditPageContent({ transformationId }: { readonly transformationId: string }) {
   return <TransformationFormPage mode="edit" transformationId={transformationId} />;
 }
 

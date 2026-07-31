@@ -100,7 +100,7 @@ function KeyGroupsPanel({ keyGroups, strategyById, isLoading, isError, isLocking
           <h2 className="text-[16px] font-semibold tracking-tight">Key groups</h2>
           <p className="mt-1 text-[14px] text-muted-foreground">Stored keysets. Locked groups remain usable by backend encoding but hide key material from API clients.</p>
         </div>
-        <Link to="/old/card-management/key-groups/new" className={buttonVariants({ className: 'w-full sm:w-fit' })}>
+        <Link to="/desfire-studio/key-groups/new" className={buttonVariants({ className: 'w-full sm:w-fit' })}>
           <Plus className="size-4" aria-hidden="true" />
           Generate key group
         </Link>
@@ -136,7 +136,7 @@ function KeyGroupsTable({ keyGroups, strategyById, isLocking, onLock }: { readon
               <td className="px-4 py-4">
                 <div className="flex justify-end gap-2">
                   {!group.locked ? <Button type="button" variant="outline" size="sm" disabled={isLocking} onClick={() => onLock(group)}><Lock className="size-4" aria-hidden="true" />Lock</Button> : null}
-                  <Link to="/old/card-management/key-groups/$keyGroupId/edit" params={{ keyGroupId: group.id }} className={buttonVariants({ variant: 'outline', size: 'sm' })}><Pencil className="size-4" aria-hidden="true" />Edit</Link>
+                   <Link to="/desfire-studio/key-groups/$keyGroupId/edit" params={{ keyGroupId: group.id }} className={buttonVariants({ variant: 'outline', size: 'sm' })}><Pencil className="size-4" aria-hidden="true" />Edit</Link>
                 </div>
               </td>
             </tr>
@@ -155,7 +155,7 @@ function StrategiesPanel({ strategies, isLoading, isError }: { readonly strategi
           <h2 className="text-[16px] font-semibold tracking-tight">Diversification strategies</h2>
           <p className="mt-1 text-[14px] text-muted-foreground">Reusable recipes for deriving card-specific keys.</p>
         </div>
-        <Link to="/old/card-management/diversification-strategies/new" className={buttonVariants({ className: 'w-full sm:w-fit' })}>
+        <Link to="/desfire-studio/diversification-strategies/new" className={buttonVariants({ className: 'w-full sm:w-fit' })}>
           <Plus className="size-4" aria-hidden="true" />
           Add strategy
         </Link>
@@ -182,7 +182,7 @@ function StrategiesTable({ strategies }: { readonly strategies: KeyDiversificati
               <td className="px-4 py-4"><Badge variant="outline">{strategy.algorithm}</Badge></td>
               <td className="px-4 py-4 text-muted-foreground">{strategy.inputs.length}</td>
               <td className="px-4 py-4 text-muted-foreground">{formatDateTime(strategy.updatedAt)}</td>
-              <td className="px-4 py-4"><div className="flex justify-end"><Link to="/old/card-management/diversification-strategies/$strategyId/edit" params={{ strategyId: strategy.id }} className={buttonVariants({ variant: 'outline', size: 'sm' })}><KeyRound className="size-4" aria-hidden="true" />Edit</Link></div></td>
+               <td className="px-4 py-4"><div className="flex justify-end"><Link to="/desfire-studio/diversification-strategies/$strategyId/edit" params={{ strategyId: strategy.id }} className={buttonVariants({ variant: 'outline', size: 'sm' })}><KeyRound className="size-4" aria-hidden="true" />Edit</Link></div></td>
             </tr>
           ))}
         </tbody>

@@ -13,7 +13,12 @@ const printBatchDetailEncodersQueryKey = ['card-management', 'printing', 'print-
 const printBatchDetailTransformationsQueryKey = ['card-management', 'print-batch-detail-page', 'transformations'] as const;
 
 export default function PrintBatchDetailPage() {
-  const { batchId } = useParams({ from: '/main/old/card-management/printing/$batchId' });
+  const { batchId } = useParams({ from: '/desfire-studio/printing/$batchId' });
+
+  return <PrintBatchDetailPageContent batchId={batchId} />;
+}
+
+export function PrintBatchDetailPageContent({ batchId }: { readonly batchId: string }) {
 
   const batchQuery = useQuery({
     queryKey: [...printingBatchesQueryKey, batchId],
@@ -74,7 +79,7 @@ export default function PrintBatchDetailPage() {
 
   return (
     <section className="grid gap-6">
-      <Link to="/old/card-management/printing" className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground"><ArrowLeft className="size-4" />Back to printing</Link>
+      <Link to="/desfire-studio/printing" className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground"><ArrowLeft className="size-4" />Back to printing</Link>
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -128,7 +133,7 @@ function RunsTable({ runs, transformation, encoders }: { readonly runs: Encoding
               <td className="px-4 py-4 text-muted-foreground">{run.cardUid ?? 'Not read'}</td>
               <td className="px-4 py-4 text-muted-foreground">{formatRunDevice(run, encoders)}</td>
               <td className="px-4 py-4 text-muted-foreground">{formatDateTime(run.requestedAt)}</td>
-              <td className="px-4 py-4"><div className="flex justify-end"><Link to="/old/card-management/printing/runs/$runId" params={{ runId: run.id }} className={buttonVariants({ variant: 'outline', size: 'sm' })}><Eye className="size-4" aria-hidden="true" />View</Link></div></td>
+              <td className="px-4 py-4"><div className="flex justify-end"><Link to="/desfire-studio/printing/runs/$runId" params={{ runId: run.id }} className={buttonVariants({ variant: 'outline', size: 'sm' })}><Eye className="size-4" aria-hidden="true" />View</Link></div></td>
             </tr>
           ))}
         </tbody>
