@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate, useParams } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { ArrowLeft, CalendarX, ChevronRight, Mail, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -39,11 +39,6 @@ function mapVisitToFormValues(visit: VisitResponse): VisitFormValues {
 
 function formatInvitationName(invitation: VisitInvitationResponse) {
   return [invitation.firstName, invitation.lastName].filter(Boolean).join(' ') || invitation.email || 'Unnamed';
-}
-
-export default function VisitEditPage() {
-  const { visitId } = useParams({ from: '/main/old/visitors-management/visits/$visitId/edit' });
-  return <VisitEditPageContent visitId={visitId} />;
 }
 
 export function VisitEditPageContent({ visitId }: { readonly visitId: string }) {

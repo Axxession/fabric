@@ -34,8 +34,6 @@ import { DesfireStudioLayout } from '@/features/desfire-studio/desfire-studio-la
 import { ReceptionKioskLayout } from '@/features/reception-kiosk/layout/reception-kiosk-layout';
 import { ReceptionDeskWorkstationLayout } from '@/features/reception-desk/layout/reception-desk-workstation-layout';
 
-const AccessPage = lazy(() => import('@/features/access/access-page'));
-const AuditPage = lazy(() => import('@/features/audit/audit-page'));
 const AuthCallbackPage = lazy(() => import('@/features/auth/auth-callback-page'));
 const AutomationWorkflowDefinitionEditorPage = lazy(() => import('@/features/automation/workflow-definition-editor-page'));
 const AutomationWorkflowInstanceViewerPage = lazy(() => import('@/features/automation/workflow-instance-viewer-page'));
@@ -63,7 +61,7 @@ const CardManagementTransformationEditPageDesfireStudio = lazy(() => import('@/f
 const DesfireStudioHardwareAgentDetailPage = lazy(() => import('@/features/desfire-studio/desfire-studio-hardware-agent-detail-page'));
 const DesfireStudioHardwareAgentsPage = lazy(() => import('@/features/desfire-studio/desfire-studio-hardware-agents-page'));
 const DesfireStudioPage = lazy(() => import('@/features/desfire-studio/desfire-studio-page'));
-const CredentialsPage = lazy(() => import('@/features/credentials/credentials-page'));
+const IdentitiesPage = lazy(() => import('@/features/identities/identities-page'));
 const FacilityHardwareAgentDetailPage = lazy(() => import('@/features/facility/hardware-agent-detail-page'));
 const FacilityBuildingEditPage = lazy(() => import('@/features/facility/building-edit-page'));
 const FacilityRoomEditPage = lazy(() => import('@/features/facility/room-edit-page'));
@@ -79,10 +77,8 @@ const ManagerApprovalInboxPage = lazy(() => import('@/features/perspectives/mana
 const ManagerMyTeamPage = lazy(() => import('@/features/perspectives/manager-my-team-page'));
 const ManagerTeamMemberDetailPage = lazy(() => import('@/features/perspectives/manager-team-member-detail-page'));
 const IdentityDetailPage = lazy(() => import('@/features/identities/identity-detail-page'));
-const IdentitiesPage = lazy(() => import('@/features/identities/identities-page'));
 const KioskPage = lazy(() => import('@/features/kiosk/kiosk-page'));
 const KioskSetupPage = lazy(() => import('@/features/kiosk/kiosk-setup-page'));
-const OrganizationsPage = lazy(() => import('@/features/organizations/organizations-page'));
 const ReceptionDeskArrivalsPage = lazy(() => import('@/features/reception-desk/reception-desk-arrivals-page'));
 const ReceptionDeskExpectedArrivalsPage = lazy(() => import('@/features/reception-desk/reception-desk-expected-arrivals-page'));
 const ReceptionDeskHistoryPage = lazy(() => import('@/features/reception-desk/reception-desk-history-page'));
@@ -98,14 +94,9 @@ const ReceptionKioskScanQrPage = lazy(() => import('@/features/reception-kiosk/r
 const ReceptionKioskSetupPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-setup-page'));
 const ReceptionKioskSuccessPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-success-page'));
 const ReceptionKioskWrongLocationPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-wrong-location-page'));
-const VisitorsManagementLayout = lazy(() => import('@/features/visitors-management/visitors-management-layout'));
 const VisitorConfirmationPage = lazy(() => import('@/features/visitor-confirmation/visitor-confirmation-page'));
-const VisitorReportingPage = lazy(() => import('@/features/visitors-management/reporting-page'));
 const VisitCreatePage = lazy(() => import('@/features/visitors-management/visit-create-page'));
 const VisitInvitationDetailPage = lazy(() => import('@/features/visitors-management/visit-invitation-detail-page'));
-const VisitEditPage = lazy(() => import('@/features/visitors-management/visit-edit-page'));
-const VisitorsPage = lazy(() => import('@/features/visitors-management/visitors-page'));
-const VisitsPage = lazy(() => import('@/features/visitors-management/visits-page'));
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -169,36 +160,6 @@ const authCallbackRoute = createRoute({
   getParentRoute: () => mainLayoutRoute,
   path: '/auth/callback',
   component: () => <LazyRoute component={<AuthCallbackPage />} />,
-});
-
-const identitiesRoute = createRoute({
-  getParentRoute: () => mainLayoutRoute,
-  path: '/old/identities',
-  component: () => <ProtectedLazyRoute component={<IdentitiesPage />} />,
-});
-
-const accessRoute = createRoute({
-  getParentRoute: () => mainLayoutRoute,
-  path: '/old/access',
-  component: () => <ProtectedLazyRoute component={<AccessPage />} />,
-});
-
-const credentialsRoute = createRoute({
-  getParentRoute: () => mainLayoutRoute,
-  path: '/old/credentials',
-  component: () => <ProtectedLazyRoute component={<CredentialsPage />} />,
-});
-
-const organizationsRoute = createRoute({
-  getParentRoute: () => mainLayoutRoute,
-  path: '/old/organizations',
-  component: () => <ProtectedLazyRoute component={<OrganizationsPage />} />,
-});
-
-const auditRoute = createRoute({
-  getParentRoute: () => mainLayoutRoute,
-  path: '/old/audit',
-  component: () => <ProtectedLazyRoute component={<AuditPage />} />,
 });
 
 const employeeRoute = createRoute({
@@ -719,48 +680,6 @@ const visitorConfirmationRoute = createRoute({
   component: () => <LazyRoute component={<VisitorConfirmationPage />} />,
 });
 
-const visitorsManagementRoute = createRoute({
-  getParentRoute: () => mainLayoutRoute,
-  path: '/old/visitors-management',
-  component: () => <ProtectedLazyRoute component={<VisitorsManagementLayout />} />,
-});
-
-const visitsIndexRoute = createRoute({
-  getParentRoute: () => visitorsManagementRoute,
-  path: '/',
-  component: () => <LazyRoute component={<VisitsPage />} />,
-});
-
-const visitsRoute = createRoute({
-  getParentRoute: () => visitorsManagementRoute,
-  path: '/visits',
-  component: () => <LazyRoute component={<VisitsPage />} />,
-});
-
-const visitCreateRoute = createRoute({
-  getParentRoute: () => visitorsManagementRoute,
-  path: '/visits/new',
-  component: () => <LazyRoute component={<VisitCreatePage />} />,
-});
-
-const visitorsRoute = createRoute({
-  getParentRoute: () => visitorsManagementRoute,
-  path: '/visitors',
-  component: () => <LazyRoute component={<VisitorsPage />} />,
-});
-
-const visitEditRoute = createRoute({
-  getParentRoute: () => visitorsManagementRoute,
-  path: '/visits/$visitId/edit',
-  component: () => <LazyRoute component={<VisitEditPage />} />,
-});
-
-const visitorReportingRoute = createRoute({
-  getParentRoute: () => visitorsManagementRoute,
-  path: '/reporting',
-  component: () => <LazyRoute component={<VisitorReportingPage />} />,
-});
-
 const receptionKioskIndexRoute = createRoute({
   getParentRoute: () => receptionKioskLayoutRoute,
   path: '/',
@@ -837,11 +756,6 @@ const routeTree = rootRoute.addChildren([
   mainLayoutRoute.addChildren([
     indexRoute,
     authCallbackRoute,
-    identitiesRoute,
-    accessRoute,
-    credentialsRoute,
-    organizationsRoute,
-    auditRoute,
     employeeRoute,
     employeeRequestAccessRoute,
     employeeRequestDetailRoute,
@@ -904,7 +818,6 @@ const routeTree = rootRoute.addChildren([
       administrationHardwareAgentDetailRoute,
     ]),
     visitorConfirmationRoute,
-    visitorsManagementRoute.addChildren([visitsIndexRoute, visitsRoute, visitCreateRoute, visitEditRoute, visitorsRoute, visitorReportingRoute]),
   ]),
   receptionKioskLayoutRoute.addChildren([receptionKioskIndexRoute, receptionKioskSetupRoute, receptionKioskScanQrRoute, receptionKioskArrivalRoute, receptionKioskFaceScanRoute, receptionKioskDocumentScanRoute, receptionKioskSuccessRoute, receptionKioskFailedRoute, receptionKioskNoRegistrationRoute, receptionKioskWrongLocationRoute]),
   receptionDeskWorkstationLayoutRoute.addChildren([

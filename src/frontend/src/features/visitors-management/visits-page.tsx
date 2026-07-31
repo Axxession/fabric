@@ -13,8 +13,8 @@ type VisitStatus = components['schemas']['VisitStatus'];
 type VisitsPageProps = {
   readonly title?: string;
   readonly description?: string;
-  readonly createTo?: '/old/visitors-management/visits/new' | '/employee/visitors/new';
-  readonly editTo?: '/old/visitors-management/visits/$visitId/edit' | '/employee/visitors/$visitId/edit';
+  readonly createTo?: '/employee/visitors/new';
+  readonly editTo?: '/employee/visitors/$visitId/edit';
   readonly storageKey?: string;
 };
 
@@ -39,8 +39,8 @@ type StoredCalendarState = {
 export default function VisitsPage(props: VisitsPageProps) {
   const title = props.title ?? 'Visits';
   const description = props.description ?? 'Plan visits, check expected arrivals, and coordinate visitor access workflows.';
-  const createTo = props.createTo ?? '/old/visitors-management/visits/new';
-  const editTo = props.editTo ?? '/old/visitors-management/visits/$visitId/edit';
+  const createTo = props.createTo ?? '/employee/visitors/new';
+  const editTo = props.editTo ?? '/employee/visitors/$visitId/edit';
   const storageKey = props.storageKey ?? visitsCalendarStorageKey;
 
   const [calendarState, setCalendarState] = useState(() => getStoredCalendarState(storageKey));
@@ -241,11 +241,11 @@ function VisitCard({ visit, editTo }: { readonly visit: Visit; readonly editTo: 
   const participantCount = visit.invitations?.length ?? 0;
 
   return (
-    <Link
-      to={editTo ?? '/old/visitors-management/visits/$visitId/edit'}
-      params={{ visitId: visit.id ?? '' }}
-      className="grid gap-2 rounded-interactive border border-border bg-content p-3 shadow-sm transition hover:border-primary/40 hover:shadow-md"
-    >
+      <Link
+        to={editTo ?? '/employee/visitors/$visitId/edit'}
+        params={{ visitId: visit.id ?? '' }}
+        className="grid gap-2 rounded-interactive border border-border bg-content p-3 shadow-sm transition hover:border-primary/40 hover:shadow-md"
+      >
       <div className="flex items-start justify-between gap-3">
         <h5 className="text-[14px] font-semibold leading-5 text-foreground">{visit.summary || 'Untitled visit'}</h5>
         <VisitStatusBadge status={visit.status} />
