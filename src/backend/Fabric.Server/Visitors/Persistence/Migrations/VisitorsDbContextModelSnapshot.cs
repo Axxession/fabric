@@ -23,33 +23,15 @@ namespace Fabric.Server.Visitors.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Fabric.Server.Visitors.Domain.Organizer", b =>
+            modelBuilder.Entity("Fabric.Server.Visitors.Domain.HostAssignment", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<bool>("Active")
-                        .HasColumnType("boolean")
-                        .HasColumnName("active");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasMaxLength(320)
-                        .HasColumnType("character varying(320)")
-                        .HasColumnName("email");
-
-                    b.Property<string>("FirstName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("first_name");
-
-                    b.Property<string>("LastName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("last_name");
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("employee_id");
 
                     b.Property<string>("TenantId")
                         .IsRequired()
@@ -58,16 +40,16 @@ namespace Fabric.Server.Visitors.Persistence.Migrations
                         .HasColumnName("tenant_id");
 
                     b.HasKey("Id")
-                        .HasName("pk_organizers");
+                        .HasName("pk_host_assignments");
 
                     b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_organizers_tenant_id");
+                        .HasDatabaseName("ix_host_assignments_tenant_id");
 
-                    b.HasIndex("TenantId", "Email")
+                    b.HasIndex("TenantId", "EmployeeId")
                         .IsUnique()
-                        .HasDatabaseName("ix_organizers_tenant_id_email");
+                        .HasDatabaseName("ix_host_assignments_tenant_id_employee_id");
 
-                    b.ToTable("organizers", "visitors");
+                    b.ToTable("host_assignments", "visitors");
                 });
 
             modelBuilder.Entity("Fabric.Server.Visitors.Domain.Visit", b =>
@@ -76,13 +58,13 @@ namespace Fabric.Server.Visitors.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid>("HostEmployeeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("host_employee_id");
+
                     b.Property<Guid?>("LocationId")
                         .HasColumnType("uuid")
                         .HasColumnName("location_id");
-
-                    b.Property<Guid>("OrganizerId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("organizer_id");
 
                     b.Property<DateTimeOffset>("Start")
                         .HasColumnType("timestamp with time zone")
@@ -210,7 +192,7 @@ namespace Fabric.Server.Visitors.Persistence.Migrations
                     b.ToTable("visit_invitations", "visitors");
                 });
 
-            modelBuilder.Entity("Fabric.Server.Visitors.Domain.Visitor", b =>
+            modelBuilder.Entity("Visitor", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
@@ -233,6 +215,10 @@ namespace Fabric.Server.Visitors.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("first_name");
+
+                    b.Property<Guid>("IdentityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("identity_id");
 
                     b.Property<string>("LastName")
                         .IsRequired()
@@ -261,6 +247,9 @@ namespace Fabric.Server.Visitors.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_visitors_tenant_id_email");
 
+                    b.HasIndex("TenantId", "IdentityId")
+                        .HasDatabaseName("ix_visitors_tenant_id_identity_id");
+
                     b.ToTable("visitors", "visitors");
                 });
 
@@ -270,8 +259,7 @@ namespace Fabric.Server.Visitors.Persistence.Migrations
                         .WithMany("Invitations")
                         .HasForeignKey("visit_id")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_visit_invitations_visits_visit_id");
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Fabric.Server.Visitors.Domain.Visit", b =>

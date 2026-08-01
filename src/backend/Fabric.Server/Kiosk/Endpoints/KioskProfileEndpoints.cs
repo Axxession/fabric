@@ -1,4 +1,5 @@
 using Fabric.Server.Core;
+using Fabric.Server.Infrastructure.Storage;
 using Fabric.Server.Kiosk.Application;
 using Fabric.Server.Kiosk.Contracts;
 using Fabric.Server.Kiosk.Domain;
@@ -197,14 +198,15 @@ public static class KioskProfileEndpoints
         return Results.Ok(assets.Select(asset => asset.ToResponse()).ToArray());
     }
 
-    private static async Task<IResult> CreateKioskAsset(Guid id, [FromForm] string name, [FromForm] string? languageCode, [FromForm] KioskAssetKind kind, [FromForm] string? altTextKey, [FromForm] IFormFile file, KioskDbContext db, IKioskAssetStorage storage, TimeProvider timeProvider, CancellationToken cancellationToken = default)
+    private static async Task<IResult> CreateKioskAsset(Guid id, [FromForm] string name, [FromForm] string? languageCode, [FromForm] KioskAssetKind kind, [FromForm] StoredFileVisibility visibility, [FromForm] string? altTextKey, [FromForm] IFormFile file, HttpContext context, KioskDbContext db, IKioskAssetStorage storage, TimeProvider timeProvider, CancellationToken cancellationToken = default)
     {
         if (!await db.Profiles.AnyAsync(profile => profile.Id == id, cancellationToken))
             return Results.NotFound();
 
         Guid assetId = Guid.NewGuid();
-        string relativePath = await storage.SaveAsync(id, assetId, file.FileName, file.OpenReadStream(), cancellationToken);
-        KioskAsset asset = KioskAsset.Create(assetId, id, name, languageCode, kind, file.FileName, file.ContentType, file.Length, relativePath, altTextKey, timeProvider.GetUtcNow());
+        StorageClaimSnapshot uploadedBy = StorageClaimSnapshot.FromPrincipal(context.User);
+        string relativePath = await storage.SaveAsync(id, assetId, file.FileName, file.ContentType, file.OpenReadStream(), cancellationToken);
+        KioskAsset asset = KioskAsset.Create(assetId, id, name, languageCode, kind, file.FileName, file.ContentType, file.Length, relativePath, visibility, uploadedBy.Oid, uploadedBy.Email, uploadedBy.DisplayName, altTextKey, timeProvider.GetUtcNow());
         db.Assets.Add(asset);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Created($"/api/kiosk-profiles/{id}/assets/{asset.Id}", asset.ToResponse());

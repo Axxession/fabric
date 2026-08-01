@@ -15,7 +15,7 @@ public sealed class Visit
 
     public Guid Id { get; private set; }
     public string Summary { get; private set; } = null!;
-    public Guid OrganizerId { get; private set; }
+    public Guid HostEmployeeId { get; private set; }
     public VisitStatus Status { get; private set; }
 
     public DateTimeOffset Start { get; private set; }
@@ -25,7 +25,7 @@ public sealed class Visit
     public List<VisitInvitation> Invitations { get; private set; } = [];
 
     public static Result<Visit, VisitErrors> Create(
-        Guid organizer,
+        Guid hostEmployeeId,
         string summary,
         DateTimeOffset start,
         DateTimeOffset stop,
@@ -39,7 +39,7 @@ public sealed class Visit
         return Result.Success<Visit, VisitErrors>(new Visit
         {
             Id = Guid.NewGuid(),
-            OrganizerId = organizer,
+            HostEmployeeId = hostEmployeeId,
             Summary = summary,
             Status = VisitStatus.Scheduled,
             Start = start,
@@ -163,13 +163,13 @@ public sealed class Visit
         return Result.Success<VisitErrors>();
     }
 
-    public Result<VisitErrors> ReassignOrganizer(Guid organizerId)
+    public Result<VisitErrors> ReassignHost(Guid hostEmployeeId)
     {
         Result<VisitErrors> guard = GuardScheduled();
         if (guard.IsFailure(out _))
             return guard;
 
-        OrganizerId = organizerId;
+        HostEmployeeId = hostEmployeeId;
         return Result.Success<VisitErrors>();
     }
 

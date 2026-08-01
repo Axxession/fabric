@@ -97,8 +97,8 @@ export default function ReceptionKioskArrivalPage() {
               </div>
               <dl className="mt-6 grid gap-4 text-[17px] sm:grid-cols-2">
                 <Detail label="Summary" value={arrival.visitor.visit.summary} />
-                <Detail label="Organizer" value={arrival.visitor.visit.organizerName} />
-                <Detail label="Organizer email" value={arrival.visitor.visit.organizerEmail} />
+                <Detail label="Host" value={arrival.visitor.visit.hostName} />
+                <Detail label="Host email" value={arrival.visitor.visit.hostEmail ?? 'Not provided'} />
                 <Detail label="Visit start" value={formatDateTime(arrival.visitor.visit.start)} />
                 <Detail label="Visit stop" value={formatDateTime(arrival.visitor.visit.stop)} />
                 <Detail label="Confirmation" value={arrival.visitor.confirmationStatus} />

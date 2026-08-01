@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { Cpu, Pencil, Plus, Route, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import { api } from '@/shared/api/client';
@@ -14,6 +15,7 @@ import { chipDesignsQueryKey, formatDateTime, systemProvidersQueryKey, type Chip
 const chipDesignerTransformationsQueryKey = ['card-management', 'chip-designer-page', 'transformations'] as const;
 
 export default function ChipDesignerPage() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   const chipDesignsQuery = useQuery({
@@ -21,7 +23,7 @@ export default function ChipDesignerPage() {
     queryFn: async () => {
       const { data, error } = await api.GET('/api/desfire/chip-designs', { params: { query: { Page: 0, PageSize: 100 } } });
       if (error) {
-        throw new Error('Could not load chip designs.');
+        throw new Error(t('cardManagement.keyManagement.couldNotLoadChipDesigns'));
       }
       return data;
     },
@@ -32,7 +34,7 @@ export default function ChipDesignerPage() {
     queryFn: async () => {
       const { data, error } = await api.GET('/api/desfire/transformations', { params: { query: { Page: 0, PageSize: 100 } } });
       if (error) {
-        throw new Error('Could not load transformations.');
+        throw new Error(t('cardManagement.keyManagement.couldNotLoadTransformations'));
       }
       return data;
     },
@@ -43,7 +45,7 @@ export default function ChipDesignerPage() {
     queryFn: async () => {
       const { data, error } = await api.GET('/api/desfire/system-providers', { params: { query: { Page: 0, PageSize: 100 } } });
       if (error) {
-        throw new Error('Could not load system providers.');
+        throw new Error(t('cardManagement.keyManagement.couldNotLoadSystemProviders'));
       }
       return data;
     },
@@ -53,42 +55,42 @@ export default function ChipDesignerPage() {
     mutationFn: async (id: string) => {
       const { error } = await api.DELETE('/api/desfire/chip-designs/{id}', { params: { path: { id } } });
       if (error) {
-        throw new Error('Could not delete chip design.');
+        throw new Error(t('cardManagement.keyManagement.couldNotDeleteChipDesign'));
       }
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: chipDesignsQueryKey });
-      toast.success('Chip design deleted.');
+      toast.success(t('cardManagement.keyManagement.chipDesignDeleted'));
     },
-    onError: () => toast.error('Could not delete chip design. Remove referencing transformations first.'),
+    onError: () => toast.error(t('cardManagement.keyManagement.couldNotDeleteChipDesign')),
   });
 
   const deleteTransformation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await api.DELETE('/api/desfire/transformations/{id}', { params: { path: { id } } });
       if (error) {
-        throw new Error('Could not delete transformation.');
+        throw new Error(t('cardManagement.keyManagement.couldNotDeleteTransformation'));
       }
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: chipDesignerTransformationsQueryKey });
-      toast.success('Transformation deleted.');
+      toast.success(t('cardManagement.keyManagement.transformationDeleted'));
     },
-    onError: () => toast.error('Could not delete transformation. Encoding history may reference it.'),
+    onError: () => toast.error(t('cardManagement.keyManagement.couldNotDeleteTransformation')),
   });
 
   const deleteSystemProvider = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await api.DELETE('/api/desfire/system-providers/{id}', { params: { path: { id } } });
       if (error) {
-        throw new Error('Could not delete system provider.');
+        throw new Error(t('cardManagement.keyManagement.couldNotDeleteSystemProvider'));
       }
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: systemProvidersQueryKey });
-      toast.success('System provider deleted.');
+      toast.success(t('cardManagement.keyManagement.systemProviderDeleted'));
     },
-    onError: () => toast.error('Could not delete system provider. A transformation may reference it.'),
+    onError: () => toast.error(t('cardManagement.keyManagement.couldNotDeleteSystemProvider')),
   });
 
   const chipDesigns = chipDesignsQuery.data?.items ?? [];
@@ -98,16 +100,16 @@ export default function ChipDesignerPage() {
   return (
     <section className="rounded-structural border border-border bg-content">
       <div className="border-b border-border p-4 sm:p-6">
-        <h1 className="text-[20px] font-semibold tracking-tight">Chip Designer</h1>
-        <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">Design DESFire chip templates and define transformations between blank or existing card layouts.</p>
+        <h1 className="text-[20px] font-semibold tracking-tight">{t('cardManagement.keyManagement.chipDesignerTitle')}</h1>
+        <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">{t('cardManagement.keyManagement.chipDesignerDescription')}</p>
       </div>
 
       <div className="p-4 sm:p-6">
         <Tabs defaultValue="chip-designs">
           <TabsList>
-            <TabsTrigger value="chip-designs">Chip designs</TabsTrigger>
-            <TabsTrigger value="transformations">Transformations</TabsTrigger>
-            <TabsTrigger value="system-providers">System providers</TabsTrigger>
+            <TabsTrigger value="chip-designs">{t('cardManagement.keyManagement.chipDesigns')}</TabsTrigger>
+            <TabsTrigger value="transformations">{t('cardManagement.keyManagement.transformations')}</TabsTrigger>
+            <TabsTrigger value="system-providers">{t('cardManagement.keyManagement.systemProviders')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="chip-designs">
@@ -117,7 +119,7 @@ export default function ChipDesignerPage() {
               isError={chipDesignsQuery.isError}
               isDeleting={deleteChipDesign.isPending}
               onDelete={(design) => {
-                if (window.confirm(`Delete chip design "${design.name}" v${design.version}?`)) {
+                if (window.confirm(t('cardManagement.keyManagement.chipDesignDeleteConfirm', { name: design.name, version: design.version }))) {
                   deleteChipDesign.mutate(design.id);
                 }
               }}
@@ -131,7 +133,7 @@ export default function ChipDesignerPage() {
               isError={transformationsQuery.isError}
               isDeleting={deleteTransformation.isPending}
               onDelete={(transformation) => {
-                if (window.confirm(`Delete transformation "${transformation.name}"?`)) {
+                if (window.confirm(t('cardManagement.keyManagement.transformationDeleteConfirm', { name: transformation.name }))) {
                   deleteTransformation.mutate(transformation.id);
                 }
               }}
@@ -145,7 +147,7 @@ export default function ChipDesignerPage() {
               isError={systemProvidersQuery.isError}
               isDeleting={deleteSystemProvider.isPending}
               onDelete={(provider) => {
-                if (window.confirm(`Delete system provider "${provider.name}"?`)) {
+                if (window.confirm(t('cardManagement.keyManagement.systemProviderDeleteConfirm', { name: provider.name }))) {
                   deleteSystemProvider.mutate(provider.id);
                 }
               }}
@@ -165,7 +167,7 @@ function SystemProvidersPanel({ providers, isLoading, isError, isDeleting, onDel
           <h2 className="text-[16px] font-semibold tracking-tight">System providers</h2>
           <p className="mt-1 text-[14px] text-muted-foreground">Named fixed values and sequence counters used by system-provided transformation variables.</p>
         </div>
-        <Link to="/card-management/system-providers/new" className={buttonVariants({ className: 'w-full sm:w-fit' })}>
+        <Link to="/desfire-studio/system-providers/new" className={buttonVariants({ className: 'w-full sm:w-fit' })}>
           <Plus className="size-4" aria-hidden="true" />
           Add system provider
         </Link>
@@ -214,7 +216,7 @@ function ChipDesignsPanel({ designs, isLoading, isError, isDeleting, onDelete }:
           <h2 className="text-[16px] font-semibold tracking-tight">Chip designs</h2>
           <p className="mt-1 text-[14px] text-muted-foreground">Versioned DESFire template specifications used as transformation sources and targets.</p>
         </div>
-        <Link to="/card-management/chip-designs/new" className={buttonVariants({ className: 'w-full sm:w-fit' })}>
+        <Link to="/desfire-studio/chip-designs/new" className={buttonVariants({ className: 'w-full sm:w-fit' })}>
           <Plus className="size-4" aria-hidden="true" />
           Add chip design
         </Link>
@@ -245,7 +247,7 @@ function ChipDesignsTable({ designs, isDeleting, onDelete }: { readonly designs:
               <td className="px-4 py-4 text-muted-foreground">{formatDateTime(design.createdAt)}</td>
               <td className="px-4 py-4">
                 <div className="flex justify-end gap-2">
-                  <Link to="/card-management/chip-designs/$chipDesignId/edit" params={{ chipDesignId: design.id }} className={buttonVariants({ variant: 'outline', size: 'sm' })}><Pencil className="size-4" aria-hidden="true" />Edit</Link>
+                  <Link to="/desfire-studio/chip-designs/$chipDesignId/edit" params={{ chipDesignId: design.id }} className={buttonVariants({ variant: 'outline', size: 'sm' })}><Pencil className="size-4" aria-hidden="true" />Edit</Link>
                   <Button type="button" variant="outline" size="sm" disabled={isDeleting} onClick={() => onDelete(design)}><Trash2 className="size-4" aria-hidden="true" />Delete</Button>
                 </div>
               </td>
@@ -265,7 +267,7 @@ function TransformationsPanel({ transformations, isLoading, isError, isDeleting,
           <h2 className="text-[16px] font-semibold tracking-tight">Transformations</h2>
           <p className="mt-1 text-[14px] text-muted-foreground">Conversion definitions from a blank card or existing chip design to a target chip design.</p>
         </div>
-        <Link to="/card-management/transformations/new" className={buttonVariants({ className: 'w-full sm:w-fit' })}>
+        <Link to="/desfire-studio/transformations/new" className={buttonVariants({ className: 'w-full sm:w-fit' })}>
           <Plus className="size-4" aria-hidden="true" />
           Add transformation
         </Link>
@@ -297,7 +299,7 @@ function TransformationsTable({ transformations, isDeleting, onDelete }: { reado
               <td className="px-4 py-4 text-muted-foreground">{formatDateTime(transformation.updatedAt)}</td>
               <td className="px-4 py-4">
                 <div className="flex justify-end gap-2">
-                  <Link to="/card-management/transformations/$transformationId/edit" params={{ transformationId: transformation.id }} className={buttonVariants({ variant: 'outline', size: 'sm' })}><Pencil className="size-4" aria-hidden="true" />Edit</Link>
+                  <Link to="/desfire-studio/transformations/$transformationId/edit" params={{ transformationId: transformation.id }} className={buttonVariants({ variant: 'outline', size: 'sm' })}><Pencil className="size-4" aria-hidden="true" />Edit</Link>
                   <Button type="button" variant="outline" size="sm" disabled={isDeleting} onClick={() => onDelete(transformation)}><Trash2 className="size-4" aria-hidden="true" />Delete</Button>
                 </div>
               </td>

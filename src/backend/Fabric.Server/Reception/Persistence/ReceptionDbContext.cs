@@ -11,6 +11,7 @@ public class ReceptionDbContext : TenantDbContext
 
     public DbSet<ExpectedArrival> Arrivals { get; set; } = null!;
     public DbSet<ReceptionKiosk> ReceptionKiosks { get; set; } = null!;
+    public DbSet<ReceptionDeskWorkstation> ReceptionDeskWorkstations { get; set; } = null!;
     public DbSet<ReceptionAccessRuleAssignment> AccessRuleAssignments { get; set; } = null!;
     public DbSet<ReceptionAssignedAccessPolicy> AssignedAccessPolicies { get; set; } = null!;
 
@@ -20,6 +21,7 @@ public class ReceptionDbContext : TenantDbContext
         modelBuilder.HasDefaultSchema(Schema);
         modelBuilder.ApplyConfiguration(new ExpectedArrivalConfiguration());
         modelBuilder.ApplyConfiguration(new ReceptionKioskConfiguration());
+        modelBuilder.ApplyConfiguration(new ReceptionDeskWorkstationConfiguration());
         modelBuilder.ApplyConfiguration(new ReceptionAccessRuleAssignmentConfiguration());
         modelBuilder.ApplyConfiguration(new ReceptionAssignedAccessPolicyConfiguration());
         modelBuilder.ApplyConfiguration(new ArrivalEntryConfiguration());

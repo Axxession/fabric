@@ -4,9 +4,9 @@ import { Link, Navigate, useNavigate } from '@tanstack/react-router';
 import { ArrowLeft, Camera } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-import { checkInReceptionKioskArrival, checkOutReceptionKioskArrival, clearReceptionKioskArrival, ReceptionKioskArrivalLookupError, ReceptionKioskArrivalNotFoundError, lookupReceptionKioskArrival, saveReceptionKioskArrival, saveReceptionKioskMissedCode } from './reception-kiosk-api';
+import { checkInReceptionKioskArrival, checkOutReceptionKioskArrival, clearReceptionKioskArrival, ReceptionKioskArrivalLookupError, ReceptionKioskArrivalNotFoundError, ReceptionKioskWrongLocationError, lookupReceptionKioskArrival, saveReceptionKioskArrival, saveReceptionKioskMissedCode } from './reception-kiosk-api';
 import { clearOnboardingState } from './reception-kiosk-onboarding';
-import { saveReceptionKioskResult } from './reception-kiosk-result';
+import { saveReceptionKioskResult, saveReceptionKioskWrongLocation } from './reception-kiosk-result';
 import { hasReceptionKioskSettings } from './reception-kiosk-settings';
 
 export default function ReceptionKioskScanQrPage() {
@@ -76,6 +76,14 @@ export default function ReceptionKioskScanQrPage() {
           handled = false;
           setIsLookingUp(false);
           await navigate({ to: '/reception-kiosk/failed' });
+          return;
+        }
+
+        if (lookupError instanceof ReceptionKioskWrongLocationError) {
+          saveReceptionKioskWrongLocation(lookupError.title, lookupError.detail);
+          handled = false;
+          setIsLookingUp(false);
+          await navigate({ to: '/reception-kiosk/wrong-location' });
           return;
         }
 

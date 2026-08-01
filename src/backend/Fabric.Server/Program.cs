@@ -1,12 +1,23 @@
-using Fabric.Server.AccessPolicies;
-using Fabric.Server.AccessPolicies.Endpoints;
+using Fabric.Server.Actors;
+using Fabric.Server.Actors.Endpoints;
+using Fabric.Server.AccessCatalog;
+using Fabric.Server.AccessCatalog.Endpoints;
+using Fabric.Server.AccessControl;
+using Fabric.Server.AccessControl.Endpoints;
 using Fabric.Server.Automation;
+using Fabric.Server.CredentialManagement;
+using Fabric.Server.CredentialManagement.Endpoints;
 using Fabric.Server.Desfire;
 using Fabric.Server.Desfire.Endpoints;
+using Fabric.Server.Employees;
+using Fabric.Server.Employees.Endpoints;
 using Fabric.Server.Hardware;
 using Fabric.Server.Hardware.Endpoints;
+using Fabric.Server.Identities;
+using Fabric.Server.Identities.Endpoints;
 using Fabric.Server.Infrastructure;
 using Fabric.Server.Infrastructure.Authentication;
+using Fabric.Server.Infrastructure.Storage;
 using Fabric.Server.Infrastructure.Tenancy;
 using Fabric.Server.Kiosk;
 using Fabric.Server.Kiosk.Endpoints;
@@ -16,6 +27,7 @@ using Fabric.Server.Notifications;
 using Fabric.Server.Reception;
 using Fabric.Server.Reception.Endpoints;
 using Fabric.Server.Sagas;
+using Fabric.Server.Sagas.EmployeeLifecycle;
 using Fabric.Server.Sagas.VisitorPreOnboarding;
 using Fabric.Server.Tenants;
 using Fabric.Server.Tenants.Endpoints;
@@ -37,7 +49,9 @@ if (enableOpenApi)
 }
 
 builder.Services.AddTransient(_ => TimeProvider.System);
+builder.Services.AddSingleton<IApplicationVersionProvider, ApplicationVersionProvider>();
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Clear());
+builder.Services.SetupStorage(builder.Configuration);
 builder.Services.AddTenancy(builder.Configuration);
 builder.Services.AddFabricAuthentication();
 
@@ -55,8 +69,13 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services
+    .SetupActors(builder.Configuration)
     .SetupTenants(builder.Configuration)
-    .SetupAccessPolicies(builder.Configuration)
+    .SetupIdentities(builder.Configuration)
+    .SetupEmployees(builder.Configuration)
+    .SetupCredentialManagement(builder.Configuration)
+    .SetupAccessControl(builder.Configuration)
+    .SetupAccessCatalog(builder.Configuration)
     .SetupVisitors(builder.Configuration)
     .SetupSagas(builder.Configuration)
     .SetupDesfire(builder.Configuration)
@@ -72,9 +91,15 @@ if (enableAutomation)
     builder.Services.SetupAutomation(builder.Configuration);
 }
 
-builder.Services.AddHostedService<MigrationsRunner>();
+builder.Services.AddScoped<MigrationsRunner>();
 
 WebApplication app = builder.Build();
+await using (AsyncServiceScope startupScope = app.Services.CreateAsyncScope())
+{
+    await startupScope.ServiceProvider.GetRequiredService<MigrationsRunner>().RunAsync(CancellationToken.None);
+}
+
+string frontendIndexPath = Path.Combine(app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot"), "index.html");
 
 // Configure the HTTP request pipeline.
 if (enableOpenApi)
@@ -83,16 +108,35 @@ if (enableOpenApi)
 }
 
 app.UseCors("ApiCors");
+
+if (File.Exists(frontendIndexPath))
+{
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
+}
+
 app.UseMiddleware<TenantContextMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapTenantEndpoints();
-app.MapAccessPolicyEndpoints();
-app.MapAccessControlSystemEndpoints();
+app.MapActorEndpoints();
+app.MapIdentityEndpoints();
+app.MapEmployeeEndpoints();
+app.MapCredentialManagementEndpoints();
+app.MapAccessControlEndpoints();
+app.MapCatalogEndpoints();
+app.MapPackageEndpoints();
+app.MapAccessGrantEndpoints();
+app.MapApprovalGroupEndpoints();
+app.MapApprovalDefinitionEndpoints();
+app.MapApprovalInboxEndpoints();
+app.MapPackageRequestEndpoints();
+app.MapApprovalRequirementEndpoints();
 app.MapLocationEndpoints();
 app.MapReceptionEndpoints();
 app.MapReceptionKioskEndpoints();
+app.MapReceptionDeskWorkstationEndpoints();
 app.MapReceptionAccessRuleAssignmentEndpoints();
 app.MapHardwareManagementEndpoints();
 app.MapHardwareOperationEndpoints();
@@ -105,16 +149,27 @@ app.MapDesfireKeyDiversificationStrategyEndpoints();
 app.MapDesfireKeyGroupEndpoints();
 app.MapDesfireEncodingEndpoints();
 app.MapKioskProfileEndpoints();
-app.MapKioskEndpoints();
-app.MapKioskRuntimeEndpoints();
+app.MapKioskEndpoints(enableAutomation);
+
+if (enableAutomation)
+{
+    app.MapKioskRuntimeEndpoints();
+}
 app.MapVisitorEndpoints();
-app.MapOrganizerEndpoints();
+app.MapHostEndpoints();
 app.MapVisitorPreOnboardingSagaEndpoints();
+app.MapEmployeeLifecycleAutomationEndpoints();
 
 
 if (enableAutomation)
 {
     app.UseAutomation();
+}
+
+
+if (File.Exists(frontendIndexPath))
+{
+    app.MapFallbackToFile("index.html").AllowAnonymous();
 }
 
 

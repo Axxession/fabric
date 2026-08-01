@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { I18nextProvider } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
 import { type ReactNode, useEffect, useState } from 'react';
 
 import { i18n } from '@/shared/i18n/i18n';
@@ -9,6 +10,7 @@ import { BrandingProvider } from '@/shared/branding/branding-context';
 import { appBranding } from '@/shared/branding/fabric-branding';
 import { FabricAuthProvider } from '@/shared/auth/auth-provider';
 import { AuthTokenBridge } from '@/shared/auth/auth-token-bridge';
+import { TenantSettingsProvider } from '@/shared/tenant/tenant-settings-context';
 import { fetchTenantSettings, getLogoDataUrl, type TenantSettings } from '@/shared/tenant/tenant-settings';
 
 export function AppProviders({ children }: { children: ReactNode }) {
@@ -62,12 +64,14 @@ export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <I18nextProvider i18n={i18n}>
       <QueryClientProvider client={queryClient}>
-        <BrandingProvider branding={branding}>
-          <FabricAuthProvider tenantSettings={tenantSettings}>
-            <AuthTokenBridge />
-            {children}
-          </FabricAuthProvider>
-        </BrandingProvider>
+        <TenantSettingsProvider settings={tenantSettings}>
+          <BrandingProvider branding={branding}>
+            <FabricAuthProvider tenantSettings={tenantSettings}>
+              <AuthTokenBridge />
+              {children}
+            </FabricAuthProvider>
+          </BrandingProvider>
+        </TenantSettingsProvider>
         <Toaster />
       </QueryClientProvider>
     </I18nextProvider>
@@ -75,19 +79,23 @@ export function AppProviders({ children }: { children: ReactNode }) {
 }
 
 function TenantSettingsLoading() {
+  const { t } = useTranslation();
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 text-foreground">
-      <div className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">Loading tenant settings...</div>
+      <div className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">{t('shell.loadingTenantSettings')}</div>
     </div>
   );
 }
 
 function TenantSettingsError({ message }: { message: string }) {
+  const { t } = useTranslation();
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 text-foreground">
       <div className="max-w-md rounded-structural border border-border bg-content p-6">
-        <p className="text-[14px] font-semibold uppercase text-error">Configuration error</p>
-        <h1 className="mt-3 text-[24px] font-semibold tracking-tight">Fabric cannot start</h1>
+        <p className="text-[14px] font-semibold uppercase text-error">{t('common.configurationError')}</p>
+        <h1 className="mt-3 text-[24px] font-semibold tracking-tight">{t('common.fabricCannotStart')}</h1>
         <p className="mt-3 text-[14px] text-muted-foreground">{message}</p>
       </div>
     </div>

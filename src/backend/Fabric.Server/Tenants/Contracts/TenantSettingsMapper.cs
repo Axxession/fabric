@@ -5,14 +5,16 @@ namespace Fabric.Server.Tenants.Contracts;
 
 public static class TenantSettingsMapper
 {
-    public static TenantSettingsResponse ToResponse(this TenantConfiguration configuration) =>
+    public static TenantSettingsResponse ToResponse(this TenantConfiguration configuration, string version) =>
         new(
+            version,
             configuration.Oidc.ToResponse(),
             configuration.Theme.ToResponse(),
             configuration.Logo?.ToResponse());
 
-    public static AdminTenantSettingsResponse ToAdminResponse(this TenantConfiguration configuration) =>
+    public static AdminTenantSettingsResponse ToAdminResponse(this TenantConfiguration configuration, string version) =>
         new(
+            version,
             configuration.Oidc.ToResponse(),
             configuration.Theme.ToResponse(),
             configuration.Logo?.ToResponse(),

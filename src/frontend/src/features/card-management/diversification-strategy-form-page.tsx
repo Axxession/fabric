@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import { api } from '@/shared/api/client';
@@ -25,11 +26,16 @@ export function DiversificationStrategyCreatePage() {
 }
 
 export default function DiversificationStrategyEditPage() {
-  const { strategyId } = useParams({ from: '/main/card-management/diversification-strategies/$strategyId/edit' });
+  const { strategyId } = useParams({ from: '/desfire-studio/diversification-strategies/$strategyId/edit' });
+  return <DiversificationStrategyEditPageContent strategyId={strategyId} />;
+}
+
+export function DiversificationStrategyEditPageContent({ strategyId }: { readonly strategyId: string }) {
   return <DiversificationStrategyFormPage mode="edit" strategyId={strategyId} />;
 }
 
 function DiversificationStrategyFormPage({ mode, strategyId }: { readonly mode: 'create' | 'edit'; readonly strategyId?: string }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [values, setValues] = useState<FormValues>(emptyValues);
 
@@ -38,7 +44,7 @@ function DiversificationStrategyFormPage({ mode, strategyId }: { readonly mode: 
     queryFn: async () => {
       const { data, error } = await api.GET('/api/desfire/key-diversification-strategies/{id}', { params: { path: { id: strategyId ?? '' } } });
       if (error || !data) {
-        throw new Error('Could not load diversification strategy.');
+        throw new Error(t('cardManagement.diversificationStrategyForm.couldNotLoad'));
       }
       return data;
     },
@@ -62,14 +68,14 @@ function DiversificationStrategyFormPage({ mode, strategyId }: { readonly mode: 
       if (mode === 'create') {
         const { error } = await api.POST('/api/desfire/key-diversification-strategies', { body: request });
         if (error) {
-          throw new Error('Could not add diversification strategy.');
+          throw new Error(t('cardManagement.diversificationStrategyForm.createFailed'));
         }
         return;
       }
 
       const { error } = await api.PUT('/api/desfire/key-diversification-strategies/{id}', { params: { path: { id: strategyId ?? '' } }, body: request });
       if (error) {
-        throw new Error('Could not update diversification strategy.');
+        throw new Error(t('cardManagement.diversificationStrategyForm.updateFailed'));
       }
     },
     onSuccess: async () => {
@@ -77,10 +83,10 @@ function DiversificationStrategyFormPage({ mode, strategyId }: { readonly mode: 
       if (strategyId) {
         await queryClient.invalidateQueries({ queryKey: [...strategiesQueryKey, strategyId] });
       }
-      toast.success(mode === 'create' ? 'Diversification strategy added.' : 'Diversification strategy updated.');
+      toast.success(mode === 'create' ? t('cardManagement.diversificationStrategyForm.created') : t('cardManagement.diversificationStrategyForm.updated'));
       window.history.back();
     },
-    onError: () => toast.error(mode === 'create' ? 'Could not add diversification strategy.' : 'Could not update diversification strategy.'),
+    onError: () => toast.error(mode === 'create' ? t('cardManagement.diversificationStrategyForm.createFailed') : t('cardManagement.diversificationStrategyForm.updateFailed')),
   });
 
   function updateValue<TKey extends keyof FormValues>(key: TKey, value: FormValues[TKey]) {
@@ -99,28 +105,28 @@ function DiversificationStrategyFormPage({ mode, strategyId }: { readonly mode: 
   return (
     <div className="grid gap-6">
       <header className="flex items-start gap-4">
-        <Button variant="outline" size="icon" aria-label="Go back" onClick={() => window.history.back()}>
+        <Button variant="outline" size="icon" aria-label={t('cardManagement.diversificationStrategyForm.back')} onClick={() => window.history.back()}>
           <ArrowLeft className="size-4" aria-hidden="true" />
         </Button>
         <div>
-          <h2 className="text-[20px] font-semibold tracking-tight">{mode === 'create' ? 'Add diversification strategy' : values.name || 'Edit diversification strategy'}</h2>
-          <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">Define ordered diversification inputs used when deriving card-specific keys.</p>
+          <h2 className="text-[20px] font-semibold tracking-tight">{mode === 'create' ? t('cardManagement.diversificationStrategyForm.addTitle') : values.name || t('cardManagement.diversificationStrategyForm.editTitle')}</h2>
+          <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">{t('cardManagement.diversificationStrategyForm.description')}</p>
         </div>
       </header>
 
-      {strategyQuery.isError ? <PanelError>Could not load diversification strategy.</PanelError> : null}
+      {strategyQuery.isError ? <PanelError>{t('cardManagement.diversificationStrategyForm.couldNotLoad')}</PanelError> : null}
 
       <Card className="p-4 sm:p-6">
-        {strategyQuery.isLoading ? <p className="text-[14px] text-muted-foreground">Loading diversification strategy...</p> : null}
+        {strategyQuery.isLoading ? <p className="text-[14px] text-muted-foreground">{t('cardManagement.diversificationStrategyForm.loading')}</p> : null}
         {mode === 'create' || strategyQuery.data ? (
           <form className="grid gap-5" onSubmit={handleSubmit}>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="grid gap-2 text-[14px] font-medium">
-                Name
+                {t('cardManagement.diversificationStrategyForm.name')}
                 <Input value={values.name} onChange={(event) => updateValue('name', event.target.value)} required />
               </label>
               <label className="grid gap-2 text-[14px] font-medium">
-                Algorithm
+                {t('cardManagement.diversificationStrategyForm.algorithm')}
                 <select className="h-9 rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary" value={values.algorithm} onChange={(event) => updateValue('algorithm', event.target.value as KeyDiversificationAlgorithm)}>
                   {diversificationAlgorithms.map((algorithm) => <option key={algorithm} value={algorithm}>{algorithm}</option>)}
                 </select>
@@ -129,9 +135,9 @@ function DiversificationStrategyFormPage({ mode, strategyId }: { readonly mode: 
 
             <section className="grid gap-4">
               <div className="flex items-center justify-between gap-3">
-                <h3 className="text-[16px] font-semibold tracking-tight">Inputs</h3>
+                <h3 className="text-[16px] font-semibold tracking-tight">{t('cardManagement.diversificationStrategyForm.inputs')}</h3>
                 <Button type="button" variant="outline" size="sm" onClick={() => updateValue('inputs', [...values.inputs, { option: 'Uid', data: '' }])}>
-                  <Plus className="size-4" aria-hidden="true" />Add input
+                  <Plus className="size-4" aria-hidden="true" />{t('cardManagement.diversificationStrategyForm.addInput')}
                 </Button>
               </div>
 
@@ -139,17 +145,17 @@ function DiversificationStrategyFormPage({ mode, strategyId }: { readonly mode: 
                 {values.inputs.map((input, index) => (
                   <div key={index} className="grid gap-3 rounded-structural border border-border p-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
                     <label className="grid gap-2 text-[14px] font-medium">
-                      Input option
+                      {t('cardManagement.diversificationStrategyForm.inputOption')}
                       <select className="h-9 rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary" value={input.option} onChange={(event) => updateInput(index, { ...input, option: event.target.value as DiversificationInputOption, data: '' })}>
                         {diversificationInputOptions.map((option) => <option key={option} value={option}>{option}</option>)}
                       </select>
                     </label>
                     <label className="grid gap-2 text-[14px] font-medium">
-                      Fixed hex data
-                      <Input value={input.data} disabled={input.option !== 'FixedHexValue'} onChange={(event) => updateInput(index, { ...input, data: event.target.value })} required={input.option === 'FixedHexValue'} placeholder={input.option === 'FixedHexValue' ? 'A1B2C3' : 'Only for fixed hex'} />
+                      {t('cardManagement.diversificationStrategyForm.fixedHexData')}
+                      <Input value={input.data} disabled={input.option !== 'FixedHexValue'} onChange={(event) => updateInput(index, { ...input, data: event.target.value })} required={input.option === 'FixedHexValue'} placeholder={input.option === 'FixedHexValue' ? t('cardManagement.diversificationStrategyForm.fixedHexPlaceholder') : t('cardManagement.diversificationStrategyForm.fixedHexOnly')} />
                     </label>
                     <Button type="button" variant="outline" size="sm" disabled={values.inputs.length === 1} onClick={() => updateValue('inputs', values.inputs.filter((_, currentIndex) => currentIndex !== index))}>
-                      <Trash2 className="size-4" aria-hidden="true" />Remove
+                      <Trash2 className="size-4" aria-hidden="true" />{t('cardManagement.diversificationStrategyForm.remove')}
                     </Button>
                   </div>
                 ))}
@@ -157,8 +163,8 @@ function DiversificationStrategyFormPage({ mode, strategyId }: { readonly mode: 
             </section>
 
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" onClick={() => window.history.back()}>Cancel</Button>
-              <Button type="submit" disabled={saveStrategy.isPending}>{saveStrategy.isPending ? 'Saving...' : 'Save strategy'}</Button>
+              <Button type="button" variant="outline" onClick={() => window.history.back()}>{t('cardManagement.diversificationStrategyForm.cancel')}</Button>
+              <Button type="submit" disabled={saveStrategy.isPending}>{saveStrategy.isPending ? t('cardManagement.diversificationStrategyForm.saving') : t('cardManagement.diversificationStrategyForm.save')}</Button>
             </div>
           </form>
         ) : null}

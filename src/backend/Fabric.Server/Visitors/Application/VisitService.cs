@@ -1,11 +1,14 @@
 using Fabric.Server.Core;
+using Fabric.Server.Identities.Application;
+using Fabric.Server.Identities.Domain;
+using Fabric.Server.Visitors.Contracts;
 using Fabric.Server.Visitors.Domain;
 using Fabric.Server.Visitors.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Fabric.Server.Visitors.Application;
 
-public class VisitService(VisitorsDbContext db, TimeProvider timeProvider)
+public class VisitService(VisitorsDbContext db, HostService hostService, TimeProvider timeProvider, IdentityService identityService)
 {
     private async Task<Visit?> GetVisitAggregate(Guid visitId, CancellationToken cancellationToken = default)
     {
@@ -14,20 +17,23 @@ public class VisitService(VisitorsDbContext db, TimeProvider timeProvider)
             .SingleOrDefaultAsync(x => x.Id == visitId, cancellationToken);
     }
 
-    public async Task<Result<(Visit, Organizer), VisitErrors>> Create(
-            Guid organizerId,
+    public async Task<Result<(Visit, HostResponse), VisitErrors>> Create(
+            Guid hostEmployeeId,
             string summary,
             DateTimeOffset start,
             DateTimeOffset end,
             Guid? locationId,
             CancellationToken cancellationToken = default)
     {
-        Organizer? organizer = await db.Organizers.AsNoTracking().SingleOrDefaultAsync(x => x.Id == organizerId, cancellationToken);
+        bool isHost = await hostService.IsEmployeeHostAsync(hostEmployeeId, cancellationToken);
+        if (!isHost)
+            return Result.Failure<(Visit, HostResponse), VisitErrors>(VisitErrors.HostNotFound);
 
-        if (organizer is null)
-            return Result.Failure<(Visit, Organizer), VisitErrors>(VisitErrors.OrganizerNotFound);
+        HostResponse? host = await hostService.GetHostByEmployeeIdAsync(hostEmployeeId, cancellationToken);
+        if (host is null)
+            return Result.Failure<(Visit, HostResponse), VisitErrors>(VisitErrors.HostNotFound);
 
-        Result<Visit, VisitErrors> result = Visit.Create(organizerId, summary, start, end, locationId, timeProvider.GetUtcNow());
+        Result<Visit, VisitErrors> result = Visit.Create(hostEmployeeId, summary, start, end, locationId, timeProvider.GetUtcNow());
 
         if (result.IsSuccess(out Visit visit))
         {
@@ -35,10 +41,10 @@ public class VisitService(VisitorsDbContext db, TimeProvider timeProvider)
             await db.SaveChangesAsync(cancellationToken);
         }
 
-        return result.Map(v => (v, organizer));
+        return result.Map(v => (v, host));
     }
 
-    public async Task<Result<VisitErrors>> ReassignOrganizer(Guid visitId, Guid organizerId,
+    public async Task<Result<VisitErrors>> ReassignHost(Guid visitId, Guid hostEmployeeId,
         CancellationToken cancellationToken = default)
     {
         Visit? visit = await GetVisitAggregate(visitId, cancellationToken);
@@ -46,12 +52,11 @@ public class VisitService(VisitorsDbContext db, TimeProvider timeProvider)
         if (visit is null)
             return Result.Failure(VisitErrors.VisitNotFound);
 
-        Organizer? organizer = await db.Organizers.AsNoTracking().FirstOrDefaultAsync(x => x.Id == organizerId, cancellationToken);
+        bool isHost = await hostService.IsEmployeeHostAsync(hostEmployeeId, cancellationToken);
+        if (!isHost)
+            return Result.Failure(VisitErrors.HostNotFound);
 
-        if (organizer is null)
-            return Result.Failure(VisitErrors.OrganizerNotFound);
-
-        Result<VisitErrors> result = visit.ReassignOrganizer(organizer.Id);
+        Result<VisitErrors> result = visit.ReassignHost(hostEmployeeId);
 
         if (result.IsSuccess(out _))
             await db.SaveChangesAsync(cancellationToken);
@@ -151,11 +156,21 @@ public class VisitService(VisitorsDbContext db, TimeProvider timeProvider)
 
         if (visitor is null)
         {
-            visitor = Visitor.Create(Guid.NewGuid(), firstName, lastName, email, company);
+            Guid visitorId = Guid.NewGuid();
+            Result<Identity, IdentityErrors> identityResult = await identityService.UpsertFromVisitorAsync(null, visitorId, firstName, lastName, email, cancellationToken);
+            if (identityResult.IsFailure(out _))
+                return Result.Failure<VisitInvitation, VisitErrors>(VisitErrors.IdentitySyncFailed);
+
+            identityResult.IsSuccess(out Identity identity);
+            visitor = Visitor.Create(visitorId, identity.Id, firstName, lastName, email, company);
             db.Visitors.Add(visitor);
         }
         else
         {
+            Result<Identity, IdentityErrors> identityResult = await identityService.UpsertFromVisitorAsync(visitor.IdentityId, visitor.Id, firstName, lastName, email, cancellationToken);
+            if (identityResult.IsFailure(out _))
+                return Result.Failure<VisitInvitation, VisitErrors>(VisitErrors.IdentitySyncFailed);
+
             visitor.UpdateProfile(firstName, lastName, email, company, visitor.LicensePlate);
         }
 
@@ -210,11 +225,20 @@ public class VisitService(VisitorsDbContext db, TimeProvider timeProvider)
 
         if (visitor is null)
         {
-            visitor = Visitor.Create(visitorId, firstName, lastName, email, company, licensePlate);
+            Result<Identity, IdentityErrors> identityResult = await identityService.UpsertFromVisitorAsync(null, visitorId, firstName, lastName, email, cancellationToken);
+            if (identityResult.IsFailure(out _))
+                return Result.Failure<Visitor, VisitErrors>(VisitErrors.IdentitySyncFailed);
+
+            identityResult.IsSuccess(out Identity identity);
+            visitor = Visitor.Create(visitorId, identity.Id, firstName, lastName, email, company, licensePlate);
             db.Visitors.Add(visitor);
         }
         else
         {
+            Result<Identity, IdentityErrors> identityResult = await identityService.UpsertFromVisitorAsync(visitor.IdentityId, visitor.Id, firstName, lastName, email, cancellationToken);
+            if (identityResult.IsFailure(out _))
+                return Result.Failure<Visitor, VisitErrors>(VisitErrors.IdentitySyncFailed);
+
             visitor.UpdateProfile(firstName, lastName, email, company, licensePlate);
         }
 

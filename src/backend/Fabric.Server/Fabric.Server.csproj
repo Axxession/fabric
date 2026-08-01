@@ -3,6 +3,9 @@
     <ServerGarbageCollection>false</ServerGarbageCollection>
     <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
     <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
+    <BuildInParallel>false</BuildInParallel>
+    <ContainerRepository>axxession/fabric</ContainerRepository>
+    <ContainerRegistry>axxessioncr.azurecr.io</ContainerRegistry>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,6 +22,9 @@
     <PackageReference Include="Elsa.Tenants" />
     <PackageReference Include="Elsa.Workflows.Api" />
     <PackageReference Include="Fluid.Core" />
+    <PackageReference Include="ManagedCode.Storage.Azure" />
+    <PackageReference Include="ManagedCode.Storage.Core" />
+    <PackageReference Include="ManagedCode.Storage.FileSystem" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" />

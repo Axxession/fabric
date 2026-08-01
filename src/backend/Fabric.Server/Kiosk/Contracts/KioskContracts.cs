@@ -1,4 +1,5 @@
 using Fabric.Server.Kiosk.Domain;
+using Fabric.Server.Infrastructure.Storage;
 
 namespace Fabric.Server.Kiosk.Contracts;
 
@@ -58,9 +59,9 @@ public sealed record UpsertKioskDevicesRequest(IReadOnlyList<UpsertKioskDeviceRe
 
 public sealed record UpsertKioskDeviceRequest(string Name, KioskDeviceType Type, int SlotNumber, string AgentId, string DeviceId, bool Enabled, bool CleanupOnSessionEnd, int SortOrder);
 
-public sealed record KioskAssetResponse(Guid Id, Guid ProfileId, string Name, string? LanguageCode, KioskAssetKind Kind, string FileName, string ContentType, long Size, string? AltTextKey, DateTimeOffset CreatedAt);
+public sealed record KioskAssetResponse(Guid Id, Guid ProfileId, string Name, string? LanguageCode, KioskAssetKind Kind, string FileName, string ContentType, long Size, StoredFileVisibility Visibility, string? UploadedByOid, string? UploadedByEmail, string? UploadedByDisplayName, string? AltTextKey, DateTimeOffset CreatedAt);
 
-public sealed record CreateKioskAssetRequest(string Name, string? LanguageCode, KioskAssetKind Kind, string? AltTextKey);
+public sealed record CreateKioskAssetRequest(string Name, string? LanguageCode, KioskAssetKind Kind, StoredFileVisibility Visibility, string? AltTextKey);
 
 public sealed record KioskSessionResponse(Guid Id, Guid KioskId, KioskSessionStatus Status, string LanguageCode, int CurrentInstructionVersion, string? CurrentInstructionId, string? TerminalTitle, string? TerminalMessage, DateTimeOffset StartedAt, DateTimeOffset LastInteractionAt, DateTimeOffset? CompletedAt);
 
@@ -100,7 +101,7 @@ public static class KioskMapper
 
     public static KioskDeviceResponse ToResponse(this KioskDevice device) => new(device.Id, device.KioskId, device.Name, device.Type, device.SlotNumber, device.AgentId, device.DeviceId, device.Enabled, device.CleanupOnSessionEnd, device.SortOrder);
 
-    public static KioskAssetResponse ToResponse(this KioskAsset asset) => new(asset.Id, asset.ProfileId, asset.Name, asset.LanguageCode, asset.Kind, asset.FileName, asset.ContentType, asset.Size, asset.AltTextKey, asset.CreatedAt);
+    public static KioskAssetResponse ToResponse(this KioskAsset asset) => new(asset.Id, asset.ProfileId, asset.Name, asset.LanguageCode, asset.Kind, asset.FileName, asset.ContentType, asset.Size, asset.Visibility, asset.UploadedByOid, asset.UploadedByEmail, asset.UploadedByDisplayName, asset.AltTextKey, asset.CreatedAt);
 
     public static KioskSessionResponse ToResponse(this KioskSession session) => new(session.Id, session.KioskId, session.Status, session.LanguageCode, session.CurrentInstructionVersion, session.CurrentInstructionId, session.TerminalTitle, session.TerminalMessage, session.StartedAt, session.LastInteractionAt, session.CompletedAt);
 }

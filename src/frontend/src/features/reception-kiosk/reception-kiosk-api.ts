@@ -8,6 +8,10 @@ export type ReceptionKioskExpectedArrival = components['schemas']['ReceptionKios
 type IdentityVerificationMethod = components['schemas']['IdentityVerificationMethod'];
 type ProblemDetails = components['schemas']['ProblemDetails'];
 
+type ProblemDetailsWithCode = ProblemDetails & {
+  readonly code?: string;
+};
+
 const receptionKioskArrivalKey = 'fabric.reception-kiosk.arrival';
 const receptionKioskMissedCodeKey = 'fabric.reception-kiosk.missed-code';
 
@@ -22,6 +26,16 @@ export class ReceptionKioskArrivalLookupError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'ReceptionKioskArrivalLookupError';
+  }
+}
+
+export class ReceptionKioskWrongLocationError extends Error {
+  constructor(
+    readonly title: string,
+    readonly detail: string,
+  ) {
+    super(detail);
+    this.name = 'ReceptionKioskWrongLocationError';
   }
 }
 
@@ -43,8 +57,12 @@ export async function lookupReceptionKioskArrival(code: string): Promise<Recepti
     throw new ReceptionKioskArrivalNotFoundError(code);
   }
 
-  const problem = error as ProblemDetails | undefined;
+  const problem = error as ProblemDetailsWithCode | undefined;
   if (response.status === 409 && problem?.detail) {
+    if (problem.code === 'arrival-assigned-to-different-location') {
+      throw new ReceptionKioskWrongLocationError(problem.title ?? 'This kiosk cannot serve your location.', problem.detail);
+    }
+
     throw new ReceptionKioskArrivalLookupError(problem.detail);
   }
 

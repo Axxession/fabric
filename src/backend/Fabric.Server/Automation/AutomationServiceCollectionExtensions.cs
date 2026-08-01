@@ -22,7 +22,6 @@ public static class AutomationServiceCollectionExtensions
         string? databaseSection = configuration.GetConnectionString("Database");
         string getDbConnection(IServiceProvider _) => databaseSection ?? throw new InvalidOperationException();
 
-        services.AddTransient<IClaimsTransformation, ElsaClaimsTransformer>();
         services.AddScoped<KioskWorkflowAccessor>();
         services.AddScoped<KioskWorkflowStarter>();
         services.AddScoped<KioskWorkflowResumer>();

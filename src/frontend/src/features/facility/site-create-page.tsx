@@ -35,7 +35,7 @@ export default function SiteCreatePage() {
     onSuccess: async (location) => {
       await queryClient.invalidateQueries({ queryKey: locationsQueryKey });
       toast.success('Site created.');
-      await navigate({ to: '/facility/locations/$siteId/edit', params: { siteId: location.site.id }, replace: true });
+      await navigate({ to: '/administration/sites/$siteId/edit', params: { siteId: location.site.id }, replace: true });
     },
   });
 

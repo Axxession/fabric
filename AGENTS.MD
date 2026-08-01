@@ -69,5 +69,6 @@
 ## Editing Rules
 - Keep changes small and aligned with existing modules.
 - Prefer shared UI primitives under `src/shared/components/ui` for repeated shadcn-style components.
+- Do always generate backend API types; do not hand-copy DTOs. (Requires running the backend)
 - Preserve generated files; regenerate with `npm run api:generate` only.
 - Run relevant build/tests before final response.

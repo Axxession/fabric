@@ -1,4 +1,5 @@
 using Fabric.Server.Infrastructure.Tenancy;
+using Fabric.Server.Infrastructure;
 using Fabric.Server.Notifications;
 using Fabric.Server.Tenants.Contracts;
 using Fabric.Server.Tenants.Domain;
@@ -36,15 +37,16 @@ public static class TenantsEndpoints
         return app;
     }
 
-    private static IResult GetTenantSettings(ITenantContext tenantContext) =>
-        Results.Ok(tenantContext.Configuration.ToResponse());
+    private static IResult GetTenantSettings(ITenantContext tenantContext, IApplicationVersionProvider versionProvider) =>
+        Results.Ok(tenantContext.Configuration.ToResponse(versionProvider.GetVersion()));
 
-    private static IResult GetAdminTenantSettings(ITenantContext tenantContext) =>
-        Results.Ok(tenantContext.Configuration.ToAdminResponse());
+    private static IResult GetAdminTenantSettings(ITenantContext tenantContext, IApplicationVersionProvider versionProvider) =>
+        Results.Ok(tenantContext.Configuration.ToAdminResponse(versionProvider.GetVersion()));
 
     private static async Task<IResult> UpdateAdminTenantSettings(
         [FromBody] UpdateTenantSettingsRequest request,
         ITenantContext tenantContext,
+        IApplicationVersionProvider versionProvider,
         ITenantStore tenantStore,
         TenantsDbContext dbContext,
         CancellationToken cancellationToken = default)
@@ -94,7 +96,7 @@ public static class TenantsEndpoints
         await dbContext.SaveChangesAsync(cancellationToken);
         tenantStore.InvalidateTenant(tenant.Id);
 
-        return Results.Ok(configuration.ToAdminResponse());
+        return Results.Ok(configuration.ToAdminResponse(versionProvider.GetVersion()));
     }
 
     private static GraphEmailSettings? ToGraphEmailSettings(UpdateGraphEmailSettingsRequest? request, GraphEmailSettings? current)

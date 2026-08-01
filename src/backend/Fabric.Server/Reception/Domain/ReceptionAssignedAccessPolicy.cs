@@ -7,23 +7,20 @@ public sealed class ReceptionAssignedAccessPolicy
     public Guid Id { get; private set; }
     public Guid ArrivalId { get; private set; }
     public Guid RuleAssignmentId { get; private set; }
-    public Guid AccessPolicyId { get; private set; }
-    public Guid SystemId { get; private set; }
-    public Guid AccessLevelTypeId { get; private set; }
+    public Guid AccessGrantId { get; private set; }
+    public Guid PackageId { get; private set; }
 
     public static ReceptionAssignedAccessPolicy Create(
         Guid arrivalId,
         Guid ruleAssignmentId,
-        Guid accessPolicyId,
-        Guid systemId,
-        Guid accessLevelTypeId) =>
+        Guid accessGrantId,
+        Guid packageId) =>
         new()
         {
             Id = Guid.NewGuid(),
             ArrivalId = arrivalId,
             RuleAssignmentId = ruleAssignmentId,
-            AccessPolicyId = accessPolicyId,
-            SystemId = systemId,
-            AccessLevelTypeId = accessLevelTypeId
+            AccessGrantId = accessGrantId,
+            PackageId = packageId
         };
 }

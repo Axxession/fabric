@@ -164,6 +164,27 @@ namespace Fabric.Server.Kiosk.Persistence.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("tenant_id");
 
+                    b.Property<string>("UploadedByDisplayName")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("uploaded_by_display_name");
+
+                    b.Property<string>("UploadedByEmail")
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)")
+                        .HasColumnName("uploaded_by_email");
+
+                    b.Property<string>("UploadedByOid")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("uploaded_by_oid");
+
+                    b.Property<string>("Visibility")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("visibility");
+
                     b.HasKey("Id")
                         .HasName("pk_kiosk_assets");
 

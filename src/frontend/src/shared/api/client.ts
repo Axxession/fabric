@@ -26,3 +26,7 @@ api.use(authMiddleware);
 export function setAccessToken(token: string | undefined) {
   accessToken = token;
 }
+
+export function getAccessToken() {
+  return accessToken;
+}

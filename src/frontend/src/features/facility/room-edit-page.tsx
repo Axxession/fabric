@@ -13,7 +13,7 @@ const locationsQueryKey = ['facility', 'locations'] as const;
 const emptyRoom: RoomFormValues = { name: '', capacity: '0', wheelchairAccessible: false };
 
 export default function RoomEditPage() {
-  const { siteId, buildingId, roomId } = useParams({ from: '/main/facility/locations/$siteId/buildings/$buildingId/rooms/$roomId/edit' });
+  const { siteId, buildingId, roomId } = useParams({ from: '/main/administration/sites/$siteId/buildings/$buildingId/rooms/$roomId/edit' });
   const queryClient = useQueryClient();
 
   const roomQuery = useQuery({

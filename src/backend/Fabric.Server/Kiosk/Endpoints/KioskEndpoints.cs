@@ -13,7 +13,7 @@ namespace Fabric.Server.Kiosk.Endpoints;
 
 public static class KioskEndpoints
 {
-    public static IEndpointRouteBuilder MapKioskEndpoints(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapKioskEndpoints(this IEndpointRouteBuilder app, bool enableAutomation)
     {
         RouteGroupBuilder kiosks = app.MapGroup("/api/kiosks");
 
@@ -24,14 +24,18 @@ public static class KioskEndpoints
         kiosks.MapPost("/{id:guid}/rotate-key", RotateKioskKey).Produces<KioskKeyResponse>().Produces(StatusCodes.Status404NotFound);
         kiosks.MapDelete("/{id:guid}", DeleteKiosk).Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status404NotFound);
         kiosks.MapPost("/{id:guid}/activate", ActivateKiosk).Produces<KioskResponse>().Produces(StatusCodes.Status404NotFound);
-        kiosks.MapPost("/{id:guid}/maintenance", SetKioskMaintenance).Produces<KioskResponse>().Produces(StatusCodes.Status404NotFound);
-        kiosks.MapPost("/{id:guid}/disable", DisableKiosk).Produces<KioskResponse>().Produces(StatusCodes.Status404NotFound);
-        kiosks.MapPost("/{id:guid}/cancel-session", CancelKioskSession).Produces<KioskResponse>().Produces(StatusCodes.Status404NotFound).Produces(StatusCodes.Status409Conflict);
         kiosks.MapPut("/{id:guid}/workflow", AssignKioskWorkflow).Produces<KioskResponse>().Produces(StatusCodes.Status404NotFound);
         kiosks.MapGet("/{id:guid}/device-assignments", ListKioskDeviceAssignments).Produces<KioskDeviceAssignmentResponse[]>().Produces(StatusCodes.Status404NotFound);
         kiosks.MapPut("/{id:guid}/device-assignments", UpsertKioskDeviceAssignments).Produces<KioskDeviceAssignmentResponse[]>().Produces(StatusCodes.Status404NotFound);
         kiosks.MapGet("/{id:guid}/devices", ListKioskDevices).Produces<KioskDeviceResponse[]>().Produces(StatusCodes.Status404NotFound);
         kiosks.MapPut("/{id:guid}/devices", UpsertKioskDevices).Produces<KioskDeviceResponse[]>().Produces(StatusCodes.Status404NotFound);
+
+        if (enableAutomation)
+        {
+            kiosks.MapPost("/{id:guid}/maintenance", SetKioskMaintenance).Produces<KioskResponse>().Produces(StatusCodes.Status404NotFound);
+            kiosks.MapPost("/{id:guid}/disable", DisableKiosk).Produces<KioskResponse>().Produces(StatusCodes.Status404NotFound);
+            kiosks.MapPost("/{id:guid}/cancel-session", CancelKioskSession).Produces<KioskResponse>().Produces(StatusCodes.Status404NotFound).Produces(StatusCodes.Status409Conflict);
+        }
 
         return app;
     }

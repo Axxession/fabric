@@ -1,11 +1,13 @@
 namespace Fabric.Server.Tenants.Contracts;
 
 public sealed record TenantSettingsResponse(
+    string Version,
     OidcSettingsResponse Oidc,
     ThemeSettingsResponse Theme,
     LogoSettingsResponse? Logo);
 
 public sealed record AdminTenantSettingsResponse(
+    string Version,
     OidcSettingsResponse Oidc,
     ThemeSettingsResponse Theme,
     LogoSettingsResponse? Logo,

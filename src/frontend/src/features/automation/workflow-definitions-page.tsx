@@ -11,7 +11,7 @@ export default function WorkflowDefinitionsPage() {
       {(props) => (
         <WorkflowDefinitionList
           {...props}
-          onEditWorkflowDefinition={(definitionId) => void navigate({ to: '/automation/workflow-definitions/$definitionId/edit', params: { definitionId } })}
+          onEditWorkflowDefinition={(definitionId) => void navigate({ to: '/administration/automation/workflow-definitions/$definitionId/edit', params: { definitionId } })}
         />
       )}
     </AutomationPageShell>

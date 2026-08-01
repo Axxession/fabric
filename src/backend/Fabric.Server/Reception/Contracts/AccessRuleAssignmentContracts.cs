@@ -4,24 +4,18 @@ using Riok.Mapperly.Abstractions;
 namespace Fabric.Server.Reception.Contracts;
 
 public sealed record CreateAccessRuleAssignmentRequest(
-    Guid LocationId,
-    Guid SystemId,
-    Guid AccessLevelTypeId,
+    Guid PackageId,
     int GracePeriodMinutes,
     ReceptionAccessPolicyTrigger Trigger);
 
 public sealed record UpdateAccessRuleAssignmentRequest(
-    Guid LocationId,
-    Guid SystemId,
-    Guid AccessLevelTypeId,
+    Guid PackageId,
     int GracePeriodMinutes,
     ReceptionAccessPolicyTrigger Trigger);
 
 public sealed record AccessRuleAssignmentResponse(
     Guid Id,
-    Guid LocationId,
-    Guid SystemId,
-    Guid AccessLevelTypeId,
+    Guid PackageId,
     int GracePeriodMinutes,
     ReceptionAccessPolicyTrigger Trigger);
 

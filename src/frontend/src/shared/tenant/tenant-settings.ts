@@ -12,6 +12,7 @@ type GraphEmailSettingsResponse = components['schemas']['GraphEmailSettingsRespo
 export type UpdateTenantSettingsRequest = components['schemas']['UpdateTenantSettingsRequest'];
 
 export type TenantSettings = {
+  version: string;
   oidc: TenantOidcSettings;
   theme: FabricTheme;
   logo: TenantLogoSettings | null;
@@ -74,11 +75,15 @@ export function getLogoDataUrl(logo: TenantLogoSettings | null): string | undefi
 }
 
 function parseTenantSettings(value: TenantSettingsResponse): TenantSettings {
+  if (typeof value.version !== 'string') {
+    throw new Error('Tenant settings version response is invalid.');
+  }
+
   const oidc = parseOidcSettings(value.oidc);
   const theme = fabricThemeSchema.parse(value.theme);
   const logo = parseLogoSettings(value.logo);
 
-  return { oidc, theme, logo };
+  return { version: value.version, oidc, theme, logo };
 }
 
 function parseAdminTenantSettings(value: AdminTenantSettingsResponse): AdminTenantSettings {

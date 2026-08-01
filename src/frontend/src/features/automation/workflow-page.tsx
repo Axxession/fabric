@@ -16,6 +16,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { cn } from '@/shared/utils/cn';
+import { AutomationSectionNav } from './automation-section-nav';
 import { allWorkflowDefinitionsQueryKey, workflowDefinitionsQueryKey, workflowHistoryQueryKey } from './workflow-query-keys';
 
 type WorkflowTab = 'definitions' | 'history';
@@ -57,7 +58,7 @@ export default function WorkflowPage() {
       await queryClient.invalidateQueries({ queryKey: workflowHistoryQueryKey });
       setIsCreateOpen(false);
       setNewDefinitionName('');
-      void navigate({ to: '/automation/workflow-definitions/$definitionId/edit', params: { definitionId: definition.definitionId ?? definition.id ?? '' } });
+      void navigate({ to: '/administration/automation/workflow-definitions/$definitionId/edit', params: { definitionId: definition.definitionId ?? definition.id ?? '' } });
     },
     onError: () => toast.error('Could not create workflow definition.'),
   });
@@ -66,7 +67,7 @@ export default function WorkflowPage() {
     const nextTab = tab === 'history' ? 'history' : 'definitions';
     void queryClient.invalidateQueries({ queryKey: workflowDefinitionsQueryKey });
     void queryClient.invalidateQueries({ queryKey: workflowHistoryQueryKey });
-    void navigate({ to: '/automation/workflow', search: { tab: nextTab } as never });
+    void navigate({ to: '/administration/automation/workflow', search: { tab: nextTab } as never });
   }
 
   function submitCreateDefinition(event: FormEvent<HTMLFormElement>) {
@@ -79,11 +80,7 @@ export default function WorkflowPage() {
 
   return (
     <section className="grid gap-4">
-      <div className="rounded-structural border border-border bg-content p-4 sm:p-6">
-        <p className="text-[14px] font-semibold uppercase text-primary">Automation</p>
-        <h1 className="mt-2 text-[24px] font-semibold tracking-tight">Workflow</h1>
-        <p className="mt-2 max-w-3xl text-[14px] text-muted-foreground">Manage workflow definitions and inspect workflow run history from one API-backed view.</p>
-      </div>
+      <AutomationSectionNav />
 
       <div className="rounded-structural border border-border bg-content p-4 sm:p-6">
         <Tabs value={activeTab} onValueChange={updateTab}>
@@ -233,7 +230,7 @@ function WorkflowDefinitionsTable({ definitions, onPublish, onRetract, onDelete,
   const navigate = useNavigate();
 
   function openDefinition(definition: WorkflowDefinition) {
-    void navigate({ to: '/automation/workflow-definitions/$definitionId/edit', params: { definitionId: getDefinitionRouteId(definition) } });
+    void navigate({ to: '/administration/automation/workflow-definitions/$definitionId/edit', params: { definitionId: getDefinitionRouteId(definition) } });
   }
 
   return (
@@ -315,7 +312,7 @@ function WorkflowHistoryTable({ instances, definitions }: { readonly instances: 
   const definitionsById = new Map(definitions.filter((definition): definition is WorkflowDefinition & { definitionId: string } => !!definition.definitionId).map((definition) => [definition.definitionId, definition]));
 
   function openInstance(instance: WorkflowInstance) {
-    void navigate({ to: '/automation/workflow-instances/$instanceId', params: { instanceId: instance.id ?? '' } });
+    void navigate({ to: '/administration/automation/workflow-instances/$instanceId', params: { instanceId: instance.id ?? '' } });
   }
 
   return (

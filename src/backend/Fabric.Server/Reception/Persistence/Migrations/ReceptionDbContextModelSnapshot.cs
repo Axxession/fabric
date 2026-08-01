@@ -148,6 +148,10 @@ namespace Fabric.Server.Reception.Persistence.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("first_name");
 
+                    b.Property<Guid?>("IdentityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("identity_id");
+
                     b.Property<Guid?>("InvitationId")
                         .HasColumnType("uuid")
                         .HasColumnName("invitation_id");
@@ -202,6 +206,9 @@ namespace Fabric.Server.Reception.Persistence.Migrations
                     b.HasIndex("ContractorId")
                         .HasDatabaseName("ix_expected_arrivals_contractor_id");
 
+                    b.HasIndex("IdentityId")
+                        .HasDatabaseName("ix_expected_arrivals_identity_id");
+
                     b.HasIndex("LocationId")
                         .HasDatabaseName("ix_expected_arrivals_location_id");
 
@@ -223,21 +230,13 @@ namespace Fabric.Server.Reception.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid>("AccessLevelTypeId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("access_level_type_id");
-
                     b.Property<int>("GracePeriodMinutes")
                         .HasColumnType("integer")
                         .HasColumnName("grace_period_minutes");
 
-                    b.Property<Guid>("LocationId")
+                    b.Property<Guid>("PackageId")
                         .HasColumnType("uuid")
-                        .HasColumnName("location_id");
-
-                    b.Property<Guid>("SystemId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("system_id");
+                        .HasColumnName("package_id");
 
                     b.Property<string>("TenantId")
                         .IsRequired()
@@ -254,14 +253,8 @@ namespace Fabric.Server.Reception.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_access_rule_assignments");
 
-                    b.HasIndex("AccessLevelTypeId")
-                        .HasDatabaseName("ix_access_rule_assignments_access_level_type_id");
-
-                    b.HasIndex("LocationId")
-                        .HasDatabaseName("ix_access_rule_assignments_location_id");
-
-                    b.HasIndex("SystemId")
-                        .HasDatabaseName("ix_access_rule_assignments_system_id");
+                    b.HasIndex("PackageId")
+                        .HasDatabaseName("ix_access_rule_assignments_package_id");
 
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_access_rule_assignments_tenant_id");
@@ -278,25 +271,21 @@ namespace Fabric.Server.Reception.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
-                    b.Property<Guid>("AccessLevelTypeId")
+                    b.Property<Guid>("AccessGrantId")
                         .HasColumnType("uuid")
-                        .HasColumnName("access_level_type_id");
-
-                    b.Property<Guid>("AccessPolicyId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("access_policy_id");
+                        .HasColumnName("access_grant_id");
 
                     b.Property<Guid>("ArrivalId")
                         .HasColumnType("uuid")
                         .HasColumnName("arrival_id");
 
+                    b.Property<Guid>("PackageId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("package_id");
+
                     b.Property<Guid>("RuleAssignmentId")
                         .HasColumnType("uuid")
                         .HasColumnName("rule_assignment_id");
-
-                    b.Property<Guid>("SystemId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("system_id");
 
                     b.Property<string>("TenantId")
                         .IsRequired()
@@ -307,8 +296,8 @@ namespace Fabric.Server.Reception.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_assigned_access_policies");
 
-                    b.HasIndex("AccessPolicyId")
-                        .HasDatabaseName("ix_assigned_access_policies_access_policy_id");
+                    b.HasIndex("AccessGrantId")
+                        .HasDatabaseName("ix_assigned_access_policies_access_grant_id");
 
                     b.HasIndex("ArrivalId")
                         .HasDatabaseName("ix_assigned_access_policies_arrival_id");
@@ -324,6 +313,56 @@ namespace Fabric.Server.Reception.Persistence.Migrations
                         .HasDatabaseName("ix_assigned_access_policies_arrival_id_rule_assignment_id");
 
                     b.ToTable("assigned_access_policies", "reception");
+                });
+
+            modelBuilder.Entity("Fabric.Server.Reception.Domain.ReceptionDeskWorkstation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ApiKeyHash")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("api_key_hash");
+
+                    b.Property<string>("ApiKeySalt")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("api_key_salt");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("enabled");
+
+                    b.Property<Guid>("LocationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("location_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_reception_desk_workstations");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_reception_desk_workstations_tenant_id");
+
+                    b.HasIndex("TenantId", "LocationId")
+                        .HasDatabaseName("ix_reception_desk_workstations_tenant_id_location_id");
+
+                    b.ToTable("reception_desk_workstations", "reception");
                 });
 
             modelBuilder.Entity("Fabric.Server.Reception.Domain.ReceptionKiosk", b =>

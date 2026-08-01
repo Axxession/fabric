@@ -1,4 +1,7 @@
+using Fabric.Server.Actors.Application;
 using Fabric.Server.Core;
+using Fabric.Server.Employees.Persistence;
+using Fabric.Server.Infrastructure.Authentication;
 using Fabric.Server.Locations.Application;
 using Fabric.Server.Locations.Domain;
 using Fabric.Server.Sagas.VisitorPreOnboarding;
@@ -19,6 +22,11 @@ public static class VisitorEndpoints
             .WithDescription("List visitors")
             .WithSummary("List visitors")
             .Produces<Page<VisitorResponse>>();
+        app.MapGet("/api/visitors/visitors/{id:guid}", GetVisitor)
+            .WithDescription("Get visitor")
+            .WithSummary("Get visitor")
+            .Produces<VisitorResponse>()
+            .Produces(StatusCodes.Status404NotFound);
         app.MapGet("/api/visitors/invitations/{invitationId:guid}/visit", GetVisitByInvitationId)
             .WithDescription("Retrieve the visit for an invitation")
             .WithSummary("Retrieve invitation visit")
@@ -37,9 +45,11 @@ public static class VisitorEndpoints
             .WithSummary("List visits")
             .Produces<Page<VisitResponse>>();
         visits.MapPost("", CreateVisit)
+            .RequireAuthorization(FabricRoleDefaults.HostPolicy)
             .WithDescription("Create a new visit")
             .WithSummary("Create a new visit")
-            .Produces<VisitResponse>(StatusCodes.Status201Created);
+            .Produces<VisitResponse>(StatusCodes.Status201Created)
+            .Produces<ProblemDetails>(StatusCodes.Status403Forbidden);
         visits.MapPost("/{id:guid}/cancel", CancelVisit)
             .WithDescription("Cancel a visit")
             .WithSummary("Cancel a visit")
@@ -116,8 +126,8 @@ public static class VisitorEndpoints
                 EF.Functions.ILike(visitor.FirstName, filter)
                 || EF.Functions.ILike(visitor.LastName, filter)
                 || EF.Functions.ILike(visitor.FirstName + " " + visitor.LastName, filter)
-                || EF.Functions.ILike(visitor.Email, filter)
-                || EF.Functions.ILike(visitor.Company!, filter)
+                || visitor.Email != null && EF.Functions.ILike(visitor.Email, filter)
+                || visitor.Company != null && EF.Functions.ILike(visitor.Company, filter)
             );
         }
 
@@ -131,6 +141,7 @@ public static class VisitorEndpoints
 
     private static async Task<IResult> GetVisitById(
         VisitorsDbContext db,
+        HostService hostService,
         Guid id,
         CancellationToken cancellationToken = default
     )
@@ -142,17 +153,23 @@ public static class VisitorEndpoints
         if (visitRow is null)
             return Results.NotFound();
 
-        Organizer organizer = await db.Organizers.SingleAsync(
-            x => x.Id == visitRow.OrganizerId,
-            cancellationToken
-        );
+        HostResponse? host = await hostService.GetHostByEmployeeIdAsync(visitRow.HostEmployeeId, cancellationToken);
+        return host is null ? Results.NotFound() : Results.Ok(visitRow.ToResponse(host));
+    }
 
-        return Results.Ok(visitRow.ToResponse(organizer));
+    private static async Task<IResult> GetVisitor(
+        Guid id,
+        VisitorsDbContext db,
+        CancellationToken cancellationToken = default)
+    {
+        Visitor? visitor = await db.Visitors.AsNoTracking().SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
+        return visitor is null ? Results.NotFound() : Results.Ok(visitor.ToResponse());
     }
 
     private static async Task<IResult> GetVisitByInvitationId(
         Guid invitationId,
         VisitorsDbContext db,
+        HostService hostService,
         CancellationToken cancellationToken = default
     )
     {
@@ -163,32 +180,36 @@ public static class VisitorEndpoints
         if (visitRow is null)
             return Results.NotFound();
 
-        Organizer organizer = await db.Organizers.SingleAsync(
-            x => x.Id == visitRow.OrganizerId,
-            cancellationToken
-        );
-
-        return Results.Ok(visitRow.ToResponse(organizer));
+        HostResponse? host = await hostService.GetHostByEmployeeIdAsync(visitRow.HostEmployeeId, cancellationToken);
+        return host is null ? Results.NotFound() : Results.Ok(visitRow.ToResponse(host));
     }
 
     private static async Task<IResult> ListVisits(
+        HttpContext context,
         [FromQuery] VisitStatus[]? withStatus,
-        [FromQuery] Guid? organizerId,
         [FromQuery] DateTimeOffset? after,
         [FromQuery] DateTimeOffset? before,
         [FromQuery] int? page,
         [FromQuery] int? pageSize,
         VisitorsDbContext db,
+        HostService hostService,
         CancellationToken cancellationToken = default
     )
     {
+        Guid? employeeId = context.User.GetEmployeeId();
+        if (!employeeId.HasValue)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status403Forbidden,
+                detail: "Authenticated actor is not linked to an employee.");
+        }
+
         IQueryable<Visit> query = db.Visits.Include(x => x.Invitations).AsQueryable();
 
         if (withStatus is { Length: > 0 })
             query = query.Where(x => withStatus.Contains(x.Status));
 
-        if (organizerId.HasValue)
-            query = query.Where(x => organizerId.Value == x.OrganizerId);
+        query = query.Where(x => x.HostEmployeeId == employeeId.Value);
 
         if (after.HasValue)
             query = query.Where(x => x.Start >= after.Value);
@@ -200,23 +221,49 @@ public static class VisitorEndpoints
 
         IPaged<Visit> result = await query.GetPageAsync(page ?? 0, pageSize ?? 25, cancellationToken);
 
-        Guid[] organizerIds = result.Items.Select(x => x.OrganizerId).Distinct().ToArray();
-        List<Organizer> organizers = await db.Organizers
-            .Where(x => organizerIds.Contains(x.Id))
-            .ToListAsync(cancellationToken);
-        Dictionary<Guid, Organizer> organizerMap = organizers.ToDictionary(x => x.Id);
+        Guid[] hostEmployeeIds = result.Items.Select(x => x.HostEmployeeId).Distinct().ToArray();
+        Dictionary<Guid, HostResponse> hostMap = await hostService.GetHostMapAsync(hostEmployeeIds, cancellationToken);
 
-        return Results.Ok(result.Map(visit => visit.ToResponse(organizerMap[visit.OrganizerId])));
+        return Results.Ok(result.Map(visit => visit.ToResponse(hostMap[visit.HostEmployeeId])));
     }
 
     private static async Task<IResult> CreateVisit(
+        HttpContext context,
         [FromBody] CreateVisitRequest request,
         VisitService visitService,
+        CurrentActorService currentActorService,
         CancellationToken cancellationToken = default
     )
     {
-        Result<(Visit, Organizer), VisitErrors> result = await visitService.Create(
-            request.Organizer,
+        Result<Fabric.Server.Actors.Contracts.CurrentActorResponse, ActorErrors> actorResult = await currentActorService.GetCurrentActorAsync(context.User, cancellationToken);
+        if (actorResult.IsFailure(out ActorErrors actorError))
+        {
+            return actorError switch
+            {
+                ActorErrors.AmbiguousEmployeeMatch => Results.Problem(
+                    statusCode: StatusCodes.Status409Conflict,
+                    title: "Ambiguous employee match",
+                    detail: "Multiple employees matched the authenticated actor claims."),
+                _ => Results.Problem(statusCode: StatusCodes.Status500InternalServerError, detail: "Unexpected actor resolution error.")
+            };
+        }
+
+        Guid? employeeId = context.User.GetEmployeeId();
+        if (!employeeId.HasValue)
+        {
+            actorResult.IsSuccess(out Fabric.Server.Actors.Contracts.CurrentActorResponse? actor);
+            employeeId = actor?.EmployeeId;
+        }
+
+        if (!employeeId.HasValue)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status403Forbidden,
+                detail: "Authenticated actor is not linked to an employee.");
+        }
+
+        Result<(Visit, HostResponse), VisitErrors> result = await visitService.Create(
+            employeeId.Value,
             request.Summary,
             request.Start,
             request.Stop,
@@ -331,6 +378,7 @@ public static class VisitorEndpoints
         Guid visitId,
         Guid invitationId,
         VisitorsDbContext db,
+        HostService hostService,
         LocationService locationService,
         CancellationToken cancellationToken = default
     )
@@ -344,16 +392,15 @@ public static class VisitorEndpoints
         if (visit is null || invitation is null)
             return Results.NotFound();
 
-        Organizer organizer = await db.Organizers.AsNoTracking().SingleAsync(
-            x => x.Id == visit.OrganizerId,
-            cancellationToken
-        );
+        HostResponse? host = await hostService.GetHostByEmployeeIdAsync(visit.HostEmployeeId, cancellationToken);
+        if (host is null)
+            return Results.NotFound();
 
         string? locationLabel = visit.LocationId.HasValue
             ? FormatLocationLabel(await locationService.GetLocationById(visit.LocationId.Value, cancellationToken))
             : null;
 
-        return Results.Ok(visit.ToConfirmationResponse(invitation, organizer, locationLabel));
+        return Results.Ok(visit.ToConfirmationResponse(invitation, host, locationLabel));
     }
 
     private static async Task<IResult> ConfirmInvitation(
@@ -378,12 +425,15 @@ public static class VisitorEndpoints
             cancellationToken
         );
 
-        if (result.IsSuccess(out Visitor visitor))
+        if (result.IsSuccess(out _))
         {
             await onboardingSagaService.EnqueueVisitorConfirmedAsync(visitId, invitationId, cancellationToken);
+            return Results.NoContent();
         }
 
-        return result.AsResponse(MapError);
+        result.IsFailure(out VisitErrors error);
+        (int statusCode, ProblemDetails? problemDetails) = MapError(error);
+        return problemDetails is not null ? Results.Json(problemDetails, statusCode: statusCode) : Results.StatusCode(statusCode);
     }
 
     private static async Task<IResult> RejectInvitation(
@@ -409,9 +459,9 @@ public static class VisitorEndpoints
         return errors switch
         {
             VisitErrors.VisitNotFound => Problem(StatusCodes.Status404NotFound, "Visit not found."),
-            VisitErrors.OrganizerNotFound => Problem(
+            VisitErrors.HostNotFound => Problem(
                 StatusCodes.Status404NotFound,
-                "Organizer not found."
+                "Host not found."
             ),
             VisitErrors.InvitationNotFound => Problem(
                 StatusCodes.Status404NotFound,
@@ -439,6 +489,10 @@ public static class VisitorEndpoints
                 StatusCodes.Status409Conflict,
                 "Invitation email already exists."
             ),
+            VisitErrors.IdentitySyncFailed => Problem(
+                StatusCodes.Status409Conflict,
+                "Visitor could not be linked to a canonical identity."
+            ),
             VisitErrors.InvitationAlreadyResponded => Problem(
                 StatusCodes.Status409Conflict,
                 "Invitation has already been responded to."
@@ -464,4 +518,5 @@ public static class VisitorEndpoints
             Location.RoomLocation room => $"{room.Site.Name} / {room.Building.Name} / {room.Room.Name}",
             _ => null,
         };
+
 }

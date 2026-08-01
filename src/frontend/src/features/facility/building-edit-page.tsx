@@ -17,7 +17,7 @@ const locationsQueryKey = ['facility', 'locations'] as const;
 const emptyBuilding: BuildingFormValues = { name: '', address: '' };
 
 export default function BuildingEditPage() {
-  const { siteId, buildingId } = useParams({ from: '/main/facility/locations/$siteId/buildings/$buildingId/edit' });
+  const { siteId, buildingId } = useParams({ from: '/main/administration/sites/$siteId/buildings/$buildingId/edit' });
   const queryClient = useQueryClient();
   const [isAddingRoom, setIsAddingRoom] = useState(false);
   const [roomName, setRoomName] = useState('');
@@ -279,7 +279,7 @@ function RoomsList({
               </div>
               <div className="flex shrink-0 gap-2">
                 <Link
-                  to="/facility/locations/$siteId/buildings/$buildingId/rooms/$roomId/edit"
+                  to="/administration/sites/$siteId/buildings/$buildingId/rooms/$roomId/edit"
                   params={{ siteId, buildingId, roomId: room.id }}
                   className="inline-flex size-10 items-center justify-center rounded-interactive border border-border text-muted-foreground transition hover:bg-hover-blue hover:text-foreground"
                   aria-label={`Edit ${room.name}`}
@@ -319,7 +319,7 @@ function RoomsList({
               <td className="px-4 py-4">
                 <div className="flex justify-end gap-2">
                   <Link
-                    to="/facility/locations/$siteId/buildings/$buildingId/rooms/$roomId/edit"
+                    to="/administration/sites/$siteId/buildings/$buildingId/rooms/$roomId/edit"
                     params={{ siteId, buildingId, roomId: room.id }}
                     className="inline-flex size-9 items-center justify-center rounded-interactive border border-border text-muted-foreground transition hover:bg-hover-blue hover:text-foreground"
                     aria-label={`Edit ${room.name}`}

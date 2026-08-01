@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Fabric.Server.Core;
+using Fabric.Server.Employees.Persistence;
 using Fabric.Server.Infrastructure.Authentication;
 using Fabric.Server.Reception.Application;
 using Fabric.Server.Reception.Contracts;
@@ -8,6 +9,7 @@ using Fabric.Server.Reception.Persistence;
 using Fabric.Server.Sagas.VisitorPreOnboarding;
 using Fabric.Server.Visitors.Domain;
 using Fabric.Server.Visitors.Persistence;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -28,6 +30,17 @@ public static class ArrivalEndpoints
             .WithDescription("List all arrivals matching the criteria")
             .WithSummary("List arrivals")
             .Produces<Page<ArrivalResponse>>();
+        arrivals.MapGet("/lookup", LookupArrivalFromWorkstation)
+            .WithDescription("Look up an arrival from a staffed reception desk workstation")
+            .WithSummary("Workstation lookup arrival")
+            .Produces<ArrivalResponse>()
+            .Produces<ProblemDetails>(StatusCodes.Status409Conflict)
+            .Produces(StatusCodes.Status404NotFound);
+        arrivals.MapGet("/{id:guid}/documents/{documentId:guid}", GetArrivalDocument)
+            .WithDescription("Retrieve a stored arrival document")
+            .WithSummary("Retrieve arrival document")
+            .Produces(StatusCodes.Status200OK, contentType: "image/jpeg")
+            .Produces(StatusCodes.Status404NotFound);
         arrivals.MapPost("/{id:guid}/onboard", OnboardArrival)
             .WithDescription("Onboard an arrival with documents")
             .WithSummary("Onboard arrival")
@@ -89,12 +102,23 @@ public static class ArrivalEndpoints
     private static async Task<IResult> GetArrivalById(
         Guid id,
         ReceptionDbContext db,
+        ReceptionLocationScopeService locationScopeService,
+        IAuthenticationService authenticationService,
+        HttpContext httpContext,
         CancellationToken cancellationToken = default)
     {
+        ReceptionDeskWorkstationActor? workstation = await AuthenticateWorkstation(httpContext, authenticationService);
+        if (workstation is null)
+            return Results.Unauthorized();
+
+        HashSet<Guid>? scopedLocationIds = await locationScopeService.GetScopedLocationIds(workstation.LocationId, cancellationToken);
+        if (scopedLocationIds is null)
+            return Results.NotFound();
+
         ExpectedArrival? arrival = await db.Arrivals
             .Include(a => a.Entries)
             .Include(a => a.Documents)
-            .SingleOrDefaultAsync(a => a.Id == id, cancellationToken);
+            .SingleOrDefaultAsync(a => a.Id == id && a.LocationId.HasValue && scopedLocationIds.Contains(a.LocationId.Value), cancellationToken);
 
         if (arrival is null)
             return Results.NotFound();
@@ -111,9 +135,31 @@ public static class ArrivalEndpoints
         [FromQuery] int? page,
         [FromQuery] int? pageSize,
         ReceptionDbContext db,
+        ReceptionLocationScopeService locationScopeService,
+        IAuthenticationService authenticationService,
+        HttpContext httpContext,
         CancellationToken cancellationToken = default)
     {
+        ReceptionDeskWorkstationActor? workstation = await AuthenticateWorkstation(httpContext, authenticationService);
+        if (workstation is null)
+            return Results.Unauthorized();
+
+        HashSet<Guid>? scopedLocationIds = await locationScopeService.GetScopedLocationIds(workstation.LocationId, cancellationToken);
+        if (scopedLocationIds is null)
+        {
+            return Results.Ok(new Page<ArrivalResponse>
+            {
+                CurrentPage = page ?? 0,
+                PageSize = pageSize ?? 25,
+                TotalItems = 0,
+                IsLastPage = true,
+                Items = []
+            });
+        }
+
         IQueryable<ExpectedArrival> query = db.Arrivals.Include(a => a.Entries).Include(a => a.Documents).AsQueryable();
+
+        query = query.Where(a => a.LocationId.HasValue && scopedLocationIds.Contains(a.LocationId.Value));
 
         if (request.Type.HasValue)
             query = query.Where(a => a.Type == request.Type.Value);
@@ -147,18 +193,55 @@ public static class ArrivalEndpoints
         return Results.Ok(result.Map(a => a.ToResponse()));
     }
 
+    private static async Task<IResult> GetArrivalDocument(
+        Guid id,
+        Guid documentId,
+        ReceptionDbContext db,
+        ReceptionLocationScopeService locationScopeService,
+        IAuthenticationService authenticationService,
+        HttpContext httpContext,
+        CancellationToken cancellationToken = default)
+    {
+        ReceptionDeskWorkstationActor? workstation = await AuthenticateWorkstation(httpContext, authenticationService);
+        if (workstation is null)
+            return Results.Unauthorized();
+
+        HashSet<Guid>? scopedLocationIds = await locationScopeService.GetScopedLocationIds(workstation.LocationId, cancellationToken);
+        if (scopedLocationIds is null)
+            return Results.NotFound();
+
+        ExpectedArrival? arrival = await db.Arrivals
+            .Include(x => x.Documents)
+            .SingleOrDefaultAsync(x => x.Id == id && x.LocationId.HasValue && scopedLocationIds.Contains(x.LocationId.Value), cancellationToken);
+
+        CheckInDocument? document = arrival?.Documents.SingleOrDefault(x => x.Id == documentId);
+        if (document is null)
+            return Results.NotFound();
+
+        return Results.File(document.Content, GetDocumentContentType(document.DocumentType));
+    }
+
     private static async Task<IResult> OnboardArrival(
         Guid id,
         [FromBody] OnboardArrivalRequest request,
         ReceptionService receptionService,
         ReceptionDbContext db,
+        ReceptionLocationScopeService locationScopeService,
         VisitorPreOnboardingSagaService onboardingSagaService,
         HttpContext httpContext,
+        IAuthenticationService authenticationService,
         CancellationToken cancellationToken = default)
     {
         ReceptionOperatorActor? actor = GetOperatorActor(httpContext.User);
         if (actor is null)
             return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Authenticated operator email claim is required.");
+
+        HashSet<Guid>? locationScope = await GetRequiredWorkstationLocationScope(httpContext, authenticationService, locationScopeService, cancellationToken);
+        if (locationScope is null)
+            return Results.Unauthorized();
+
+        if (!await CanAccessArrival(db, id, locationScope, cancellationToken))
+            return Results.NotFound();
 
         Result<ReceptionErrors> result = await receptionService.Onboard(id, [], [], actor.Identifier, actor.DisplayName, cancellationToken);
         if (result.IsSuccess(out _))
@@ -171,10 +254,47 @@ public static class ArrivalEndpoints
         return result.AsResponse(MapError);
     }
 
+    private static async Task<IResult> LookupArrivalFromWorkstation(
+        [FromQuery] string code,
+        ReceptionService receptionService,
+        ReceptionDbContext db,
+        HttpContext httpContext,
+        IAuthenticationService authenticationService,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return Results.NotFound();
+
+        ReceptionOperatorActor? actor = GetOperatorActor(httpContext.User);
+        if (actor is null)
+            return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Authenticated operator email claim is required.");
+
+        ReceptionDeskWorkstationActor? workstationActor = await AuthenticateWorkstation(httpContext, authenticationService);
+        if (workstationActor is null)
+            return Results.Unauthorized();
+
+        ReceptionDeskWorkstation? workstation = await db.ReceptionDeskWorkstations
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == workstationActor.Id, cancellationToken);
+
+        if (workstation is null)
+            return Results.NotFound();
+
+        Result<ExpectedArrival?, ReceptionErrors> lookup = await receptionService.ResolveArrivalForWorkstation(code, workstation, cancellationToken);
+        if (lookup.IsFailure(out _))
+            return lookup.AsResponse(MapError);
+
+        if (!lookup.IsSuccess(out ExpectedArrival? arrival) || arrival is null)
+            return Results.NotFound();
+
+        return Results.Ok(arrival.ToResponse());
+    }
+
     private static async Task<IResult> LookupArrivalFromKiosk(
         [FromQuery] string code,
         ReceptionService receptionService,
         ReceptionDbContext db,
+        EmployeesDbContext employeesDb,
         VisitorsDbContext visitorsDb,
         HttpContext httpContext,
         CancellationToken cancellationToken = default)
@@ -200,7 +320,7 @@ public static class ArrivalEndpoints
             return Results.NotFound();
 
         ReceptionKioskVisitorDetailsResponse? visitor = arrival.Type == ArrivalType.Visitor && arrival.InvitationId.HasValue
-            ? await GetVisitorDetails(arrival, visitorsDb, cancellationToken)
+            ? await GetVisitorDetails(arrival, employeesDb, visitorsDb, cancellationToken)
             : null;
 
         return Results.Ok(arrival.ToKioskResponse(kiosk, visitor));
@@ -209,12 +329,22 @@ public static class ArrivalEndpoints
     private static async Task<IResult> OffboardArrival(
         Guid id,
         ReceptionService receptionService,
+        ReceptionDbContext db,
+        ReceptionLocationScopeService locationScopeService,
         HttpContext httpContext,
+        IAuthenticationService authenticationService,
         CancellationToken cancellationToken = default)
     {
         ReceptionOperatorActor? actor = GetOperatorActor(httpContext.User);
         if (actor is null)
             return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Authenticated operator email claim is required.");
+
+        HashSet<Guid>? locationScope = await GetRequiredWorkstationLocationScope(httpContext, authenticationService, locationScopeService, cancellationToken);
+        if (locationScope is null)
+            return Results.Unauthorized();
+
+        if (!await CanAccessArrival(db, id, locationScope, cancellationToken))
+            return Results.NotFound();
 
         Result<ReceptionErrors> result = await receptionService.Offboard(id, actor.Identifier, actor.DisplayName, cancellationToken);
         return result.AsResponse(MapError);
@@ -223,12 +353,22 @@ public static class ArrivalEndpoints
     private static async Task<IResult> CheckInArrival(
         Guid id,
         ReceptionService receptionService,
+        ReceptionDbContext db,
+        ReceptionLocationScopeService locationScopeService,
         HttpContext httpContext,
+        IAuthenticationService authenticationService,
         CancellationToken cancellationToken = default)
     {
         ReceptionOperatorActor? actor = GetOperatorActor(httpContext.User);
         if (actor is null)
             return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Authenticated operator email claim is required.");
+
+        HashSet<Guid>? locationScope = await GetRequiredWorkstationLocationScope(httpContext, authenticationService, locationScopeService, cancellationToken);
+        if (locationScope is null)
+            return Results.Unauthorized();
+
+        if (!await CanAccessArrival(db, id, locationScope, cancellationToken))
+            return Results.NotFound();
 
         Result<ReceptionErrors> result = await receptionService.CheckIn(id, actor.Identifier, actor.DisplayName, cancellationToken);
         return result.AsResponse(MapError);
@@ -237,12 +377,22 @@ public static class ArrivalEndpoints
     private static async Task<IResult> CheckOutArrival(
         Guid id,
         ReceptionService receptionService,
+        ReceptionDbContext db,
+        ReceptionLocationScopeService locationScopeService,
         HttpContext httpContext,
+        IAuthenticationService authenticationService,
         CancellationToken cancellationToken = default)
     {
         ReceptionOperatorActor? actor = GetOperatorActor(httpContext.User);
         if (actor is null)
             return Results.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Authenticated operator email claim is required.");
+
+        HashSet<Guid>? locationScope = await GetRequiredWorkstationLocationScope(httpContext, authenticationService, locationScopeService, cancellationToken);
+        if (locationScope is null)
+            return Results.Unauthorized();
+
+        if (!await CanAccessArrival(db, id, locationScope, cancellationToken))
+            return Results.NotFound();
 
         Result<ReceptionErrors> result = await receptionService.CheckOut(id, actor.Identifier, actor.DisplayName, cancellationToken);
         return result.AsResponse(MapError);
@@ -335,6 +485,36 @@ public static class ArrivalEndpoints
         return new ReceptionKioskActor(id, name);
     }
 
+    private static async Task<ReceptionDeskWorkstationActor?> AuthenticateWorkstation(HttpContext httpContext, IAuthenticationService authenticationService)
+    {
+        AuthenticateResult result = await authenticationService.AuthenticateAsync(httpContext, ReceptionDeskWorkstationAuthenticationDefaults.AuthenticationScheme);
+        if (!result.Succeeded || result.Principal is null)
+            return null;
+
+        Guid id = Guid.Parse(result.Principal.FindFirstValue(ReceptionDeskWorkstationAuthenticationDefaults.WorkstationIdClaim)!);
+        string name = result.Principal.FindFirstValue(ReceptionDeskWorkstationAuthenticationDefaults.WorkstationNameClaim)!;
+        Guid locationId = Guid.Parse(result.Principal.FindFirstValue(ReceptionDeskWorkstationAuthenticationDefaults.WorkstationLocationIdClaim)!);
+        return new ReceptionDeskWorkstationActor(id, name, locationId);
+    }
+
+    private static async Task<HashSet<Guid>?> GetRequiredWorkstationLocationScope(
+        HttpContext httpContext,
+        IAuthenticationService authenticationService,
+        ReceptionLocationScopeService locationScopeService,
+        CancellationToken cancellationToken)
+    {
+        ReceptionDeskWorkstationActor? workstation = await AuthenticateWorkstation(httpContext, authenticationService);
+        if (workstation is null)
+            return null;
+
+        return await locationScopeService.GetScopedLocationIds(workstation.LocationId, cancellationToken);
+    }
+
+    private static async Task<bool> CanAccessArrival(ReceptionDbContext db, Guid arrivalId, HashSet<Guid> scopedLocationIds, CancellationToken cancellationToken) =>
+        await db.Arrivals
+            .AsNoTracking()
+            .AnyAsync(x => x.Id == arrivalId && x.LocationId.HasValue && scopedLocationIds.Contains(x.LocationId.Value), cancellationToken);
+
     private static List<CheckInDocumentRequirement> BuildRequiredDocuments(ReceptionKiosk kiosk)
     {
         List<CheckInDocumentRequirement> requiredDocuments = [];
@@ -397,6 +577,7 @@ public static class ArrivalEndpoints
 
     private static async Task<ReceptionKioskVisitorDetailsResponse?> GetVisitorDetails(
         ExpectedArrival arrival,
+        EmployeesDbContext employeesDb,
         VisitorsDbContext visitorsDb,
         CancellationToken cancellationToken)
     {
@@ -409,9 +590,9 @@ public static class ArrivalEndpoints
         if (visit is null || invitation is null)
             return null;
 
-        Organizer organizer = await visitorsDb.Organizers
+        Employees.Domain.Employee host = await employeesDb.Employees
             .AsNoTracking()
-            .SingleAsync(x => x.Id == visit.OrganizerId, cancellationToken);
+            .SingleAsync(x => x.Id == visit.HostEmployeeId, cancellationToken);
 
         var visitDetails = new ReceptionKioskVisitDetailsResponse(
             visit.Id,
@@ -420,8 +601,8 @@ public static class ArrivalEndpoints
             visit.Start,
             visit.Stop,
             visit.LocationId,
-            $"{organizer.FirstName} {organizer.LastName}",
-            organizer.Email);
+            $"{host.FirstName} {host.LastName}".Trim(),
+            host.Email);
 
         return new ReceptionKioskVisitorDetailsResponse(
             invitation.VisitorId,
@@ -441,6 +622,11 @@ public static class ArrivalEndpoints
             ReceptionErrors.ArrivalNotFound => Problem(StatusCodes.Status404NotFound, "Arrival not found."),
             ReceptionErrors.NotYetOnboarded => Problem(StatusCodes.Status409Conflict, "Arrival is not yet onboarded."),
             ReceptionErrors.AlreadyOffboarded => Problem(StatusCodes.Status409Conflict, "Arrival is already offboarded."),
+            ReceptionErrors.ArrivalAssignedToDifferentLocation => Problem(
+                StatusCodes.Status409Conflict,
+                "This kiosk cannot serve your location.",
+                "Please use the correct reception kiosk or contact reception.",
+                "arrival-assigned-to-different-location"),
             ReceptionErrors.ArrivalOutsideKioskOnboardingWindow => Problem(StatusCodes.Status409Conflict, "Arrival is outside kiosk onboarding window."),
             ReceptionErrors.ArrivalCodeConflictAcrossSubjects => Problem(StatusCodes.Status409Conflict, "Arrival code is already assigned to another active subject."),
             ReceptionErrors.InvalidStatus => Problem(StatusCodes.Status409Conflict, "Arrival status does not allow this operation."),
@@ -455,6 +641,29 @@ public static class ArrivalEndpoints
 
     private static (int statusCode, ProblemDetails problemDetails) Problem(int statusCode, string detail) => (statusCode, new ProblemDetails { Status = statusCode, Detail = detail });
 
+    private static (int statusCode, ProblemDetails problemDetails) Problem(int statusCode, string title, string detail, string? code)
+    {
+        ProblemDetails problemDetails = new()
+        {
+            Status = statusCode,
+            Title = title,
+            Detail = detail,
+        };
+
+        if (!string.IsNullOrWhiteSpace(code))
+            problemDetails.Extensions["code"] = code;
+
+        return (statusCode, problemDetails);
+    }
+
     private sealed record ReceptionOperatorActor(string Identifier, string? DisplayName);
     private sealed record ReceptionKioskActor(Guid Id, string Name);
+    private sealed record ReceptionDeskWorkstationActor(Guid Id, string Name, Guid LocationId);
+
+    private static string GetDocumentContentType(CheckInDocumentType documentType) => documentType switch
+    {
+        CheckInDocumentType.FacePicture => "image/jpeg",
+        CheckInDocumentType.IdentityDocumentImage => "image/jpeg",
+        _ => "application/octet-stream",
+    };
 }

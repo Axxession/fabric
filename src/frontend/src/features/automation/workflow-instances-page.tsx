@@ -11,7 +11,7 @@ export default function WorkflowInstancesPage() {
       {(props) => (
         <WorkflowInstanceList
           {...props}
-          onViewWorkflowInstance={(instanceId) => void navigate({ to: '/automation/workflow-instances/$instanceId', params: { instanceId } })}
+          onViewWorkflowInstance={(instanceId) => void navigate({ to: '/administration/automation/workflow-instances/$instanceId', params: { instanceId } })}
         />
       )}
     </AutomationPageShell>

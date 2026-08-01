@@ -6,7 +6,7 @@ namespace Fabric.Server.Visitors.Contracts;
 public record ListVisitsRequest : BaseListRequest
 {
     public List<VisitStatus> WithStatus { get; set; } = [];
-    public Guid? OrganizerId { get; set; }
+    public Guid? HostEmployeeId { get; set; }
     public DateTimeOffset? After { get; set; }
     public DateTimeOffset? Before { get; set; }
 }
@@ -18,7 +18,6 @@ public record ListVisitorsRequest : BaseListRequest
 
 
 public record CreateVisitRequest(
-    Guid Organizer,
     string Summary,
     DateTimeOffset Start,
     DateTimeOffset Stop,

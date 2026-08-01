@@ -3,7 +3,7 @@ namespace Fabric.Server.Visitors.Domain;
 public enum VisitErrors
 {
     VisitNotFound,
-    OrganizerNotFound,
+    HostNotFound,
     LicensePlateRequired,
     InvalidStatus,
     Cancelled,
@@ -11,6 +11,7 @@ public enum VisitErrors
     DuplicateInvitationEmail,
     InvitationNotFound,
     InvitationAlreadyResponded,
+    IdentitySyncFailed,
     AlreadyCancelled,
     StartMustBeBeforeStop,
     StopMustBeFuture

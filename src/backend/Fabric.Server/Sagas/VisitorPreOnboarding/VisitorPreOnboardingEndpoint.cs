@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QRCoder;
+using Fabric.Server.CredentialManagement.Domain;
+using Fabric.Server.CredentialManagement.Persistence;
 
 namespace Fabric.Server.Sagas.VisitorPreOnboarding;
 
@@ -90,10 +92,11 @@ public static class VisitorPreOnboardingSagaEndpoints
     private static async Task<IResult> UpdateConfiguration(
         [FromBody] VisitorPreOnboardingSagaConfigRequest request,
         VisitorPreOnboardingSagaService service,
+        CredentialManagementDbContext credentialDb,
         CancellationToken cancellationToken = default
     )
     {
-        IResult? validationResult = ValidateRequest(request);
+        IResult? validationResult = await ValidateRequestAsync(request, credentialDb, cancellationToken);
         if (validationResult is not null)
             return validationResult;
 
@@ -101,12 +104,12 @@ public static class VisitorPreOnboardingSagaEndpoints
         {
             UseCustomInviteNotification = request.UseCustomInviteNotification,
             CustomInviteNotification = request.UseCustomInviteNotification ? request.CustomInviteNotification : null,
-            QrGenerationMode = request.QrGenerationMode,
-            SystemId = request.QrGenerationMode == CredentialGenerationMode.AccessControlQr ? request.SystemId : null,
-            BadgeTypeId = request.QrGenerationMode == CredentialGenerationMode.AccessControlQr ? request.BadgeTypeId : null,
-            SendConfirmNotificationToOrganizer = request.SendConfirmNotificationToOrganizer,
-            UseCustomConfirmNotification = request.SendConfirmNotificationToOrganizer && request.UseCustomConfirmNotification,
-            CustomConfirmNotification = request.SendConfirmNotificationToOrganizer && request.UseCustomConfirmNotification ? request.CustomConfirmNotification : null,
+            QrCredentialTypeId = request.QrCredentialTypeId,
+            GraceStartMinutes = request.GraceStartMinutes,
+            GraceEndMinutes = request.GraceEndMinutes,
+            SendConfirmNotificationToHost = request.SendConfirmNotificationToHost,
+            UseCustomConfirmNotification = request.SendConfirmNotificationToHost && request.UseCustomConfirmNotification,
+            CustomConfirmNotification = request.SendConfirmNotificationToHost && request.UseCustomConfirmNotification ? request.CustomConfirmNotification : null,
             SendCancellationNotification = request.SendCancellationNotification,
             UseCustomCancellationNotification = request.SendCancellationNotification && request.UseCustomCancellationNotification,
             CustomCancellationNotification = request.SendCancellationNotification && request.UseCustomCancellationNotification ? request.CustomCancellationNotification : null,
@@ -116,24 +119,43 @@ public static class VisitorPreOnboardingSagaEndpoints
             SendRelocationNotification = request.SendRelocationNotification,
             UseCustomRelocationNotification = request.SendRelocationNotification && request.UseCustomRelocationNotification,
             CustomRelocationNotification = request.SendRelocationNotification && request.UseCustomRelocationNotification ? request.CustomRelocationNotification : null,
-            SendArrivalNotificationToOrganizer = request.SendArrivalNotificationToOrganizer,
-            UseCustomArrivalNotification = request.SendArrivalNotificationToOrganizer && request.UseCustomArrivalNotification,
-            CustomArrivalNotification = request.SendArrivalNotificationToOrganizer && request.UseCustomArrivalNotification ? request.CustomArrivalNotification : null,
+            SendArrivalNotificationToHost = request.SendArrivalNotificationToHost,
+            UseCustomArrivalNotification = request.SendArrivalNotificationToHost && request.UseCustomArrivalNotification,
+            CustomArrivalNotification = request.SendArrivalNotificationToHost && request.UseCustomArrivalNotification ? request.CustomArrivalNotification : null,
         };
 
         VisitorPreOnboardingSagaConfig updated = await service.UpdateConfigurationAsync(config, cancellationToken);
         return Results.Ok(updated);
     }
 
-    private static IResult? ValidateRequest(VisitorPreOnboardingSagaConfigRequest request)
+    private static async Task<IResult?> ValidateRequestAsync(VisitorPreOnboardingSagaConfigRequest request, CredentialManagementDbContext credentialDb, CancellationToken cancellationToken)
     {
         if (!IsValidCustomNotification(request.UseCustomInviteNotification, request.CustomInviteNotification))
             return ValidationProblem("Custom invitation notification requires subject and body.");
 
-        if (request.QrGenerationMode == CredentialGenerationMode.AccessControlQr && (!request.SystemId.HasValue || !request.BadgeTypeId.HasValue))
-            return ValidationProblem("Access control QR requires system and badge type.");
+        if (request.QrCredentialTypeId.HasValue)
+        {
+            CredentialType? credentialType = await credentialDb.CredentialTypes
+                .AsNoTracking()
+                .SingleOrDefaultAsync(item => item.Id == request.QrCredentialTypeId.Value, cancellationToken);
 
-        if (!IsValidCustomNotification(request.SendConfirmNotificationToOrganizer && request.UseCustomConfirmNotification, request.CustomConfirmNotification))
+            if (credentialType is null)
+                return ValidationProblem("Configured visitor QR credential type was not found.");
+
+            if (credentialType.Technology != CredentialTechnology.Qr)
+                return ValidationProblem("Configured visitor QR credential type must use QR technology.");
+
+            if (credentialType.AllocationMode != CredentialAllocationMode.Range)
+                return ValidationProblem("Configured visitor QR credential type must use range allocation.");
+        }
+
+        if (request.GraceStartMinutes < 0)
+            return ValidationProblem("Visitor credential grace before start must be zero or greater.");
+
+        if (request.GraceEndMinutes < 0)
+            return ValidationProblem("Visitor credential grace after end must be zero or greater.");
+
+        if (!IsValidCustomNotification(request.SendConfirmNotificationToHost && request.UseCustomConfirmNotification, request.CustomConfirmNotification))
             return ValidationProblem("Custom confirmation notification requires subject and body.");
 
         if (!IsValidCustomNotification(request.SendCancellationNotification && request.UseCustomCancellationNotification, request.CustomCancellationNotification))
@@ -145,7 +167,7 @@ public static class VisitorPreOnboardingSagaEndpoints
         if (!IsValidCustomNotification(request.SendRelocationNotification && request.UseCustomRelocationNotification, request.CustomRelocationNotification))
             return ValidationProblem("Custom relocation notification requires subject and body.");
 
-        if (!IsValidCustomNotification(request.SendArrivalNotificationToOrganizer && request.UseCustomArrivalNotification, request.CustomArrivalNotification))
+        if (!IsValidCustomNotification(request.SendArrivalNotificationToHost && request.UseCustomArrivalNotification, request.CustomArrivalNotification))
             return ValidationProblem("Custom arrival notification requires subject and body.");
 
         return null;
@@ -205,10 +227,10 @@ public static class VisitorPreOnboardingSagaEndpoints
 public sealed record VisitorPreOnboardingSagaConfigRequest(
     bool UseCustomInviteNotification,
     CustomNotification? CustomInviteNotification,
-    CredentialGenerationMode QrGenerationMode,
-    Guid? SystemId,
-    Guid? BadgeTypeId,
-    bool SendConfirmNotificationToOrganizer,
+    Guid? QrCredentialTypeId,
+    int GraceStartMinutes,
+    int GraceEndMinutes,
+    bool SendConfirmNotificationToHost,
     bool UseCustomConfirmNotification,
     CustomNotification? CustomConfirmNotification,
     bool SendCancellationNotification,
@@ -220,6 +242,6 @@ public sealed record VisitorPreOnboardingSagaConfigRequest(
     bool SendRelocationNotification,
     bool UseCustomRelocationNotification,
     CustomNotification? CustomRelocationNotification,
-    bool SendArrivalNotificationToOrganizer,
+    bool SendArrivalNotificationToHost,
     bool UseCustomArrivalNotification,
     CustomNotification? CustomArrivalNotification);

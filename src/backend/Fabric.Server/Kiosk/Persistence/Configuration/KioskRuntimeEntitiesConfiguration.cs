@@ -20,6 +20,10 @@ public sealed class KioskAssetConfiguration : IEntityTypeConfiguration<KioskAsse
         builder.Property(asset => asset.ContentType).HasColumnName("content_type").IsRequired().HasMaxLength(200);
         builder.Property(asset => asset.Size).HasColumnName("size").IsRequired();
         builder.Property(asset => asset.RelativePath).HasColumnName("relative_path").IsRequired().HasMaxLength(800);
+        builder.Property(asset => asset.Visibility).HasColumnName("visibility").HasConversion<string>().IsRequired().HasMaxLength(20);
+        builder.Property(asset => asset.UploadedByOid).HasColumnName("uploaded_by_oid").HasMaxLength(200);
+        builder.Property(asset => asset.UploadedByEmail).HasColumnName("uploaded_by_email").HasMaxLength(320);
+        builder.Property(asset => asset.UploadedByDisplayName).HasColumnName("uploaded_by_display_name").HasMaxLength(300);
         builder.Property(asset => asset.AltTextKey).HasColumnName("alt_text_key").HasMaxLength(300);
         builder.Property(asset => asset.CreatedAt).HasColumnName("created_at").IsRequired();
         TenantDbContext.ConfigureTenantProperty(builder);

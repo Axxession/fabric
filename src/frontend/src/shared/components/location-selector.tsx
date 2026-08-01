@@ -14,8 +14,7 @@ export type LocationDepth = 'None' | 'Site' | 'Building' | 'Room';
 type LocationSelectorProps = {
   readonly value: string | null;
   readonly onChange: (value: string | null) => void;
-  readonly maxDepth: Exclude<LocationDepth, 'None'>;
-  readonly requiredDepth: LocationDepth;
+  readonly level: Exclude<LocationDepth, 'None'>;
   readonly disabled?: boolean;
 };
 
@@ -26,7 +25,7 @@ const depthOrder: Record<LocationDepth, number> = {
   Room: 3,
 };
 
-export function LocationSelector({ value, onChange, maxDepth, requiredDepth, disabled }: LocationSelectorProps) {
+export function LocationSelector({ value, onChange, level, disabled }: LocationSelectorProps) {
   const siteId = useId();
   const buildingId = useId();
   const roomId = useId();
@@ -34,11 +33,8 @@ export function LocationSelector({ value, onChange, maxDepth, requiredDepth, dis
   const [selectedBuildingId, setSelectedBuildingId] = useState('');
   const [selectedRoomId, setSelectedRoomId] = useState('');
 
-  const showBuildings = depthOrder[maxDepth] >= depthOrder.Building;
-  const showRooms = depthOrder[maxDepth] >= depthOrder.Room;
-  const requireSite = depthOrder[requiredDepth] >= depthOrder.Site;
-  const requireBuilding = depthOrder[requiredDepth] >= depthOrder.Building;
-  const requireRoom = depthOrder[requiredDepth] >= depthOrder.Room;
+  const showBuildings = depthOrder[level] >= depthOrder.Building;
+  const showRooms = depthOrder[level] >= depthOrder.Room;
 
   const sitesQuery = useQuery({
     queryKey: ['locations', 'sites'],
@@ -152,7 +148,6 @@ export function LocationSelector({ value, onChange, maxDepth, requiredDepth, dis
           className="h-9 w-full rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary focus:ring-[3px] focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
           value={selectedSiteId}
           onChange={(event) => handleSiteChange(event.target.value)}
-          required={requireSite}
           disabled={disabled || sitesQuery.isLoading}
         >
           <option value="">No site</option>
@@ -170,7 +165,6 @@ export function LocationSelector({ value, onChange, maxDepth, requiredDepth, dis
             className="h-9 w-full rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary focus:ring-[3px] focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
             value={selectedBuildingId}
             onChange={(event) => handleBuildingChange(event.target.value)}
-            required={requireBuilding}
             disabled={disabled || !selectedSiteId || buildingsQuery.isLoading}
           >
             <option value="">No building</option>
@@ -189,7 +183,6 @@ export function LocationSelector({ value, onChange, maxDepth, requiredDepth, dis
             className="h-9 w-full rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary focus:ring-[3px] focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
             value={selectedRoomId}
             onChange={(event) => handleRoomChange(event.target.value)}
-            required={requireRoom}
             disabled={disabled || !selectedBuildingId || roomsQuery.isLoading}
           >
             <option value="">No room</option>

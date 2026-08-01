@@ -1,3 +1,4 @@
+using Fabric.Server.AccessCatalog.Domain;
 using Fabric.Server.Core;
 using Fabric.Server.Reception.Domain;
 using Fabric.Server.Reception.Persistence;
@@ -8,7 +9,8 @@ namespace Fabric.Server.Reception.Application;
 public class ReceptionService(
     ReceptionDbContext db,
     TimeProvider timeProvider,
-    ReceptionAccessPolicyService receptionAccessPolicyService)
+    ReceptionLocationScopeService locationScopeService,
+    ReceptionTriggeredPackageAssignmentService receptionTriggeredPackageAssignmentService)
 {
     private static readonly TimeSpan CompletedArrivalLookupWindow = TimeSpan.FromHours(12);
     private readonly record struct SubjectIdentity(ArrivalType Type, Guid Id);
@@ -23,6 +25,7 @@ public class ReceptionService(
         string firstName,
         string lastName,
         string? company,
+        Guid identityId,
         Guid visitorId,
         Guid invitationId,
         DateTimeOffset expectedArrivalTime,
@@ -39,11 +42,11 @@ public class ReceptionService(
             return Result.Failure<ExpectedArrival, ReceptionErrors>(validationError);
 
         var arrival = ExpectedArrival.CreateVisitorArrival(
-                firstName, lastName, company, visitorId, invitationId, expectedArrivalTime, expectedOffboardTime, arrivalCode, locationId);
+                firstName, lastName, company, identityId, visitorId, invitationId, expectedArrivalTime, expectedOffboardTime, arrivalCode, locationId);
 
         db.Arrivals.Add(arrival);
         await db.SaveChangesAsync(ct);
-        await receptionAccessPolicyService.ApplyTrigger(arrival, ReceptionAccessPolicyTrigger.ExpectedVisitorAdded, ct);
+        await receptionTriggeredPackageAssignmentService.ApplyTrigger(arrival, ReceptionAccessPolicyTrigger.ExpectedVisitorAdded, ct);
         return Result<ExpectedArrival, ReceptionErrors>.Success(arrival);
     }
 
@@ -79,7 +82,7 @@ public class ReceptionService(
         if (result.IsSuccess(out _))
         {
             await db.SaveChangesAsync(cancellationToken);
-            await receptionAccessPolicyService.RecreateAssignedPolicies(arrival, cancellationToken);
+            await receptionTriggeredPackageAssignmentService.RecreateAssignedPolicies(arrival, AccessGrantRevokeCause.VisitRescheduled, "Reception automation", cancellationToken);
         }
 
         return result;
@@ -97,7 +100,7 @@ public class ReceptionService(
         if (result.IsSuccess(out _))
         {
             await db.SaveChangesAsync(cancellationToken);
-            await receptionAccessPolicyService.RecreateAssignedPolicies(arrival, cancellationToken);
+            await receptionTriggeredPackageAssignmentService.RecreateAssignedPolicies(arrival, AccessGrantRevokeCause.ArrivalRelocated, "Reception automation", cancellationToken);
         }
 
         return result;
@@ -110,7 +113,7 @@ public class ReceptionService(
         if (arrival is null)
             return Result.Failure(ReceptionErrors.ArrivalNotFound);
 
-        await receptionAccessPolicyService.RetractAssignedPolicies(arrivalId, cancellationToken);
+        await receptionTriggeredPackageAssignmentService.RetractAssignedPolicies(arrivalId, AccessGrantRevokeCause.VisitCancelled, "Reception automation", cancellationToken);
         db.Arrivals.Remove(arrival);
         await db.SaveChangesAsync(cancellationToken);
         return Result.Success<ReceptionErrors>();
@@ -120,6 +123,7 @@ public class ReceptionService(
         string firstName,
         string lastName,
         string company,
+        Guid? identityId,
         Guid contractorId,
         Guid jobAssignmentId,
         DateTimeOffset expectedArrivalTime,
@@ -137,11 +141,11 @@ public class ReceptionService(
 
         var arrival = ExpectedArrival.CreateContractorArrival(
                 firstName, lastName, company,
-            contractorId, jobAssignmentId, expectedArrivalTime, expectedOffboardTime, arrivalCode, locationId);
+            identityId, contractorId, jobAssignmentId, expectedArrivalTime, expectedOffboardTime, arrivalCode, locationId);
 
         db.Arrivals.Add(arrival);
         await db.SaveChangesAsync(ct);
-        await receptionAccessPolicyService.ApplyTrigger(arrival, ReceptionAccessPolicyTrigger.ContractorExpectedAdded, ct);
+        await receptionTriggeredPackageAssignmentService.ApplyTrigger(arrival, ReceptionAccessPolicyTrigger.ContractorExpectedAdded, ct);
         return Result<ExpectedArrival, ReceptionErrors>.Success(arrival);
     }
 
@@ -197,7 +201,7 @@ public class ReceptionService(
         ReceptionAccessPolicyTrigger trigger = arrival.Type == ArrivalType.Visitor
             ? ReceptionAccessPolicyTrigger.VisitorOnboarded
             : ReceptionAccessPolicyTrigger.ContractorOnboarded;
-        await receptionAccessPolicyService.ApplyTrigger(arrival, trigger, ct);
+        await receptionTriggeredPackageAssignmentService.ApplyTrigger(arrival, trigger, ct);
     }
 
     public async Task<Result<ReceptionErrors>> Offboard(Guid arrivalId, string operatorEmail, string? operatorDisplayName = null, CancellationToken ct = default)
@@ -210,7 +214,7 @@ public class ReceptionService(
         if (result.IsSuccess(out _))
         {
             await db.SaveChangesAsync(ct);
-            await receptionAccessPolicyService.RetractAssignedPolicies(arrivalId, ct);
+            await receptionTriggeredPackageAssignmentService.RetractAssignedPolicies(arrivalId, AccessGrantRevokeCause.VisitOffboarded, operatorDisplayName ?? operatorEmail, ct);
         }
 
         return result;
@@ -226,7 +230,7 @@ public class ReceptionService(
         if (result.IsSuccess(out _))
         {
             await db.SaveChangesAsync(ct);
-            await receptionAccessPolicyService.RetractAssignedPolicies(arrivalId, ct);
+            await receptionTriggeredPackageAssignmentService.RetractAssignedPolicies(arrivalId, AccessGrantRevokeCause.VisitOffboarded, kioskName, ct);
         }
 
         return result;
@@ -296,7 +300,7 @@ public class ReceptionService(
         if (result.IsSuccess(out _))
         {
             await db.SaveChangesAsync(ct);
-            await receptionAccessPolicyService.ApplyTrigger(arrival, ReceptionAccessPolicyTrigger.VisitorConfirmed, ct);
+            await receptionTriggeredPackageAssignmentService.ApplyTrigger(arrival, ReceptionAccessPolicyTrigger.VisitorConfirmed, ct);
         }
 
         return result;
@@ -323,7 +327,84 @@ public class ReceptionService(
 
         List<ExpectedArrival> matches = await db.Arrivals
             .AsNoTracking()
-            .Where(x => x.ArrivalCode == code && (x.LocationId == null || x.LocationId == kiosk.LocationId))
+            .Where(x => x.ArrivalCode == code)
+            .ToListAsync(ct);
+
+        if (matches.Count == 0)
+            return Result<ExpectedArrival?, ReceptionErrors>.Success(null);
+
+        List<ExpectedArrival> activeMatches = matches
+            .Where(x => x.Status is OnboardingStatus.NotYetOnboarded or OnboardingStatus.Onboarded)
+            .ToList();
+
+        if (HasActiveCrossSubjectConflict(activeMatches))
+            return Result.Failure<ExpectedArrival?, ReceptionErrors>(ReceptionErrors.ArrivalCodeConflictAcrossSubjects);
+
+        List<ExpectedArrival> kioskMatches = matches
+            .Where(x => x.LocationId is null || x.LocationId == kiosk.LocationId)
+            .ToList();
+
+        if (kioskMatches.Count == 0)
+            return Result.Failure<ExpectedArrival?, ReceptionErrors>(ReceptionErrors.ArrivalAssignedToDifferentLocation);
+
+        List<ExpectedArrival> kioskActiveMatches = kioskMatches
+            .Where(x => x.Status is OnboardingStatus.NotYetOnboarded or OnboardingStatus.Onboarded)
+            .ToList();
+
+        List<ExpectedArrival> onboardedMatches = kioskActiveMatches
+            .Where(x => x.Status == OnboardingStatus.Onboarded)
+            .ToList();
+
+        if (onboardedMatches.Count > 1)
+            return Result.Failure<ExpectedArrival?, ReceptionErrors>(ReceptionErrors.SubjectAlreadyHasOnboardedArrival);
+
+        if (onboardedMatches.Count == 1)
+        {
+            ExpectedArrival selectedOnboarded = onboardedMatches[0];
+            if (await HasAnotherOnboardedArrival(GetSubjectIdentity(selectedOnboarded), selectedOnboarded.Id, ct))
+                return Result.Failure<ExpectedArrival?, ReceptionErrors>(ReceptionErrors.SubjectAlreadyHasOnboardedArrival);
+
+            return Result<ExpectedArrival?, ReceptionErrors>.Success(selectedOnboarded);
+        }
+
+        DateTimeOffset now = timeProvider.GetUtcNow();
+        List<ExpectedArrival> notYetOnboardedMatches = kioskActiveMatches
+            .Where(x => x.Status == OnboardingStatus.NotYetOnboarded)
+            .ToList();
+
+        if (notYetOnboardedMatches.Count > 0)
+        {
+            List<ExpectedArrival> eligibleNotYetOnboardedMatches = notYetOnboardedMatches
+                .Where(x => kiosk.CanOnboardArrivalAt(now, x.ExpectedArrivalTime))
+                .ToList();
+
+            return eligibleNotYetOnboardedMatches.Count > 0
+                ? Result<ExpectedArrival?, ReceptionErrors>.Success(SelectBestKioskArrival(eligibleNotYetOnboardedMatches, kiosk.LocationId, now))
+                : Result.Failure<ExpectedArrival?, ReceptionErrors>(ReceptionErrors.ArrivalOutsideKioskOnboardingWindow);
+        }
+
+        List<ExpectedArrival> candidates = kioskMatches
+            .Where(x => x.Status == OnboardingStatus.Offboarded && now - GetArrivalEndTime(x) <= CompletedArrivalLookupWindow)
+            .ToList();
+
+        if (candidates.Count == 0)
+            return Result<ExpectedArrival?, ReceptionErrors>.Success(null);
+
+        return Result<ExpectedArrival?, ReceptionErrors>.Success(SelectBestKioskArrival(candidates, kiosk.LocationId, now));
+    }
+
+    public async Task<Result<ExpectedArrival?, ReceptionErrors>> ResolveArrivalForWorkstation(string code, ReceptionDeskWorkstation workstation, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return Result<ExpectedArrival?, ReceptionErrors>.Success(null);
+
+        HashSet<Guid>? scopedLocationIds = await locationScopeService.GetScopedLocationIds(workstation.LocationId, ct);
+        if (scopedLocationIds is null || scopedLocationIds.Count == 0)
+            return Result<ExpectedArrival?, ReceptionErrors>.Success(null);
+
+        List<ExpectedArrival> matches = await db.Arrivals
+            .AsNoTracking()
+            .Where(x => x.ArrivalCode == code && x.LocationId.HasValue && scopedLocationIds.Contains(x.LocationId.Value))
             .ToListAsync(ct);
 
         if (matches.Count == 0)
@@ -358,15 +439,7 @@ public class ReceptionService(
             .ToList();
 
         if (notYetOnboardedMatches.Count > 0)
-        {
-            List<ExpectedArrival> eligibleNotYetOnboardedMatches = notYetOnboardedMatches
-                .Where(x => kiosk.CanOnboardArrivalAt(now, x.ExpectedArrivalTime))
-                .ToList();
-
-            return eligibleNotYetOnboardedMatches.Count > 0
-                ? Result<ExpectedArrival?, ReceptionErrors>.Success(SelectBestKioskArrival(eligibleNotYetOnboardedMatches, kiosk.LocationId, now))
-                : Result.Failure<ExpectedArrival?, ReceptionErrors>(ReceptionErrors.ArrivalOutsideKioskOnboardingWindow);
-        }
+            return Result<ExpectedArrival?, ReceptionErrors>.Success(SelectBestKioskArrival(notYetOnboardedMatches, workstation.LocationId, now));
 
         List<ExpectedArrival> candidates = matches
             .Where(x => x.Status == OnboardingStatus.Offboarded && now - GetArrivalEndTime(x) <= CompletedArrivalLookupWindow)
@@ -375,7 +448,7 @@ public class ReceptionService(
         if (candidates.Count == 0)
             return Result<ExpectedArrival?, ReceptionErrors>.Success(null);
 
-        return Result<ExpectedArrival?, ReceptionErrors>.Success(SelectBestKioskArrival(candidates, kiosk.LocationId, now));
+        return Result<ExpectedArrival?, ReceptionErrors>.Success(SelectBestKioskArrival(candidates, workstation.LocationId, now));
     }
 
     private async Task<Result<ReceptionErrors>> ValidateArrivalCodeAssignment(

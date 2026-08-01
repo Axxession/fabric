@@ -39,6 +39,9 @@
     <PackageVersion Include="Microsoft.Graph" Version="6.2.0" />
     <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="$(MicrosoftNetVersion)" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="ManagedCode.Storage.Azure" Version="10.0.5" />
+    <PackageVersion Include="ManagedCode.Storage.Core" Version="10.0.5" />
+    <PackageVersion Include="ManagedCode.Storage.FileSystem" Version="10.0.5" />
     <!-- Override Microsoft.AspNetCore.OpenApi transitive version to 2.9 to avoid vunerability, can be removed after bumping to net AspNetCore.OpenApi -->
     <PackageVersion Include="Microsoft.OpenApi" Version="2.9.0" />
     <PackageVersion Include="Moq" Version="4.20.72" />

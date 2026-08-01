@@ -1,3 +1,5 @@
+using Fabric.Server.Infrastructure.Storage;
+
 namespace Fabric.Server.Kiosk.Domain;
 
 public sealed class KioskAsset
@@ -13,10 +15,14 @@ public sealed class KioskAsset
     public string ContentType { get; private set; } = default!;
     public long Size { get; private set; }
     public string RelativePath { get; private set; } = default!;
+    public StoredFileVisibility Visibility { get; private set; }
+    public string? UploadedByOid { get; private set; }
+    public string? UploadedByEmail { get; private set; }
+    public string? UploadedByDisplayName { get; private set; }
     public string? AltTextKey { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
 
-    public static KioskAsset Create(Guid id, Guid profileId, string name, string? languageCode, KioskAssetKind kind, string fileName, string contentType, long size, string relativePath, string? altTextKey, DateTimeOffset now) => new()
+    public static KioskAsset Create(Guid id, Guid profileId, string name, string? languageCode, KioskAssetKind kind, string fileName, string contentType, long size, string relativePath, StoredFileVisibility visibility, string? uploadedByOid, string? uploadedByEmail, string? uploadedByDisplayName, string? altTextKey, DateTimeOffset now) => new()
     {
         Id = id,
         ProfileId = profileId,
@@ -24,9 +30,13 @@ public sealed class KioskAsset
         LanguageCode = string.IsNullOrWhiteSpace(languageCode) ? null : KioskProfile.NormalizeLanguage(languageCode),
         Kind = kind,
         FileName = fileName.Trim(),
-        ContentType = contentType.Trim(),
+        ContentType = string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType.Trim(),
         Size = size,
         RelativePath = relativePath,
+        Visibility = visibility,
+        UploadedByOid = string.IsNullOrWhiteSpace(uploadedByOid) ? null : uploadedByOid.Trim(),
+        UploadedByEmail = string.IsNullOrWhiteSpace(uploadedByEmail) ? null : uploadedByEmail.Trim(),
+        UploadedByDisplayName = string.IsNullOrWhiteSpace(uploadedByDisplayName) ? null : uploadedByDisplayName.Trim(),
         AltTextKey = string.IsNullOrWhiteSpace(altTextKey) ? null : altTextKey.Trim(),
         CreatedAt = now
     };

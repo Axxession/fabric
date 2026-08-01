@@ -8,6 +8,7 @@ public static class AuthenticationServiceCollectionExtensions
     public static IServiceCollection AddFabricAuthentication(this IServiceCollection services)
     {
         services.AddSingleton<ITenantOidcConfigurationStore, TenantOidcConfigurationStore>();
+        services.AddTransient<IClaimsTransformation, FabricClaimsTransformer>();
 
         services.AddAuthentication(TenantBearerAuthenticationDefaults.AuthenticationScheme)
             .AddScheme<AuthenticationSchemeOptions, TenantBearerAuthenticationHandler>(
@@ -15,6 +16,9 @@ public static class AuthenticationServiceCollectionExtensions
                 _ => { })
             .AddScheme<AuthenticationSchemeOptions, ReceptionKioskAuthenticationHandler>(
                 ReceptionKioskAuthenticationDefaults.AuthenticationScheme,
+                _ => { })
+            .AddScheme<AuthenticationSchemeOptions, ReceptionDeskWorkstationAuthenticationHandler>(
+                ReceptionDeskWorkstationAuthenticationDefaults.AuthenticationScheme,
                 _ => { })
             .AddScheme<AuthenticationSchemeOptions, KioskAuthenticationHandler>(
                 KioskAuthenticationDefaults.AuthenticationScheme,
@@ -30,11 +34,47 @@ public static class AuthenticationServiceCollectionExtensions
         services.AddAuthorizationBuilder()
             .SetDefaultPolicy(requireAuthPolicy)
             .SetFallbackPolicy(requireAuthPolicy)
+            .AddPolicy(FabricRoleDefaults.AdminPolicy, policy =>
+            {
+                policy.AuthenticationSchemes.Add(TenantBearerAuthenticationDefaults.AuthenticationScheme);
+                policy.RequireAuthenticatedUser();
+                policy.RequireRole(FabricRoleDefaults.AdminRole);
+            })
+            .AddPolicy(FabricRoleDefaults.HostPolicy, policy =>
+            {
+                policy.AuthenticationSchemes.Add(TenantBearerAuthenticationDefaults.AuthenticationScheme);
+                policy.RequireAuthenticatedUser();
+                policy.RequireRole(FabricRoleDefaults.HostRole);
+            })
+            .AddPolicy(FabricRoleDefaults.ManagerPolicy, policy =>
+            {
+                policy.AuthenticationSchemes.Add(TenantBearerAuthenticationDefaults.AuthenticationScheme);
+                policy.RequireAuthenticatedUser();
+                policy.RequireRole(FabricRoleDefaults.ManagerRole);
+            })
+            .AddPolicy(FabricRoleDefaults.SecurityOfficerPolicy, policy =>
+            {
+                policy.AuthenticationSchemes.Add(TenantBearerAuthenticationDefaults.AuthenticationScheme);
+                policy.RequireAuthenticatedUser();
+                policy.RequireRole(FabricRoleDefaults.SecurityOfficerRole);
+            })
+            .AddPolicy(FabricRoleDefaults.AdminOrSecurityOfficerPolicy, policy =>
+            {
+                policy.AuthenticationSchemes.Add(TenantBearerAuthenticationDefaults.AuthenticationScheme);
+                policy.RequireAuthenticatedUser();
+                policy.RequireRole(FabricRoleDefaults.AdminRole, FabricRoleDefaults.SecurityOfficerRole);
+            })
             .AddPolicy(ReceptionKioskAuthenticationDefaults.Policy, policy =>
             {
                 policy.AuthenticationSchemes.Add(ReceptionKioskAuthenticationDefaults.AuthenticationScheme);
                 policy.RequireAuthenticatedUser();
                 policy.RequireRole(ReceptionKioskAuthenticationDefaults.Role);
+            })
+            .AddPolicy(ReceptionDeskWorkstationAuthenticationDefaults.Policy, policy =>
+            {
+                policy.AuthenticationSchemes.Add(ReceptionDeskWorkstationAuthenticationDefaults.AuthenticationScheme);
+                policy.RequireAuthenticatedUser();
+                policy.RequireRole(ReceptionDeskWorkstationAuthenticationDefaults.Role);
             })
             .AddPolicy(KioskAuthenticationDefaults.Policy, policy =>
             {

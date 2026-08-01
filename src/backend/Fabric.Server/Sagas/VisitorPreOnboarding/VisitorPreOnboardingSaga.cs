@@ -11,13 +11,46 @@ public class VisitorPreOnboardingSaga
     public Guid InvitationId { get; set; }
     public Guid? ArrivalId { get; set; }
     public Guid? AccessPolicyId { get; set; }
+    public Guid? CredentialId { get; set; }
     public string? QrCode { get; set; }
     public DateTimeOffset? ArrivalNotificationSentAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }
     public DateTimeOffset? NextRetryAt { get; set; }
     public int RetryCount { get; set; }
-    public VisitorPreOnboardingState State { get; set; }
+    public DateTimeOffset? InvitationSentAt { get; set; }
+    public DateTimeOffset? CancellationRequestedAt { get; set; }
+    public DateTimeOffset? CancelledAt { get; set; }
+    public DateTimeOffset? ExpiredAt { get; set; }
+    public VisitorPreOnboardingResponseStatus VisitorResponseStatus { get; set; }
+    public bool IsCompleteOnOurEnd => ArrivalId.HasValue
+        && InvitationSentAt.HasValue
+        && (CredentialId.HasValue || !string.IsNullOrWhiteSpace(QrCode));
+}
+
+public sealed class VisitorPreOnboardingSagaAuditEntry
+{
+    private VisitorPreOnboardingSagaAuditEntry() { }
+
+    public Guid Id { get; private set; }
+    public Guid SagaId { get; private set; }
+    public VisitorPreOnboardingSagaAuditEntryType Type { get; private set; }
+    public DateTimeOffset OccurredAt { get; private set; }
+    public string? DetailsJson { get; private set; }
+
+    public static VisitorPreOnboardingSagaAuditEntry Create(
+        Guid sagaId,
+        VisitorPreOnboardingSagaAuditEntryType type,
+        DateTimeOffset occurredAt,
+        string? detailsJson = null) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            SagaId = sagaId,
+            Type = type,
+            OccurredAt = occurredAt,
+            DetailsJson = string.IsNullOrWhiteSpace(detailsJson) ? null : detailsJson,
+        };
 }
 
 public sealed class VisitorPreOnboardingSagaEvent
@@ -81,24 +114,34 @@ public enum VisitorPreOnboardingSagaEventType
     VisitorArrived,
 }
 
-public enum VisitorPreOnboardingState
+public enum VisitorPreOnboardingResponseStatus
 {
-    RegisteringArrival,
-    GeneratingQr,
-    UpdatingArrivalQr,
-    SendingInvitation,
-    AwaitingConfirmation,
+    Pending,
     Confirmed,
     Rejected,
-    Cancelling,
-    Cancelled,
-    Expired,
 }
 
-public enum CredentialGenerationMode
+public enum VisitorPreOnboardingSagaAuditEntryType
 {
-    PlatformQr,
-    AccessControlQr
+    SagaStarted,
+    QrGenerated,
+    ArrivalRegistered,
+    InvitationSent,
+    VisitorConfirmed,
+    VisitorRejected,
+    VisitRescheduled,
+    ArrivalRescheduled,
+    CredentialValidityUpdated,
+    RescheduleNotificationSent,
+    VisitRelocated,
+    ArrivalRelocated,
+    RelocationNotificationSent,
+    VisitCancelled,
+    ArrivalCancelled,
+    CredentialRevoked,
+    CancellationNotificationSent,
+    SagaCancelled,
+    SagaExpired,
 }
 
 public class VisitorPreOnboardingSagaConfig
@@ -106,10 +149,10 @@ public class VisitorPreOnboardingSagaConfig
     public Guid Id { get; set; }
     public bool UseCustomInviteNotification { get; set; }
     public CustomNotification? CustomInviteNotification { get; set; }
-    public CredentialGenerationMode QrGenerationMode { get; set; }
-    public Guid? SystemId { get; set; }
-    public Guid? BadgeTypeId { get; set; }
-    public bool SendConfirmNotificationToOrganizer { get; set; }
+    public Guid? QrCredentialTypeId { get; set; }
+    public int GraceStartMinutes { get; set; }
+    public int GraceEndMinutes { get; set; }
+    public bool SendConfirmNotificationToHost { get; set; }
     public bool UseCustomConfirmNotification { get; set; }
     public CustomNotification? CustomConfirmNotification { get; set; }
     public bool SendCancellationNotification { get; set; }
@@ -121,7 +164,7 @@ public class VisitorPreOnboardingSagaConfig
     public bool SendRelocationNotification { get; set; }
     public bool UseCustomRelocationNotification { get; set; }
     public CustomNotification? CustomRelocationNotification { get; set; }
-    public bool SendArrivalNotificationToOrganizer { get; set; }
+    public bool SendArrivalNotificationToHost { get; set; }
     public bool UseCustomArrivalNotification { get; set; }
     public CustomNotification? CustomArrivalNotification { get; set; }
 
@@ -130,10 +173,10 @@ public class VisitorPreOnboardingSagaConfig
         Id = Guid.Empty,
         UseCustomInviteNotification = false,
         CustomInviteNotification = null,
-        QrGenerationMode = CredentialGenerationMode.PlatformQr,
-        SystemId = null,
-        BadgeTypeId = null,
-        SendConfirmNotificationToOrganizer = false,
+        QrCredentialTypeId = null,
+        GraceStartMinutes = 30,
+        GraceEndMinutes = 30,
+        SendConfirmNotificationToHost = false,
         UseCustomConfirmNotification = false,
         CustomConfirmNotification = null,
         SendCancellationNotification = false,
@@ -145,7 +188,7 @@ public class VisitorPreOnboardingSagaConfig
         SendRelocationNotification = false,
         UseCustomRelocationNotification = false,
         CustomRelocationNotification = null,
-        SendArrivalNotificationToOrganizer = false,
+        SendArrivalNotificationToHost = false,
         UseCustomArrivalNotification = false,
         CustomArrivalNotification = null,
     };
@@ -162,7 +205,7 @@ public record SagaNotificationModel(VisitInvitation Visitor, VisitNotificationMo
 public record VisitNotificationModel(
     Guid Id,
     string Summary,
-    Guid OrganizerId,
+    Guid HostEmployeeId,
     VisitStatus Status,
     DateTimeOffset Start,
     DateTimeOffset Stop,
@@ -171,7 +214,7 @@ public record VisitNotificationModel(
     public static VisitNotificationModel FromVisit(Visit visit) => new(
         visit.Id,
         visit.Summary,
-        visit.OrganizerId,
+        visit.HostEmployeeId,
         visit.Status,
         visit.Start,
         visit.Stop,

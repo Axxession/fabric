@@ -1,5 +1,6 @@
 import { Link, Navigate } from '@tanstack/react-router';
 import { AlertCircle, Home } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { buttonVariants } from '@/shared/components/ui/button';
 
@@ -7,8 +8,9 @@ import { clearReceptionKioskResult, getReceptionKioskResult } from './reception-
 import { hasReceptionKioskSettings } from './reception-kiosk-settings';
 
 export default function ReceptionKioskFailedPage() {
+  const { t } = useTranslation();
   const result = getReceptionKioskResult();
-  const title = result?.message ?? 'Something went wrong';
+  const title = result?.message ?? t('receptionKiosk.failed.fallbackTitle');
 
   if (!hasReceptionKioskSettings()) {
     return <Navigate to="/reception-kiosk/setup" replace />;
@@ -24,16 +26,16 @@ export default function ReceptionKioskFailedPage() {
         <AlertCircle className="size-12" aria-hidden="true" />
       </div>
 
-      <p className="mt-8 text-[14px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">Reception kiosk</p>
+      <p className="mt-8 text-[14px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">{t('receptionKiosk.eyebrow')}</p>
       <h2 className="mt-3 text-[36px] font-semibold tracking-tight sm:text-[56px]">{title}</h2>
       <p className="mx-auto mt-5 max-w-2xl text-[18px] leading-8 text-muted-foreground sm:text-[22px] sm:leading-9">
-        Contact reception or organizer for help.
+        {t('receptionKiosk.failed.description')}
       </p>
 
       <div className="mt-10 grid gap-4 sm:grid-cols-1">
         <Link to="/reception-kiosk" className={buttonVariants({ size: 'lg', className: 'h-16 rounded-[1rem] text-[20px]' })} onClick={() => clearReceptionKioskResult()}>
           <Home className="size-6" aria-hidden="true" />
-          Go to home
+          {t('receptionKiosk.failed.goHome')}
         </Link>
       </div>
     </section>

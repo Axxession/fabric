@@ -7,16 +7,12 @@ public sealed class ReceptionAccessRuleAssignment
     private ReceptionAccessRuleAssignment() { }
 
     public Guid Id { get; private set; }
-    public Guid LocationId { get; private set; }
-    public Guid SystemId { get; private set; }
-    public Guid AccessLevelTypeId { get; private set; }
+    public Guid PackageId { get; private set; }
     public int GracePeriodMinutes { get; private set; }
     public ReceptionAccessPolicyTrigger Trigger { get; private set; }
 
     public static Result<ReceptionAccessRuleAssignment, ReceptionErrors> Create(
-        Guid locationId,
-        Guid systemId,
-        Guid accessLevelTypeId,
+        Guid packageId,
         int gracePeriodMinutes,
         ReceptionAccessPolicyTrigger trigger)
     {
@@ -26,27 +22,21 @@ public sealed class ReceptionAccessRuleAssignment
         return Result.Success<ReceptionAccessRuleAssignment, ReceptionErrors>(new ReceptionAccessRuleAssignment
         {
             Id = Guid.NewGuid(),
-            LocationId = locationId,
-            SystemId = systemId,
-            AccessLevelTypeId = accessLevelTypeId,
+            PackageId = packageId,
             GracePeriodMinutes = gracePeriodMinutes,
             Trigger = trigger
         });
     }
 
     public Result<ReceptionErrors> Update(
-        Guid locationId,
-        Guid systemId,
-        Guid accessLevelTypeId,
+        Guid packageId,
         int gracePeriodMinutes,
         ReceptionAccessPolicyTrigger trigger)
     {
         if (gracePeriodMinutes < 0)
             return Result.Failure(ReceptionErrors.GracePeriodMustNotBeNegative);
 
-        LocationId = locationId;
-        SystemId = systemId;
-        AccessLevelTypeId = accessLevelTypeId;
+        PackageId = packageId;
         GracePeriodMinutes = gracePeriodMinutes;
         Trigger = trigger;
         return Result.Success<ReceptionErrors>();

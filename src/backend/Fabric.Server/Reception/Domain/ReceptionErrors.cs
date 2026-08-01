@@ -13,6 +13,7 @@ public enum ReceptionErrors
     InvalidIdentityVerificationMethod,
     NotAVisitor,
     SubjectAlreadyHasOnboardedArrival,
+    ArrivalAssignedToDifferentLocation,
     ExpectedArrivalMustBeBeforeExpectedOffboard,
     GracePeriodMustNotBeNegative,
     AccessRuleAssignmentNotFound

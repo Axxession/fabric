@@ -1,7 +1,6 @@
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 
-export type CredentialGenerationMode = components['schemas']['CredentialGenerationMode'];
 export type CustomNotification = components['schemas']['CustomNotification'];
 export type VisitorPreOnboardingSagaConfig = components['schemas']['VisitorPreOnboardingSagaConfig'];
 export type VisitorPreOnboardingSagaConfigRequest = components['schemas']['VisitorPreOnboardingSagaConfigRequest'];
@@ -34,10 +33,10 @@ export function getDefaultVisitorPreOnboardingConfig(): VisitorPreOnboardingSaga
   return {
     useCustomInviteNotification: false,
     customInviteNotification: null,
-    qrGenerationMode: 'PlatformQr',
-    systemId: null,
-    badgeTypeId: null,
-    sendConfirmNotificationToOrganizer: false,
+    qrCredentialTypeId: null,
+    graceStartMinutes: 30,
+    graceEndMinutes: 30,
+    sendConfirmNotificationToHost: false,
     useCustomConfirmNotification: false,
     customConfirmNotification: null,
     sendCancellationNotification: false,
@@ -49,7 +48,7 @@ export function getDefaultVisitorPreOnboardingConfig(): VisitorPreOnboardingSaga
     sendRelocationNotification: false,
     useCustomRelocationNotification: false,
     customRelocationNotification: null,
-    sendArrivalNotificationToOrganizer: false,
+    sendArrivalNotificationToHost: false,
     useCustomArrivalNotification: false,
     customArrivalNotification: null,
   };
@@ -61,10 +60,10 @@ function toRequest(config: VisitorPreOnboardingSagaConfig): VisitorPreOnboarding
   return {
     useCustomInviteNotification: config.useCustomInviteNotification ?? defaults.useCustomInviteNotification,
     customInviteNotification: config.customInviteNotification ?? defaults.customInviteNotification,
-    qrGenerationMode: config.qrGenerationMode ?? defaults.qrGenerationMode,
-    systemId: config.systemId ?? defaults.systemId,
-    badgeTypeId: config.badgeTypeId ?? defaults.badgeTypeId,
-    sendConfirmNotificationToOrganizer: config.sendConfirmNotificationToOrganizer ?? defaults.sendConfirmNotificationToOrganizer,
+    qrCredentialTypeId: config.qrCredentialTypeId ?? defaults.qrCredentialTypeId,
+    graceStartMinutes: config.graceStartMinutes ?? defaults.graceStartMinutes,
+    graceEndMinutes: config.graceEndMinutes ?? defaults.graceEndMinutes,
+    sendConfirmNotificationToHost: config.sendConfirmNotificationToHost ?? defaults.sendConfirmNotificationToHost,
     useCustomConfirmNotification: config.useCustomConfirmNotification ?? defaults.useCustomConfirmNotification,
     customConfirmNotification: config.customConfirmNotification ?? defaults.customConfirmNotification,
     sendCancellationNotification: config.sendCancellationNotification ?? defaults.sendCancellationNotification,
@@ -76,7 +75,7 @@ function toRequest(config: VisitorPreOnboardingSagaConfig): VisitorPreOnboarding
     sendRelocationNotification: config.sendRelocationNotification ?? defaults.sendRelocationNotification,
     useCustomRelocationNotification: config.useCustomRelocationNotification ?? defaults.useCustomRelocationNotification,
     customRelocationNotification: config.customRelocationNotification ?? defaults.customRelocationNotification,
-    sendArrivalNotificationToOrganizer: config.sendArrivalNotificationToOrganizer ?? defaults.sendArrivalNotificationToOrganizer,
+    sendArrivalNotificationToHost: config.sendArrivalNotificationToHost ?? defaults.sendArrivalNotificationToHost,
     useCustomArrivalNotification: config.useCustomArrivalNotification ?? defaults.useCustomArrivalNotification,
     customArrivalNotification: config.customArrivalNotification ?? defaults.customArrivalNotification,
   };

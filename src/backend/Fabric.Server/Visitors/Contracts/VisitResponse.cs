@@ -6,7 +6,7 @@ namespace Fabric.Server.Visitors.Contracts;
 public record VisitResponse(
     Guid Id,
     string Summary,
-    OrganizerResponse Organizer,
+    HostResponse Host,
     VisitStatus Status,
     DateTimeOffset? Start,
     DateTimeOffset? Stop,
@@ -28,7 +28,7 @@ public record VisitInvitationResponse(
     DateTimeOffset? ArrivedAt,
     DateTimeOffset? NoShowAt);
 
-public record VisitorResponse(Guid Id, string FirstName, string LastName, string Email, string? Company, string? LicensePlate);
+public record VisitorResponse(Guid Id, Guid IdentityId, string FirstName, string LastName, string Email, string? Company, string? LicensePlate);
 
 public record VisitConfirmationResponse(
     Guid VisitId,
@@ -39,7 +39,7 @@ public record VisitConfirmationResponse(
     DateTimeOffset Stop,
     Guid? LocationId,
     string? LocationLabel,
-    OrganizerResponse Organizer,
+    HostResponse Host,
     VisitConfirmationVisitorResponse Visitor,
     ParticipantConfirmationStatus ConfirmationStatus,
     DateTimeOffset? RejectedAt,
@@ -57,12 +57,12 @@ public record VisitConfirmationVisitorResponse(
 [Mapper]
 public static partial class VisitMapper
 {
-    public static VisitResponse ToResponse(this Visit visit, Organizer organizer)
+    public static VisitResponse ToResponse(this Visit visit, HostResponse host)
     {
         return new VisitResponse(
             visit.Id,
             visit.Summary,
-            organizer.ToResponse(),
+            host,
             visit.Status,
             visit.Start,
             visit.Stop,
@@ -70,14 +70,11 @@ public static partial class VisitMapper
             visit.Invitations.Select(ToResponse).ToArray());
     }
 
-    [MapperIgnoreSource(nameof(Organizer.Active))]
-    public static partial OrganizerResponse ToResponse(this Organizer organizer);
-
     public static partial VisitorResponse ToResponse(this Visitor visitor);
 
     public static partial VisitInvitationResponse ToResponse(this VisitInvitation invitation);
 
-    public static VisitConfirmationResponse ToConfirmationResponse(this Visit visit, VisitInvitation invitation, Organizer organizer, string? locationLabel)
+    public static VisitConfirmationResponse ToConfirmationResponse(this Visit visit, VisitInvitation invitation, HostResponse host, string? locationLabel)
     {
         return new VisitConfirmationResponse(
             visit.Id,
@@ -88,7 +85,7 @@ public static partial class VisitMapper
             visit.Stop,
             visit.LocationId,
             locationLabel,
-            organizer.ToResponse(),
+            host,
             new VisitConfirmationVisitorResponse(
                 invitation.VisitorId,
                 invitation.FirstName,

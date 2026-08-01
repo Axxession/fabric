@@ -8,6 +8,9 @@ public static class KioskServiceCollectionExtensions
 {
     public static IServiceCollection SetupKiosk(this IServiceCollection collection, IConfiguration configuration)
     {
+        IConfigurationSection automationSection = configuration.GetSection("EnableAutomation");
+        bool enableAutomation = automationSection.Exists() && automationSection.Get<bool>();
+
         collection.AddDbContext<KioskDbContext>(options =>
         {
             options.UseNpgsql(configuration.GetConnectionString("Database"),
@@ -17,14 +20,18 @@ public static class KioskServiceCollectionExtensions
         collection.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Add(KioskJsonSerializerContext.Default));
 
-        collection.Configure<KioskAssetStorageOptions>(configuration.GetSection("Kiosk:AssetStorage"));
         collection.AddScoped<KioskKeyHasher>();
         collection.AddScoped<IKioskAssetStorage, KioskAssetStorage>();
         collection.AddScoped<KioskHardwareBindingResolver>();
         collection.AddScoped<KioskDeviceResolver>();
         collection.AddScoped<KioskInstructionService>();
         collection.AddScoped<KioskSessionCleanupService>();
-        collection.AddScoped<KioskSessionCancellationService>();
+
+        if (enableAutomation)
+        {
+            collection.AddScoped<KioskSessionCancellationService>();
+        }
+
         return collection;
     }
 }

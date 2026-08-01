@@ -101,6 +101,27 @@ namespace Fabric.Server.Tenants.Persistence.Migrations
                                         .HasForeignKey("TenantConfigurationTenantId");
                                 });
 
+                            b1.OwnsOne("Fabric.Server.Tenants.Domain.HostSettings", "Host", b2 =>
+                                {
+                                    b2.Property<string>("TenantConfigurationTenantId")
+                                        .HasColumnType("character varying(100)");
+
+                                    b2.Property<string>("AssignmentMode")
+                                        .IsRequired()
+                                        .ValueGeneratedOnAdd()
+                                        .HasMaxLength(50)
+                                        .HasColumnType("character varying(50)")
+                                        .HasDefaultValue("AllEmployees")
+                                        .HasColumnName("host_assignment_mode");
+
+                                    b2.HasKey("TenantConfigurationTenantId");
+
+                                    b2.ToTable("tenants", "tenancy");
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("TenantConfigurationTenantId");
+                                });
+
                             b1.OwnsOne("Fabric.Server.Tenants.Domain.LogoSettings", "Logo", b2 =>
                                 {
                                     b2.Property<string>("TenantConfigurationTenantId")
@@ -281,6 +302,9 @@ namespace Fabric.Server.Tenants.Persistence.Migrations
                                 });
 
                             b1.Navigation("GraphEmail");
+
+                            b1.Navigation("Host")
+                                .IsRequired();
 
                             b1.Navigation("Logo");
 
