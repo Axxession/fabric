@@ -1,6 +1,8 @@
 import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
+import { resolveInitialAppLanguage } from '@/shared/i18n/app-language';
+
 export const i18n = i18next.createInstance();
 
 const resources = {
@@ -12,10 +14,16 @@ const resources = {
         signIn: 'Sign in',
         signOut: 'Sign out',
         menu: 'Menu',
+        language: 'Language',
+        openLanguageMenu: 'Open language menu',
         configurationError: 'Configuration error',
         fabricCannotStart: 'Fabric cannot start',
         signedIn: 'Signed in',
         openAccountMenu: 'Open account menu',
+        languages: {
+          english: 'English',
+          dutch: 'Dutch',
+        },
       },
       shell: {
         loadingTenantSettings: 'Loading tenant settings...',
@@ -121,6 +129,14 @@ const resources = {
           chipDesigner: { label: 'Chip Designer', description: 'Build chip designs, transformations, and system providers.' },
           printing: { label: 'Printing', description: 'Schedule encoding batches, inspect runs, and bind encoders.' },
         },
+      },
+      receptionDeskWorkstation: {
+        title: 'Reception desk workstation',
+        openOperatorMenu: 'Open operator menu',
+        expectedArrivals: 'Expected Arrivals',
+        arrivals: 'Arrivals',
+        history: 'History',
+        setup: 'Setup',
       },
       visitorConfirmation: {
         car: 'Car',
@@ -1123,11 +1139,24 @@ const resources = {
       },
     },
   },
+  nl: {
+    translation: {
+      common: {
+        language: 'Taal',
+        openLanguageMenu: 'Open taalmenu',
+        languages: {
+          english: 'Engels',
+          dutch: 'Nederlands',
+        },
+      },
+    },
+  },
 } as const;
 
 i18n.use(initReactI18next).init({
   fallbackLng: 'en',
-  lng: 'en',
+  supportedLngs: ['en', 'nl'],
+  lng: resolveInitialAppLanguage(),
   resources,
   interpolation: {
     escapeValue: false,

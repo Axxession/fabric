@@ -1,6 +1,7 @@
 import { Link, useLocation } from '@tanstack/react-router';
 import { ChevronDown, LogIn, Settings2 } from 'lucide-react';
 import { type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from 'react-oidc-context';
 
 import { useCurrentActor } from '@/shared/actors/current-actor';
@@ -8,14 +9,16 @@ import { FabricLogo } from '@/shared/branding/fabric-logo';
 import { useBranding } from '@/shared/branding/branding-context';
 import { Button, buttonVariants } from '@/shared/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover';
+import { AppLanguageSelect } from '@/shared/i18n/app-language-select';
 import { cn } from '@/shared/utils/cn';
 
 export function ReceptionDeskWorkstationLayout({ children }: { readonly children: ReactNode }) {
+  const { t } = useTranslation();
   const auth = useAuth();
   const actorQuery = useCurrentActor();
   const branding = useBranding();
   const location = useLocation();
-  const currentUserName = actorQuery.data?.displayName ?? readProfileValue(auth.user?.profile.name) ?? readProfileValue(auth.user?.profile.preferred_username) ?? readProfileValue(auth.user?.profile.email) ?? 'Signed in';
+  const currentUserName = actorQuery.data?.displayName ?? readProfileValue(auth.user?.profile.name) ?? readProfileValue(auth.user?.profile.preferred_username) ?? readProfileValue(auth.user?.profile.email) ?? t('common.signedIn');
   const currentUserSecondary = actorQuery.data?.email ?? readProfileValue(auth.user?.profile.email) ?? readProfileValue(auth.user?.profile.preferred_username);
 
   return (
@@ -26,39 +29,42 @@ export function ReceptionDeskWorkstationLayout({ children }: { readonly children
             <div className="flex items-center gap-3">
               <FabricLogo logoUrl={branding.logoUrl} />
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Reception desk workstation</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">{t('receptionDeskWorkstation.title')}</p>
                 <h1 className="text-[18px] font-semibold tracking-tight sm:text-[22px]">{branding.appName}</h1>
               </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <WorkstationNavLink to="/reception-desk-workstation/expected-arrivals" currentPath={location.pathname}>Expected Arrivals</WorkstationNavLink>
-              <WorkstationNavLink to="/reception-desk-workstation/arrivals" currentPath={location.pathname}>Arrivals</WorkstationNavLink>
-              <WorkstationNavLink to="/reception-desk-workstation/history" currentPath={location.pathname}>History</WorkstationNavLink>
+              <WorkstationNavLink to="/reception-desk-workstation/expected-arrivals" currentPath={location.pathname}>{t('receptionDeskWorkstation.expectedArrivals')}</WorkstationNavLink>
+              <WorkstationNavLink to="/reception-desk-workstation/arrivals" currentPath={location.pathname}>{t('receptionDeskWorkstation.arrivals')}</WorkstationNavLink>
+              <WorkstationNavLink to="/reception-desk-workstation/history" currentPath={location.pathname}>{t('receptionDeskWorkstation.history')}</WorkstationNavLink>
               {auth.isAuthenticated ? (
-                <Popover>
-                  <PopoverTrigger render={<Button type="button" variant="outline" size="sm" className="ml-0 max-w-[16rem] justify-between lg:ml-2" aria-label="Open operator menu" />}>
-                    <span className="truncate text-left text-[14px] font-semibold">{currentUserName}</span>
-                    <ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />
-                  </PopoverTrigger>
-                  <PopoverContent align="end" className="grid min-w-64 gap-3 p-3">
-                    <div className="min-w-0 border-b border-border pb-3">
-                      <p className="truncate text-[14px] font-semibold text-foreground">{currentUserName}</p>
-                      {currentUserSecondary && currentUserSecondary !== currentUserName ? <p className="mt-1 truncate text-[13px] text-muted-foreground">{currentUserSecondary}</p> : null}
-                    </div>
-                    <Link to="/reception-desk-workstation/setup" className={buttonVariants({ variant: 'ghost', className: 'justify-start' })}>
-                      <Settings2 className="size-4" aria-hidden="true" />
-                      Setup
-                    </Link>
-                    <Button type="button" variant="ghost" className="justify-start" onClick={() => void auth.signoutRedirect().catch(() => auth.removeUser())}>
-                      Sign out
-                    </Button>
-                  </PopoverContent>
-                </Popover>
+                <>
+                  <AppLanguageSelect />
+                  <Popover>
+                    <PopoverTrigger render={<Button type="button" variant="outline" size="sm" className="ml-0 max-w-[16rem] justify-between lg:ml-2" aria-label={t('receptionDeskWorkstation.openOperatorMenu')} />}>
+                      <span className="truncate text-left text-[14px] font-semibold">{currentUserName}</span>
+                      <ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="grid min-w-64 gap-3 p-3">
+                      <div className="min-w-0 border-b border-border pb-3">
+                        <p className="truncate text-[14px] font-semibold text-foreground">{currentUserName}</p>
+                        {currentUserSecondary && currentUserSecondary !== currentUserName ? <p className="mt-1 truncate text-[13px] text-muted-foreground">{currentUserSecondary}</p> : null}
+                      </div>
+                      <Link to="/reception-desk-workstation/setup" className={buttonVariants({ variant: 'ghost', className: 'justify-start' })}>
+                        <Settings2 className="size-4" aria-hidden="true" />
+                        {t('receptionDeskWorkstation.setup')}
+                      </Link>
+                      <Button type="button" variant="ghost" className="justify-start" onClick={() => void auth.signoutRedirect().catch(() => auth.removeUser())}>
+                        {t('common.signOut')}
+                      </Button>
+                    </PopoverContent>
+                  </Popover>
+                </>
               ) : (
                 <Button type="button" variant="outline" size="sm" className="ml-0 lg:ml-2" onClick={() => void auth.signinRedirect({ state: { returnTo: '/reception-desk-workstation' } })}>
                   <LogIn className="size-4" aria-hidden="true" />
-                  Sign in
+                  {t('common.signIn')}
                 </Button>
               )}
             </div>

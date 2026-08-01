@@ -10,6 +10,7 @@ import { useBranding } from '@/shared/branding/branding-context';
 import { isElsaStudioFullscreenRoute } from '@/features/automation/elsa-studio-fullscreen';
 import { Button } from '@/shared/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover';
+import { AppLanguageSelect } from '@/shared/i18n/app-language-select';
 import { PerspectiveSidebar } from '@/shared/layout/perspective-sidebar';
 import { NoPerspectiveWarning } from '@/shared/perspectives/no-perspective-warning';
 import { getAvailablePerspectives, getPerspectiveByPathname } from '@/shared/perspectives/app-perspectives';
@@ -50,23 +51,26 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 <FabricLogo logoUrl={branding.logoUrl} />
                 <span className="hidden text-[20px] font-semibold tracking-tight min-[380px]:inline">{branding.appName}</span>
               </Link>
-              <div className="ml-auto">
+              <div className="ml-auto flex items-center gap-2">
                 {auth.isAuthenticated ? (
-                  <Popover>
-                    <PopoverTrigger render={<Button type="button" variant="outline" className="max-w-[16rem] justify-between sm:max-w-[20rem]" aria-label={t('common.openAccountMenu')} />}>
-                      <span className="truncate text-left text-[14px] font-semibold">{currentUserName}</span>
-                      <ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />
-                    </PopoverTrigger>
-                    <PopoverContent align="end" className="grid min-w-64 gap-3 p-3">
-                      <div className="min-w-0 border-b border-border pb-3">
-                        <p className="truncate text-[14px] font-semibold text-foreground">{currentUserName}</p>
-                        {currentUserSecondary && currentUserSecondary !== currentUserName ? <p className="mt-1 truncate text-[13px] text-muted-foreground">{currentUserSecondary}</p> : null}
-                      </div>
-                      <Button type="button" variant="ghost" className="justify-start" onClick={() => void auth.signoutRedirect().catch(() => auth.removeUser())}>
-                        {t('common.signOut')}
-                      </Button>
-                    </PopoverContent>
-                  </Popover>
+                  <>
+                    <AppLanguageSelect />
+                    <Popover>
+                      <PopoverTrigger render={<Button type="button" variant="outline" className="max-w-[16rem] justify-between sm:max-w-[20rem]" aria-label={t('common.openAccountMenu')} />}>
+                        <span className="truncate text-left text-[14px] font-semibold">{currentUserName}</span>
+                        <ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="grid min-w-64 gap-3 p-3">
+                        <div className="min-w-0 border-b border-border pb-3">
+                          <p className="truncate text-[14px] font-semibold text-foreground">{currentUserName}</p>
+                          {currentUserSecondary && currentUserSecondary !== currentUserName ? <p className="mt-1 truncate text-[13px] text-muted-foreground">{currentUserSecondary}</p> : null}
+                        </div>
+                        <Button type="button" variant="ghost" className="justify-start" onClick={() => void auth.signoutRedirect().catch(() => auth.removeUser())}>
+                          {t('common.signOut')}
+                        </Button>
+                      </PopoverContent>
+                    </Popover>
+                  </>
                 ) : null}
               </div>
             </div>

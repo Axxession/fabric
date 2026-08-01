@@ -9,15 +9,8 @@ import { FabricLogo } from '@/shared/branding/fabric-logo';
 import { useBranding } from '@/shared/branding/branding-context';
 import { Button } from '@/shared/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover';
-import { i18n } from '@/shared/i18n/i18n';
+import { AppLanguageSelect } from '@/shared/i18n/app-language-select';
 import { useTenantSettings } from '@/shared/tenant/tenant-settings-context';
-
-const desfireStudioMenuItems = [
-  { label: i18n.t('desfireStudio.menu.hardwareAgents.label'), description: i18n.t('desfireStudio.menu.hardwareAgents.description'), to: '/desfire-studio/hardware-agents' },
-  { label: i18n.t('desfireStudio.menu.keyManagement.label'), description: i18n.t('desfireStudio.menu.keyManagement.description'), to: '/desfire-studio/key-management' },
-  { label: i18n.t('desfireStudio.menu.chipDesigner.label'), description: i18n.t('desfireStudio.menu.chipDesigner.description'), to: '/desfire-studio/chip-designer' },
-  { label: i18n.t('desfireStudio.menu.printing.label'), description: i18n.t('desfireStudio.menu.printing.description'), to: '/desfire-studio/printing' },
-] as const;
 
 export function DesfireStudioLayout({ children }: { readonly children: ReactNode }) {
   const location = useLocation();
@@ -26,6 +19,12 @@ export function DesfireStudioLayout({ children }: { readonly children: ReactNode
   const branding = useBranding();
   const actorQuery = useCurrentActor();
   const tenantSettings = useTenantSettings();
+  const desfireStudioMenuItems = [
+    { label: t('desfireStudio.menu.hardwareAgents.label'), description: t('desfireStudio.menu.hardwareAgents.description'), to: '/desfire-studio/hardware-agents' },
+    { label: t('desfireStudio.menu.keyManagement.label'), description: t('desfireStudio.menu.keyManagement.description'), to: '/desfire-studio/key-management' },
+    { label: t('desfireStudio.menu.chipDesigner.label'), description: t('desfireStudio.menu.chipDesigner.description'), to: '/desfire-studio/chip-designer' },
+    { label: t('desfireStudio.menu.printing.label'), description: t('desfireStudio.menu.printing.description'), to: '/desfire-studio/printing' },
+  ] as const;
   const currentUserName = actorQuery.data?.displayName ?? readProfileValue(auth.user?.profile.name) ?? readProfileValue(auth.user?.profile.preferred_username) ?? readProfileValue(auth.user?.profile.email) ?? t('common.signedIn');
   const currentUserSecondary = actorQuery.data?.email ?? readProfileValue(auth.user?.profile.email) ?? readProfileValue(auth.user?.profile.preferred_username);
 
@@ -40,23 +39,26 @@ export function DesfireStudioLayout({ children }: { readonly children: ReactNode
               <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{t('desfireStudio.title')}</p>
             </div>
           </Link>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
             {auth.isAuthenticated ? (
-              <Popover>
-                <PopoverTrigger render={<Button type="button" variant="outline" className="max-w-[16rem] justify-between sm:max-w-[20rem]" aria-label={t('common.openAccountMenu')} />}>
-                  <span className="truncate text-left text-[14px] font-semibold">{currentUserName}</span>
-                  <ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />
-                </PopoverTrigger>
-                <PopoverContent align="end" className="grid min-w-64 gap-3 p-3">
-                  <div className="min-w-0 border-b border-border pb-3">
-                    <p className="truncate text-[14px] font-semibold text-foreground">{currentUserName}</p>
-                    {currentUserSecondary && currentUserSecondary !== currentUserName ? <p className="mt-1 truncate text-[13px] text-muted-foreground">{currentUserSecondary}</p> : null}
-                  </div>
-                  <Button type="button" variant="ghost" className="justify-start" onClick={() => void auth.signoutRedirect().catch(() => auth.removeUser())}>
-                    {t('common.signOut')}
-                  </Button>
-                </PopoverContent>
-              </Popover>
+              <>
+                <AppLanguageSelect />
+                <Popover>
+                  <PopoverTrigger render={<Button type="button" variant="outline" className="max-w-[16rem] justify-between sm:max-w-[20rem]" aria-label={t('common.openAccountMenu')} />}>
+                    <span className="truncate text-left text-[14px] font-semibold">{currentUserName}</span>
+                    <ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="grid min-w-64 gap-3 p-3">
+                    <div className="min-w-0 border-b border-border pb-3">
+                      <p className="truncate text-[14px] font-semibold text-foreground">{currentUserName}</p>
+                      {currentUserSecondary && currentUserSecondary !== currentUserName ? <p className="mt-1 truncate text-[13px] text-muted-foreground">{currentUserSecondary}</p> : null}
+                    </div>
+                    <Button type="button" variant="ghost" className="justify-start" onClick={() => void auth.signoutRedirect().catch(() => auth.removeUser())}>
+                      {t('common.signOut')}
+                    </Button>
+                  </PopoverContent>
+                </Popover>
+              </>
             ) : null}
           </div>
         </div>
