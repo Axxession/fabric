@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { ChevronRight } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
@@ -25,6 +26,7 @@ type PaginationState = {
 const pageSize = 10;
 
 export default function IdentitiesPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [page, setPage] = useState(0);
   const [query, setQuery] = useState('');
@@ -37,7 +39,7 @@ export default function IdentitiesPage() {
       });
 
       if (error) {
-        throw new Error('Could not load identities.');
+        throw new Error(t('identities.list.couldNotLoad'));
       }
 
       return data;
@@ -55,19 +57,19 @@ export default function IdentitiesPage() {
     <Card className="p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-[20px] font-semibold tracking-tight">Identity 360</h2>
-          <p className="mt-2 text-[14px] text-muted-foreground">Review canonical identities and drill into a full identity record.</p>
+          <h2 className="text-[20px] font-semibold tracking-tight">{t('identities.list.title')}</h2>
+          <p className="mt-2 text-[14px] text-muted-foreground">{t('identities.list.description')}</p>
         </div>
       </div>
 
       <div className="mt-6 grid gap-2 sm:max-w-sm">
-        <label className="text-[14px] font-medium" htmlFor="identity-query">Search identities</label>
-        <input id="identity-query" className="h-9 rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary focus:ring-[3px] focus:ring-primary/20" value={query} onChange={(event) => { setQuery(event.target.value); setPage(0); }} placeholder="Search by name or email" />
+        <label className="text-[14px] font-medium" htmlFor="identity-query">{t('identities.list.searchLabel')}</label>
+        <input id="identity-query" className="h-9 rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary focus:ring-[3px] focus:ring-primary/20" value={query} onChange={(event) => { setQuery(event.target.value); setPage(0); }} placeholder={t('identities.list.searchPlaceholder')} />
       </div>
 
-      {identitiesQuery.isError ? <p className="mt-6 rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load identities.</p> : null}
-      {identitiesQuery.isLoading ? <p className="mt-6 text-[14px] text-muted-foreground">Loading identities...</p> : null}
-      {!identitiesQuery.isLoading && items.length === 0 ? <p className="mt-6 rounded-structural border border-dashed border-border p-6 text-[14px] text-muted-foreground">No identities found.</p> : null}
+      {identitiesQuery.isError ? <p className="mt-6 rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">{t('identities.list.couldNotLoad')}</p> : null}
+      {identitiesQuery.isLoading ? <p className="mt-6 text-[14px] text-muted-foreground">{t('identities.list.loading')}</p> : null}
+      {!identitiesQuery.isLoading && items.length === 0 ? <p className="mt-6 rounded-structural border border-dashed border-border p-6 text-[14px] text-muted-foreground">{t('identities.list.empty')}</p> : null}
 
       {items.length > 0 ? (
         <>
@@ -75,11 +77,11 @@ export default function IdentitiesPage() {
             <table className="w-full min-w-[64rem] border-collapse text-left text-[14px]">
               <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3 font-semibold">Name</th>
-                  <th className="px-4 py-3 font-semibold">Email</th>
-                  <th className="px-4 py-3 font-semibold">Status</th>
-                  <th className="px-4 py-3 font-semibold">Affiliations</th>
-                  <th className="px-4 py-3 text-right font-semibold">Open</th>
+                  <th className="px-4 py-3 font-semibold">{t('identities.list.name')}</th>
+                  <th className="px-4 py-3 font-semibold">{t('identities.list.email')}</th>
+                  <th className="px-4 py-3 font-semibold">{t('identities.list.status')}</th>
+                  <th className="px-4 py-3 font-semibold">{t('identities.list.affiliations')}</th>
+                  <th className="px-4 py-3 text-right font-semibold">{t('identities.list.open')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -88,7 +90,7 @@ export default function IdentitiesPage() {
                     <td className="px-4 py-4 font-medium text-foreground">{item.displayName}</td>
                     <td className="px-4 py-4 text-muted-foreground">{item.email ?? '-'}</td>
                     <td className="px-4 py-4"><Badge variant={getStatusVariant(item.status)}>{item.status}</Badge></td>
-                    <td className="px-4 py-4 text-muted-foreground">{formatAffiliations(item)}</td>
+                    <td className="px-4 py-4 text-muted-foreground">{formatAffiliations(item, t)}</td>
                     <td className="px-4 py-4 text-right text-muted-foreground"><span className="inline-flex items-center justify-center"><ChevronRight className="size-4" aria-hidden="true" /></span></td>
                   </tr>
                 ))}
@@ -102,13 +104,13 @@ export default function IdentitiesPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-medium text-foreground">{item.displayName}</p>
-                    <p className="mt-1 text-[13px] text-muted-foreground">{item.email ?? 'No email'}</p>
+                    <p className="mt-1 text-[13px] text-muted-foreground">{item.email ?? t('identities.list.noEmail')}</p>
                   </div>
                   <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
                 </div>
                 <dl className="mt-4 grid gap-2 text-[14px]">
-                  <div className="flex items-center justify-between gap-3"><dt className="text-muted-foreground">Status</dt><dd><Badge variant={getStatusVariant(item.status)}>{item.status}</Badge></dd></div>
-                  <div className="flex items-center justify-between gap-3"><dt className="text-muted-foreground">Affiliations</dt><dd className="text-right text-foreground">{formatAffiliations(item)}</dd></div>
+                  <div className="flex items-center justify-between gap-3"><dt className="text-muted-foreground">{t('identities.list.status')}</dt><dd><Badge variant={getStatusVariant(item.status)}>{item.status}</Badge></dd></div>
+                  <div className="flex items-center justify-between gap-3"><dt className="text-muted-foreground">{t('identities.list.affiliations')}</dt><dd className="text-right text-foreground">{formatAffiliations(item, t)}</dd></div>
                 </dl>
               </article>
             ))}
@@ -116,7 +118,7 @@ export default function IdentitiesPage() {
 
           {pagination.totalPages > 1 ? (
             <div className="mt-6 flex flex-col gap-3 border-t border-border pt-4 text-[14px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-              <p>Showing {pagination.firstItem}-{pagination.lastItem} of {pagination.totalItems}</p>
+              <p>{t('identities.list.showing', { first: pagination.firstItem, last: pagination.lastItem, total: pagination.totalItems })}</p>
               <Pagination>
                 <PaginationContent>
                   <PaginationItem>
@@ -138,14 +140,14 @@ export default function IdentitiesPage() {
   );
 }
 
-function formatAffiliations(identity: IdentityResponse) {
+function formatAffiliations(identity: IdentityResponse, t: ReturnType<typeof useTranslation>['t']) {
   const parts = [
-    ...identity.employeeAffiliations.map((item) => formatAffiliation('Employee', item)),
-    ...identity.contractorAffiliations.map((item) => formatAffiliation('Contractor', item)),
-    ...identity.visitorAffiliations.map((item) => formatAffiliation('Visitor', item)),
+    ...identity.employeeAffiliations.map((item) => formatAffiliation(t('identities.list.employee'), item)),
+    ...identity.contractorAffiliations.map((item) => formatAffiliation(t('identities.list.contractor'), item)),
+    ...identity.visitorAffiliations.map((item) => formatAffiliation(t('identities.list.visitor'), item)),
   ];
 
-  return parts.length > 0 ? parts.join(', ') : 'None';
+  return parts.length > 0 ? parts.join(', ') : t('identities.list.none');
 }
 
 function formatAffiliation(label: string, affiliation: IdentityAffiliationSummaryResponse) {

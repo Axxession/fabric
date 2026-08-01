@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { Fragment, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import { api } from '@/shared/api/client';
@@ -10,6 +11,7 @@ import { getLocationLabel, type LocationResponse } from '@/shared/components/loc
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Card } from '@/shared/components/ui/card';
+import { i18n } from '@/shared/i18n/i18n';
 
 type AccessControlSystemResponse = components['schemas']['AccessControlSystemResponse'];
 type AccessLevelTargetResponse = components['schemas']['AccessLevelTargetResponse'];
@@ -37,25 +39,25 @@ type VisitorResponse = components['schemas']['VisitorResponse'];
 
 type IdentitySection = 'overview' | 'assignments' | 'credentials' | 'known-in' | 'requests';
 
-const sections: readonly { id: IdentitySection; label: string; description: string }[] = [
-  { id: 'overview', label: 'Overview', description: 'Employee and visitor details for this identity.' },
-  { id: 'assignments', label: 'Assignments', description: 'Granted access and PACS provisioning state.' },
-  { id: 'credentials', label: 'Credentials', description: 'Issued credentials and PACS provisioning state.' },
-  { id: 'known-in', label: 'Known in', description: 'PACS subjects linked to this identity.' },
-  { id: 'requests', label: 'Requests', description: 'Catalog requests where this identity is beneficiary.' },
-];
-
 export default function IdentityDetailPage() {
+  const { t } = useTranslation();
   const { identityId } = useParams({ from: '/main/security-officer/identities/$identityId' });
   const navigate = useNavigate();
   const [section, setSection] = useState<IdentitySection>('overview');
+  const sections: readonly { id: IdentitySection; label: string; description: string }[] = [
+    { id: 'overview', label: t('identities.detail.overview.label'), description: t('identities.detail.overview.description') },
+    { id: 'assignments', label: t('identities.detail.assignments.label'), description: t('identities.detail.assignments.description') },
+    { id: 'credentials', label: t('identities.detail.credentials.label'), description: t('identities.detail.credentials.description') },
+    { id: 'known-in', label: t('identities.detail.knownIn.label'), description: t('identities.detail.knownIn.description') },
+    { id: 'requests', label: t('identities.detail.requests.label'), description: t('identities.detail.requests.description') },
+  ];
 
   const identityQuery = useQuery({
     queryKey: ['security-officer', 'identity-360', identityId, 'identity'],
     queryFn: async () => {
       const { data, error } = await api.GET('/api/identities/{id}', { params: { path: { id: identityId } } });
       if (error || !data) {
-        throw new Error('Could not load identity.');
+        throw new Error(t('identities.detail.couldNotLoad'));
       }
       return data;
     },
@@ -306,11 +308,11 @@ export default function IdentityDetailPage() {
     <section className="grid gap-6">
       <Link to="/security-officer/identities" className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground">
         <ArrowLeft className="size-4" aria-hidden="true" />
-        Back to Identity 360
+        {t('identities.detail.back')}
       </Link>
 
-      {identityQuery.isLoading ? <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">Loading identity...</p> : null}
-      {identityQuery.isError || !identity ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load identity.</p> : null}
+      {identityQuery.isLoading ? <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">{t('identities.detail.loading')}</p> : null}
+      {identityQuery.isError || !identity ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">{t('identities.detail.couldNotLoad')}</p> : null}
 
       {identity ? (
         <>
@@ -318,7 +320,7 @@ export default function IdentityDetailPage() {
 
           <div className="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
             <Card className="p-3">
-              <nav className="grid gap-2" aria-label="Identity 360 navigation">
+              <nav className="grid gap-2" aria-label={t('identities.detail.navigation')}>
                 {sections.map((item) => (
                   <button key={item.id} type="button" className={section === item.id ? 'rounded-interactive bg-active-blue px-3 py-3 text-left text-foreground' : 'rounded-interactive px-3 py-3 text-left text-foreground transition hover:bg-hover-blue'} onClick={() => setSection(item.id)}>
                     <span className="block font-semibold">{item.label}</span>
@@ -343,10 +345,11 @@ export default function IdentityDetailPage() {
 }
 
 function IdentityHeader({ identity }: { readonly identity: IdentityResponse }) {
+  const { t } = useTranslation();
   const affiliationLabels = [
-    identity.employeeAffiliations.length > 0 ? 'Employee' : null,
-    identity.contractorAffiliations.length > 0 ? 'Contractor' : null,
-    identity.visitorAffiliations.length > 0 ? 'Visitor' : null,
+    identity.employeeAffiliations.length > 0 ? t('identities.list.employee') : null,
+    identity.contractorAffiliations.length > 0 ? t('identities.list.contractor') : null,
+    identity.visitorAffiliations.length > 0 ? t('identities.list.visitor') : null,
   ].filter((item): item is string => item !== null);
 
   return (
@@ -357,10 +360,10 @@ function IdentityHeader({ identity }: { readonly identity: IdentityResponse }) {
             <h1 className="text-[28px] font-semibold tracking-tight">{identity.displayName}</h1>
             <Badge variant={getIdentityStatusVariant(identity.status)}>{identity.status}</Badge>
           </div>
-          <p className="mt-2 text-[14px] text-muted-foreground">{identity.email ?? 'No email'}</p>
+          <p className="mt-2 text-[14px] text-muted-foreground">{identity.email ?? t('identities.detail.noEmail')}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {affiliationLabels.length > 0 ? affiliationLabels.map((label) => <Badge key={label} variant="secondary">{label}</Badge>) : <Badge variant="outline">No affiliations</Badge>}
+          {affiliationLabels.length > 0 ? affiliationLabels.map((label) => <Badge key={label} variant="secondary">{label}</Badge>) : <Badge variant="outline">{t('identities.detail.noAffiliations')}</Badge>}
         </div>
       </div>
     </Card>
@@ -368,35 +371,36 @@ function IdentityHeader({ identity }: { readonly identity: IdentityResponse }) {
 }
 
 function OverviewSection({ employeeDetails, employeeWorkLocationLabels, employeeLoading, employeeError, visitorDetails, visitorLoading, visitorError }: { readonly employeeDetails: EmployeeResponse[]; readonly employeeWorkLocationLabels: Map<string, string>; readonly employeeLoading: boolean; readonly employeeError: boolean; readonly visitorDetails: VisitorResponse[]; readonly visitorLoading: boolean; readonly visitorError: boolean; }) {
+  const { t } = useTranslation();
   return (
     <>
-      {employeeError || visitorError ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load overview details.</p> : null}
-      {employeeLoading || visitorLoading ? <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">Loading overview...</p> : null}
-      {!employeeLoading && !visitorLoading && employeeDetails.length === 0 && visitorDetails.length === 0 ? <Card className="p-6 text-[14px] text-muted-foreground">No employee or visitor details linked to this identity.</Card> : null}
+      {employeeError || visitorError ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">{t('identities.detail.couldNotLoadOverview')}</p> : null}
+      {employeeLoading || visitorLoading ? <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">{t('identities.detail.loadingOverview')}</p> : null}
+      {!employeeLoading && !visitorLoading && employeeDetails.length === 0 && visitorDetails.length === 0 ? <Card className="p-6 text-[14px] text-muted-foreground">{t('identities.detail.noOverview')}</Card> : null}
 
       {employeeDetails.map((employee) => (
         <Card key={employee.id} className="p-6">
-          <h2 className="text-[18px] font-semibold tracking-tight">Employee</h2>
+          <h2 className="text-[18px] font-semibold tracking-tight">{t('identities.list.employee')}</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <Info label="Employee number" value={employee.employeeNumber ?? '-'} />
-            <Info label="Organization unit" value={employee.organizationUnit.name} />
-            <Info label="Job title" value={employee.jobTitle ?? '-'} />
-            <Info label="Status" value={employee.status} />
-            <Info label="Contract" value={employee.contractStartDate ? `${employee.contractStartDate}${employee.contractEndDate ? ` to ${employee.contractEndDate}` : ''}` : '-'} />
-            <Info label="Personas" value={employee.personas.length > 0 ? employee.personas.map((item) => item.name).join(', ') : 'None'} />
-            <Info label="Work locations" value={employee.workLocations.length > 0 ? employee.workLocations.map((item) => employeeWorkLocationLabels.get(item.locationId) ? `${employeeWorkLocationLabels.get(item.locationId)}${item.isPrimary ? ' (Primary)' : ''}` : item.isPrimary ? 'Primary location' : 'Location').join(', ') : 'None'} />
+            <Info label={t('identities.detail.employeeNumber')} value={employee.employeeNumber ?? '-'} />
+            <Info label={t('identities.detail.organizationUnit')} value={employee.organizationUnit.name} />
+            <Info label={t('identities.detail.jobTitle')} value={employee.jobTitle ?? '-'} />
+            <Info label={t('identities.detail.status')} value={employee.status} />
+            <Info label={t('identities.detail.contract')} value={employee.contractStartDate ? `${employee.contractStartDate}${employee.contractEndDate ? ` to ${employee.contractEndDate}` : ''}` : '-'} />
+            <Info label={t('identities.detail.personas')} value={employee.personas.length > 0 ? employee.personas.map((item) => item.name).join(', ') : t('identities.list.none')} />
+            <Info label={t('identities.detail.workLocations')} value={employee.workLocations.length > 0 ? employee.workLocations.map((item) => employeeWorkLocationLabels.get(item.locationId) ? `${employeeWorkLocationLabels.get(item.locationId)}${item.isPrimary ? ` (${t('identities.detail.primary')})` : ''}` : item.isPrimary ? t('identities.detail.primaryLocation') : t('identities.detail.location')).join(', ') : t('identities.list.none')} />
           </div>
         </Card>
       ))}
 
       {visitorDetails.map((visitor) => (
         <Card key={visitor.id} className="p-6">
-          <h2 className="text-[18px] font-semibold tracking-tight">Visitor</h2>
+          <h2 className="text-[18px] font-semibold tracking-tight">{t('identities.list.visitor')}</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <Info label="Name" value={`${visitor.firstName} ${visitor.lastName}`} />
-            <Info label="Email" value={visitor.email} />
-            <Info label="Company" value={visitor.company ?? '-'} />
-            <Info label="License plate" value={visitor.licensePlate ?? '-'} />
+            <Info label={t('visitorsManagement.invitationDetail.name')} value={`${visitor.firstName} ${visitor.lastName}`} />
+            <Info label={t('identities.list.email')} value={visitor.email} />
+            <Info label={t('identities.detail.company')} value={visitor.company ?? '-'} />
+            <Info label={t('identities.detail.licensePlate')} value={visitor.licensePlate ?? '-'} />
           </div>
         </Card>
       ))}
@@ -405,12 +409,14 @@ function OverviewSection({ employeeDetails, employeeWorkLocationLabels, employee
 }
 
 function AssignmentsSection({ identityId, data, isLoading, isError, systemsById }: { readonly identityId: string; readonly data: AssignmentData | undefined; readonly isLoading: boolean; readonly isError: boolean; readonly systemsById: Map<string, AccessControlSystemResponse>; }) {
+  const { t } = useTranslation();
+
   if (isError) {
     return <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load assignments.</p>;
   }
 
   if (isLoading) {
-    return <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">Loading assignments...</p>;
+    return <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">Loading {t('identities.detail.assignments.label').toLowerCase()}...</p>;
   }
 
   const grants = data?.grants ?? [];
@@ -461,6 +467,7 @@ function AssignmentsTreeSection({ title, description, groups }: { readonly title
 }
 
 function CatalogAssignmentGroupsTable({ groups }: { readonly groups: readonly PackageAssignmentGroupView[] }) {
+  const { t } = useTranslation();
   const [expandedGroupKeys, setExpandedGroupKeys] = useState<string[]>([]);
 
   return (
@@ -489,7 +496,7 @@ function CatalogAssignmentGroupsTable({ groups }: { readonly groups: readonly Pa
                   aria-controls={detailsId}
                   onClick={() => setExpandedGroupKeys((current) => current.includes(groupKey) ? current.filter((item) => item !== groupKey) : [...current, groupKey])}
                 >
-                  {isExpanded ? 'Hide' : 'Show'}
+                  {isExpanded ? t('identities.detail.hide') : t('identities.detail.show')}
                   <ChevronRight className={isExpanded ? 'size-4 shrink-0 rotate-90 text-muted-foreground transition' : 'size-4 shrink-0 text-muted-foreground transition'} aria-hidden="true" />
                 </button>
               </td>
@@ -502,8 +509,8 @@ function CatalogAssignmentGroupsTable({ groups }: { readonly groups: readonly Pa
                       <Info label="Grant status" value={grantStatus} />
                       <Info label="Request status" value={group.requestStatus ? formatRequestStatus(group.requestStatus, group.requestSubStatus ?? null) : '-'} />
                       <Info label="Approved by" value={group.approvalSummary} />
-                      <Info label="Provisionings" value={String(group.provisioningCount)} />
-                      <Info label="Created" value={group.requestCreatedAt ? formatDateTimeLabel(group.requestCreatedAt) : '-'} />
+                      <Info label={t('identities.detail.provisionings')} value={String(group.provisioningCount)} />
+                      <Info label={t('identities.detail.created')} value={group.requestCreatedAt ? formatDateTimeLabel(group.requestCreatedAt) : '-'} />
                     </div>
                     <div className="grid gap-3">
                       {group.accessItems.map((item) => <AccessItemGroup key={`${group.packageId}-${item.accessItemId}`} group={item} />)}
@@ -612,32 +619,34 @@ function AssignmentGroupTableSection({ title, description, children }: { readonl
 
 function AutomatedGrantReconcileButton({ identityId, group }: { readonly identityId: string; readonly group: AutomatedPackageAssignmentGroupView }) {
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   const reconcileGrant = useMutation({
     mutationFn: async () => {
       await Promise.all(group.grantIds.map(async (accessGrantId) => {
         const { error } = await api.POST('/api/access-catalog/access-grants/{accessGrantId}/reconcile', { params: { path: { accessGrantId } } });
         if (error) {
-          throw new Error('Could not queue grant reconciliation.');
+          throw new Error(t('identities.detail.couldNotQueueGrantReconciliation'));
         }
       }));
     },
     onSuccess: async () => {
-      toast.success('Grant reconciliation queued.');
+      toast.success(t('identities.detail.grantReconciliationQueued'));
       await queryClient.invalidateQueries({ queryKey: ['security-officer', 'identity-360', identityId, 'assignments'] });
     },
     onError: () => {
-      toast.error('Could not queue grant reconciliation.');
+      toast.error(t('identities.detail.couldNotQueueGrantReconciliation'));
     },
   });
 
   return (
     <Button type="button" variant="outline" size="sm" disabled={reconcileGrant.isPending} onClick={() => reconcileGrant.mutate()}>
-      {reconcileGrant.isPending ? 'Reconciling...' : 'Reconcile grant'}
+      {reconcileGrant.isPending ? t('identities.detail.reconciling') : t('identities.detail.reconcileGrant')}
     </Button>
   );
 }
 
 function PackageAssignmentGroup({ group }: { readonly group: PackageAssignmentGroupView }) {
+  const { t } = useTranslation();
   return (
     <details className="rounded-structural border border-border bg-content">
       <summary className="cursor-pointer list-none p-6">
@@ -649,14 +658,14 @@ function PackageAssignmentGroup({ group }: { readonly group: PackageAssignmentGr
               <Badge variant={getProvisioningSummaryVariant(group.provisioningSummary.variant)}>{group.provisioningSummary.label}</Badge>
             </div>
             <div className="mt-3 grid gap-1 text-[13px] text-muted-foreground sm:grid-cols-2 xl:grid-cols-4">
-              <p><span className="font-medium text-foreground">Source:</span> {group.sourceLabel}</p>
-              <p><span className="font-medium text-foreground">Reason:</span> {group.sourceReason}</p>
-              <p><span className="font-medium text-foreground">Validity:</span> {group.validityLabel}</p>
-              <p><span className="font-medium text-foreground">Locations:</span> {group.locationSummary || '-'}</p>
-              <p><span className="font-medium text-foreground">Approved by:</span> {group.approvalSummary}</p>
-              <p><span className="font-medium text-foreground">Items:</span> {group.accessItems.length}</p>
-              <p><span className="font-medium text-foreground">Provisionings:</span> {group.provisioningCount}</p>
-              {group.requestCreatedAt ? <p><span className="font-medium text-foreground">Created:</span> {formatDateTimeLabel(group.requestCreatedAt)}</p> : null}
+              <p><span className="font-medium text-foreground">{t('identities.detail.source')}:</span> {group.sourceLabel}</p>
+              <p><span className="font-medium text-foreground">{t('identities.detail.reason')}:</span> {group.sourceReason}</p>
+              <p><span className="font-medium text-foreground">{t('identities.detail.validity')}:</span> {group.validityLabel}</p>
+              <p><span className="font-medium text-foreground">{t('identities.detail.locations')}:</span> {group.locationSummary || '-'}</p>
+              <p><span className="font-medium text-foreground">{t('identities.detail.approvedBy')}:</span> {group.approvalSummary}</p>
+              <p><span className="font-medium text-foreground">{t('identities.detail.items')}:</span> {group.accessItems.length}</p>
+              <p><span className="font-medium text-foreground">{t('identities.detail.provisionings')}:</span> {group.provisioningCount}</p>
+              {group.requestCreatedAt ? <p><span className="font-medium text-foreground">{t('identities.detail.created')}:</span> {formatDateTimeLabel(group.requestCreatedAt)}</p> : null}
             </div>
           </div>
           <ChevronRight className="mt-1 size-5 shrink-0 text-muted-foreground transition group-open:rotate-90" aria-hidden="true" />
@@ -670,6 +679,7 @@ function PackageAssignmentGroup({ group }: { readonly group: PackageAssignmentGr
 }
 
 function AccessItemGroup({ group }: { readonly group: AccessItemGroupView }) {
+  const { t } = useTranslation();
   const hasSkippedOutcome = group.materializationOutcomes.some((item) => item.status === 'SkippedNoTarget');
   const hasFailedOutcome = group.materializationOutcomes.some((item) => item.status === 'Failed');
 
@@ -681,8 +691,8 @@ function AccessItemGroup({ group }: { readonly group: AccessItemGroupView }) {
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-[16px] font-semibold text-foreground">{group.accessItemName}</h3>
               <Badge variant={getProvisioningSummaryVariant(group.provisioningSummary.variant)}>{group.provisioningSummary.label}</Badge>
-              {hasSkippedOutcome ? <Badge variant="error">No configured target</Badge> : null}
-              {hasFailedOutcome ? <Badge variant="error">Assignment creation failed</Badge> : null}
+              {hasSkippedOutcome ? <Badge variant="error">{t('identities.detail.noConfiguredTarget')}</Badge> : null}
+              {hasFailedOutcome ? <Badge variant="error">{t('identities.detail.assignmentCreationFailed')}</Badge> : null}
             </div>
           </div>
           <ChevronRight className="mt-1 size-4 shrink-0 text-muted-foreground transition group-open:rotate-90" aria-hidden="true" />
@@ -690,13 +700,14 @@ function AccessItemGroup({ group }: { readonly group: AccessItemGroupView }) {
       </summary>
       <div className="border-t border-border p-4 grid gap-4">
         <MaterializationOutcomeNotice views={group.leafViews} outcomes={group.materializationOutcomes} />
-        <PacsAssignmentList views={group.leafViews} title="PACS assignments" emptyLabel="No PACS assignments yet." provisioningTitle="Actual provisioned access" />
+        <PacsAssignmentList views={group.leafViews} title={t('identities.detail.pacsAssignments')} emptyLabel={t('identities.detail.noPacsAssignmentsYet')} provisioningTitle={t('identities.detail.actualProvisionedAccess')} />
       </div>
     </details>
   );
 }
 
 function AutomatedPackageAssignmentGroup({ identityId, group }: { readonly identityId: string; readonly group: AutomatedPackageAssignmentGroupView }) {
+  const { t } = useTranslation();
   return (
     <details className="rounded-structural border border-border bg-content">
       <summary className="cursor-pointer list-none p-6">
@@ -707,13 +718,13 @@ function AutomatedPackageAssignmentGroup({ identityId, group }: { readonly ident
               <Badge variant={getProvisioningSummaryVariant(group.provisioningSummary.variant)}>{group.provisioningSummary.label}</Badge>
             </div>
             <div className="mt-3 grid gap-1 text-[13px] text-muted-foreground sm:grid-cols-2 xl:grid-cols-4">
-              <p><span className="font-medium text-foreground">Source:</span> {group.sourceLabel}</p>
-              <p><span className="font-medium text-foreground">Reason:</span> {group.sourceReason}</p>
-              <p><span className="font-medium text-foreground">Validity:</span> {group.validityLabel}</p>
-              <p><span className="font-medium text-foreground">Locations:</span> {group.locationSummary || '-'}</p>
-              <p><span className="font-medium text-foreground">Approved by:</span> {group.approvalSummary}</p>
-              <p><span className="font-medium text-foreground">Items:</span> {group.accessItems.length}</p>
-              <p><span className="font-medium text-foreground">Provisionings:</span> {group.provisioningCount}</p>
+              <p><span className="font-medium text-foreground">{t('identities.detail.source')}:</span> {group.sourceLabel}</p>
+              <p><span className="font-medium text-foreground">{t('identities.detail.reason')}:</span> {group.sourceReason}</p>
+              <p><span className="font-medium text-foreground">{t('identities.detail.validity')}:</span> {group.validityLabel}</p>
+              <p><span className="font-medium text-foreground">{t('identities.detail.locations')}:</span> {group.locationSummary || '-'}</p>
+              <p><span className="font-medium text-foreground">{t('identities.detail.approvedBy')}:</span> {group.approvalSummary}</p>
+              <p><span className="font-medium text-foreground">{t('identities.detail.items')}:</span> {group.accessItems.length}</p>
+              <p><span className="font-medium text-foreground">{t('identities.detail.provisionings')}:</span> {group.provisioningCount}</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
@@ -735,6 +746,7 @@ function AutomatedPackageAssignmentGroup({ identityId, group }: { readonly ident
 }
 
 function AutomatedAccessItemGroup({ group }: { readonly group: AutomatedAccessItemGroupView }) {
+  const { t } = useTranslation();
   const hasSkippedOutcome = group.materializationOutcomes.some((item) => item.status === 'SkippedNoTarget');
   const hasFailedOutcome = group.materializationOutcomes.some((item) => item.status === 'Failed');
 
@@ -746,8 +758,8 @@ function AutomatedAccessItemGroup({ group }: { readonly group: AutomatedAccessIt
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-[16px] font-semibold text-foreground">{group.accessItemName}</h3>
               <Badge variant={getProvisioningSummaryVariant(group.provisioningSummary.variant)}>{group.provisioningSummary.label}</Badge>
-              {hasSkippedOutcome || !group.hasTargets ? <Badge variant="error">No configured target</Badge> : null}
-              {hasFailedOutcome ? <Badge variant="error">Assignment creation failed</Badge> : null}
+              {hasSkippedOutcome || !group.hasTargets ? <Badge variant="error">{t('identities.detail.noConfiguredTarget')}</Badge> : null}
+              {hasFailedOutcome ? <Badge variant="error">{t('identities.detail.assignmentCreationFailed')}</Badge> : null}
             </div>
             <p className="mt-2 text-[13px] text-muted-foreground">{group.locationLabels || '-'}</p>
           </div>
@@ -756,7 +768,7 @@ function AutomatedAccessItemGroup({ group }: { readonly group: AutomatedAccessIt
       </summary>
       <div className="grid gap-4 border-t border-border p-4">
         <MaterializationOutcomeNotice views={[group.view]} outcomes={group.materializationOutcomes} />
-        <PacsAssignmentList views={[group.view]} title="PACS assignments" emptyLabel="No PACS assignments yet." provisioningTitle="Actual provisioned access" assignments={group.assignments} provisionings={group.provisionings} />
+        <PacsAssignmentList views={[group.view]} title={t('identities.detail.pacsAssignments')} emptyLabel={t('identities.detail.noPacsAssignmentsYet')} provisioningTitle={t('identities.detail.actualProvisionedAccess')} assignments={group.assignments} provisionings={group.provisionings} />
       </div>
     </details>
   );
@@ -784,8 +796,8 @@ function MaterializationOutcomeNotice({ views, outcomes }: { readonly views: rea
       key: item.id,
       variant: item.status === 'Failed' ? 'error' : 'secondary',
       message: item.status === 'Failed'
-        ? `${getLocationLabelForOutcome(views, item.locationId)}: ${item.failureReason ?? 'Failed to create PACS assignments.'}`
-        : `${getLocationLabelForOutcome(views, item.locationId)}: ${item.failureReason ?? 'No enabled PACS access level target is configured for this access item.'}`,
+        ? `${getLocationLabelForOutcome(views, item.locationId)}: ${item.failureReason ?? i18n.t('identities.detail.failedToCreatePacsAssignments')}`
+        : `${getLocationLabelForOutcome(views, item.locationId)}: ${item.failureReason ?? i18n.t('identities.detail.noEnabledTargetConfigured')}`,
     }));
 
   if (notices.length === 0) {
@@ -800,7 +812,8 @@ function MaterializationOutcomeNotice({ views, outcomes }: { readonly views: rea
 }
 
 function PacsAssignmentRow({ row, provisioningTitle }: { readonly row: PacsAssignmentRowView; readonly provisioningTitle: string; }) {
-  const title = `${row.systemName} - ${row.locationLabel || 'Unscoped'}`;
+  const { t } = useTranslation();
+  const title = `${row.systemName} - ${row.locationLabel || t('identities.detail.unscoped')}`;
   const validityLabel = getValidityWindowLabel(row.assignment.validFrom, row.assignment.validUntil);
 
   return (
@@ -820,28 +833,30 @@ function PacsAssignmentRow({ row, provisioningTitle }: { readonly row: PacsAssig
       </summary>
       <div className="grid gap-4 border-t border-border p-3">
         <dl className="grid gap-2 text-[13px] text-muted-foreground">
-          <div className="flex items-center justify-between gap-3"><dt>Scheduled</dt><dd className="text-right">{formatDateTimeLabel(row.assignment.scheduledFor)}</dd></div>
-          <div className="flex items-center justify-between gap-3"><dt>Completed</dt><dd className="text-right">{row.assignment.completedAt ? formatDateTimeLabel(row.assignment.completedAt) : '-'}</dd></div>
-          {row.assignment.failureReason ? <div className="flex items-center justify-between gap-3"><dt>Failure</dt><dd className="text-right text-error">{row.assignment.failureReason}</dd></div> : null}
-          {row.assignment.nativeAssignmentId ? <div className="flex items-center justify-between gap-3"><dt>Native assignment</dt><dd className="text-right">{row.assignment.nativeAssignmentId}</dd></div> : null}
+          <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.scheduled')}</dt><dd className="text-right">{formatDateTimeLabel(row.assignment.scheduledFor)}</dd></div>
+          <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.completed')}</dt><dd className="text-right">{row.assignment.completedAt ? formatDateTimeLabel(row.assignment.completedAt) : '-'}</dd></div>
+          {row.assignment.failureReason ? <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.failure')}</dt><dd className="text-right text-error">{row.assignment.failureReason}</dd></div> : null}
+          {row.assignment.nativeAssignmentId ? <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.nativeAssignment')}</dt><dd className="text-right">{row.assignment.nativeAssignmentId}</dd></div> : null}
         </dl>
-        <ProvisioningInsightPanel title={provisioningTitle} emptyLabel="No effective provisioning yet." items={row.provisionings.map((item) => ({ key: item.id, systemName: row.systemName, targetName: row.targetName, status: item.status, scheduledFor: item.scheduledFor, provisionedAt: item.provisionedAt, completedAt: item.completedAt, failureReason: item.failureReason, nativeAssignmentId: item.nativeAssignmentId, validFrom: item.validFrom, validUntil: item.validUntil, provisioningTiming: item.provisioningTiming }))} />
+        <TranslatedProvisioningInsightPanel title={provisioningTitle} emptyLabel={t('identities.detail.noEffectiveProvisioningYet')} items={row.provisionings.map((item) => ({ key: item.id, systemName: row.systemName, targetName: row.targetName, status: item.status, scheduledFor: item.scheduledFor, provisionedAt: item.provisionedAt, completedAt: item.completedAt, failureReason: item.failureReason, nativeAssignmentId: item.nativeAssignmentId, validFrom: item.validFrom, validUntil: item.validUntil, provisioningTiming: item.provisioningTiming }))} />
       </div>
     </details>
   );
 }
 
 function KnownInSection({ subjects, isLoading, isError, systemsById }: { readonly subjects: PACSSubjectResponse[]; readonly isLoading: boolean; readonly isError: boolean; readonly systemsById: Map<string, AccessControlSystemResponse>; }) {
+  const { t } = useTranslation();
+
   if (isError) {
-    return <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load PACS subjects.</p>;
+    return <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">{t('identities.detail.couldNotLoadPacsSubjects')}</p>;
   }
 
   if (isLoading) {
-    return <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">Loading PACS subjects...</p>;
+    return <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">{t('identities.detail.loadingPacsSubjects')}</p>;
   }
 
   if (subjects.length === 0) {
-    return <Card className="p-6 text-[14px] text-muted-foreground">Identity is not known in any PACS subject yet.</Card>;
+    return <Card className="p-6 text-[14px] text-muted-foreground">{t('identities.detail.notKnownInAnyPacs')}</Card>;
   }
 
   return (
@@ -851,15 +866,15 @@ function KnownInSection({ subjects, isLoading, isError, systemsById }: { readonl
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-[18px] font-semibold tracking-tight">{systemsById.get(subject.accessControlSystemId)?.name ?? subject.accessControlSystemId}</h2>
-              <p className="mt-1 text-[14px] text-muted-foreground">Native subject id: {subject.nativeSubjectId}</p>
+              <p className="mt-1 text-[14px] text-muted-foreground">{t('identities.detail.nativeSubjectId', { value: subject.nativeSubjectId })}</p>
             </div>
             <Badge variant={subject.state === 'Active' ? 'success' : subject.state === 'Blocked' ? 'secondary' : 'error'}>{subject.state}</Badge>
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <Info label="First name" value={subject.firstName} />
-            <Info label="Last name" value={subject.lastName} />
-            <Info label="Email" value={subject.email ?? '-'} />
-            <Info label="Last synchronized" value={formatDateTimeLabel(subject.lastSynchronizedAt)} />
+            <Info label={t('identities.detail.firstName')} value={subject.firstName} />
+            <Info label={t('identities.detail.lastName')} value={subject.lastName} />
+            <Info label={t('identities.list.email')} value={subject.email ?? '-'} />
+            <Info label={t('identities.detail.lastSynchronized')} value={formatDateTimeLabel(subject.lastSynchronizedAt)} />
           </div>
         </Card>
       ))}
@@ -868,19 +883,20 @@ function KnownInSection({ subjects, isLoading, isError, systemsById }: { readonl
 }
 
 function CredentialsSection({ data, isLoading, isError, systemsById }: { readonly data: CredentialsData | undefined; readonly isLoading: boolean; readonly isError: boolean; readonly systemsById: Map<string, AccessControlSystemResponse>; }) {
+  const { t } = useTranslation();
   const [expandedCredentialIds, setExpandedCredentialIds] = useState<string[]>([]);
 
   if (isError) {
-    return <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load credentials.</p>;
+    return <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">{t('identities.detail.couldNotLoadCredentials')}</p>;
   }
 
   if (isLoading) {
-    return <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">Loading credentials...</p>;
+    return <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">{t('identities.detail.loadingCredentials')}</p>;
   }
 
   const credentials = data?.credentials ?? [];
   if (credentials.length === 0) {
-    return <Card className="p-6 text-[14px] text-muted-foreground">No issued credentials for this identity.</Card>;
+    return <Card className="p-6 text-[14px] text-muted-foreground">{t('identities.detail.noIssuedCredentials')}</Card>;
   }
 
   return (
@@ -889,11 +905,11 @@ function CredentialsSection({ data, isLoading, isError, systemsById }: { readonl
         <table className="w-full min-w-[56rem] border-collapse text-left text-[14px]">
           <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
             <tr>
-              <th className="px-4 py-3 font-semibold">Credential</th>
-              <th className="px-4 py-3 font-semibold">Duration</th>
-              <th className="px-4 py-3 font-semibold">Status</th>
-              <th className="px-4 py-3 font-semibold">Provision Status</th>
-              <th className="px-4 py-3 text-right font-semibold">Details</th>
+              <th className="px-4 py-3 font-semibold">{t('identities.detail.credential')}</th>
+              <th className="px-4 py-3 font-semibold">{t('identities.detail.duration')}</th>
+              <th className="px-4 py-3 font-semibold">{t('identities.detail.status')}</th>
+              <th className="px-4 py-3 font-semibold">{t('identities.detail.provisionStatus')}</th>
+              <th className="px-4 py-3 text-right font-semibold">{t('identities.detail.details')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -925,7 +941,7 @@ function CredentialsSection({ data, isLoading, isError, systemsById }: { readonl
                         aria-controls={detailsId}
                         onClick={() => setExpandedCredentialIds((current) => current.includes(credential.id) ? current.filter((item) => item !== credential.id) : [...current, credential.id])}
                       >
-                        {isExpanded ? 'Hide' : 'Show'}
+                        {isExpanded ? t('identities.detail.hide') : t('identities.detail.show')}
                         <ChevronRight className={isExpanded ? 'size-4 shrink-0 rotate-90 text-muted-foreground transition' : 'size-4 shrink-0 text-muted-foreground transition'} aria-hidden="true" />
                       </button>
                     </td>
@@ -935,13 +951,13 @@ function CredentialsSection({ data, isLoading, isError, systemsById }: { readonl
                       <td colSpan={5} className="px-4 py-4">
                         <div className="grid gap-4">
                           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                            <Info label="Source" value={credential.sourceKind} />
-                            <Info label="Valid from" value={formatDateTimeLabel(credential.validFrom)} />
-                            <Info label="Valid until" value={credential.validUntil ? formatDateTimeLabel(credential.validUntil) : 'No end date'} />
-                            <Info label="Issued at" value={formatDateTimeLabel(credential.createdAt)} />
-                            <Info label="Reason" value={credential.reasonText} />
+                            <Info label={t('identities.detail.sourceKind')} value={credential.sourceKind} />
+                            <Info label={t('identities.detail.validFrom')} value={formatDateTimeLabel(credential.validFrom)} />
+                            <Info label={t('identities.detail.validUntil')} value={credential.validUntil ? formatDateTimeLabel(credential.validUntil) : t('visitorsManagement.invitationDetail.noEndDate')} />
+                            <Info label={t('identities.detail.issuedAt')} value={formatDateTimeLabel(credential.createdAt)} />
+                            <Info label={t('identities.detail.reasonText')} value={credential.reasonText} />
                           </div>
-                          <CredentialProvisioningPanel assignments={assignments} systemsById={systemsById} />
+                          <TranslatedCredentialProvisioningPanel assignments={assignments} systemsById={systemsById} />
                         </div>
                       </td>
                     </tr>
@@ -957,17 +973,19 @@ function CredentialsSection({ data, isLoading, isError, systemsById }: { readonl
 }
 
 function RequestsSection({ data, isLoading, isError, onOpenRequest }: { readonly data: { readonly requests: PackageRequestResponse[]; readonly packagesById: Map<string, PackageResponse>; } | undefined; readonly isLoading: boolean; readonly isError: boolean; readonly onOpenRequest: (requestId: string) => void; }) {
+  const { t } = useTranslation();
+
   if (isError) {
-    return <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load requests.</p>;
+    return <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">{t('identities.detail.couldNotLoadRequests')}</p>;
   }
 
   if (isLoading) {
-    return <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">Loading requests...</p>;
+    return <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">{t('identities.detail.loadingRequests')}</p>;
   }
 
   const requests = data?.requests ?? [];
   if (requests.length === 0) {
-    return <Card className="p-6 text-[14px] text-muted-foreground">No catalog requests for this identity.</Card>;
+    return <Card className="p-6 text-[14px] text-muted-foreground">{t('identities.detail.noCatalogRequests')}</Card>;
   }
 
   return (
@@ -976,12 +994,12 @@ function RequestsSection({ data, isLoading, isError, onOpenRequest }: { readonly
         <table className="w-full min-w-[56rem] border-collapse text-left text-[14px]">
           <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
             <tr>
-              <th className="px-4 py-3 font-semibold">Package</th>
-              <th className="px-4 py-3 font-semibold">Status</th>
-              <th className="px-4 py-3 font-semibold">Created</th>
-              <th className="px-4 py-3 font-semibold">Valid from</th>
-              <th className="px-4 py-3 font-semibold">Valid until</th>
-              <th className="px-4 py-3 text-right font-semibold">Open</th>
+              <th className="px-4 py-3 font-semibold">{t('identities.detail.package')}</th>
+              <th className="px-4 py-3 font-semibold">{t('identities.detail.status')}</th>
+              <th className="px-4 py-3 font-semibold">{t('identities.detail.created')}</th>
+              <th className="px-4 py-3 font-semibold">{t('identities.detail.validFrom')}</th>
+              <th className="px-4 py-3 font-semibold">{t('identities.detail.validUntil')}</th>
+              <th className="px-4 py-3 text-right font-semibold">{t('identities.detail.open')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -991,7 +1009,7 @@ function RequestsSection({ data, isLoading, isError, onOpenRequest }: { readonly
                 <td className="px-4 py-4"><Badge variant={getRequestStatusVariant(request.status, request.subStatus)}>{formatRequestStatus(request.status, request.subStatus)}</Badge></td>
                 <td className="px-4 py-4 text-muted-foreground">{formatDateTimeLabel(request.createdAt)}</td>
                 <td className="px-4 py-4 text-muted-foreground">{formatDateTimeLabel(request.validFrom)}</td>
-                <td className="px-4 py-4 text-muted-foreground">{request.validUntil ? formatDateTimeLabel(request.validUntil) : 'No end date'}</td>
+                <td className="px-4 py-4 text-muted-foreground">{request.validUntil ? formatDateTimeLabel(request.validUntil) : t('visitorsManagement.invitationDetail.noEndDate')}</td>
                 <td className="px-4 py-4 text-right text-muted-foreground"><span className="inline-flex items-center justify-center"><ChevronRight className="size-4" aria-hidden="true" /></span></td>
               </tr>
             ))}
@@ -1002,23 +1020,85 @@ function RequestsSection({ data, isLoading, isError, onOpenRequest }: { readonly
   );
 }
 
+function formatAccessGrantRevokeCause(cause: AccessGrantResponse['revokeCause']) {
+  switch (cause) {
+    case 'Manual':
+      return i18n.t('identities.detail.manuallyRevoked');
+    case 'VisitRescheduled':
+      return i18n.t('identities.detail.visitRescheduled');
+    case 'ArrivalRelocated':
+      return i18n.t('identities.detail.arrivalRelocated');
+    case 'VisitCancelled':
+      return i18n.t('identities.detail.visitCancelled');
+    case 'VisitOffboarded':
+      return i18n.t('identities.detail.visitOffboarded');
+    case 'EmployeeLifecycleAutomation':
+      return i18n.t('identities.detail.employeeLifecycleAutomation');
+    default:
+      return '-';
+  }
+}
+
 function ProvisioningInsightPanel({ title, emptyLabel, items }: { readonly title: string; readonly emptyLabel: string; readonly items: readonly { key: string; systemName: string; targetName: string; status: string; scheduledFor: string; provisionedAt: string | null; completedAt: string | null; failureReason: string | null; nativeAssignmentId: string | null; validFrom: string; validUntil: string | null; provisioningTiming: string; }[]; }) {
+  const { t } = useTranslation();
+
   return (
     <div className="rounded-interactive border border-border p-4">
       <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
       <div className="mt-3 grid gap-2">
-        {items.length === 0 ? <p className="text-[14px] text-muted-foreground">{emptyLabel}</p> : items.map((item) => <div key={item.key} className="rounded-interactive border border-border bg-background p-3"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-medium text-foreground">{item.systemName}</p><p className="mt-1 text-[13px] text-muted-foreground">{item.targetName}</p></div><Badge variant={getInfraStatusVariant(item.status)}>{item.status}</Badge></div><dl className="mt-3 grid gap-2 text-[13px] text-muted-foreground"><div className="flex items-center justify-between gap-3"><dt>Timing</dt><dd className="text-right">{item.provisioningTiming}</dd></div><div className="flex items-center justify-between gap-3"><dt>Window</dt><dd className="text-right">{formatDateTimeLabel(item.validFrom)}{item.validUntil ? ` to ${formatDateTimeLabel(item.validUntil)}` : ''}</dd></div><div className="flex items-center justify-between gap-3"><dt>Scheduled</dt><dd className="text-right">{formatDateTimeLabel(item.scheduledFor)}</dd></div><div className="flex items-center justify-between gap-3"><dt>Provisioned</dt><dd className="text-right">{item.provisionedAt ? formatDateTimeLabel(item.provisionedAt) : '-'}</dd></div><div className="flex items-center justify-between gap-3"><dt>Completed</dt><dd className="text-right">{item.completedAt ? formatDateTimeLabel(item.completedAt) : '-'}</dd></div>{item.failureReason ? <div className="flex items-center justify-between gap-3"><dt>Failure</dt><dd className="text-right text-error">{item.failureReason}</dd></div> : null}{item.nativeAssignmentId ? <div className="flex items-center justify-between gap-3"><dt>Native assignment</dt><dd className="text-right">{item.nativeAssignmentId}</dd></div> : null}</dl></div>)}
+        {items.length === 0 ? <p className="text-[14px] text-muted-foreground">{emptyLabel}</p> : items.map((item) => (
+          <div key={item.key} className="rounded-interactive border border-border bg-background p-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="font-medium text-foreground">{item.systemName}</p>
+                <p className="mt-1 text-[13px] text-muted-foreground">{item.targetName}</p>
+              </div>
+              <Badge variant={getInfraStatusVariant(item.status)}>{item.status}</Badge>
+            </div>
+            <dl className="mt-3 grid gap-2 text-[13px] text-muted-foreground">
+              <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.timing')}</dt><dd className="text-right">{item.provisioningTiming}</dd></div>
+              <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.window')}</dt><dd className="text-right">{formatDateTimeLabel(item.validFrom)}{item.validUntil ? ` to ${formatDateTimeLabel(item.validUntil)}` : ''}</dd></div>
+              <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.scheduled')}</dt><dd className="text-right">{formatDateTimeLabel(item.scheduledFor)}</dd></div>
+              <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.provisioned')}</dt><dd className="text-right">{item.provisionedAt ? formatDateTimeLabel(item.provisionedAt) : '-'}</dd></div>
+              <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.completed')}</dt><dd className="text-right">{item.completedAt ? formatDateTimeLabel(item.completedAt) : '-'}</dd></div>
+              {item.failureReason ? <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.failure')}</dt><dd className="text-right text-error">{item.failureReason}</dd></div> : null}
+              {item.nativeAssignmentId ? <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.nativeAssignment')}</dt><dd className="text-right">{item.nativeAssignmentId}</dd></div> : null}
+            </dl>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
 function CredentialProvisioningPanel({ assignments, systemsById }: { readonly assignments: readonly CredentialPACSAssignmentResponse[]; readonly systemsById: Map<string, AccessControlSystemResponse>; }) {
+  const { t } = useTranslation();
+
   return (
     <div className="rounded-interactive border border-border p-4">
-      <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Provisioning</p>
+      <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{t('identities.detail.provisioning')}</p>
       <div className="mt-3 grid gap-2">
-        {assignments.length === 0 ? <p className="text-[14px] text-muted-foreground">No PACS provisioning rows yet.</p> : assignments.map((assignment) => <div key={assignment.id} className="rounded-interactive border border-border bg-background p-3"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-medium text-foreground">{systemsById.get(assignment.accessControlSystemId)?.name ?? assignment.accessControlSystemId}</p><p className="mt-1 text-[13px] text-muted-foreground">Credential assignment</p></div><Badge variant={getInfraStatusVariant(assignment.status)}>{assignment.status}</Badge></div><dl className="mt-3 grid gap-2 text-[13px] text-muted-foreground"><div className="flex items-center justify-between gap-3"><dt>Scheduled</dt><dd className="text-right">{formatDateTimeLabel(assignment.scheduledFor)}</dd></div><div className="flex items-center justify-between gap-3"><dt>Provisioned</dt><dd className="text-right">{assignment.provisionedAt ? formatDateTimeLabel(assignment.provisionedAt) : '-'}</dd></div><div className="flex items-center justify-between gap-3"><dt>Revoked</dt><dd className="text-right">{assignment.revokedAt ? formatDateTimeLabel(assignment.revokedAt) : '-'}</dd></div><div className="flex items-center justify-between gap-3"><dt>Attempts</dt><dd className="text-right">{assignment.attemptCount}</dd></div>{assignment.lastAttemptAt ? <div className="flex items-center justify-between gap-3"><dt>Last attempt</dt><dd className="text-right">{formatDateTimeLabel(assignment.lastAttemptAt)}</dd></div> : null}{assignment.failureReasonCode ? <div className="flex items-center justify-between gap-3"><dt>Failure</dt><dd className="text-right text-error">{assignment.failureReasonCode}</dd></div> : null}{assignment.errorMessage ? <div className="flex items-center justify-between gap-3"><dt>Error</dt><dd className="text-right text-error">{assignment.errorMessage}</dd></div> : null}{assignment.nativeAssignmentId ? <div className="flex items-center justify-between gap-3"><dt>Native assignment</dt><dd className="text-right">{assignment.nativeAssignmentId}</dd></div> : null}</dl></div>)}
+        {assignments.length === 0 ? <p className="text-[14px] text-muted-foreground">{t('identities.detail.noPacsProvisioningRows')}</p> : assignments.map((assignment) => (
+          <div key={assignment.id} className="rounded-interactive border border-border bg-background p-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="font-medium text-foreground">{systemsById.get(assignment.accessControlSystemId)?.name ?? assignment.accessControlSystemId}</p>
+                <p className="mt-1 text-[13px] text-muted-foreground">{t('identities.detail.credentialAssignment')}</p>
+              </div>
+              <Badge variant={getInfraStatusVariant(assignment.status)}>{assignment.status}</Badge>
+            </div>
+            <dl className="mt-3 grid gap-2 text-[13px] text-muted-foreground">
+              <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.scheduled')}</dt><dd className="text-right">{formatDateTimeLabel(assignment.scheduledFor)}</dd></div>
+              <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.provisioned')}</dt><dd className="text-right">{assignment.provisionedAt ? formatDateTimeLabel(assignment.provisionedAt) : '-'}</dd></div>
+              <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.revoked')}</dt><dd className="text-right">{assignment.revokedAt ? formatDateTimeLabel(assignment.revokedAt) : '-'}</dd></div>
+              <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.attempts')}</dt><dd className="text-right">{assignment.attemptCount}</dd></div>
+              {assignment.lastAttemptAt ? <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.lastAttempt')}</dt><dd className="text-right">{formatDateTimeLabel(assignment.lastAttemptAt)}</dd></div> : null}
+              {assignment.failureReasonCode ? <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.failure')}</dt><dd className="text-right text-error">{assignment.failureReasonCode}</dd></div> : null}
+              {assignment.errorMessage ? <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.error')}</dt><dd className="text-right text-error">{assignment.errorMessage}</dd></div> : null}
+              {assignment.nativeAssignmentId ? <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.nativeAssignment')}</dt><dd className="text-right">{assignment.nativeAssignmentId}</dd></div> : null}
+            </dl>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -1076,20 +1156,20 @@ function getCredentialProvisionStatus(
   const hasPendingOrFailedAssignments = assignments.some((assignment) => !activeStatuses.has(assignment.status) && !inactiveStatuses.has(assignment.status));
 
   if (credential.status === 'Expired') {
-    return hasAssignments ? { label: 'NO', variant: 'error' as const } : { label: 'YES', variant: 'success' as const };
+    return hasAssignments ? { label: i18n.t('identities.detail.no'), variant: 'error' as const } : { label: i18n.t('identities.detail.yes'), variant: 'success' as const };
   }
 
   if (credential.status === 'Revoked') {
     return hasActiveAssignment || hasPendingOrFailedAssignments
-      ? { label: 'NO', variant: 'error' as const }
-      : { label: 'YES', variant: 'success' as const };
+      ? { label: i18n.t('identities.detail.no'), variant: 'error' as const }
+      : { label: i18n.t('identities.detail.yes'), variant: 'success' as const };
   }
 
   if (!hasAssignments || hasInactiveOnlyAssignments || hasPendingOrFailedAssignments) {
-    return { label: 'NO', variant: 'error' as const };
+    return { label: i18n.t('identities.detail.no'), variant: 'error' as const };
   }
 
-  return { label: 'YES', variant: 'success' as const };
+  return { label: i18n.t('identities.detail.yes'), variant: 'success' as const };
 }
 
 function getCatalogAssignmentGroupProvisionStatus(group: PackageAssignmentGroupView) {
@@ -1098,7 +1178,7 @@ function getCatalogAssignmentGroupProvisionStatus(group: PackageAssignmentGroupV
     return hasMaterializationIssue || item.provisioningSummary.variant !== 'success';
   });
 
-  return hasIssues ? { label: 'NO', variant: 'error' as const } : { label: 'YES', variant: 'success' as const };
+  return hasIssues ? { label: i18n.t('identities.detail.no'), variant: 'error' as const } : { label: i18n.t('identities.detail.yes'), variant: 'success' as const };
 }
 
 function getCatalogAssignmentGroupStatus(group: PackageAssignmentGroupView): AccessGrantResponse['status'] {
@@ -1111,26 +1191,7 @@ function getAutomatedAssignmentGroupProvisionStatus(group: AutomatedPackageAssig
     return hasMaterializationIssue || !item.hasTargets || item.provisioningSummary.variant !== 'success';
   });
 
-  return hasIssues ? { label: 'NO', variant: 'error' as const } : { label: 'YES', variant: 'success' as const };
-}
-
-function formatAccessGrantRevokeCause(cause: AccessGrantResponse['revokeCause']) {
-  switch (cause) {
-    case 'Manual':
-      return 'Manually revoked';
-    case 'VisitRescheduled':
-      return 'Visit rescheduled';
-    case 'ArrivalRelocated':
-      return 'Arrival relocated';
-    case 'VisitCancelled':
-      return 'Visit cancelled';
-    case 'VisitOffboarded':
-      return 'Visit offboarded';
-    case 'EmployeeLifecycleAutomation':
-      return 'Employee lifecycle automation';
-    default:
-      return '-';
-  }
+  return hasIssues ? { label: i18n.t('identities.detail.no'), variant: 'error' as const } : { label: i18n.t('identities.detail.yes'), variant: 'success' as const };
 }
 
 function getRequestStatusVariant(status: PackageRequestStatus, subStatus: PackageRequestResponse['subStatus']) {
@@ -1151,18 +1212,18 @@ function getRequestStatusVariant(status: PackageRequestStatus, subStatus: Packag
 
 function formatRequestStatus(status: PackageRequestStatus, subStatus: PackageRequestResponse['subStatus']) {
   if (status === 'InProgress') {
-    return 'In Progress';
+    return i18n.t('identities.detail.inProgress');
   }
 
   return subStatus === 'PartiallyApproved'
-    ? 'Completed - Partially Approved'
+    ? i18n.t('identities.detail.completedPartiallyApproved')
     : subStatus === 'Approved'
-      ? 'Completed - Approved'
+      ? i18n.t('identities.detail.completedApproved')
       : subStatus === 'Rejected'
-        ? 'Completed - Rejected'
+        ? i18n.t('identities.detail.completedRejected')
         : subStatus === 'Expired'
-          ? 'Completed - Expired'
-          : 'Completed';
+          ? i18n.t('identities.detail.completedExpired')
+          : i18n.t('identities.detail.completedSimple');
 }
 
 function getInfraStatusVariant(status: string) {
@@ -1175,26 +1236,91 @@ function getInfraStatusVariant(status: string) {
 
 function getProvisioningSummary(items: readonly PACSProvisioningResponse[]) {
   if (items.length === 0) {
-    return { label: 'Not materialized', variant: 'secondary' as const };
+    return { label: i18n.t('identities.detail.notMaterialized'), variant: 'secondary' as const };
   }
 
   if (items.some((item) => item.status === 'Failed')) {
-    return { label: 'Provisioning issue', variant: 'error' as const };
+    return { label: i18n.t('identities.detail.provisioningIssue'), variant: 'error' as const };
   }
 
   if (items.every((item) => item.status === 'Provisioned')) {
-    return { label: 'Provisioned', variant: 'success' as const };
+    return { label: i18n.t('identities.detail.provisioned'), variant: 'success' as const };
   }
 
   if (items.some((item) => item.status === 'Pending')) {
-    return { label: 'Provisioning pending', variant: 'secondary' as const };
+    return { label: i18n.t('identities.detail.provisioningPending'), variant: 'secondary' as const };
   }
 
-  return { label: 'Provisioning mixed', variant: 'secondary' as const };
+  return { label: i18n.t('identities.detail.provisioningMixed'), variant: 'secondary' as const };
 }
 
 function getProvisioningSummaryVariant(variant: 'success' | 'secondary' | 'error') {
   return variant;
+}
+
+function TranslatedProvisioningInsightPanel({ title, emptyLabel, items }: { readonly title: string; readonly emptyLabel: string; readonly items: readonly { key: string; systemName: string; targetName: string; status: string; scheduledFor: string; provisionedAt: string | null; completedAt: string | null; failureReason: string | null; nativeAssignmentId: string | null; validFrom: string; validUntil: string | null; provisioningTiming: string; }[]; }) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="rounded-interactive border border-border p-4">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
+      <div className="mt-3 grid gap-2">
+        {items.length === 0 ? <p className="text-[14px] text-muted-foreground">{emptyLabel}</p> : items.map((item) => (
+          <div key={item.key} className="rounded-interactive border border-border bg-background p-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="font-medium text-foreground">{item.systemName}</p>
+                <p className="mt-1 text-[13px] text-muted-foreground">{item.targetName}</p>
+              </div>
+              <Badge variant={getInfraStatusVariant(item.status)}>{item.status}</Badge>
+            </div>
+            <dl className="mt-3 grid gap-2 text-[13px] text-muted-foreground">
+              <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.timing')}</dt><dd className="text-right">{item.provisioningTiming}</dd></div>
+              <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.window')}</dt><dd className="text-right">{formatDateTimeLabel(item.validFrom)}{item.validUntil ? ` to ${formatDateTimeLabel(item.validUntil)}` : ''}</dd></div>
+              <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.scheduled')}</dt><dd className="text-right">{formatDateTimeLabel(item.scheduledFor)}</dd></div>
+              <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.provisioned')}</dt><dd className="text-right">{item.provisionedAt ? formatDateTimeLabel(item.provisionedAt) : '-'}</dd></div>
+              <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.completed')}</dt><dd className="text-right">{item.completedAt ? formatDateTimeLabel(item.completedAt) : '-'}</dd></div>
+              {item.failureReason ? <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.failure')}</dt><dd className="text-right text-error">{item.failureReason}</dd></div> : null}
+              {item.nativeAssignmentId ? <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.nativeAssignment')}</dt><dd className="text-right">{item.nativeAssignmentId}</dd></div> : null}
+            </dl>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TranslatedCredentialProvisioningPanel({ assignments, systemsById }: { readonly assignments: readonly CredentialPACSAssignmentResponse[]; readonly systemsById: Map<string, AccessControlSystemResponse>; }) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="rounded-interactive border border-border p-4">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{t('identities.detail.provisioning')}</p>
+      <div className="mt-3 grid gap-2">
+        {assignments.length === 0 ? <p className="text-[14px] text-muted-foreground">{t('identities.detail.noPacsProvisioningRows')}</p> : assignments.map((assignment) => (
+          <div key={assignment.id} className="rounded-interactive border border-border bg-background p-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="font-medium text-foreground">{systemsById.get(assignment.accessControlSystemId)?.name ?? assignment.accessControlSystemId}</p>
+                <p className="mt-1 text-[13px] text-muted-foreground">{t('identities.detail.credentialAssignment')}</p>
+              </div>
+              <Badge variant={getInfraStatusVariant(assignment.status)}>{assignment.status}</Badge>
+            </div>
+            <dl className="mt-3 grid gap-2 text-[13px] text-muted-foreground">
+              <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.scheduled')}</dt><dd className="text-right">{formatDateTimeLabel(assignment.scheduledFor)}</dd></div>
+              <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.provisioned')}</dt><dd className="text-right">{assignment.provisionedAt ? formatDateTimeLabel(assignment.provisionedAt) : '-'}</dd></div>
+              <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.revoked')}</dt><dd className="text-right">{assignment.revokedAt ? formatDateTimeLabel(assignment.revokedAt) : '-'}</dd></div>
+              <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.attempts')}</dt><dd className="text-right">{assignment.attemptCount}</dd></div>
+              {assignment.lastAttemptAt ? <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.lastAttempt')}</dt><dd className="text-right">{formatDateTimeLabel(assignment.lastAttemptAt)}</dd></div> : null}
+              {assignment.failureReasonCode ? <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.failure')}</dt><dd className="text-right text-error">{assignment.failureReasonCode}</dd></div> : null}
+              {assignment.errorMessage ? <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.error')}</dt><dd className="text-right text-error">{assignment.errorMessage}</dd></div> : null}
+              {assignment.nativeAssignmentId ? <div className="flex items-center justify-between gap-3"><dt>{t('identities.detail.nativeAssignment')}</dt><dd className="text-right">{assignment.nativeAssignmentId}</dd></div> : null}
+            </dl>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 type GrantView = {

@@ -1,9 +1,11 @@
 import { Link, useLocation } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 
 import type { ResolvedAppPerspective } from '@/shared/perspectives/app-perspectives';
 
 export function PerspectiveSidebar({ perspectives, version }: { perspectives: readonly ResolvedAppPerspective[]; version: string }) {
   const location = useLocation();
+  const { t } = useTranslation();
   const activePerspective = perspectives.find((perspective) => location.pathname === perspective.to || location.pathname.startsWith(`${perspective.to}/`));
   const displayVersion = getDisplayVersion(version);
 
@@ -26,9 +28,9 @@ export function PerspectiveSidebar({ perspectives, version }: { perspectives: re
       </div>
 
       <div className="mt-6 px-1">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Menu</p>
+        <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{t('common.menu')}</p>
       </div>
-      <nav aria-label="Perspective navigation" className="mt-3 grid gap-2">
+      <nav aria-label={t('shell.perspectiveNavigation')} className="mt-3 grid gap-2">
         {activePerspective?.menuItems.map((item) => {
           const isActive = isMenuItemActive(location.pathname, item.to);
 

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, Clock, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import { api, apiBaseUrl, getAccessToken } from '@/shared/api/client';
@@ -8,6 +9,7 @@ import type { components } from '@/shared/api/generated/schema';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/shared/components/ui/pagination';
+import { i18n } from '@/shared/i18n/i18n';
 import { cn } from '@/shared/utils/cn';
 
 import { getReceptionDeskWorkstationHeaders } from './reception-desk-workstation-settings';
@@ -27,10 +29,6 @@ const arrivalIntervalStorageKey = 'fabric.reception-desk.expected-arrivals';
 const historyIntervalStorageKey = 'fabric.reception-desk.history';
 const pageSize = 10;
 const onboardingSagaRefetchIntervalMs = 10_000;
-const intervalOptions: { readonly label: string; readonly value: ArrivalIntervalView }[] = [
-  { label: 'Today', value: 'today' },
-  { label: 'Week', value: 'week' },
-];
 
 type StoredArrivalIntervalState = {
   readonly view?: ArrivalIntervalView;
@@ -38,11 +36,12 @@ type StoredArrivalIntervalState = {
 };
 
 export function ReceptionDeskExpectedArrivalsPage() {
+  const { t } = useTranslation();
   return (
     <div className="grid gap-4">
       <div>
-        <h2 className="text-[18px] font-semibold tracking-tight">Expected arrivals</h2>
-        <p className="mt-1 text-[14px] text-muted-foreground">Review upcoming arrivals for this workstation location scope.</p>
+        <h2 className="text-[18px] font-semibold tracking-tight">{t('receptionDesk.pages.expectedArrivals')}</h2>
+        <p className="mt-1 text-[14px] text-muted-foreground">{t('receptionDesk.pages.expectedArrivalsDescription')}</p>
       </div>
       <div className="rounded-structural border border-border bg-content">
         <ExpectedArrivalsTab />
@@ -52,11 +51,12 @@ export function ReceptionDeskExpectedArrivalsPage() {
 }
 
 export function ReceptionDeskArrivalsPage() {
+  const { t } = useTranslation();
   return (
     <div className="grid gap-4">
       <div>
-        <h2 className="text-[18px] font-semibold tracking-tight">Arrivals</h2>
-        <p className="mt-1 text-[14px] text-muted-foreground">Manage onboarded arrivals and front desk check-in state.</p>
+        <h2 className="text-[18px] font-semibold tracking-tight">{t('receptionDesk.pages.arrivals')}</h2>
+        <p className="mt-1 text-[14px] text-muted-foreground">{t('receptionDesk.pages.arrivalsDescription')}</p>
       </div>
       <div className="rounded-structural border border-border bg-content">
         <ArrivalsTab />
@@ -66,11 +66,12 @@ export function ReceptionDeskArrivalsPage() {
 }
 
 export function ReceptionDeskHistoryPage() {
+  const { t } = useTranslation();
   return (
     <div className="grid gap-4">
       <div>
-        <h2 className="text-[18px] font-semibold tracking-tight">History</h2>
-        <p className="mt-1 text-[14px] text-muted-foreground">Review offboarded arrivals and check-in history for this workstation scope.</p>
+        <h2 className="text-[18px] font-semibold tracking-tight">{t('receptionDesk.pages.history')}</h2>
+        <p className="mt-1 text-[14px] text-muted-foreground">{t('receptionDesk.pages.historyDescription')}</p>
       </div>
       <div className="rounded-structural border border-border bg-content">
         <HistoryTab />
@@ -80,10 +81,12 @@ export function ReceptionDeskHistoryPage() {
 }
 
 function ExpectedArrivalsTab() {
+  const { t } = useTranslation();
   const [page, setPage] = useState(0);
   const [selectedArrivalId, setSelectedArrivalId] = useState<string | null>(null);
   const [intervalState, setIntervalState] = useState(() => getStoredIntervalState(arrivalIntervalStorageKey));
   const interval = useMemo(() => getArrivalInterval(intervalState.anchorDate, intervalState.view), [intervalState.anchorDate, intervalState.view]);
+  const intervalOptions = getIntervalOptions(t);
 
   useEffect(() => {
     window.sessionStorage.setItem(arrivalIntervalStorageKey, JSON.stringify(intervalState));
@@ -106,7 +109,7 @@ function ExpectedArrivalsTab() {
       });
 
       if (error) {
-        throw new Error('Could not load expected arrivals.');
+        throw new Error(t('receptionDesk.list.couldNotLoadExpected'));
       }
 
       return data;
@@ -133,12 +136,12 @@ function ExpectedArrivalsTab() {
   }
 
   return (
-    <section className="grid gap-4 p-4 sm:p-6" role="tabpanel" aria-label="Expected Arrivals">
+    <section className="grid gap-4 p-4 sm:p-6" role="tabpanel" aria-label={t('receptionDesk.list.expectedArrivalsTab')}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-[16px] font-semibold tracking-tight">{interval.label}</h3>
           <p className="mt-1 text-[14px] text-muted-foreground">
-            {expectedArrivalsQuery.isLoading ? 'Loading expected arrivals...' : `${pagination.totalItems} expected ${pagination.totalItems === 1 ? 'arrival' : 'arrivals'}`}
+            {expectedArrivalsQuery.isLoading ? t('receptionDesk.list.loadingExpected') : t('receptionDesk.list.expectedCount', { count: pagination.totalItems })}
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -146,7 +149,7 @@ function ExpectedArrivalsTab() {
             <button
               type="button"
               className="inline-flex size-10 items-center justify-center rounded-interactive border border-border text-muted-foreground transition hover:bg-hover-blue hover:text-foreground"
-              aria-label={`Previous ${getViewLabel(intervalState.view)}`}
+              aria-label={t('receptionDesk.interval.previous', { view: getViewLabel(intervalState.view, t) })}
               onClick={() => jumpInterval(-1)}
             >
               <ChevronLeft className="size-4" aria-hidden="true" />
@@ -154,13 +157,13 @@ function ExpectedArrivalsTab() {
             <button
               type="button"
               className="inline-flex size-10 items-center justify-center rounded-interactive border border-border text-muted-foreground transition hover:bg-hover-blue hover:text-foreground"
-              aria-label={`Next ${getViewLabel(intervalState.view)}`}
+              aria-label={t('receptionDesk.interval.next', { view: getViewLabel(intervalState.view, t) })}
               onClick={() => jumpInterval(1)}
             >
               <ChevronRight className="size-4" aria-hidden="true" />
             </button>
           </div>
-          <div className="flex flex-wrap items-center gap-1 rounded-interactive border border-border bg-hover-gray p-1" aria-label="Arrival interval">
+          <div className="flex flex-wrap items-center gap-1 rounded-interactive border border-border bg-hover-gray p-1" aria-label={t('receptionDesk.list.arrivalInterval')}>
             {intervalOptions.map((option) => (
               <button
                 key={option.value}
@@ -181,11 +184,11 @@ function ExpectedArrivalsTab() {
 
       <ArrivalList
         arrivals={arrivals}
-        emptyText="No expected arrivals in this interval."
-        errorText="Could not load expected arrivals."
+        emptyText={t('receptionDesk.list.noExpected')}
+        errorText={t('receptionDesk.list.couldNotLoadExpected')}
         isError={expectedArrivalsQuery.isError}
         isLoading={expectedArrivalsQuery.isLoading}
-        loadingText="Loading expected arrivals..."
+        loadingText={t('receptionDesk.list.loadingExpected')}
         mode="expected"
         selectedArrivalId={selectedArrivalId}
         onSelectArrival={setSelectedArrivalId}
@@ -199,6 +202,7 @@ function ExpectedArrivalsTab() {
 }
 
 function ArrivalsTab() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(0);
 
@@ -217,7 +221,7 @@ function ArrivalsTab() {
       });
 
       if (error) {
-        throw new Error('Could not load arrivals.');
+        throw new Error(t('receptionDesk.list.couldNotLoadArrivals'));
       }
 
       return data;
@@ -280,21 +284,21 @@ function ArrivalsTab() {
   }
 
   return (
-    <section className="grid gap-4 p-4 sm:p-6" role="tabpanel" aria-label="Arrivals">
+    <section className="grid gap-4 p-4 sm:p-6" role="tabpanel" aria-label={t('receptionDesk.list.arrivalsTab')}>
       <div>
-        <h3 className="text-[16px] font-semibold tracking-tight">Arrivals</h3>
+        <h3 className="text-[16px] font-semibold tracking-tight">{t('receptionDesk.list.arrivalsTab')}</h3>
         <p className="mt-1 text-[14px] text-muted-foreground">
-          {arrivalsQuery.isLoading ? 'Loading arrivals...' : `${pagination.totalItems} onboarded ${pagination.totalItems === 1 ? 'arrival' : 'arrivals'}`}
+          {arrivalsQuery.isLoading ? t('receptionDesk.list.loadingArrivals') : t('receptionDesk.list.onboardedCount', { count: pagination.totalItems })}
         </p>
       </div>
 
       <ArrivalList
         arrivals={arrivals}
-        emptyText="No onboarded arrivals."
-        errorText="Could not load arrivals."
+        emptyText={t('receptionDesk.list.noOnboarded')}
+        errorText={t('receptionDesk.list.couldNotLoadArrivals')}
         isError={arrivalsQuery.isError}
         isLoading={arrivalsQuery.isLoading}
-        loadingText="Loading arrivals..."
+        loadingText={t('receptionDesk.list.loadingArrivals')}
         mode="onboarded"
         checkInActionArrivalId={toggleCheckIn.isPending ? toggleCheckIn.variables?.id : null}
         offboardActionArrivalId={offboardArrival.isPending ? offboardArrival.variables?.id : null}
@@ -308,10 +312,12 @@ function ArrivalsTab() {
 }
 
 function HistoryTab() {
+  const { t } = useTranslation();
   const [page, setPage] = useState(0);
   const [selectedArrivalId, setSelectedArrivalId] = useState<string | null>(null);
   const [intervalState, setIntervalState] = useState(() => getStoredIntervalState(historyIntervalStorageKey));
   const interval = useMemo(() => getArrivalInterval(intervalState.anchorDate, intervalState.view), [intervalState.anchorDate, intervalState.view]);
+  const intervalOptions = getIntervalOptions(t);
 
   useEffect(() => {
     window.sessionStorage.setItem(historyIntervalStorageKey, JSON.stringify(intervalState));
@@ -334,7 +340,7 @@ function HistoryTab() {
       });
 
       if (error) {
-        throw new Error('Could not load history.');
+        throw new Error(t('receptionDesk.list.couldNotLoadHistory'));
       }
 
       return data;
@@ -361,12 +367,12 @@ function HistoryTab() {
   }
 
   return (
-    <section className="grid gap-4 p-4 sm:p-6" role="tabpanel" aria-label="History">
+    <section className="grid gap-4 p-4 sm:p-6" role="tabpanel" aria-label={t('receptionDesk.pages.history')}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-[16px] font-semibold tracking-tight">{interval.label}</h3>
           <p className="mt-1 text-[14px] text-muted-foreground">
-            {historyQuery.isLoading ? 'Loading history...' : `${pagination.totalItems} offboarded ${pagination.totalItems === 1 ? 'arrival' : 'arrivals'}`}
+            {historyQuery.isLoading ? t('receptionDesk.list.loadingHistory') : t('receptionDesk.list.offboardedCount', { count: pagination.totalItems })}
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -374,7 +380,7 @@ function HistoryTab() {
             <button
               type="button"
               className="inline-flex size-10 items-center justify-center rounded-interactive border border-border text-muted-foreground transition hover:bg-hover-blue hover:text-foreground"
-              aria-label={`Previous ${getViewLabel(intervalState.view)}`}
+              aria-label={t('receptionDesk.interval.previous', { view: getViewLabel(intervalState.view, t) })}
               onClick={() => jumpInterval(-1)}
             >
               <ChevronLeft className="size-4" aria-hidden="true" />
@@ -382,13 +388,13 @@ function HistoryTab() {
             <button
               type="button"
               className="inline-flex size-10 items-center justify-center rounded-interactive border border-border text-muted-foreground transition hover:bg-hover-blue hover:text-foreground"
-              aria-label={`Next ${getViewLabel(intervalState.view)}`}
+              aria-label={t('receptionDesk.interval.next', { view: getViewLabel(intervalState.view, t) })}
               onClick={() => jumpInterval(1)}
             >
               <ChevronRight className="size-4" aria-hidden="true" />
             </button>
           </div>
-          <div className="flex flex-wrap items-center gap-1 rounded-interactive border border-border bg-hover-gray p-1" aria-label="History interval">
+          <div className="flex flex-wrap items-center gap-1 rounded-interactive border border-border bg-hover-gray p-1" aria-label={t('receptionDesk.pages.history')}>
             {intervalOptions.map((option) => (
               <button
                 key={option.value}
@@ -409,11 +415,11 @@ function HistoryTab() {
 
       <ArrivalList
         arrivals={arrivals}
-        emptyText="No offboarded arrivals in this interval."
-        errorText="Could not load history."
+        emptyText={t('receptionDesk.list.noOffboarded')}
+        errorText={t('receptionDesk.list.couldNotLoadHistory')}
         isError={historyQuery.isError}
         isLoading={historyQuery.isLoading}
-        loadingText="Loading history..."
+        loadingText={t('receptionDesk.list.loadingHistory')}
         mode="history"
         selectedArrivalId={selectedArrivalId}
         onSelectArrival={setSelectedArrivalId}
@@ -531,6 +537,7 @@ function ArrivalCard({
   readonly onSelect?: (arrivalId: string) => void;
   readonly onToggleCheckIn?: (arrival: Arrival) => void;
 }) {
+  const { t } = useTranslation();
   const isClickable = (mode === 'expected' || mode === 'history') && !!onSelect;
   const isCheckInActionPending = checkInActionArrivalId === arrival.id;
   const isOffboardActionPending = offboardActionArrivalId === arrival.id;
@@ -556,7 +563,7 @@ function ArrivalCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="truncate text-[15px] font-semibold text-foreground">{getArrivalName(arrival)}</h3>
-          <p className="mt-1 truncate text-[14px] text-muted-foreground">{arrival.company || 'No company'}</p>
+          <p className="mt-1 truncate text-[14px] text-muted-foreground">{arrival.company || t('receptionDesk.details.noCompany')}</p>
         </div>
         {mode === 'onboarded' ? <SiteStatusBadge checkedIn={arrival.checkedIn} /> : <Badge variant="outline">{formatStatus(arrival.status)}</Badge>}
       </div>
@@ -565,8 +572,8 @@ function ArrivalCard({
           <Clock className="size-3.5" aria-hidden="true" />
           {getArrivalCardTimeText(arrival, mode)}
         </span>
-        {mode !== 'expected' && arrival.onboardedBy ? <span>Onboarded by {formatReceptionActor(arrival.onboardedBy)}</span> : null}
-        <span>Type: {arrival.type}</span>
+        {mode !== 'expected' && arrival.onboardedBy ? <span>{t('receptionDesk.details.onboardedBy', { name: formatReceptionActor(arrival.onboardedBy) })}</span> : null}
+        <span>{t('receptionDesk.details.type')}: {arrival.type}</span>
       </div>
       {mode === 'onboarded' ? (
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -577,7 +584,7 @@ function ArrivalCard({
           ) : null}
           {onOffboard ? (
             <Button type="button" variant="outline" className="w-full" disabled={isActionPending} onClick={() => onOffboard(arrival)}>
-              {isOffboardActionPending ? 'Offboarding...' : 'Offboard'}
+              {isOffboardActionPending ? t('receptionDesk.details.offboarding') : t('receptionDesk.details.offboard')}
             </Button>
           ) : null}
         </div>
@@ -605,6 +612,7 @@ function ArrivalTableRow({
   readonly onSelect?: (arrivalId: string) => void;
   readonly onToggleCheckIn?: (arrival: Arrival) => void;
 }) {
+  const { t } = useTranslation();
   const isClickable = (mode === 'expected' || mode === 'history') && !!onSelect;
   const isCheckInActionPending = checkInActionArrivalId === arrival.id;
   const isOffboardActionPending = offboardActionArrivalId === arrival.id;
@@ -617,9 +625,9 @@ function ArrivalTableRow({
     >
       <td className="px-4 py-4">
         <span className="font-medium text-foreground">{getArrivalName(arrival)}</span>
-        {mode !== 'expected' && arrival.onboardedBy ? <span className="mt-1 block text-[12px] text-muted-foreground">Onboarded by {formatReceptionActor(arrival.onboardedBy)}</span> : null}
+        {mode !== 'expected' && arrival.onboardedBy ? <span className="mt-1 block text-[12px] text-muted-foreground">{t('receptionDesk.details.onboardedBy', { name: formatReceptionActor(arrival.onboardedBy) })}</span> : null}
       </td>
-      <td className="px-4 py-4 text-muted-foreground">{arrival.company || 'No company'}</td>
+      <td className="px-4 py-4 text-muted-foreground">{arrival.company || t('receptionDesk.details.noCompany')}</td>
       <td className="px-4 py-4 text-muted-foreground">{getArrivalPrimaryTimeValue(arrival, mode)}</td>
       <td className="px-4 py-4 text-muted-foreground">{getArrivalSecondaryTimeValue(arrival, mode)}</td>
       <td className="px-4 py-4">
@@ -635,7 +643,7 @@ function ArrivalTableRow({
             ) : null}
             {onOffboard ? (
               <Button type="button" variant="outline" size="sm" disabled={isActionPending} onClick={() => onOffboard(arrival)}>
-                {isOffboardActionPending ? 'Offboarding...' : 'Offboard'}
+                {isOffboardActionPending ? t('receptionDesk.details.offboarding') : t('receptionDesk.details.offboard')}
               </Button>
             ) : null}
           </div>
@@ -646,6 +654,7 @@ function ArrivalTableRow({
 }
 
 function HistoryArrivalDetails({ arrivalId, onClose }: { readonly arrivalId: string; readonly onClose: () => void }) {
+  const { t } = useTranslation();
   const arrivalQuery = useQuery({
     queryKey: ['reception-desk', 'arrival', arrivalId],
     queryFn: async () => {
@@ -655,7 +664,7 @@ function HistoryArrivalDetails({ arrivalId, onClose }: { readonly arrivalId: str
       });
 
       if (error) {
-        throw new Error('Could not load arrival history.');
+        throw new Error(t('receptionDesk.details.couldNotLoadHistoryDetails'));
       }
 
       return data;
@@ -671,27 +680,27 @@ function HistoryArrivalDetails({ arrivalId, onClose }: { readonly arrivalId: str
   }, [arrivalId]);
 
   return (
-    <aside className="rounded-structural border border-border bg-content p-4 shadow-sm sm:p-6" aria-label="Arrival history details">
+    <aside className="rounded-structural border border-border bg-content p-4 shadow-sm sm:p-6" aria-label={t('receptionDesk.details.historyDetails')}>
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-[16px] font-semibold tracking-tight">History details</h3>
-          <p className="mt-1 text-[14px] text-muted-foreground">{arrival ? getArrivalName(arrival) : 'Loading arrival...'}</p>
+          <h3 className="text-[16px] font-semibold tracking-tight">{t('receptionDesk.details.historyDetails')}</h3>
+          <p className="mt-1 text-[14px] text-muted-foreground">{arrival ? getArrivalName(arrival) : t('receptionDesk.details.loadingArrival')}</p>
         </div>
         <button
           type="button"
           className="inline-flex size-9 shrink-0 items-center justify-center rounded-interactive border border-border text-muted-foreground transition hover:bg-hover-blue hover:text-foreground"
-          aria-label="Close history details"
+          aria-label={t('receptionDesk.details.closeHistoryDetails')}
           onClick={onClose}
         >
           <X className="size-4" aria-hidden="true" />
         </button>
       </div>
 
-      {arrivalQuery.isLoading ? <p className="text-[14px] text-muted-foreground">Loading history details...</p> : null}
+      {arrivalQuery.isLoading ? <p className="text-[14px] text-muted-foreground">{t('receptionDesk.details.loadingHistoryDetails')}</p> : null}
 
       {arrivalQuery.isError ? (
         <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">
-          Could not load history details.
+          {t('receptionDesk.details.couldNotLoadHistoryDetails')}
         </p>
       ) : null}
 
@@ -703,19 +712,19 @@ function HistoryArrivalDetails({ arrivalId, onClose }: { readonly arrivalId: str
               <Badge variant="outline">{formatStatus(arrival.status)}</Badge>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <DetailField label="Onboarded" value={formatNullableDateTime(arrival.onboardedAt)} />
-              <DetailField label="Onboarded by" value={formatReceptionActor(arrival.onboardedBy)} />
-              <DetailField label="Offboarded" value={formatNullableDateTime(arrival.offboardedAt)} />
-              <DetailField label="Offboarded by" value={formatReceptionActor(arrival.offboardedBy)} />
-              <DetailField label="Expected arrival" value={formatDateTime(arrival.expectedArrivalTime)} />
-              <DetailField label="Expected leave" value={formatDateTime(arrival.expectedOffboardTime)} />
+              <DetailField label={t('receptionDesk.details.onboarded')} value={formatNullableDateTime(arrival.onboardedAt)} />
+              <DetailField label={t('receptionDesk.details.onboardedByLabel')} value={formatReceptionActor(arrival.onboardedBy)} />
+              <DetailField label={t('receptionDesk.details.offboarded')} value={formatNullableDateTime(arrival.offboardedAt)} />
+              <DetailField label={t('receptionDesk.details.offboardedBy')} value={formatReceptionActor(arrival.offboardedBy)} />
+              <DetailField label={t('receptionDesk.details.expectedArrival')} value={formatDateTime(arrival.expectedArrivalTime)} />
+              <DetailField label={t('receptionDesk.details.expectedLeave')} value={formatDateTime(arrival.expectedOffboardTime)} />
             </div>
           </section>
 
           <section className="grid gap-3 rounded-structural border border-border p-4">
             <div>
-              <h4 className="text-[15px] font-semibold tracking-tight">Check-in history</h4>
-              <p className="mt-1 text-[14px] text-muted-foreground">All recorded check-in and check-out timestamps.</p>
+                <h4 className="text-[15px] font-semibold tracking-tight">{t('receptionDesk.details.checkInHistory')}</h4>
+                <p className="mt-1 text-[14px] text-muted-foreground">{t('receptionDesk.details.checkInHistoryDescription')}</p>
             </div>
             {entries.length > 0 ? (
               <ol className="grid gap-2">
@@ -723,22 +732,22 @@ function HistoryArrivalDetails({ arrivalId, onClose }: { readonly arrivalId: str
                   <li key={entry.id} className="flex flex-col gap-1 rounded-interactive border border-border bg-hover-gray px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                     <span>
                       <span className="block text-[14px] font-medium text-foreground">{formatArrivalEntryType(entry.type)}</span>
-                      <span className="block text-[13px] text-muted-foreground">By {formatReceptionActor(entry.actor)}</span>
+                      <span className="block text-[13px] text-muted-foreground">{t('receptionDesk.details.byActor', { name: formatReceptionActor(entry.actor) })}</span>
                     </span>
                     <span className="text-[13px] text-muted-foreground">{formatDateTime(entry.timestamp)}</span>
                   </li>
                 ))}
               </ol>
             ) : (
-              <p className="rounded-interactive border border-border bg-hover-gray px-4 py-3 text-[14px] text-muted-foreground">No check-in history recorded.</p>
+               <p className="rounded-interactive border border-border bg-hover-gray px-4 py-3 text-[14px] text-muted-foreground">{t('receptionDesk.details.noCheckInHistory')}</p>
             )}
           </section>
 
           <section className="grid gap-3 rounded-structural border border-border p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h4 className="text-[15px] font-semibold tracking-tight">Documents</h4>
-                <p className="mt-1 text-[14px] text-muted-foreground">Captured kiosk onboarding documents saved with this arrival.</p>
+                 <h4 className="text-[15px] font-semibold tracking-tight">{t('receptionDesk.details.documents')}</h4>
+                 <p className="mt-1 text-[14px] text-muted-foreground">{t('receptionDesk.details.documentsDescription')}</p>
               </div>
               {arrival.documents.length > 0 ? (
                 <Button
@@ -748,13 +757,13 @@ function HistoryArrivalDetails({ arrivalId, onClose }: { readonly arrivalId: str
                   aria-expanded={documentsExpanded}
                   onClick={() => setDocumentsExpanded((current) => !current)}
                 >
-                  {documentsExpanded ? 'Hide documents' : 'See documents'}
+                  {documentsExpanded ? t('receptionDesk.details.hideDocuments') : t('receptionDesk.details.seeDocuments')}
                 </Button>
               ) : null}
             </div>
 
             {arrival.documents.length === 0 ? (
-              <p className="rounded-interactive border border-border bg-hover-gray px-4 py-3 text-[14px] text-muted-foreground">No documents were stored for this arrival.</p>
+              <p className="rounded-interactive border border-border bg-hover-gray px-4 py-3 text-[14px] text-muted-foreground">{t('receptionDesk.details.noDocuments')}</p>
             ) : null}
 
             {documentsExpanded ? (
@@ -772,6 +781,7 @@ function HistoryArrivalDetails({ arrivalId, onClose }: { readonly arrivalId: str
 }
 
 function ExpectedArrivalDetails({ arrivalId, onClose }: { readonly arrivalId: string; readonly onClose: () => void }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   const arrivalQuery = useQuery({
@@ -783,7 +793,7 @@ function ExpectedArrivalDetails({ arrivalId, onClose }: { readonly arrivalId: st
       });
 
       if (error) {
-        throw new Error('Could not load arrival details.');
+        throw new Error(t('receptionDesk.details.couldNotLoadArrivalDetails'));
       }
 
       return data;
@@ -862,7 +872,7 @@ function ExpectedArrivalDetails({ arrivalId, onClose }: { readonly arrivalId: st
       });
 
       if (error) {
-        throw new Error('Could not onboard arrival.');
+          throw new Error('Could not onboard arrival.');
       }
     },
     onSuccess: async () => {
@@ -877,27 +887,27 @@ function ExpectedArrivalDetails({ arrivalId, onClose }: { readonly arrivalId: st
   const canOnboard = arrival?.status === 'NotYetOnboarded';
 
   return (
-    <aside className="rounded-structural border border-border bg-content p-4 shadow-sm sm:p-6" aria-label="Expected arrival details">
+    <aside className="rounded-structural border border-border bg-content p-4 shadow-sm sm:p-6" aria-label={t('receptionDesk.details.arrivalDetails')}>
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-[16px] font-semibold tracking-tight">Arrival details</h3>
-          <p className="mt-1 text-[14px] text-muted-foreground">{arrival ? getArrivalName(arrival) : 'Loading arrival...'}</p>
+          <h3 className="text-[16px] font-semibold tracking-tight">{t('receptionDesk.details.arrivalDetails')}</h3>
+          <p className="mt-1 text-[14px] text-muted-foreground">{arrival ? getArrivalName(arrival) : t('receptionDesk.details.loadingArrival')}</p>
         </div>
         <button
           type="button"
           className="inline-flex size-9 shrink-0 items-center justify-center rounded-interactive border border-border text-muted-foreground transition hover:bg-hover-blue hover:text-foreground"
-          aria-label="Close arrival details"
+          aria-label={t('receptionDesk.details.closeArrivalDetails')}
           onClick={onClose}
         >
           <X className="size-4" aria-hidden="true" />
         </button>
       </div>
 
-      {arrivalQuery.isLoading ? <p className="text-[14px] text-muted-foreground">Loading arrival details...</p> : null}
+      {arrivalQuery.isLoading ? <p className="text-[14px] text-muted-foreground">{t('receptionDesk.details.loadingArrivalDetails')}</p> : null}
 
       {arrivalQuery.isError ? (
         <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">
-          Could not load arrival details.
+          {t('receptionDesk.details.couldNotLoadArrivalDetails')}
         </p>
       ) : null}
 
@@ -910,15 +920,15 @@ function ExpectedArrivalDetails({ arrivalId, onClose }: { readonly arrivalId: st
               {arrival.confirmed !== null ? <ConfirmationBadge confirmed={arrival.confirmed} /> : null}
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <DetailField label="Expected arrival" value={formatDateTime(arrival.expectedArrivalTime)} />
-              <DetailField label="Expected leave" value={formatDateTime(arrival.expectedOffboardTime)} />
-              <DetailField label="Company" value={arrival.company || 'No company'} />
-              <DetailField label="Location" value={locationQuery.isLoading ? 'Loading location...' : formatLocation(locationQuery.data ?? null)} />
+              <DetailField label={t('receptionDesk.details.expectedArrival')} value={formatDateTime(arrival.expectedArrivalTime)} />
+              <DetailField label={t('receptionDesk.details.expectedLeave')} value={formatDateTime(arrival.expectedOffboardTime)} />
+              <DetailField label={t('receptionDesk.details.company')} value={arrival.company || t('receptionDesk.details.noCompany')} />
+              <DetailField label="Location" value={locationQuery.isLoading ? t('receptionDesk.details.loadingLocation') : formatLocation(locationQuery.data ?? null)} />
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-[13px] text-muted-foreground">Onboard confirms this expected arrival and moves it to Arrivals.</p>
+              <p className="text-[13px] text-muted-foreground">{t('receptionDesk.details.onboardHint')}</p>
               <Button type="button" disabled={!canOnboard || onboardArrival.isPending} onClick={() => onboardArrival.mutate()}>
-                {onboardArrival.isPending ? 'Onboarding...' : 'Onboard'}
+                {onboardArrival.isPending ? t('receptionDesk.details.onboarding') : t('receptionDesk.details.onboard')}
               </Button>
             </div>
           </section>
@@ -926,8 +936,8 @@ function ExpectedArrivalDetails({ arrivalId, onClose }: { readonly arrivalId: st
           {arrival.type === 'Visitor' ? (
             <VisitorArrivalDetails arrival={arrival} invitation={invitation} isLoading={visitQuery.isLoading || sagaQuery.isLoading} saga={sagaQuery.data ?? null} visit={visit} />
           ) : (
-            <p className="rounded-interactive border border-border bg-hover-gray px-4 py-3 text-[14px] text-muted-foreground">Contractor details are not available yet.</p>
-          )}
+             <p className="rounded-interactive border border-border bg-hover-gray px-4 py-3 text-[14px] text-muted-foreground">{t('receptionDesk.details.contractorDetailsUnavailable')}</p>
+           )}
         </div>
       ) : null}
     </aside>
@@ -935,37 +945,38 @@ function ExpectedArrivalDetails({ arrivalId, onClose }: { readonly arrivalId: st
 }
 
 function VisitorArrivalDetails({ arrival, invitation, isLoading, saga, visit }: { readonly arrival: Arrival; readonly invitation: VisitInvitation | null; readonly isLoading: boolean; readonly saga: VisitorPreOnboardingSaga | null; readonly visit: Visit | null }) {
+  const { t } = useTranslation();
   if (isLoading) {
-    return <p className="rounded-interactive border border-border bg-hover-gray px-4 py-3 text-[14px] text-muted-foreground">Loading visitor details...</p>;
+    return <p className="rounded-interactive border border-border bg-hover-gray px-4 py-3 text-[14px] text-muted-foreground">{t('receptionDesk.details.loadingVisitorDetails')}</p>;
   }
 
   if (!visit) {
-    return <p className="rounded-interactive border border-border bg-hover-gray px-4 py-3 text-[14px] text-muted-foreground">No visit details found for this invitation.</p>;
+    return <p className="rounded-interactive border border-border bg-hover-gray px-4 py-3 text-[14px] text-muted-foreground">{t('receptionDesk.details.noVisitDetails')}</p>;
   }
 
   return (
     <section className="grid gap-4 rounded-structural border border-border p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h4 className="text-[15px] font-semibold tracking-tight">Visit details</h4>
-          <p className="mt-1 text-[14px] text-muted-foreground">{visit.summary || 'Untitled visit'}</p>
+          <h4 className="text-[15px] font-semibold tracking-tight">{t('receptionDesk.details.visitDetails')}</h4>
+          <p className="mt-1 text-[14px] text-muted-foreground">{visit.summary || t('receptionDesk.details.untitledVisit')}</p>
         </div>
         <Badge variant="outline">{visit.status}</Badge>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <DetailField label="Visit starts" value={visit.start ? formatDateTime(visit.start) : 'Not planned'} />
-        <DetailField label="Visit ends" value={visit.stop ? formatDateTime(visit.stop) : 'Not planned'} />
-        <DetailField label="Host" value={getHostName(visit.host)} />
-        <DetailField label="Invitation" value={invitation?.confirmationStatus ?? formatConfirmation(arrival.confirmed)} />
+        <DetailField label={t('receptionDesk.details.visitStarts')} value={visit.start ? formatDateTime(visit.start) : t('receptionDesk.details.notPlanned')} />
+        <DetailField label={t('receptionDesk.details.visitEnds')} value={visit.stop ? formatDateTime(visit.stop) : t('receptionDesk.details.notPlanned')} />
+        <DetailField label={t('receptionDesk.details.host')} value={getHostName(visit.host)} />
+        <DetailField label={t('receptionDesk.details.invitation')} value={invitation?.confirmationStatus ?? formatConfirmation(arrival.confirmed)} />
       </div>
 
       {invitation ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <DetailField label="Email" value={invitation.email} />
-          <DetailField label="Transport" value={invitation.transport ?? 'Not provided'} />
-          <DetailField label="License plate" value={invitation.licensePlate ?? 'Not provided'} />
-          <DetailField label="Confirmed at" value={invitation.confirmedAt ? formatDateTime(invitation.confirmedAt) : 'Not confirmed'} />
+          <DetailField label={t('receptionDesk.details.transport')} value={invitation.transport ?? t('receptionDesk.details.notProvided')} />
+          <DetailField label={t('receptionDesk.details.licensePlate')} value={invitation.licensePlate ?? t('receptionDesk.details.notProvided')} />
+          <DetailField label={t('receptionDesk.details.confirmedAt')} value={invitation.confirmedAt ? formatDateTime(invitation.confirmedAt) : t('receptionDesk.details.notConfirmed')} />
         </div>
       ) : null}
 
@@ -975,39 +986,42 @@ function VisitorArrivalDetails({ arrival, invitation, isLoading, saga, visit }: 
 }
 
 function ReceptionDeskJourneyDetails({ invitation, saga }: { readonly invitation: VisitInvitation | null; readonly saga: VisitorPreOnboardingSaga | null }) {
+  const { t } = useTranslation();
   return (
     <section className="grid gap-3 rounded-structural border border-border p-4">
       <div>
-        <h4 className="text-[15px] font-semibold tracking-tight">Visit journey</h4>
-        <p className="mt-1 text-[14px] text-muted-foreground">Workflow and invitation milestones for this visitor onboarding flow.</p>
+        <h4 className="text-[15px] font-semibold tracking-tight">{t('receptionDesk.details.visitJourney')}</h4>
+        <p className="mt-1 text-[14px] text-muted-foreground">{t('receptionDesk.details.visitJourneyDescription')}</p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <DetailField label="Workflow state" value={formatSagaState(saga)} />
-        <DetailField label="Retry count" value={formatRetryCount(saga?.retryCount)} />
-        <DetailField label="Invitation" value={invitation?.confirmationStatus ?? 'No invitation status'} />
-        <DetailField label="Confirmed at" value={invitation?.confirmedAt ? formatDateTime(invitation.confirmedAt) : 'Not confirmed'} />
+        <DetailField label={t('receptionDesk.details.workflowState')} value={formatSagaState(saga)} />
+        <DetailField label={t('receptionDesk.details.retryCount')} value={formatRetryCount(saga?.retryCount)} />
+        <DetailField label={t('receptionDesk.details.invitation')} value={invitation?.confirmationStatus ?? t('receptionDesk.details.noInvitationStatus')} />
+        <DetailField label={t('receptionDesk.details.confirmedAt')} value={invitation?.confirmedAt ? formatDateTime(invitation.confirmedAt) : t('receptionDesk.details.notConfirmed')} />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <DetailField label="Workflow created" value={saga?.createdAt ? formatDateTime(saga.createdAt) : 'Not started'} />
-        <DetailField label="Invitation sent" value={saga?.invitationSentAt ? formatDateTime(saga.invitationSentAt) : 'Not sent'} />
-        <DetailField label="Arrival notice sent" value={saga?.arrivalNotificationSentAt ? formatDateTime(saga.arrivalNotificationSentAt) : 'Not sent'} />
-        <DetailField label="Next retry" value={saga?.nextRetryAt ? formatDateTime(saga.nextRetryAt) : 'No retry scheduled'} />
+        <DetailField label={t('receptionDesk.details.workflowCreated')} value={saga?.createdAt ? formatDateTime(saga.createdAt) : t('receptionDesk.details.notStarted')} />
+        <DetailField label={t('receptionDesk.details.invitationSent')} value={saga?.invitationSentAt ? formatDateTime(saga.invitationSentAt) : t('receptionDesk.details.notSent')} />
+        <DetailField label={t('receptionDesk.details.arrivalNoticeSent')} value={saga?.arrivalNotificationSentAt ? formatDateTime(saga.arrivalNotificationSentAt) : t('receptionDesk.details.notSent')} />
+        <DetailField label={t('receptionDesk.details.nextRetry')} value={saga?.nextRetryAt ? formatDateTime(saga.nextRetryAt) : t('receptionDesk.details.noRetryScheduled')} />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <DetailField label="Workflow expires" value={saga?.expiresAt ? formatDateTime(saga.expiresAt) : 'No expiry'} />
-        <DetailField label="Arrival link" value={saga?.arrivalId ? 'Linked' : 'Not linked'} />
-        <DetailField label="Credential" value={saga?.credentialId ? 'Issued' : 'Not issued'} />
-        <DetailField label="Access policy" value={saga?.accessPolicyId ? 'Assigned' : 'Not assigned'} />
+        <DetailField label={t('receptionDesk.details.workflowExpires')} value={saga?.expiresAt ? formatDateTime(saga.expiresAt) : t('receptionDesk.details.noExpiry')} />
+        <DetailField label={t('receptionDesk.details.arrivalLink')} value={saga?.arrivalId ? t('receptionDesk.details.linked') : t('receptionDesk.details.notLinked')} />
+        <DetailField label={t('receptionDesk.details.credential')} value={saga?.credentialId ? t('receptionDesk.details.issued') : t('receptionDesk.details.notIssued')} />
+        <DetailField label={t('receptionDesk.details.accessPolicy')} value={saga?.accessPolicyId ? t('receptionDesk.details.assigned') : t('receptionDesk.details.notAssigned')} />
       </div>
     </section>
   );
 }
 
 function SiteStatusBadge({ checkedIn }: { readonly checkedIn: boolean }) {
-  return <Badge variant={checkedIn ? 'success' : 'warning'}>{checkedIn ? 'On site' : 'Not on site'}</Badge>;
+  const { t } = useTranslation();
+
+  return <Badge variant={checkedIn ? 'success' : 'warning'}>{checkedIn ? t('receptionDesk.details.onSite') : t('receptionDesk.details.notOnSite')}</Badge>;
 }
 
 function getArrivalPrimaryTimeHeader(mode: ArrivalListMode) {
@@ -1048,25 +1062,26 @@ function getArrivalSecondaryTimeValue(arrival: Arrival, mode: ArrivalListMode) {
 
 function getArrivalCardTimeText(arrival: Arrival, mode: ArrivalListMode) {
   if (mode === 'expected') {
-    return `Arrives ${formatDateTime(arrival.expectedArrivalTime)}`;
+    return i18n.t('receptionDesk.details.arrivesAt', { value: formatDateTime(arrival.expectedArrivalTime) });
   }
 
   if (mode === 'history') {
-    return `On site ${formatNullableDateTime(arrival.onboardedAt)} - ${formatNullableDateTime(arrival.offboardedAt)}`;
+    return i18n.t('receptionDesk.details.onSiteRange', { start: formatNullableDateTime(arrival.onboardedAt), end: formatNullableDateTime(arrival.offboardedAt) });
   }
 
-  return `Expected leave ${formatDateTime(arrival.expectedOffboardTime)}`;
+  return i18n.t('receptionDesk.details.expectedLeaveAt', { value: formatDateTime(arrival.expectedOffboardTime) });
 }
 
 function getCheckToggleLabel(arrival: Arrival, isPending: boolean) {
   if (arrival.checkedIn) {
-    return isPending ? 'Checking out...' : 'Check out';
+    return isPending ? i18n.t('receptionDesk.details.checkingOut') : i18n.t('receptionDesk.details.checkOut');
   }
 
-  return isPending ? 'Checking in...' : 'Check in';
+  return isPending ? i18n.t('receptionDesk.details.checkingIn') : i18n.t('receptionDesk.details.checkIn');
 }
 
 function ArrivalPagination({ isVisible, label, pagination, setPage }: { readonly isVisible: boolean; readonly label: string; readonly pagination: PaginationState; readonly setPage: (page: number) => void }) {
+  const { t } = useTranslation();
   if (!isVisible) {
     return null;
   }
@@ -1074,7 +1089,7 @@ function ArrivalPagination({ isVisible, label, pagination, setPage }: { readonly
   return (
     <div className="flex flex-col gap-3 text-[14px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
       <p>
-        Showing {pagination.firstItem}-{pagination.lastItem} of {pagination.totalItems} {label}
+        {t('receptionDesk.details.showingLabel', { first: pagination.firstItem, last: pagination.lastItem, total: pagination.totalItems, label })}
       </p>
       <Pagination className="sm:mx-0 sm:w-auto">
         <PaginationContent>
@@ -1381,8 +1396,15 @@ function getHostName(host: components['schemas']['HostResponse']) {
   return [host.firstName, host.lastName].filter(Boolean).join(' ') || 'Unnamed host';
 }
 
-function getViewLabel(view: ArrivalIntervalView) {
-  return intervalOptions.find((option) => option.value === view)?.label ?? 'interval';
+function getViewLabel(view: ArrivalIntervalView, t: ReturnType<typeof useTranslation>['t']) {
+  return getIntervalOptions(t).find((option) => option.value === view)?.label ?? 'interval';
+}
+
+function getIntervalOptions(t: ReturnType<typeof useTranslation>['t']) {
+  return [
+    { label: t('receptionDesk.interval.today'), value: 'today' as const },
+    { label: t('receptionDesk.interval.week'), value: 'week' as const },
+  ];
 }
 
 function formatDateTime(value: string) {

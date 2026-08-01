@@ -1,4 +1,5 @@
 import { useLocation, useNavigate } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 
 import { ReceptionDeskWorkstationAdminPanel } from '@/features/reception-desk/reception-desk-workstation-admin-panel';
 import { HardwareAgentsPanel } from '@/features/facility/hardware-agents-panel';
@@ -10,6 +11,7 @@ type ClientsTab = 'hardware-agents' | 'reception-desk-kiosk' | 'reception-desk-w
 export default function ClientsPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const activeTab = getActiveTab(location.searchStr);
 
   function changeTab(nextTab: string) {
@@ -23,10 +25,10 @@ export default function ClientsPage() {
   return (
     <section className="rounded-structural border border-border bg-content p-4 sm:p-6">
         <Tabs value={activeTab} onValueChange={changeTab}>
-          <TabsList aria-label="Client sections" className="h-auto w-fit max-w-full flex-wrap justify-start gap-1">
-            <TabsTrigger value="hardware-agents">Hardware Agents</TabsTrigger>
-            <TabsTrigger value="reception-desk-kiosk">Reception Desk Kiosk</TabsTrigger>
-            <TabsTrigger value="reception-desk-workstations">Reception Desk Workstations</TabsTrigger>
+          <TabsList aria-label={t('administration.clients.tabsAriaLabel')} className="h-auto w-fit max-w-full flex-wrap justify-start gap-1">
+            <TabsTrigger value="hardware-agents">{t('administration.clients.hardwareAgents')}</TabsTrigger>
+            <TabsTrigger value="reception-desk-kiosk">{t('administration.clients.receptionKiosk')}</TabsTrigger>
+            <TabsTrigger value="reception-desk-workstations">{t('administration.clients.receptionDeskWorkstations')}</TabsTrigger>
           </TabsList>
 
         <TabsContent value="hardware-agents" className="pt-4">

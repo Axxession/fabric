@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 import { lazy, Suspense } from 'react';
 
@@ -879,5 +880,7 @@ function ProtectedLazyRoute({ component }: { component: React.ReactNode }) {
 }
 
 function RouteFallback() {
-  return <div className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">Loading...</div>;
+  const { t } = useTranslation();
+
+  return <div className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">{t('shell.routeFallback')}</div>;
 }

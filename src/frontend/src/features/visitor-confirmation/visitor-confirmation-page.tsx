@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { Bike, CalendarDays, CheckCircle2, MapPin, UserRound, XCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
@@ -12,13 +13,6 @@ import { Input } from '@/shared/components/ui/input';
 type VisitConfirmationResponse = components['schemas']['VisitConfirmationResponse'];
 type Transport = NonNullable<components['schemas']['ModeOfTransport']>;
 
-const transportOptions: { value: Transport; label: string }[] = [
-  { value: 'Car', label: 'Car' },
-  { value: 'PublicTransport', label: 'Public transport' },
-  { value: 'Bike', label: 'Bike' },
-  { value: 'Walk', label: 'Walk' },
-];
-
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: 'medium',
@@ -26,8 +20,8 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
-function getHostName(visit: VisitConfirmationResponse) {
-  return [visit.host.firstName, visit.host.lastName].filter(Boolean).join(' ') || visit.host.email || 'Unnamed host';
+function getHostName(visit: VisitConfirmationResponse, unnamedHostLabel: string) {
+  return [visit.host.firstName, visit.host.lastName].filter(Boolean).join(' ') || visit.host.email || unnamedHostLabel;
 }
 
 function getVisitorName(visit: VisitConfirmationResponse) {
@@ -37,6 +31,7 @@ function getVisitorName(visit: VisitConfirmationResponse) {
 export default function VisitorConfirmationPage() {
   const { visitId, invitationId } = useParams({ from: '/main/visitor-confirmation/$visitId/$invitationId' });
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -46,6 +41,12 @@ export default function VisitorConfirmationPage() {
   const [message, setMessage] = useState<string | null>(null);
 
   const queryKey = ['visitor-confirmation', visitId, invitationId] as const;
+  const transportOptions: { value: Transport; label: string }[] = [
+    { value: 'Car', label: t('visitorConfirmation.car') },
+    { value: 'PublicTransport', label: t('visitorConfirmation.publicTransport') },
+    { value: 'Bike', label: t('visitorConfirmation.bike') },
+    { value: 'Walk', label: t('visitorConfirmation.walk') },
+  ];
 
   const confirmationQuery = useQuery({
     queryKey,
@@ -55,7 +56,7 @@ export default function VisitorConfirmationPage() {
       });
 
       if (error || !data) {
-        throw new Error('Could not load visit invitation.');
+        throw new Error(t('visitorConfirmation.couldNotLoadInvitation'));
       }
 
       return data;
@@ -95,15 +96,15 @@ export default function VisitorConfirmationPage() {
       });
 
       if (error) {
-        throw new Error('Could not accept invitation.');
+        throw new Error(t('visitorConfirmation.couldNotAcceptInvitation'));
       }
     },
     onSuccess: async () => {
-      setMessage('Visit accepted. Your response has been recorded.');
+      setMessage(t('visitorConfirmation.acceptedMessage'));
       await queryClient.invalidateQueries({ queryKey });
     },
     onError: async () => {
-      setMessage('Could not accept invitation. It may already have been answered.');
+      setMessage(t('visitorConfirmation.acceptFailedMessage'));
       await queryClient.invalidateQueries({ queryKey });
     },
   });
@@ -115,29 +116,29 @@ export default function VisitorConfirmationPage() {
       });
 
       if (error) {
-        throw new Error('Could not reject invitation.');
+        throw new Error(t('visitorConfirmation.couldNotRejectInvitation'));
       }
     },
     onSuccess: async () => {
-      setMessage('Visit rejected. Your response has been recorded.');
+      setMessage(t('visitorConfirmation.rejectedMessage'));
       await queryClient.invalidateQueries({ queryKey });
     },
     onError: async () => {
-      setMessage('Could not reject invitation. It may already have been answered.');
+      setMessage(t('visitorConfirmation.rejectFailedMessage'));
       await queryClient.invalidateQueries({ queryKey });
     },
   });
 
   if (confirmationQuery.isLoading) {
-    return <p className="text-[14px] text-muted-foreground">Loading visit invitation...</p>;
+    return <p className="text-[14px] text-muted-foreground">{t('visitorConfirmation.loading')}</p>;
   }
 
   if (confirmationQuery.isError || !visit) {
     return (
       <Card className="mx-auto max-w-2xl p-6">
-        <p className="text-[13px] font-semibold uppercase tracking-[0.18em] text-error">Invitation unavailable</p>
-        <h1 className="mt-3 text-[28px] font-semibold tracking-tight">We could not find this visit</h1>
-        <p className="mt-3 text-[14px] text-muted-foreground">The link may be invalid, expired, or the visit may have been removed.</p>
+        <p className="text-[13px] font-semibold uppercase tracking-[0.18em] text-error">{t('visitorConfirmation.unavailableTag')}</p>
+        <h1 className="mt-3 text-[28px] font-semibold tracking-tight">{t('visitorConfirmation.unavailableTitle')}</h1>
+        <p className="mt-3 text-[14px] text-muted-foreground">{t('visitorConfirmation.unavailableDescription')}</p>
       </Card>
     );
   }
@@ -145,12 +146,12 @@ export default function VisitorConfirmationPage() {
   return (
     <div className="mx-auto grid max-w-4xl gap-6">
       <header className="rounded-structural border border-border bg-content p-5 sm:p-7">
-        <p className="text-[13px] font-semibold uppercase tracking-[0.18em] text-primary">Visit invitation</p>
+        <p className="text-[13px] font-semibold uppercase tracking-[0.18em] text-primary">{t('visitorConfirmation.headerTag')}</p>
         <h1 className="mt-3 text-[28px] font-semibold tracking-tight sm:text-[36px]">{visit.summary}</h1>
         <p className="mt-3 max-w-2xl text-[15px] text-muted-foreground">
           {alreadyResponded
-            ? 'This invitation has already been answered.'
-            : 'Review your visit details, then accept or reject the invitation.'}
+            ? t('visitorConfirmation.alreadyAnswered')
+            : t('visitorConfirmation.reviewPrompt')}
         </p>
       </header>
 
@@ -164,29 +165,29 @@ export default function VisitorConfirmationPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.25fr]">
         <Card className="p-5 sm:p-6">
-          <h2 className="text-[18px] font-semibold tracking-tight">Visit details</h2>
+          <h2 className="text-[18px] font-semibold tracking-tight">{t('visitorConfirmation.detailsTitle')}</h2>
           <dl className="mt-5 grid gap-4 text-[14px]">
-            <Detail icon={<CalendarDays className="size-4" />} label="Starts" value={formatDateTime(visit.start)} />
-            <Detail icon={<CalendarDays className="size-4" />} label="Ends" value={formatDateTime(visit.stop)} />
-            <Detail icon={<MapPin className="size-4" />} label="Location" value={visit.locationLabel ?? 'Not specified'} />
-            <Detail icon={<UserRound className="size-4" />} label="Host" value={getHostName(visit)} hint={visit.host.email ?? 'No email provided'} />
+            <Detail icon={<CalendarDays className="size-4" />} label={t('visitorConfirmation.starts')} value={formatDateTime(visit.start)} />
+            <Detail icon={<CalendarDays className="size-4" />} label={t('visitorConfirmation.ends')} value={formatDateTime(visit.stop)} />
+            <Detail icon={<MapPin className="size-4" />} label={t('visitorConfirmation.location')} value={visit.locationLabel ?? t('visitorConfirmation.notSpecified')} />
+            <Detail icon={<UserRound className="size-4" />} label={t('visitorConfirmation.host')} value={getHostName(visit, t('visitorConfirmation.unnamedHost'))} hint={visit.host.email ?? t('visitorConfirmation.noEmailProvided')} />
           </dl>
         </Card>
 
         <Card className="p-5 sm:p-6">
-          <h2 className="text-[18px] font-semibold tracking-tight">Your response</h2>
-          <p className="mt-2 text-[14px] text-muted-foreground">Invited as {getVisitorName(visit)}. Update details before accepting if needed.</p>
+          <h2 className="text-[18px] font-semibold tracking-tight">{t('visitorConfirmation.responseTitle')}</h2>
+          <p className="mt-2 text-[14px] text-muted-foreground">{t('visitorConfirmation.invitedAs', { name: getVisitorName(visit) })}</p>
 
           <form className="mt-5 grid gap-4" onSubmit={(event) => { event.preventDefault(); void acceptInvitation.mutateAsync(); }}>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="First name" value={firstName} onChange={setFirstName} disabled={alreadyResponded} />
-              <Field label="Last name" value={lastName} onChange={setLastName} disabled={alreadyResponded} />
+              <Field label={t('visitorConfirmation.firstName')} value={firstName} onChange={setFirstName} disabled={alreadyResponded} />
+              <Field label={t('visitorConfirmation.lastName')} value={lastName} onChange={setLastName} disabled={alreadyResponded} />
             </div>
-            <Field label="Email" type="email" value={email} onChange={setEmail} disabled={alreadyResponded} />
-            <Field label="Company" value={company} onChange={setCompany} disabled={alreadyResponded} />
+            <Field label={t('visitorConfirmation.email')} type="email" value={email} onChange={setEmail} disabled={alreadyResponded} />
+            <Field label={t('visitorConfirmation.company')} value={company} onChange={setCompany} disabled={alreadyResponded} />
 
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-foreground" htmlFor="transport">Mode of transport</label>
+              <label className="mb-1 block text-[13px] font-medium text-foreground" htmlFor="transport">{t('visitorConfirmation.transportMode')}</label>
               <select
                 id="transport"
                 className="h-10 w-full rounded-interactive border border-border bg-content px-3 text-[14px] text-foreground outline-none focus:ring-[3px] focus:ring-primary/20 disabled:opacity-50"
@@ -201,7 +202,7 @@ export default function VisitorConfirmationPage() {
             </div>
 
             {licensePlateRequired ? (
-              <Field label="License plate" value={licensePlate} onChange={setLicensePlate} disabled={alreadyResponded} />
+              <Field label={t('visitorConfirmation.licensePlate')} value={licensePlate} onChange={setLicensePlate} disabled={alreadyResponded} />
             ) : null}
 
             <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-between">
@@ -213,11 +214,11 @@ export default function VisitorConfirmationPage() {
                 onClick={() => void rejectInvitation.mutateAsync()}
               >
                 <XCircle className="size-4" aria-hidden="true" />
-                Reject visit
+                {t('visitorConfirmation.rejectVisit')}
               </Button>
               <Button type="submit" disabled={!canSubmit || acceptInvitation.isPending || rejectInvitation.isPending}>
                 <CheckCircle2 className="size-4" aria-hidden="true" />
-                {acceptInvitation.isPending ? 'Accepting...' : 'Accept visit'}
+                {acceptInvitation.isPending ? t('visitorConfirmation.accepting') : t('visitorConfirmation.acceptVisit')}
               </Button>
             </div>
           </form>
@@ -252,7 +253,9 @@ function Field({ label, value, onChange, disabled, type = 'text' }: { readonly l
 }
 
 function ResponseState({ visit }: { readonly visit: VisitConfirmationResponse }) {
+  const { t } = useTranslation();
   const accepted = visit.confirmationStatus === 'Confirmed';
+  const transportLabel = visit.transport ? getTransportLabel(visit.transport, t) : null;
 
   return (
     <Card className="flex items-start gap-3 p-4">
@@ -260,17 +263,34 @@ function ResponseState({ visit }: { readonly visit: VisitConfirmationResponse })
         {accepted ? <CheckCircle2 className="size-5" aria-hidden="true" /> : <XCircle className="size-5" aria-hidden="true" />}
       </div>
       <div>
-        <p className="text-[15px] font-semibold text-foreground">{accepted ? 'Visit accepted' : 'Visit rejected'}</p>
+        <p className="text-[15px] font-semibold text-foreground">{accepted ? t('visitorConfirmation.acceptedMessage') : t('visitorConfirmation.rejectedMessage')}</p>
         <p className="mt-1 text-[14px] text-muted-foreground">
-          Response recorded {accepted && visit.confirmedAt ? formatDateTime(visit.confirmedAt) : visit.rejectedAt ? formatDateTime(visit.rejectedAt) : 'for this invitation'}.
+          {t('visitorConfirmation.responseRecorded', {
+            when: accepted && visit.confirmedAt ? formatDateTime(visit.confirmedAt) : visit.rejectedAt ? formatDateTime(visit.rejectedAt) : t('visitorConfirmation.forThisInvitation'),
+          })}
         </p>
-        {accepted && visit.transport ? (
+        {accepted && transportLabel ? (
           <p className="mt-2 inline-flex items-center gap-1.5 text-[13px] text-muted-foreground">
             <Bike className="size-3.5" aria-hidden="true" />
-            {transportOptions.find((option) => option.value === visit.transport)?.label ?? visit.transport}
+            {transportLabel}
           </p>
         ) : null}
       </div>
     </Card>
   );
+}
+
+function getTransportLabel(transport: Transport, t: ReturnType<typeof useTranslation>['t']) {
+  switch (transport) {
+    case 'Car':
+      return t('visitorConfirmation.car');
+    case 'PublicTransport':
+      return t('visitorConfirmation.publicTransport');
+    case 'Bike':
+      return t('visitorConfirmation.bike');
+    case 'Walk':
+      return t('visitorConfirmation.walk');
+    default:
+      return transport;
+  }
 }

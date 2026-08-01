@@ -2,6 +2,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { KeyRound, MonitorSmartphone } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
@@ -18,6 +19,7 @@ const workstationQueryKey = ['reception-desk-workstation', 'setup', 'workstation
 
 export default function ReceptionDeskWorkstationSetupPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [workstationId, setWorkstationId] = useState(getStoredReceptionDeskWorkstationId);
   const [workstationApiKey, setWorkstationApiKey] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +33,7 @@ export default function ReceptionDeskWorkstationSetupPage() {
       });
 
       if (error || !data) {
-        throw new Error('Could not load reception desk workstations.');
+        throw new Error(t('receptionDesk.setup.couldNotLoadWorkstations'));
       }
 
       return data.items ?? [];
@@ -76,12 +78,12 @@ export default function ReceptionDeskWorkstationSetupPage() {
     const nextApiKey = workstationApiKey.trim() || currentSettings?.workstationApiKey || '';
 
     if (!nextWorkstationId) {
-      setError('Select a workstation first.');
+      setError(t('receptionDesk.setup.selectWorkstationFirst'));
       return;
     }
 
     if (!nextApiKey) {
-      setError('Workstation API key is required.');
+      setError(t('receptionDesk.setup.apiKeyRequired'));
       return;
     }
 
@@ -95,10 +97,10 @@ export default function ReceptionDeskWorkstationSetupPage() {
         <div className="flex size-16 items-center justify-center rounded-full bg-hover-blue text-primary sm:size-20">
           <MonitorSmartphone className="size-8 sm:size-10" aria-hidden="true" />
         </div>
-        <p className="mt-8 text-[13px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">Workstation setup</p>
-        <h2 className="mt-3 text-[34px] font-semibold tracking-tight sm:text-[48px]">Configure reception desk workstation</h2>
+        <p className="mt-8 text-[13px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">{t('receptionDesk.setup.eyebrow')}</p>
+        <h2 className="mt-3 text-[34px] font-semibold tracking-tight sm:text-[48px]">{t('receptionDesk.setup.title')}</h2>
         <p className="mt-5 text-[18px] leading-8 text-muted-foreground">
-          Sign in, pick the workstation issued for this desk, then paste the API key. Configured keys stay write-only on this device.
+          {t('receptionDesk.setup.description')}
         </p>
       </div>
 
@@ -108,15 +110,15 @@ export default function ReceptionDeskWorkstationSetupPage() {
             <KeyRound className="size-7" aria-hidden="true" />
           </div>
           <div>
-            <h3 className="text-[24px] font-semibold tracking-tight">Workstation credentials</h3>
-            <p className="mt-1 text-[15px] text-muted-foreground">Saved locally in this browser profile.</p>
+            <h3 className="text-[24px] font-semibold tracking-tight">{t('receptionDesk.setup.credentialsTitle')}</h3>
+            <p className="mt-1 text-[15px] text-muted-foreground">{t('receptionDesk.setup.credentialsDescription')}</p>
           </div>
         </div>
 
         {error ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[15px] font-medium text-error">{error}</p> : null}
 
         <div className="grid gap-3">
-          <Label htmlFor="reception-desk-workstation-id" className="text-[16px]">Workstation</Label>
+          <Label htmlFor="reception-desk-workstation-id" className="text-[16px]">{t('receptionDesk.setup.workstation')}</Label>
           <select
             id="reception-desk-workstation-id"
             className="h-14 rounded-xl border border-border bg-content px-4 text-[18px] outline-none transition focus:border-primary disabled:cursor-not-allowed disabled:opacity-60"
@@ -124,32 +126,32 @@ export default function ReceptionDeskWorkstationSetupPage() {
             onChange={(event) => setWorkstationId(event.target.value)}
             disabled={workstationsQuery.isLoading || workstationsQuery.isError}
           >
-            <option value="">Select workstation</option>
+            <option value="">{t('receptionDesk.setup.selectWorkstation')}</option>
             {workstations.map((workstation) => (
               <option key={workstation.id} value={workstation.id}>{formatWorkstationLabel(workstation, locationsById.get(workstation.locationId))}</option>
             ))}
           </select>
-          {workstationsQuery.isLoading ? <p className="text-[14px] text-muted-foreground">Loading workstations...</p> : null}
-          {workstationsQuery.isError ? <p className="text-[14px] text-error">Could not load reception desk workstations.</p> : null}
+          {workstationsQuery.isLoading ? <p className="text-[14px] text-muted-foreground">{t('receptionDesk.setup.loadingWorkstations')}</p> : null}
+          {workstationsQuery.isError ? <p className="text-[14px] text-error">{t('receptionDesk.setup.couldNotLoadWorkstations')}</p> : null}
         </div>
 
         <div className="grid gap-3">
-          <Label htmlFor="reception-desk-workstation-api-key" className="text-[16px]">Workstation API key</Label>
+          <Label htmlFor="reception-desk-workstation-api-key" className="text-[16px]">{t('receptionDesk.setup.apiKeyLabel')}</Label>
           <Input
             id="reception-desk-workstation-api-key"
             className="h-14 rounded-xl px-4 text-[18px] md:text-[18px]"
             type="password"
             value={workstationApiKey}
             autoComplete="new-password"
-            placeholder={hasExistingApiKey ? 'API key is configured. Enter a new key to replace it.' : 'Paste API key'}
+            placeholder={hasExistingApiKey ? t('receptionDesk.setup.apiKeyConfiguredPlaceholder') : t('receptionDesk.setup.apiKeyPlaceholder')}
             onChange={(event) => setWorkstationApiKey(event.target.value)}
           />
-          <p className="text-[14px] leading-6 text-muted-foreground">Leave empty to keep the existing key when changing only the workstation selection.</p>
+          <p className="text-[14px] leading-6 text-muted-foreground">{t('receptionDesk.setup.apiKeyHint')}</p>
         </div>
 
         <div className="pt-2">
           <Button type="submit" className="h-14 w-full rounded-xl text-[18px] font-semibold sm:w-auto sm:px-10" disabled={workstationsQuery.isLoading || workstationsQuery.isError}>
-            Save workstation setup
+            {t('receptionDesk.setup.save')}
           </Button>
         </div>
       </form>

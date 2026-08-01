@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft, Eye } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { api } from '@/shared/api/client';
 import { buttonVariants } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { i18n } from '@/shared/i18n/i18n';
 
 import { formatDateTime, printingBatchesQueryKey, printingRunsQueryKey, type Encoder, type EncodingRun, type Transformation } from './card-management-types';
 import { JsonDetails, StatusBadge } from './printing-page';
@@ -19,13 +21,14 @@ export default function PrintBatchDetailPage() {
 }
 
 export function PrintBatchDetailPageContent({ batchId }: { readonly batchId: string }) {
+  const { t } = useTranslation();
 
   const batchQuery = useQuery({
     queryKey: [...printingBatchesQueryKey, batchId],
     queryFn: async () => {
       const { data, error } = await api.GET('/api/desfire/encoding-batches/{id}', { params: { path: { id: batchId } } });
       if (error || !data) {
-        throw new Error('Could not load print batch.');
+        throw new Error(t('cardManagement.printing.couldNotLoadPrintBatch'));
       }
       return data;
     },
@@ -36,7 +39,7 @@ export function PrintBatchDetailPageContent({ batchId }: { readonly batchId: str
     queryFn: async () => {
       const { data, error } = await api.GET('/api/desfire/encoding-runs', { params: { query: { Page: 0, PageSize: 500, batchId } } });
       if (error || !data) {
-        throw new Error('Could not load print runs.');
+        throw new Error(t('cardManagement.printing.couldNotLoadPrintRuns'));
       }
       return data.items ?? [];
     },
@@ -58,7 +61,7 @@ export function PrintBatchDetailPageContent({ batchId }: { readonly batchId: str
     queryFn: async () => {
       const { data, error } = await api.GET('/api/desfire/encoders', { params: { query: { Page: 0, PageSize: 100 } } });
       if (error || !data) {
-        throw new Error('Could not load encoders.');
+        throw new Error(t('cardManagement.printing.couldNotLoadEncoders'));
       }
       return data;
     },
@@ -70,16 +73,16 @@ export function PrintBatchDetailPageContent({ batchId }: { readonly batchId: str
   const runs = runsQuery.data ?? [];
 
   if (batchQuery.isLoading) {
-    return <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">Loading print batch...</p>;
+    return <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">{t('cardManagement.printing.printBatchLoading')}</p>;
   }
 
   if (!batch) {
-    return <PanelError>Could not load print batch.</PanelError>;
+    return <PanelError>{t('cardManagement.printing.couldNotLoadPrintBatch')}</PanelError>;
   }
 
   return (
     <section className="grid gap-6">
-      <Link to="/desfire-studio/printing" className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground"><ArrowLeft className="size-4" />Back to printing</Link>
+      <Link to="/desfire-studio/printing" className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground"><ArrowLeft className="size-4" />{t('cardManagement.printing.backToPrinting')}</Link>
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -92,25 +95,25 @@ export function PrintBatchDetailPageContent({ batchId }: { readonly batchId: str
         </CardHeader>
         <CardContent className="grid gap-4">
           <div className="grid gap-3 md:grid-cols-4">
-            <Info label="Total" value={String(batch.totalRuns)} />
-            <Info label="Succeeded" value={String(batch.succeededRuns)} />
-            <Info label="Failed" value={String(Number(batch.failedRuns) + Number(batch.cancelledRuns))} />
-            <Info label="Created" value={formatDateTime(batch.createdAt)} />
-            <Info label="Encoder" value={encoder?.name ?? batch.encoderId ?? 'Unknown'} />
+            <Info label={t('cardManagement.printing.total')} value={String(batch.totalRuns)} />
+            <Info label={t('cardManagement.printing.succeeded')} value={String(batch.succeededRuns)} />
+            <Info label={t('cardManagement.printing.failed')} value={String(Number(batch.failedRuns) + Number(batch.cancelledRuns))} />
+            <Info label={t('cardManagement.printing.created')} value={formatDateTime(batch.createdAt)} />
+            <Info label={t('cardManagement.printing.encoder')} value={encoder?.name ?? batch.encoderId ?? t('cardManagement.printing.unknown')} />
           </div>
-          <JsonDetails title="Original input" value={batch.originalInput} />
+          <JsonDetails title={t('cardManagement.printing.jsonOriginalInput')} value={batch.originalInput} />
           <NormalizedRowsTable rows={Array.isArray(batch.normalizedRows) ? (batch.normalizedRows as Record<string, string>[]) : []} />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Card Runs</CardTitle>
-          <CardDescription>Every row scheduled in this print batch.</CardDescription>
+          <CardTitle>{t('cardManagement.printing.cardRuns')}</CardTitle>
+          <CardDescription>{t('cardManagement.printing.cardRunsDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
-          {runsQuery.isError ? <PanelError>Could not load print runs.</PanelError> : null}
-          {runsQuery.isLoading ? <p className="text-[14px] text-muted-foreground">Loading print runs...</p> : null}
+          {runsQuery.isError ? <PanelError>{t('cardManagement.printing.couldNotLoadPrintRuns')}</PanelError> : null}
+          {runsQuery.isLoading ? <p className="text-[14px] text-muted-foreground">{t('cardManagement.printing.loadingPrintRuns')}</p> : null}
           {runs.length > 0 ? <RunsTable runs={runs} transformation={transformation} encoders={encodersQuery.data?.items ?? []} /> : null}
         </CardContent>
       </Card>
@@ -119,21 +122,22 @@ export function PrintBatchDetailPageContent({ batchId }: { readonly batchId: str
 }
 
 function RunsTable({ runs, transformation, encoders }: { readonly runs: EncodingRun[]; readonly transformation?: Transformation; readonly encoders: Encoder[] }) {
+  const { t } = useTranslation();
   return (
     <div className="overflow-x-auto rounded-structural border border-border">
       <table className="w-full min-w-[72rem] border-collapse text-left text-[14px]">
         <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
-          <tr><th className="px-4 py-3 font-semibold">Input</th><th className="px-4 py-3 font-semibold">Status</th><th className="px-4 py-3 font-semibold">Card UID</th><th className="px-4 py-3 font-semibold">Device</th><th className="px-4 py-3 font-semibold">Requested</th><th className="px-4 py-3 text-right font-semibold">Actions</th></tr>
+          <tr><th className="px-4 py-3 font-semibold">{t('cardManagement.printing.input')}</th><th className="px-4 py-3 font-semibold">{t('cardManagement.printing.status')}</th><th className="px-4 py-3 font-semibold">{t('cardManagement.printing.cardUid')}</th><th className="px-4 py-3 font-semibold">{t('cardManagement.printing.device')}</th><th className="px-4 py-3 font-semibold">{t('cardManagement.printing.requested')}</th><th className="px-4 py-3 text-right font-semibold">{t('cardManagement.printing.actions')}</th></tr>
         </thead>
         <tbody className="divide-y divide-border">
           {runs.map((run) => (
             <tr key={run.id}>
               <td className="max-w-[22rem] truncate px-4 py-4 text-muted-foreground">{summarizeInput(run.input, transformation)}</td>
               <td className="px-4 py-4"><StatusBadge status={run.status} /></td>
-              <td className="px-4 py-4 text-muted-foreground">{run.cardUid ?? 'Not read'}</td>
+              <td className="px-4 py-4 text-muted-foreground">{run.cardUid ?? t('cardManagement.printing.notRead')}</td>
               <td className="px-4 py-4 text-muted-foreground">{formatRunDevice(run, encoders)}</td>
               <td className="px-4 py-4 text-muted-foreground">{formatDateTime(run.requestedAt)}</td>
-              <td className="px-4 py-4"><div className="flex justify-end"><Link to="/desfire-studio/printing/runs/$runId" params={{ runId: run.id }} className={buttonVariants({ variant: 'outline', size: 'sm' })}><Eye className="size-4" aria-hidden="true" />View</Link></div></td>
+              <td className="px-4 py-4"><div className="flex justify-end"><Link to="/desfire-studio/printing/runs/$runId" params={{ runId: run.id }} className={buttonVariants({ variant: 'outline', size: 'sm' })}><Eye className="size-4" aria-hidden="true" />{t('cardManagement.printing.view')}</Link></div></td>
             </tr>
           ))}
         </tbody>
@@ -144,7 +148,7 @@ function RunsTable({ runs, transformation, encoders }: { readonly runs: Encoding
 
 function formatRunDevice(run: EncodingRun, encoders: Encoder[]) {
   const encoder = encoders.find((item) => item.id === run.encoderId);
-  const hardware = run.hardwareAgentId && run.deviceId ? `${run.hardwareAgentId} / ${run.deviceId}` : 'Unassigned';
+  const hardware = run.hardwareAgentId && run.deviceId ? `${run.hardwareAgentId} / ${run.deviceId}` : i18n.t('cardManagement.printing.unassigned');
   return encoder ? `${encoder.name} (${hardware})` : hardware;
 }
 
@@ -162,10 +166,11 @@ function Info({ label, value }: { readonly label: string; readonly value: string
 }
 
 function NormalizedRowsTable({ rows }: { readonly rows: Record<string, string>[] }) {
+  const { t } = useTranslation();
   const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
   return (
     <details className="rounded-structural border border-border bg-content p-4">
-      <summary className="cursor-pointer text-[14px] font-semibold text-foreground">Normalized rows</summary>
+      <summary className="cursor-pointer text-[14px] font-semibold text-foreground">{t('cardManagement.printing.normalizedRows')}</summary>
       <div className="mt-3 overflow-x-auto rounded-interactive border border-border">
         <table className="w-full min-w-[36rem] border-collapse text-left text-[13px]">
           <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">

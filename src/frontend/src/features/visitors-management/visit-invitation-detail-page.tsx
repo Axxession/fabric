@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft, CalendarDays, Mail, MapPin, QrCode, UserRound } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
@@ -18,6 +19,7 @@ type VisitResponse = components['schemas']['VisitResponse'];
 type VisitorResponse = components['schemas']['VisitorResponse'];
 
 export default function VisitInvitationDetailPage() {
+  const { t } = useTranslation();
   const { visitId, invitationId } = useParams({ from: '/main/employee/visitors/$visitId/invitations/$invitationId' });
 
   const detailsQuery = useQuery({
@@ -29,13 +31,13 @@ export default function VisitInvitationDetailPage() {
       ]);
 
       if (visitResult.error || !visitResult.data || sagasResult.error) {
-        throw new Error('Could not load invitation details.');
+        throw new Error(t('visitorsManagement.invitationDetail.couldNotLoad'));
       }
 
       const visit = visitResult.data;
       const invitation = visit.invitations.find((item) => item.id === invitationId);
       if (!invitation) {
-        throw new Error('Could not load invitation details.');
+        throw new Error(t('visitorsManagement.invitationDetail.couldNotLoad'));
       }
 
       const saga = (sagasResult.data ?? []).find((item) => item.invitationId === invitationId) ?? null;
@@ -47,7 +49,7 @@ export default function VisitInvitationDetailPage() {
       ]);
 
       if (visitorResult.error || !visitorResult.data) {
-        throw new Error('Could not load invitation details.');
+        throw new Error(t('visitorsManagement.invitationDetail.couldNotLoad'));
       }
 
       const visitor = visitorResult.data;
@@ -69,7 +71,7 @@ export default function VisitInvitationDetailPage() {
       ]);
 
       if (grantsResult.error || packageResults.error || credentialTypeResult.error || credentialAssignmentsResult.error) {
-        throw new Error('Could not load invitation details.');
+        throw new Error(t('visitorsManagement.invitationDetail.couldNotLoad'));
       }
 
       const packageById = new Map((packageResults.data?.items ?? []).map((item) => [item.id, item]));
@@ -86,7 +88,7 @@ export default function VisitInvitationDetailPage() {
         invitation,
         visitor,
         saga,
-        locationLabel: locationResult.data ? getLocationLabel(locationResult.data) : 'Not specified',
+        locationLabel: locationResult.data ? getLocationLabel(locationResult.data) : t('visitorsManagement.invitationDetail.notSpecified'),
         confirmationLink: `/visitor-confirmation/${visitId}/${invitationId}`,
         assignedPackages,
         credential,
@@ -97,75 +99,75 @@ export default function VisitInvitationDetailPage() {
   });
 
   if (detailsQuery.isLoading) {
-    return <p className="text-[14px] text-muted-foreground">Loading invitation details...</p>;
+    return <p className="text-[14px] text-muted-foreground">{t('visitorsManagement.invitationDetail.loading')}</p>;
   }
 
   if (detailsQuery.isError || !detailsQuery.data) {
-    return <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load invitation details.</p>;
+    return <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">{t('visitorsManagement.invitationDetail.couldNotLoad')}</p>;
   }
 
   const { visit, invitation, visitor, saga, locationLabel, confirmationLink, assignedPackages, credential, credentialType, credentialAssignments } = detailsQuery.data;
-  const credentialProvisioningStatus = getCredentialProvisioningStatus(credential, credentialAssignments);
+  const credentialProvisioningStatus = getCredentialProvisioningStatus(credential, credentialAssignments, t);
 
   return (
     <div className="grid gap-6">
       <button type="button" onClick={() => window.history.back()} className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground">
         <ArrowLeft className="size-4" aria-hidden="true" />
-        Back
+        {t('visitorsManagement.invitationDetail.back')}
       </button>
 
       <header className="rounded-structural border border-border bg-content p-5 sm:p-6">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-[24px] font-semibold tracking-tight">Invitation details</h1>
-          <Badge variant={getConfirmationVariant(invitation.confirmationStatus)}>{formatConfirmationStatus(invitation.confirmationStatus)}</Badge>
+          <h1 className="text-[24px] font-semibold tracking-tight">{t('visitorsManagement.invitationDetail.title')}</h1>
+          <Badge variant={getConfirmationVariant(invitation.confirmationStatus)}>{formatConfirmationStatus(invitation.confirmationStatus, t)}</Badge>
         </div>
-        <p className="mt-2 text-[14px] text-muted-foreground">{formatInvitationName(invitation)} for {visit.summary}</p>
+        <p className="mt-2 text-[14px] text-muted-foreground">{t('visitorsManagement.invitationDetail.summary', { name: formatInvitationName(invitation, t), visit: visit.summary })}</p>
       </header>
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card className="p-5 sm:p-6">
-          <h2 className="text-[18px] font-semibold tracking-tight">Visit Details</h2>
+          <h2 className="text-[18px] font-semibold tracking-tight">{t('visitorsManagement.invitationDetail.visitDetails')}</h2>
           <dl className="mt-5 grid gap-4 text-[14px]">
-            <Detail icon={<CalendarDays className="size-4" />} label="Starts" value={formatDateTime(visit.start ?? '')} />
-            <Detail icon={<CalendarDays className="size-4" />} label="Ends" value={formatDateTime(visit.stop ?? '')} />
-            <Detail icon={<MapPin className="size-4" />} label="Location" value={locationLabel} />
-            <Detail icon={<UserRound className="size-4" />} label="Host" value={[visit.host.firstName, visit.host.lastName].filter(Boolean).join(' ') || visit.host.email || '-'} hint={visit.host.email ?? undefined} />
+            <Detail icon={<CalendarDays className="size-4" />} label={t('visitorsManagement.invitationDetail.starts')} value={formatDateTime(visit.start ?? '')} />
+            <Detail icon={<CalendarDays className="size-4" />} label={t('visitorsManagement.invitationDetail.ends')} value={formatDateTime(visit.stop ?? '')} />
+            <Detail icon={<MapPin className="size-4" />} label={t('visitorsManagement.invitationDetail.location')} value={locationLabel} />
+            <Detail icon={<UserRound className="size-4" />} label={t('visitorsManagement.invitationDetail.host')} value={[visit.host.firstName, visit.host.lastName].filter(Boolean).join(' ') || visit.host.email || '-'} hint={visit.host.email ?? undefined} />
           </dl>
         </Card>
 
         <Card className="p-5 sm:p-6">
-          <h2 className="text-[18px] font-semibold tracking-tight">Visitor Details</h2>
+          <h2 className="text-[18px] font-semibold tracking-tight">{t('visitorsManagement.invitationDetail.visitorDetails')}</h2>
           <dl className="mt-5 grid gap-4 text-[14px]">
-            <Detail icon={<Mail className="size-4" />} label="Name" value={formatInvitationName(invitation)} hint={invitation.email} />
-            <Detail icon={<Mail className="size-4" />} label="Company" value={visitor.company ?? invitation.company ?? '-'} />
-            <Detail icon={<Mail className="size-4" />} label="License plate" value={visitor.licensePlate ?? invitation.licensePlate ?? '-'} />
+            <Detail icon={<Mail className="size-4" />} label={t('visitorsManagement.invitationDetail.name')} value={formatInvitationName(invitation, t)} hint={invitation.email} />
+            <Detail icon={<Mail className="size-4" />} label={t('visitorsManagement.invitationDetail.company')} value={visitor.company ?? invitation.company ?? '-'} />
+            <Detail icon={<Mail className="size-4" />} label={t('visitorsManagement.invitationDetail.licensePlate')} value={visitor.licensePlate ?? invitation.licensePlate ?? '-'} />
           </dl>
         </Card>
 
         <Card className="p-5 sm:p-6">
-          <h2 className="text-[18px] font-semibold tracking-tight">Confirmation</h2>
+          <h2 className="text-[18px] font-semibold tracking-tight">{t('visitorsManagement.invitationDetail.confirmation')}</h2>
           <div className="mt-5 flex flex-wrap items-center gap-3">
-            <Badge variant={getConfirmationVariant(invitation.confirmationStatus)}>{formatConfirmationStatus(invitation.confirmationStatus)}</Badge>
-            <Link to={confirmationLink} className="inline-flex text-[14px] font-medium text-primary underline-offset-4 hover:underline">Open confirmation page</Link>
+            <Badge variant={getConfirmationVariant(invitation.confirmationStatus)}>{formatConfirmationStatus(invitation.confirmationStatus, t)}</Badge>
+            <Link to={confirmationLink} className="inline-flex text-[14px] font-medium text-primary underline-offset-4 hover:underline">{t('visitorsManagement.invitationDetail.openConfirmationPage')}</Link>
           </div>
           <div className="mt-5 grid gap-3 md:grid-cols-2">
-            <Info label="Confirmed at" value={invitation.confirmedAt ? formatDateTime(invitation.confirmedAt) : '-'} />
-            <Info label="Rejected at" value={invitation.rejectedAt ? formatDateTime(invitation.rejectedAt) : '-'} />
-            {invitation.confirmationStatus === 'Confirmed' ? <Info label="Transport" value={invitation.transport ?? '-'} /> : null}
-            {invitation.confirmationStatus === 'Confirmed' ? <Info label="Arrived at" value={invitation.arrivedAt ? formatDateTime(invitation.arrivedAt) : '-'} /> : null}
+            <Info label={t('visitorsManagement.invitationDetail.confirmedAt')} value={invitation.confirmedAt ? formatDateTime(invitation.confirmedAt) : '-'} />
+            <Info label={t('visitorsManagement.invitationDetail.rejectedAt')} value={invitation.rejectedAt ? formatDateTime(invitation.rejectedAt) : '-'} />
+            {invitation.confirmationStatus === 'Confirmed' ? <Info label={t('visitorsManagement.invitationDetail.transport')} value={invitation.transport ?? '-'} /> : null}
+            {invitation.confirmationStatus === 'Confirmed' ? <Info label={t('visitorsManagement.invitationDetail.arrivedAt')} value={invitation.arrivedAt ? formatDateTime(invitation.arrivedAt) : '-'} /> : null}
           </div>
         </Card>
 
         <Card className="p-5 sm:p-6">
-          <h2 className="text-[18px] font-semibold tracking-tight">Assigned Packages</h2>
-          {assignedPackages.length === 0 ? <p className="mt-5 text-[14px] text-muted-foreground">No access packages assigned for this invitation yet.</p> : (
+          <h2 className="text-[18px] font-semibold tracking-tight">{t('visitorsManagement.invitationDetail.assignedPackages')}</h2>
+          {assignedPackages.length === 0 ? <p className="mt-5 text-[14px] text-muted-foreground">{t('visitorsManagement.invitationDetail.noAssignedPackages')}</p> : (
             <div className="mt-5 overflow-x-auto">
               <table className="w-full min-w-[32rem] border-collapse text-left text-[14px]">
                 <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3 font-semibold">Package</th>
-                    <th className="px-4 py-3 font-semibold">Status</th>
-                    <th className="px-4 py-3 font-semibold">Provisioned</th>
+                    <th className="px-4 py-3 font-semibold">{t('visitorsManagement.invitationDetail.package')}</th>
+                    <th className="px-4 py-3 font-semibold">{t('visitorsManagement.invitationDetail.status')}</th>
+                    <th className="px-4 py-3 font-semibold">{t('visitorsManagement.invitationDetail.provisioned')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -177,10 +179,10 @@ export default function VisitInvitationDetailPage() {
                       </td>
                       <td className="px-4 py-4">
                         <Badge variant={getAccessGrantVariant(item.grant.status)}>{item.grant.status}</Badge>
-                        {item.grant.status === 'Revoked' && item.grant.revokeCause ? <div className="mt-2 text-[13px] text-muted-foreground">{formatAccessGrantRevokeCause(item.grant.revokeCause)}</div> : null}
+                        {item.grant.status === 'Revoked' && item.grant.revokeCause ? <div className="mt-2 text-[13px] text-muted-foreground">{formatAccessGrantRevokeCause(item.grant.revokeCause, t)}</div> : null}
                         {item.grant.status === 'Revoked' && item.grant.revokedBy ? <div className="mt-1 text-[13px] text-muted-foreground">{item.grant.revokedBy}</div> : null}
                       </td>
-                      <td className="px-4 py-4"><Badge variant={item.isProvisioned ? 'success' : 'secondary'}>{item.isProvisioned ? 'Provisioned' : 'Not yet'}</Badge></td>
+                      <td className="px-4 py-4"><Badge variant={item.isProvisioned ? 'success' : 'secondary'}>{item.isProvisioned ? t('visitorsManagement.invitationDetail.provisionedLabel') : t('visitorsManagement.invitationDetail.notYet')}</Badge></td>
                     </tr>
                   ))}
                 </tbody>
@@ -190,19 +192,19 @@ export default function VisitInvitationDetailPage() {
         </Card>
 
         <Card className="p-5 sm:p-6 xl:col-span-2">
-          <h2 className="text-[18px] font-semibold tracking-tight">Assigned Credential</h2>
-          {!credential ? <p className="mt-5 text-[14px] text-muted-foreground">No credential assigned yet.</p> : (
+          <h2 className="text-[18px] font-semibold tracking-tight">{t('visitorsManagement.invitationDetail.assignedCredential')}</h2>
+          {!credential ? <p className="mt-5 text-[14px] text-muted-foreground">{t('visitorsManagement.invitationDetail.noCredential')}</p> : (
             <div className="mt-5 grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
               <div className="rounded-structural border border-border bg-background p-4">
-                <img src={`/api/credential-management/credentials/${credential.id}/qr?size=220`} alt={`QR code for ${formatInvitationName(invitation)}`} className="mx-auto size-full max-w-[220px] rounded-structural border border-border bg-white p-3" />
+                <img src={`/api/credential-management/credentials/${credential.id}/qr?size=220`} alt={t('visitorsManagement.invitationDetail.qrAlt', { name: formatInvitationName(invitation, t) })} className="mx-auto size-full max-w-[220px] rounded-structural border border-border bg-white p-3" />
               </div>
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                <Info label="Credential type" value={credentialType?.name ?? credential.credentialTypeId} />
-                <Info label="Identifier" value={credential.formattedIdentifier} />
-                <Info label="Credential status" value={credential.status} />
-                <Info label="Provisioning" value={credentialProvisioningStatus} />
-                <Info label="Valid from" value={formatDateTime(credential.validFrom)} />
-                <Info label="Valid until" value={credential.validUntil ? formatDateTime(credential.validUntil) : 'No end date'} />
+                <Info label={t('visitorsManagement.invitationDetail.credentialType')} value={credentialType?.name ?? credential.credentialTypeId} />
+                <Info label={t('visitorsManagement.invitationDetail.identifier')} value={credential.formattedIdentifier} />
+                <Info label={t('visitorsManagement.invitationDetail.credentialStatus')} value={credential.status} />
+                <Info label={t('visitorsManagement.invitationDetail.provisioning')} value={credentialProvisioningStatus} />
+                <Info label={t('visitorsManagement.invitationDetail.validFrom')} value={formatDateTime(credential.validFrom)} />
+                <Info label={t('visitorsManagement.invitationDetail.validUntil')} value={credential.validUntil ? formatDateTime(credential.validUntil) : t('visitorsManagement.invitationDetail.noEndDate')} />
               </div>
             </div>
           )}
@@ -212,8 +214,8 @@ export default function VisitInvitationDetailPage() {
   );
 }
 
-function formatInvitationName(invitation: VisitInvitationResponse) {
-  return [invitation.firstName, invitation.lastName].filter(Boolean).join(' ') || invitation.email || 'Unnamed';
+function formatInvitationName(invitation: VisitInvitationResponse, t: ReturnType<typeof useTranslation>['t']) {
+  return [invitation.firstName, invitation.lastName].filter(Boolean).join(' ') || invitation.email || t('visitorsManagement.invitationDetail.unnamed');
 }
 
 function formatDateTime(value: string) {
@@ -224,33 +226,33 @@ function formatValidityRange(validFrom: string, validUntil: string | null) {
   return validUntil ? `${formatDateTime(validFrom)} - ${formatDateTime(validUntil)}` : formatDateTime(validFrom);
 }
 
-function formatAccessGrantRevokeCause(cause: AccessGrantResponse['revokeCause']) {
+function formatAccessGrantRevokeCause(cause: AccessGrantResponse['revokeCause'], t: ReturnType<typeof useTranslation>['t']) {
   switch (cause) {
     case 'Manual':
-      return 'Manually revoked';
+      return t('visitorsManagement.invitationDetail.manuallyRevoked');
     case 'VisitRescheduled':
-      return 'Visit rescheduled';
+      return t('visitorsManagement.invitationDetail.visitRescheduled');
     case 'ArrivalRelocated':
-      return 'Arrival relocated';
+      return t('visitorsManagement.invitationDetail.arrivalRelocated');
     case 'VisitCancelled':
-      return 'Visit cancelled';
+      return t('visitorsManagement.invitationDetail.visitCancelled');
     case 'VisitOffboarded':
-      return 'Visit offboarded';
+      return t('visitorsManagement.invitationDetail.visitOffboarded');
     case 'EmployeeLifecycleAutomation':
-      return 'Employee lifecycle automation';
+      return t('visitorsManagement.invitationDetail.employeeLifecycleAutomation');
     default:
       return '-';
   }
 }
 
-function formatConfirmationStatus(status: VisitInvitationResponse['confirmationStatus']) {
+function formatConfirmationStatus(status: VisitInvitationResponse['confirmationStatus'], t: ReturnType<typeof useTranslation>['t']) {
   switch (status) {
     case 'Confirmed':
-      return 'Confirmed';
+      return t('visitorsManagement.invitationDetail.confirmed');
     case 'Rejected':
-      return 'Rejected';
+      return t('visitorsManagement.invitationDetail.rejected');
     default:
-      return 'Pending';
+      return t('visitorsManagement.invitationDetail.pending');
   }
 }
 
@@ -265,16 +267,16 @@ function getConfirmationVariant(status: VisitInvitationResponse['confirmationSta
   }
 }
 
-function getCredentialProvisioningStatus(credential: CredentialResponse | null, assignments: readonly CredentialPACSAssignmentResponse[]) {
+function getCredentialProvisioningStatus(credential: CredentialResponse | null, assignments: readonly CredentialPACSAssignmentResponse[], t: ReturnType<typeof useTranslation>['t']) {
   if (!credential) {
-    return 'Not yet';
+    return t('visitorsManagement.invitationDetail.notYet');
   }
 
   if (assignments.some((assignment) => assignment.status === 'Provisioned')) {
-    return 'Provisioned';
+    return t('visitorsManagement.invitationDetail.provisionedLabel');
   }
 
-  return 'Generated';
+  return t('visitorsManagement.invitationDetail.generated');
 }
 
 function getAccessGrantVariant(status: AccessGrantResponse['status']): 'success' | 'secondary' | 'error' {

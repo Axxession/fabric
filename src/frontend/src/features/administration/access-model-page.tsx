@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from '@tanstack/react-router';
 import { ChevronRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import { api } from '@/shared/api/client';
@@ -59,6 +60,7 @@ const visitorTriggerOptions: { readonly label: string; readonly value: Reception
 ];
 
 export default function AccessModelPage() {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const activeTab = getActiveTab(location.searchStr);
@@ -78,7 +80,7 @@ export default function AccessModelPage() {
       const { data, error } = await api.GET('/api/access-catalog/packages', {
         params: { query: { Name: packagesName || undefined, Page: packagesPage, PageSize: pageSize } as never },
       });
-      if (error) throw new Error('Could not load packages.');
+      if (error) throw new Error(t('accessModel.packages.couldNotLoad'));
       return data;
     },
   });
@@ -89,7 +91,7 @@ export default function AccessModelPage() {
       const { data, error } = await api.GET('/api/access-catalog/catalogs', {
         params: { query: { Name: cataloguesName || undefined, Page: cataloguesPage, PageSize: pageSize } as never },
       });
-      if (error) throw new Error('Could not load catalogues.');
+      if (error) throw new Error(t('accessModel.catalogs.couldNotLoad'));
       return data;
     },
   });
@@ -100,7 +102,7 @@ export default function AccessModelPage() {
       const { data, error } = await api.GET('/api/access-catalog/approval-groups', {
         params: { query: { Name: approvalGroupsName || undefined, ids: [], Page: approvalGroupsPage, PageSize: pageSize } as never },
       });
-      if (error) throw new Error('Could not load approval groups.');
+      if (error) throw new Error(t('accessModel.approvalGroups.couldNotLoad'));
       return data;
     },
   });
@@ -208,11 +210,11 @@ export default function AccessModelPage() {
     <section className="rounded-structural border border-border bg-content p-4 sm:p-6">
       <Tabs value={activeTab} onValueChange={changeTab}>
         <TabsList>
-          <TabsTrigger value="packages">Packages</TabsTrigger>
-          <TabsTrigger value="catalogues">Catalogues</TabsTrigger>
-          <TabsTrigger value="approval-groups">Approval Groups</TabsTrigger>
-          <TabsTrigger value="hr-policies">HR Policies</TabsTrigger>
-          <TabsTrigger value="visitor-policies">Visitor Policies</TabsTrigger>
+          <TabsTrigger value="packages">{t('accessModel.tabs.packages')}</TabsTrigger>
+          <TabsTrigger value="catalogues">{t('accessModel.tabs.catalogs')}</TabsTrigger>
+          <TabsTrigger value="approval-groups">{t('accessModel.tabs.approvalGroups')}</TabsTrigger>
+          <TabsTrigger value="hr-policies">{t('accessModel.tabs.hrPolicies')}</TabsTrigger>
+          <TabsTrigger value="visitor-policies">{t('accessModel.tabs.visitorPolicies')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="packages">
@@ -240,27 +242,346 @@ export default function AccessModelPage() {
 }
 
 function PackagesPanel({ name, onNameChange, onOpenPackage, response, isLoading, isError, page, setPage }: { readonly name: string; readonly onNameChange: (value: string) => void; readonly onOpenPackage: (packageId: string) => void; readonly response: components['schemas']['PageOfPackageResponse'] | undefined; readonly isLoading: boolean; readonly isError: boolean; readonly page: number; readonly setPage: (page: number) => void; }) {
+  const { t } = useTranslation();
   const items = response?.items ?? [];
   const pagination = getPaginationState(response, items.length, page, pageSize);
 
-  return <ListSection title="Packages" description="Review access packages and their current status." isLoading={isLoading} isError={isError} errorMessage="Could not load packages." emptyTitle="No packages found" emptyDescription="Try a different search." totalItems={pagination.totalItems} firstItem={pagination.firstItem} lastItem={pagination.lastItem} currentPage={pagination.currentPage} totalPages={pagination.totalPages} visiblePages={pagination.visiblePages} setPage={setPage} actions={<Link to="/administration/access-model/packages/new" className={buttonVariants()}>Add package</Link>} filters={<FilterInput label="Search packages" value={name} onChange={onNameChange} placeholder="Search by package name" />} table={<table className="w-full min-w-[56rem] border-collapse text-left text-[14px]"><thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground"><tr><th className="px-4 py-3 font-semibold">Name</th><th className="px-4 py-3 font-semibold">Description</th><th className="px-4 py-3 font-semibold">Status</th><th className="px-4 py-3 text-right font-semibold">Open</th></tr></thead><tbody className="divide-y divide-border">{items.map((item) => <tr key={item.id} className="cursor-pointer transition hover:bg-hover-blue" role="link" tabIndex={0} onClick={() => onOpenPackage(item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpenPackage(item.id); } }}><td className="px-4 py-4 font-medium text-foreground">{item.name}</td><td className="px-4 py-4 text-muted-foreground">{item.description ?? '-'}</td><td className="px-4 py-4"><StatusBadge status={item.status} /></td><td className="px-4 py-4 text-right text-muted-foreground"><span className="inline-flex items-center justify-center"><ChevronRight className="size-4" aria-hidden="true" /></span></td></tr>)}</tbody></table>} mobileList={<div className="grid gap-3 md:hidden">{items.map((item) => <article key={item.id} className="rounded-structural border border-border p-4 transition hover:bg-hover-blue" role="button" tabIndex={0} onClick={() => onOpenPackage(item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpenPackage(item.id); } }}><div className="flex items-start justify-between gap-3"><h3 className="text-[15px] font-semibold text-foreground">{item.name}</h3><ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /></div><dl className="mt-3 grid gap-2 text-[14px] text-muted-foreground"><div><dt className="font-medium text-foreground">Description</dt><dd>{item.description ?? '-'}</dd></div><div><dt className="font-medium text-foreground">Status</dt><dd><StatusBadge status={item.status} /></dd></div></dl></article>)}</div>} hasItems={items.length > 0} />;
+  return (
+    <ListSection
+      title={t('accessModel.tabs.packages')}
+      description="Review access packages and their current status."
+      isLoading={isLoading}
+      isError={isError}
+      errorMessage={t('accessModel.packages.couldNotLoad')}
+      emptyTitle="No packages found"
+      emptyDescription="Try a different search."
+      totalItems={pagination.totalItems}
+      firstItem={pagination.firstItem}
+      lastItem={pagination.lastItem}
+      currentPage={pagination.currentPage}
+      totalPages={pagination.totalPages}
+      visiblePages={pagination.visiblePages}
+      setPage={setPage}
+      actions={
+        <Link to="/administration/access-model/packages/new" className={buttonVariants()}>
+          Add package
+        </Link>
+      }
+      filters={
+        <FilterInput
+          label="Search packages"
+          value={name}
+          onChange={onNameChange}
+          placeholder="Search by package name"
+        />
+      }
+      table={
+        <table className="w-full min-w-[56rem] border-collapse text-left text-[14px]">
+          <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
+            <tr>
+              <th className="px-4 py-3 font-semibold">Name</th>
+              <th className="px-4 py-3 font-semibold">Description</th>
+              <th className="px-4 py-3 font-semibold">Status</th>
+              <th className="px-4 py-3 text-right font-semibold">Open</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {items.map((item) => (
+              <tr
+                key={item.id}
+                className="cursor-pointer transition hover:bg-hover-blue"
+                role="link"
+                tabIndex={0}
+                onClick={() => onOpenPackage(item.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onOpenPackage(item.id);
+                  }
+                }}
+              >
+                <td className="px-4 py-4 font-medium text-foreground">{item.name}</td>
+                <td className="px-4 py-4 text-muted-foreground">{item.description ?? '-'}</td>
+                <td className="px-4 py-4">
+                  <StatusBadge status={item.status} />
+                </td>
+                <td className="px-4 py-4 text-right text-muted-foreground">
+                  <span className="inline-flex items-center justify-center">
+                    <ChevronRight className="size-4" aria-hidden="true" />
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      }
+      mobileList={
+        <div className="grid gap-3 md:hidden">
+          {items.map((item) => (
+            <article
+              key={item.id}
+              className="rounded-structural border border-border p-4 transition hover:bg-hover-blue"
+              role="button"
+              tabIndex={0}
+              onClick={() => onOpenPackage(item.id)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onOpenPackage(item.id);
+                }
+              }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="text-[15px] font-semibold text-foreground">{item.name}</h3>
+                <ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              </div>
+              <dl className="mt-3 grid gap-2 text-[14px] text-muted-foreground">
+                <div>
+                  <dt className="font-medium text-foreground">Description</dt>
+                  <dd>{item.description ?? '-'}</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-foreground">Status</dt>
+                  <dd>
+                    <StatusBadge status={item.status} />
+                  </dd>
+                </div>
+              </dl>
+            </article>
+          ))}
+        </div>
+      }
+      hasItems={items.length > 0}
+    />
+  );
 }
 
 function CataloguesPanel({ name, onNameChange, onOpenCatalogue, response, isLoading, isError, page, setPage }: { readonly name: string; readonly onNameChange: (value: string) => void; readonly onOpenCatalogue: (catalogueId: string) => void; readonly response: components['schemas']['PageOfCatalogResponse'] | undefined; readonly isLoading: boolean; readonly isError: boolean; readonly page: number; readonly setPage: (page: number) => void; }) {
+  const { t } = useTranslation();
   const items = response?.items ?? [];
   const pagination = getPaginationState(response, items.length, page, pageSize);
 
-  return <ListSection title="Catalogues" description="Review catalogues and their current status." isLoading={isLoading} isError={isError} errorMessage="Could not load catalogues." emptyTitle="No catalogues found" emptyDescription="Try a different search." totalItems={pagination.totalItems} firstItem={pagination.firstItem} lastItem={pagination.lastItem} currentPage={pagination.currentPage} totalPages={pagination.totalPages} visiblePages={pagination.visiblePages} setPage={setPage} actions={<Link to="/administration/access-model/catalogues/new" className={buttonVariants()}>Add catalogue</Link>} filters={<FilterInput label="Search catalogues" value={name} onChange={onNameChange} placeholder="Search by catalogue name" />} table={<table className="w-full min-w-[56rem] border-collapse text-left text-[14px]"><thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground"><tr><th className="px-4 py-3 font-semibold">Name</th><th className="px-4 py-3 font-semibold">Description</th><th className="px-4 py-3 font-semibold">Status</th><th className="px-4 py-3 text-right font-semibold">Open</th></tr></thead><tbody className="divide-y divide-border">{items.map((item) => <tr key={item.id} className="cursor-pointer transition hover:bg-hover-blue" role="link" tabIndex={0} onClick={() => onOpenCatalogue(item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpenCatalogue(item.id); } }}><td className="px-4 py-4 font-medium text-foreground">{item.name}</td><td className="px-4 py-4 text-muted-foreground">{item.description ?? '-'}</td><td className="px-4 py-4"><StatusBadge status={item.status} /></td><td className="px-4 py-4 text-right text-muted-foreground"><span className="inline-flex items-center justify-center"><ChevronRight className="size-4" aria-hidden="true" /></span></td></tr>)}</tbody></table>} mobileList={<div className="grid gap-3 md:hidden">{items.map((item) => <article key={item.id} className="rounded-structural border border-border p-4 transition hover:bg-hover-blue" role="button" tabIndex={0} onClick={() => onOpenCatalogue(item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpenCatalogue(item.id); } }}><div className="flex items-start justify-between gap-3"><h3 className="text-[15px] font-semibold text-foreground">{item.name}</h3><ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /></div><dl className="mt-3 grid gap-2 text-[14px] text-muted-foreground"><div><dt className="font-medium text-foreground">Description</dt><dd>{item.description ?? '-'}</dd></div><div><dt className="font-medium text-foreground">Status</dt><dd><StatusBadge status={item.status} /></dd></div></dl></article>)}</div>} hasItems={items.length > 0} />;
+  return (
+    <ListSection
+      title={t('accessModel.tabs.catalogs')}
+      description="Review catalogs and their current status."
+      isLoading={isLoading}
+      isError={isError}
+      errorMessage={t('accessModel.catalogs.couldNotLoad')}
+      emptyTitle="No catalogs found"
+      emptyDescription="Try a different search."
+      totalItems={pagination.totalItems}
+      firstItem={pagination.firstItem}
+      lastItem={pagination.lastItem}
+      currentPage={pagination.currentPage}
+      totalPages={pagination.totalPages}
+      visiblePages={pagination.visiblePages}
+      setPage={setPage}
+      actions={
+        <Link to="/administration/access-model/catalogues/new" className={buttonVariants()}>
+          Add catalog
+        </Link>
+      }
+      filters={
+        <FilterInput
+          label="Search catalogs"
+          value={name}
+          onChange={onNameChange}
+          placeholder="Search by catalog name"
+        />
+      }
+      table={
+        <table className="w-full min-w-[56rem] border-collapse text-left text-[14px]">
+          <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
+            <tr>
+              <th className="px-4 py-3 font-semibold">Name</th>
+              <th className="px-4 py-3 font-semibold">Description</th>
+              <th className="px-4 py-3 font-semibold">Status</th>
+              <th className="px-4 py-3 text-right font-semibold">Open</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {items.map((item) => (
+              <tr
+                key={item.id}
+                className="cursor-pointer transition hover:bg-hover-blue"
+                role="link"
+                tabIndex={0}
+                onClick={() => onOpenCatalogue(item.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onOpenCatalogue(item.id);
+                  }
+                }}
+              >
+                <td className="px-4 py-4 font-medium text-foreground">{item.name}</td>
+                <td className="px-4 py-4 text-muted-foreground">{item.description ?? '-'}</td>
+                <td className="px-4 py-4">
+                  <StatusBadge status={item.status} />
+                </td>
+                <td className="px-4 py-4 text-right text-muted-foreground">
+                  <span className="inline-flex items-center justify-center">
+                    <ChevronRight className="size-4" aria-hidden="true" />
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      }
+      mobileList={
+        <div className="grid gap-3 md:hidden">
+          {items.map((item) => (
+            <article
+              key={item.id}
+              className="rounded-structural border border-border p-4 transition hover:bg-hover-blue"
+              role="button"
+              tabIndex={0}
+              onClick={() => onOpenCatalogue(item.id)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onOpenCatalogue(item.id);
+                }
+              }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="text-[15px] font-semibold text-foreground">{item.name}</h3>
+                <ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              </div>
+              <dl className="mt-3 grid gap-2 text-[14px] text-muted-foreground">
+                <div>
+                  <dt className="font-medium text-foreground">Description</dt>
+                  <dd>{item.description ?? '-'}</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-foreground">Status</dt>
+                  <dd>
+                    <StatusBadge status={item.status} />
+                  </dd>
+                </div>
+              </dl>
+            </article>
+          ))}
+        </div>
+      }
+      hasItems={items.length > 0}
+    />
+  );
 }
 
 function ApprovalGroupsPanel({ name, onNameChange, onOpenApprovalGroup, response, isLoading, isError, page, setPage }: { readonly name: string; readonly onNameChange: (value: string) => void; readonly onOpenApprovalGroup: (approvalGroupId: string) => void; readonly response: components['schemas']['PageOfApprovalGroupResponse'] | undefined; readonly isLoading: boolean; readonly isError: boolean; readonly page: number; readonly setPage: (page: number) => void; }) {
+  const { t } = useTranslation();
   const items = response?.items ?? [];
   const pagination = getPaginationState(response, items.length, page, pageSize);
 
-  return <ListSection title="Approval Groups" description="Review approval groups and their current status." isLoading={isLoading} isError={isError} errorMessage="Could not load approval groups." emptyTitle="No approval groups found" emptyDescription="Try a different search." totalItems={pagination.totalItems} firstItem={pagination.firstItem} lastItem={pagination.lastItem} currentPage={pagination.currentPage} totalPages={pagination.totalPages} visiblePages={pagination.visiblePages} setPage={setPage} actions={<Link to="/administration/access-model/approval-groups/new" className={buttonVariants()}>Add approval group</Link>} filters={<FilterInput label="Search approval groups" value={name} onChange={onNameChange} placeholder="Search by group name" />} table={<table className="w-full min-w-[48rem] border-collapse text-left text-[14px]"><thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground"><tr><th className="px-4 py-3 font-semibold">Name</th><th className="px-4 py-3 font-semibold">Status</th><th className="px-4 py-3 text-right font-semibold">Open</th></tr></thead><tbody className="divide-y divide-border">{items.map((item) => <tr key={item.id} className="cursor-pointer transition hover:bg-hover-blue" role="link" tabIndex={0} onClick={() => onOpenApprovalGroup(item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpenApprovalGroup(item.id); } }}><td className="px-4 py-4 font-medium text-foreground">{item.name}</td><td className="px-4 py-4"><StatusBadge status={item.status} /></td><td className="px-4 py-4 text-right text-muted-foreground"><span className="inline-flex items-center justify-center"><ChevronRight className="size-4" aria-hidden="true" /></span></td></tr>)}</tbody></table>} mobileList={<div className="grid gap-3 md:hidden">{items.map((item) => <article key={item.id} className="rounded-structural border border-border p-4 transition hover:bg-hover-blue" role="button" tabIndex={0} onClick={() => onOpenApprovalGroup(item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpenApprovalGroup(item.id); } }}><div className="flex items-start justify-between gap-3"><h3 className="text-[15px] font-semibold text-foreground">{item.name}</h3><ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" /></div><dl className="mt-3 grid gap-2 text-[14px] text-muted-foreground"><div><dt className="font-medium text-foreground">Status</dt><dd><StatusBadge status={item.status} /></dd></div></dl></article>)}</div>} hasItems={items.length > 0} />;
+  return (
+    <ListSection
+      title={t('accessModel.tabs.approvalGroups')}
+      description="Review approval groups and their current status."
+      isLoading={isLoading}
+      isError={isError}
+      errorMessage={t('accessModel.approvalGroups.couldNotLoad')}
+      emptyTitle="No approval groups found"
+      emptyDescription="Try a different search."
+      totalItems={pagination.totalItems}
+      firstItem={pagination.firstItem}
+      lastItem={pagination.lastItem}
+      currentPage={pagination.currentPage}
+      totalPages={pagination.totalPages}
+      visiblePages={pagination.visiblePages}
+      setPage={setPage}
+      actions={
+        <Link to="/administration/access-model/approval-groups/new" className={buttonVariants()}>
+          Add approval group
+        </Link>
+      }
+      filters={
+        <FilterInput
+          label="Search approval groups"
+          value={name}
+          onChange={onNameChange}
+          placeholder="Search by group name"
+        />
+      }
+      table={
+        <table className="w-full min-w-[48rem] border-collapse text-left text-[14px]">
+          <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
+            <tr>
+              <th className="px-4 py-3 font-semibold">Name</th>
+              <th className="px-4 py-3 font-semibold">Status</th>
+              <th className="px-4 py-3 text-right font-semibold">Open</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {items.map((item) => (
+              <tr
+                key={item.id}
+                className="cursor-pointer transition hover:bg-hover-blue"
+                role="link"
+                tabIndex={0}
+                onClick={() => onOpenApprovalGroup(item.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onOpenApprovalGroup(item.id);
+                  }
+                }}
+              >
+                <td className="px-4 py-4 font-medium text-foreground">{item.name}</td>
+                <td className="px-4 py-4">
+                  <StatusBadge status={item.status} />
+                </td>
+                <td className="px-4 py-4 text-right text-muted-foreground">
+                  <span className="inline-flex items-center justify-center">
+                    <ChevronRight className="size-4" aria-hidden="true" />
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      }
+      mobileList={
+        <div className="grid gap-3 md:hidden">
+          {items.map((item) => (
+            <article
+              key={item.id}
+              className="rounded-structural border border-border p-4 transition hover:bg-hover-blue"
+              role="button"
+              tabIndex={0}
+              onClick={() => onOpenApprovalGroup(item.id)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onOpenApprovalGroup(item.id);
+                }
+              }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="text-[15px] font-semibold text-foreground">{item.name}</h3>
+                <ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              </div>
+              <dl className="mt-3 grid gap-2 text-[14px] text-muted-foreground">
+                <div>
+                  <dt className="font-medium text-foreground">Status</dt>
+                  <dd>
+                    <StatusBadge status={item.status} />
+                  </dd>
+                </div>
+              </dl>
+            </article>
+          ))}
+        </div>
+      }
+      hasItems={items.length > 0}
+    />
+  );
 }
 
 function HrPoliciesPanel({ settings, ouRules, personaRules, organizationUnits, personas, packages, isLoading, isError }: { readonly settings: EmployeeLifecycleAutomationSettingsResponse | undefined; readonly ouRules: OrganizationalUnitPackageRuleResponse[]; readonly personaRules: PersonaPackageRuleResponse[]; readonly organizationUnits: OrganizationUnitResponse[]; readonly personas: PersonaResponse[]; readonly packages: PackageResponse[]; readonly isLoading: boolean; readonly isError: boolean; }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const packageById = new Map(packages.map((item) => [item.id, item]));
   const packageOptions = packages.map((item) => ({ value: item.id, label: item.name }));
@@ -282,13 +603,13 @@ function HrPoliciesPanel({ settings, ouRules, personaRules, organizationUnits, p
   const saveSettings = useMutation({
     mutationFn: async (request: UpdateEmployeeLifecycleAutomationSettingsRequest) => {
       const { error } = await api.PUT('/api/sagas/employee-lifecycle/settings', { body: request });
-      if (error) throw new Error('Could not save HR policy settings.');
+      if (error) throw new Error(t('accessModel.hrPolicies.couldNotSave'));
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['administration', 'access-model', 'hr-policies', 'settings'] });
-      toast.success('HR policy settings saved.');
+      toast.success(t('accessModel.hrPolicies.saved'));
     },
-    onError: () => toast.error('Could not save HR policy settings.'),
+    onError: () => toast.error(t('accessModel.hrPolicies.couldNotSave')),
   });
 
   const addOuRule = useMutation({
@@ -379,38 +700,38 @@ function HrPoliciesPanel({ settings, ouRules, personaRules, organizationUnits, p
   return (
     <div className="grid gap-6 pt-4">
       <div>
-        <h2 className="text-[20px] font-semibold tracking-tight">HR Policies</h2>
-        <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">Review lifecycle automation settings and package rules for organizational units and personas.</p>
+        <h2 className="text-[20px] font-semibold tracking-tight">{t('accessModel.hrPolicies.title')}</h2>
+        <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">{t('accessModel.hrPolicies.description')}</p>
       </div>
 
-      {isError ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load HR policies.</p> : null}
-      {isLoading ? <p className="rounded-structural border border-border p-4 text-[14px] text-muted-foreground">Loading HR policies...</p> : null}
+      {isError ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">{t('accessModel.hrPolicies.couldNotLoad')}</p> : null}
+      {isLoading ? <p className="rounded-structural border border-border p-4 text-[14px] text-muted-foreground">{t('accessModel.hrPolicies.loading')}</p> : null}
 
       {!isLoading && !isError ? (
         <>
           <div className="rounded-structural border border-border p-4">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h3 className="text-[18px] font-semibold tracking-tight">Lifecycle Settings</h3>
-                <p className="mt-2 text-[14px] text-muted-foreground">Configure employee lifecycle automation behavior.</p>
+                <h3 className="text-[18px] font-semibold tracking-tight">{t('accessModel.hrPolicies.lifecycleSettings')}</h3>
+                <p className="mt-2 text-[14px] text-muted-foreground">{t('accessModel.hrPolicies.lifecycleDescription')}</p>
               </div>
-              <Button type="button" disabled={saveSettings.isPending} onClick={() => saveSettings.mutate(settingsValues)}>{saveSettings.isPending ? 'Saving...' : 'Save settings'}</Button>
+              <Button type="button" disabled={saveSettings.isPending} onClick={() => saveSettings.mutate(settingsValues)}>{saveSettings.isPending ? t('accessModel.hrPolicies.saving') : t('accessModel.hrPolicies.saveSettings')}</Button>
             </div>
 
             <div className="mt-4 grid gap-4 md:grid-cols-3">
-              <label className="rounded-structural border border-border bg-background p-4 text-[14px] font-medium"><span className="block text-[12px] uppercase tracking-[0.18em] text-muted-foreground">Automation</span><span className="mt-3 block text-[20px] font-semibold tracking-tight text-foreground">{settingsValues.isEnabled ? 'Enabled' : 'Disabled'}</span><span className="mt-2 block text-[13px] text-muted-foreground">Employee lifecycle automation.</span><span className="mt-4 flex items-center gap-3"><input type="checkbox" checked={settingsValues.isEnabled} onChange={(event) => setSettingsValues((current) => ({ ...current, isEnabled: event.target.checked }))} />Enabled</span></label>
-              <label className="rounded-structural border border-border bg-background p-4 text-[14px] font-medium"><span className="block text-[12px] uppercase tracking-[0.18em] text-muted-foreground">Disable On Leave</span><span className="mt-3 block text-[20px] font-semibold tracking-tight text-foreground">{settingsValues.disableEmployeeOnLeave ? 'Yes' : 'No'}</span><span className="mt-2 block text-[13px] text-muted-foreground">Disable employee access during leave.</span><span className="mt-4 flex items-center gap-3"><input type="checkbox" checked={settingsValues.disableEmployeeOnLeave} onChange={(event) => setSettingsValues((current) => ({ ...current, disableEmployeeOnLeave: event.target.checked }))} />Enabled</span></label>
-              <SummaryCard title="Last Full Reconcile" value={settings?.lastFullReconciledAt ? formatDateTime(settings.lastFullReconciledAt) : 'Never'} hint="Last full employee lifecycle reconciliation." />
+              <label className="rounded-structural border border-border bg-background p-4 text-[14px] font-medium"><span className="block text-[12px] uppercase tracking-[0.18em] text-muted-foreground">{t('accessModel.hrPolicies.automation')}</span><span className="mt-3 block text-[20px] font-semibold tracking-tight text-foreground">{settingsValues.isEnabled ? t('accessModel.common.enabled') : t('accessModel.common.disabled')}</span><span className="mt-2 block text-[13px] text-muted-foreground">{t('accessModel.hrPolicies.employeeLifecycleAutomation')}</span><span className="mt-4 flex items-center gap-3"><input type="checkbox" checked={settingsValues.isEnabled} onChange={(event) => setSettingsValues((current) => ({ ...current, isEnabled: event.target.checked }))} />{t('accessModel.common.enabled')}</span></label>
+              <label className="rounded-structural border border-border bg-background p-4 text-[14px] font-medium"><span className="block text-[12px] uppercase tracking-[0.18em] text-muted-foreground">{t('accessModel.hrPolicies.disableOnLeave')}</span><span className="mt-3 block text-[20px] font-semibold tracking-tight text-foreground">{settingsValues.disableEmployeeOnLeave ? t('accessModel.hrPolicies.yes') : t('accessModel.hrPolicies.no')}</span><span className="mt-2 block text-[13px] text-muted-foreground">{t('accessModel.hrPolicies.disableOnLeaveDescription')}</span><span className="mt-4 flex items-center gap-3"><input type="checkbox" checked={settingsValues.disableEmployeeOnLeave} onChange={(event) => setSettingsValues((current) => ({ ...current, disableEmployeeOnLeave: event.target.checked }))} />{t('accessModel.common.enabled')}</span></label>
+              <SummaryCard title={t('accessModel.hrPolicies.lastFullReconcile')} value={settings?.lastFullReconciledAt ? formatDateTime(settings.lastFullReconciledAt) : t('accessModel.hrPolicies.never')} hint={t('accessModel.hrPolicies.lastFullReconcileHint')} />
             </div>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <RuleListCard title="OU automation" description="Automatically assign one or more packages when an employee belongs to a matching organizational unit." empty="No OU automation rules." action={<Button type="button" variant="outline" size="sm" disabled={addOuRule.isPending || organizationUnits.length === 0 || packageOptions.length === 0} onClick={() => setIsAddOuRuleOpen((current) => !current)}>{isAddOuRuleOpen ? 'Cancel' : 'Add OU automation'}</Button>}>
-              {isAddOuRuleOpen ? <RuleAddForm labelA="Organizational Unit" valueA={selectedOuId} onChangeA={(value) => { setSelectedOuId(value); setSelectedOuPackageId(''); }} optionsA={organizationUnits.map((item) => ({ value: item.id, label: item.name }))} labelB="Package" valueB={selectedOuPackageId} onChangeB={setSelectedOuPackageId} optionsB={availableOuPackages} submitLabel="Add automation" disabled={addOuRule.isPending || !selectedOuId || !selectedOuPackageId} onSubmit={() => addOuRule.mutate({ organizationUnitId: selectedOuId, packageId: selectedOuPackageId })} emptyStateMessage={selectedOuId && availableOuPackages.length === 0 ? 'All packages already added for this organizational unit.' : undefined} /> : null}
+            <RuleListCard title={t('accessModel.hrPolicies.ouAutomation')} description={t('accessModel.hrPolicies.ouAutomationDescription')} empty={t('accessModel.hrPolicies.noOuRules')} action={<Button type="button" variant="outline" size="sm" disabled={addOuRule.isPending || organizationUnits.length === 0 || packageOptions.length === 0} onClick={() => setIsAddOuRuleOpen((current) => !current)}>{isAddOuRuleOpen ? t('accessModel.common.cancel') : t('accessModel.hrPolicies.addOuAutomation')}</Button>}>
+              {isAddOuRuleOpen ? <RuleAddForm labelA={t('accessModel.hrPolicies.organizationalUnit')} valueA={selectedOuId} onChangeA={(value) => { setSelectedOuId(value); setSelectedOuPackageId(''); }} optionsA={organizationUnits.map((item) => ({ value: item.id, label: item.name }))} labelB={t('accessModel.hrPolicies.package')} valueB={selectedOuPackageId} onChangeB={setSelectedOuPackageId} optionsB={availableOuPackages} submitLabel={t('accessModel.hrPolicies.addAutomation')} disabled={addOuRule.isPending || !selectedOuId || !selectedOuPackageId} onSubmit={() => addOuRule.mutate({ organizationUnitId: selectedOuId, packageId: selectedOuPackageId })} emptyStateMessage={selectedOuId && availableOuPackages.length === 0 ? t('accessModel.hrPolicies.allPackagesAddedToOrganizationUnit') : undefined} /> : null}
               {ouGroups.map((group) => <RuleGroupCard key={group.source.id} name={group.source.name} rules={group.rules} onToggle={(rule) => toggleOuRule.mutate({ id: rule.id, isEnabled: !rule.isEnabled })} onRemove={(rule) => removeOuRule.mutate(rule.id)} busy={toggleOuRule.isPending || removeOuRule.isPending} />)}
             </RuleListCard>
-            <RuleListCard title="Persona automation" description="Automatically assign one or more packages when an employee matches a persona." empty="No persona automation rules." action={<Button type="button" variant="outline" size="sm" disabled={addPersonaRule.isPending || personas.length === 0 || packageOptions.length === 0} onClick={() => setIsAddPersonaRuleOpen((current) => !current)}>{isAddPersonaRuleOpen ? 'Cancel' : 'Add persona automation'}</Button>}>
-              {isAddPersonaRuleOpen ? <RuleAddForm labelA="Persona" valueA={selectedPersonaId} onChangeA={(value) => { setSelectedPersonaId(value); setSelectedPersonaPackageId(''); }} optionsA={personas.map((item) => ({ value: item.id, label: item.name }))} labelB="Package" valueB={selectedPersonaPackageId} onChangeB={setSelectedPersonaPackageId} optionsB={availablePersonaPackages} submitLabel="Add automation" disabled={addPersonaRule.isPending || !selectedPersonaId || !selectedPersonaPackageId} onSubmit={() => addPersonaRule.mutate({ personaId: selectedPersonaId, packageId: selectedPersonaPackageId })} emptyStateMessage={selectedPersonaId && availablePersonaPackages.length === 0 ? 'All packages already added for this persona.' : undefined} /> : null}
+            <RuleListCard title={t('accessModel.hrPolicies.personaAutomation')} description={t('accessModel.hrPolicies.personaAutomationDescription')} empty={t('accessModel.hrPolicies.noPersonaRules')} action={<Button type="button" variant="outline" size="sm" disabled={addPersonaRule.isPending || personas.length === 0 || packageOptions.length === 0} onClick={() => setIsAddPersonaRuleOpen((current) => !current)}>{isAddPersonaRuleOpen ? t('accessModel.common.cancel') : t('accessModel.hrPolicies.addPersonaAutomation')}</Button>}>
+              {isAddPersonaRuleOpen ? <RuleAddForm labelA={t('accessModel.hrPolicies.persona')} valueA={selectedPersonaId} onChangeA={(value) => { setSelectedPersonaId(value); setSelectedPersonaPackageId(''); }} optionsA={personas.map((item) => ({ value: item.id, label: item.name }))} labelB={t('accessModel.hrPolicies.package')} valueB={selectedPersonaPackageId} onChangeB={setSelectedPersonaPackageId} optionsB={availablePersonaPackages} submitLabel={t('accessModel.hrPolicies.addAutomation')} disabled={addPersonaRule.isPending || !selectedPersonaId || !selectedPersonaPackageId} onSubmit={() => addPersonaRule.mutate({ personaId: selectedPersonaId, packageId: selectedPersonaPackageId })} emptyStateMessage={selectedPersonaId && availablePersonaPackages.length === 0 ? t('accessModel.hrPolicies.allPackagesAddedToPersona') : undefined} /> : null}
               {personaGroups.map((group) => <RuleGroupCard key={group.source.id} name={group.source.name} rules={group.rules} onToggle={(rule) => togglePersonaRule.mutate({ id: rule.id, isEnabled: !rule.isEnabled })} onRemove={(rule) => removePersonaRule.mutate(rule.id)} busy={togglePersonaRule.isPending || removePersonaRule.isPending} />)}
             </RuleListCard>
           </div>
@@ -421,6 +742,7 @@ function HrPoliciesPanel({ settings, ouRules, personaRules, organizationUnits, p
 }
 
 function VisitorPoliciesPanel({ assignments, packages, qrCredentialTypes, visitorConfig, isLoading, isError }: { readonly assignments: AccessRuleAssignmentResponse[]; readonly packages: PackageResponse[]; readonly qrCredentialTypes: CredentialTypeResponse[]; readonly visitorConfig: components['schemas']['VisitorPreOnboardingSagaConfigRequest'] | undefined; readonly isLoading: boolean; readonly isError: boolean; }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [isAddRuleOpen, setIsAddRuleOpen] = useState(false);
   const [selectedTrigger, setSelectedTrigger] = useState<ReceptionAccessPolicyTrigger>('ExpectedVisitorAdded');
@@ -441,7 +763,7 @@ function VisitorPoliciesPanel({ assignments, packages, qrCredentialTypes, visito
   const createAssignment = useMutation({
     mutationFn: async (request: CreateAccessRuleAssignmentRequest) => {
       const { error } = await api.POST('/api/reception/access-rule-assignments', { body: request });
-      if (error) throw new Error('Could not create visitor trigger assignment.');
+      if (error) throw new Error(t('accessModel.visitorPolicies.couldNotCreateTriggerAssignment'));
     },
     onSuccess: async () => {
       setSelectedTrigger('ExpectedVisitorAdded');
@@ -449,21 +771,21 @@ function VisitorPoliciesPanel({ assignments, packages, qrCredentialTypes, visito
       setGracePeriodMinutes('0');
       setIsAddRuleOpen(false);
       await queryClient.invalidateQueries({ queryKey: ['administration', 'access-model', 'visitor-policies', 'assignments'] });
-      toast.success('Visitor trigger assignment added.');
+      toast.success(t('accessModel.visitorPolicies.triggerAssignmentAdded'));
     },
-    onError: () => toast.error('Could not create visitor trigger assignment.'),
+    onError: () => toast.error(t('accessModel.visitorPolicies.couldNotCreateTriggerAssignment')),
   });
 
   const removeAssignment = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await api.DELETE('/api/reception/access-rule-assignments/{id}', { params: { path: { id } } });
-      if (error) throw new Error('Could not remove visitor trigger assignment.');
+      if (error) throw new Error(t('accessModel.visitorPolicies.couldNotRemoveTriggerAssignment'));
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['administration', 'access-model', 'visitor-policies', 'assignments'] });
-      toast.success('Visitor trigger assignment removed.');
+      toast.success(t('accessModel.visitorPolicies.triggerAssignmentRemoved'));
     },
-    onError: () => toast.error('Could not remove visitor trigger assignment.'),
+    onError: () => toast.error(t('accessModel.visitorPolicies.couldNotRemoveTriggerAssignment')),
   });
 
   const updateVisitorConfig = useMutation({
@@ -472,7 +794,7 @@ function VisitorPoliciesPanel({ assignments, packages, qrCredentialTypes, visito
       const parsedGraceEndMinutes = Number.parseInt(credentialGraceEndMinutes, 10);
 
       if (Number.isNaN(parsedGraceStartMinutes) || parsedGraceStartMinutes < 0 || Number.isNaN(parsedGraceEndMinutes) || parsedGraceEndMinutes < 0) {
-        throw new Error('Grace values must be zero or greater.');
+        throw new Error(t('accessModel.visitorPolicies.graceValidation'));
       }
 
       return updateVisitorPreOnboardingConfig({
@@ -505,15 +827,15 @@ function VisitorPoliciesPanel({ assignments, packages, qrCredentialTypes, visito
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: visitorPreOnboardingConfigQueryKey });
-      toast.success('Visitor QR credential settings saved.');
+      toast.success(t('accessModel.visitorPolicies.saveQrSettingsSaved'));
     },
-    onError: (error) => toast.error(error.message === 'Grace values must be zero or greater.' ? error.message : 'Could not save visitor QR credential settings.'),
+    onError: (error) => toast.error(error.message === t('accessModel.visitorPolicies.graceValidation') ? error.message : t('accessModel.visitorPolicies.couldNotSaveQrSettings')),
   });
 
   function handleAddAssignment() {
     const parsedGracePeriodMinutes = Number.parseInt(gracePeriodMinutes, 10);
     if (!selectedPackageId || Number.isNaN(parsedGracePeriodMinutes) || parsedGracePeriodMinutes < 0) {
-      toast.error('Complete trigger, package and grace period before adding.');
+      toast.error(t('accessModel.visitorPolicies.completeTriggerPackageGrace'));
       return;
     }
 
@@ -527,97 +849,97 @@ function VisitorPoliciesPanel({ assignments, packages, qrCredentialTypes, visito
   return (
     <div className="grid gap-6 pt-4">
       <div>
-        <h2 className="text-[20px] font-semibold tracking-tight">Visitor Policies</h2>
-        <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">Configure visitor QR credential issuance and map reception triggers to access packages.</p>
+        <h2 className="text-[20px] font-semibold tracking-tight">{t('accessModel.visitorPolicies.title')}</h2>
+        <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">{t('accessModel.visitorPolicies.description')}</p>
       </div>
 
-      {isError ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load visitor policies.</p> : null}
-      {isLoading ? <p className="rounded-structural border border-border p-4 text-[14px] text-muted-foreground">Loading visitor policies...</p> : null}
+      {isError ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">{t('accessModel.visitorPolicies.couldNotLoad')}</p> : null}
+      {isLoading ? <p className="rounded-structural border border-border p-4 text-[14px] text-muted-foreground">{t('accessModel.visitorPolicies.loading')}</p> : null}
 
       {!isLoading && !isError ? (
         <div className="grid gap-5">
           <div className="rounded-structural border border-border bg-content p-5">
             <div>
-              <h3 className="text-[18px] font-semibold tracking-tight">Visitor QR Credential</h3>
-              <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">Choose the QR credential type used by visitor pre-onboarding and define how long it stays valid around the visit window.</p>
-            </div>
+                <h3 className="text-[18px] font-semibold tracking-tight">{t('accessModel.visitorPolicies.qrCredentialTitle')}</h3>
+                <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">{t('accessModel.visitorPolicies.qrCredentialDescription')}</p>
+              </div>
 
             <div className="mt-5 grid gap-4 lg:max-w-3xl lg:grid-cols-2">
               <label className="grid gap-2 text-[14px] font-medium lg:col-span-2">
-                <span>Credential Type</span>
+                <span>{t('accessModel.visitorPolicies.credentialType')}</span>
                 <select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={selectedQrCredentialTypeId} onChange={(event) => setSelectedQrCredentialTypeId(event.target.value)}>
-                  <option value="">No credential type configured</option>
+                  <option value="">{t('accessModel.visitorPolicies.noCredentialTypeConfigured')}</option>
                   {qrCredentialTypes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                 </select>
-                <span className="text-[12px] font-normal text-muted-foreground">Only active QR credential types with range allocation are eligible.</span>
+                <span className="text-[12px] font-normal text-muted-foreground">{t('accessModel.visitorPolicies.credentialTypeHint')}</span>
               </label>
 
               <label className="grid gap-2 text-[14px] font-medium">
-                <span>Grace Before Start (minutes)</span>
+                <span>{t('accessModel.visitorPolicies.graceBeforeStart')}</span>
                 <input className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" type="number" min="0" step="1" value={credentialGraceStartMinutes} onChange={(event) => setCredentialGraceStartMinutes(event.target.value)} />
               </label>
 
               <label className="grid gap-2 text-[14px] font-medium">
-                <span>Grace After End (minutes)</span>
+                <span>{t('accessModel.visitorPolicies.graceAfterEnd')}</span>
                 <input className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" type="number" min="0" step="1" value={credentialGraceEndMinutes} onChange={(event) => setCredentialGraceEndMinutes(event.target.value)} />
               </label>
             </div>
 
             <div className="mt-4 space-y-2 text-[13px] text-muted-foreground">
-              {!selectedQrCredentialTypeId ? <p>Visitor pre-onboarding keeps retrying QR issuance until a credential type is configured.</p> : null}
+              {!selectedQrCredentialTypeId ? <p>{t('accessModel.visitorPolicies.retryUntilConfigured')}</p> : null}
             </div>
 
             <div className="mt-5 flex justify-end">
-              <Button type="button" variant="outline" disabled={updateVisitorConfig.isPending} onClick={() => updateVisitorConfig.mutate()}>{updateVisitorConfig.isPending ? 'Saving...' : 'Save QR credential settings'}</Button>
+              <Button type="button" variant="outline" disabled={updateVisitorConfig.isPending} onClick={() => updateVisitorConfig.mutate()}>{updateVisitorConfig.isPending ? t('accessModel.hrPolicies.saving') : t('accessModel.visitorPolicies.saveQrSettings')}</Button>
             </div>
           </div>
 
           <div className="rounded-structural border border-border bg-content p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h3 className="text-[18px] font-semibold tracking-tight">Reception Trigger Assignments</h3>
-                <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">Map reception triggers to visitor access packages and define the trigger-specific grace period around arrival processing.</p>
+                <h3 className="text-[18px] font-semibold tracking-tight">{t('accessModel.visitorPolicies.receptionTriggerAssignments')}</h3>
+                <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">{t('accessModel.visitorPolicies.receptionTriggerAssignmentsDescription')}</p>
               </div>
-              <Button type="button" variant="outline" size="sm" disabled={createAssignment.isPending || packages.length === 0} onClick={() => setIsAddRuleOpen((current) => !current)}>{isAddRuleOpen ? 'Cancel' : 'Add trigger assignment'}</Button>
+              <Button type="button" variant="outline" size="sm" disabled={createAssignment.isPending || packages.length === 0} onClick={() => setIsAddRuleOpen((current) => !current)}>{isAddRuleOpen ? t('accessModel.common.cancel') : t('accessModel.visitorPolicies.addTriggerAssignment')}</Button>
             </div>
 
             {isAddRuleOpen ? (
             <div className="mt-4 grid gap-3 rounded-structural border border-border p-4 lg:max-w-3xl">
               <label className="grid gap-2 text-[14px] font-medium">
-                <span>Trigger</span>
+                <span>{t('accessModel.visitorPolicies.trigger')}</span>
                 <select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={selectedTrigger} onChange={(event) => setSelectedTrigger(event.target.value as ReceptionAccessPolicyTrigger)}>
                   {visitorTriggerOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </label>
               <label className="grid gap-2 text-[14px] font-medium">
-                <span>Package</span>
+                <span>{t('accessModel.visitorPolicies.package')}</span>
                 <select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={selectedPackageId} onChange={(event) => setSelectedPackageId(event.target.value)}>
-                  <option value="">Select package</option>
+                  <option value="">{t('accessModel.visitorPolicies.selectPackage')}</option>
                   {packages.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                 </select>
               </label>
               <label className="grid gap-2 text-[14px] font-medium">
-                <span>Grace Period Minutes</span>
+                <span>{t('accessModel.visitorPolicies.gracePeriodMinutes')}</span>
                 <input className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" type="number" min="0" step="1" value={gracePeriodMinutes} onChange={(event) => setGracePeriodMinutes(event.target.value)} />
               </label>
               <div className="flex justify-end">
-                <Button type="button" disabled={createAssignment.isPending || !selectedPackageId} onClick={handleAddAssignment}>{createAssignment.isPending ? 'Adding...' : 'Add assignment'}</Button>
+                <Button type="button" disabled={createAssignment.isPending || !selectedPackageId} onClick={handleAddAssignment}>{createAssignment.isPending ? t('accessModel.visitorPolicies.adding') : t('accessModel.visitorPolicies.addAssignment')}</Button>
               </div>
             </div>
             ) : null}
 
           {visitorAssignments.length === 0 ? (
-            <p className="mt-4 text-[14px] text-muted-foreground">No visitor trigger assignments configured.</p>
+            <p className="mt-4 text-[14px] text-muted-foreground">{t('accessModel.visitorPolicies.noVisitorTriggerAssignments')}</p>
           ) : (
             <>
               <div className="mt-4 grid gap-3 md:hidden">
                 {visitorAssignments.map((assignment) => (
                   <article key={assignment.id} className="rounded-structural border border-border p-4">
                     <p className="font-medium text-foreground">{getVisitorTriggerLabel(assignment.trigger)}</p>
-                    <p className="mt-1 text-[14px] text-muted-foreground">Package: {packageById.get(assignment.packageId)?.name ?? assignment.packageId}</p>
-                    <p className="mt-1 text-[14px] text-muted-foreground">Grace: {assignment.gracePeriodMinutes} min</p>
+                    <p className="mt-1 text-[14px] text-muted-foreground">{t('accessModel.visitorPolicies.packageLabel', { value: packageById.get(assignment.packageId)?.name ?? assignment.packageId })}</p>
+                    <p className="mt-1 text-[14px] text-muted-foreground">{t('accessModel.visitorPolicies.graceLabel', { value: assignment.gracePeriodMinutes })}</p>
                     <div className="mt-4 flex justify-end">
-                      <Button type="button" variant="outline" size="sm" disabled={removeAssignment.isPending} onClick={() => removeAssignment.mutate(assignment.id)}>Remove</Button>
+                      <Button type="button" variant="outline" size="sm" disabled={removeAssignment.isPending} onClick={() => removeAssignment.mutate(assignment.id)}>{t('accessModel.common.remove')}</Button>
                     </div>
                   </article>
                 ))}
@@ -627,10 +949,10 @@ function VisitorPoliciesPanel({ assignments, packages, qrCredentialTypes, visito
                 <table className="w-full min-w-[48rem] border-collapse text-left text-[14px]">
                   <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
                     <tr>
-                      <th className="px-4 py-3 font-semibold">Trigger</th>
-                      <th className="px-4 py-3 font-semibold">Package</th>
-                      <th className="px-4 py-3 font-semibold">Grace</th>
-                      <th className="px-4 py-3 text-right font-semibold">Actions</th>
+                      <th className="px-4 py-3 font-semibold">{t('accessModel.visitorPolicies.trigger')}</th>
+                      <th className="px-4 py-3 font-semibold">{t('accessModel.visitorPolicies.package')}</th>
+                      <th className="px-4 py-3 font-semibold">{t('accessModel.visitorPolicies.grace')}</th>
+                      <th className="px-4 py-3 text-right font-semibold">{t('accessModel.visitorPolicies.actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -638,9 +960,9 @@ function VisitorPoliciesPanel({ assignments, packages, qrCredentialTypes, visito
                       <tr key={assignment.id}>
                         <td className="px-4 py-4 font-medium text-foreground">{getVisitorTriggerLabel(assignment.trigger)}</td>
                         <td className="px-4 py-4 text-muted-foreground">{packageById.get(assignment.packageId)?.name ?? assignment.packageId}</td>
-                        <td className="px-4 py-4 text-muted-foreground">{assignment.gracePeriodMinutes} min</td>
+                        <td className="px-4 py-4 text-muted-foreground">{t('accessModel.visitorPolicies.graceLabel', { value: assignment.gracePeriodMinutes })}</td>
                         <td className="px-4 py-4 text-right">
-                          <Button type="button" variant="outline" size="sm" disabled={removeAssignment.isPending} onClick={() => removeAssignment.mutate(assignment.id)}>Remove</Button>
+                          <Button type="button" variant="outline" size="sm" disabled={removeAssignment.isPending} onClick={() => removeAssignment.mutate(assignment.id)}>{t('accessModel.common.remove')}</Button>
                         </td>
                       </tr>
                     ))}
@@ -657,6 +979,8 @@ function VisitorPoliciesPanel({ assignments, packages, qrCredentialTypes, visito
 }
 
 function ListSection({ title, description, isLoading, isError, errorMessage, emptyTitle, emptyDescription, totalItems, firstItem, lastItem, currentPage, totalPages, visiblePages, setPage, actions, filters, table, mobileList, hasItems }: { readonly title: string; readonly description: string; readonly isLoading: boolean; readonly isError: boolean; readonly errorMessage: string; readonly emptyTitle: string; readonly emptyDescription: string; readonly totalItems: number; readonly firstItem: number; readonly lastItem: number; readonly currentPage: number; readonly totalPages: number; readonly visiblePages: readonly (number | 'ellipsis')[]; readonly setPage: (page: number) => void; readonly actions?: React.ReactNode; readonly filters: React.ReactNode; readonly table: React.ReactNode; readonly mobileList: React.ReactNode; readonly hasItems: boolean; }) {
+  const { t } = useTranslation();
+
   return (
     <div className="grid gap-4 pt-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -672,11 +996,11 @@ function ListSection({ title, description, isLoading, isError, errorMessage, emp
         <Empty><EmptyHeader><EmptyTitle>{emptyTitle}</EmptyTitle><EmptyDescription>{emptyDescription}</EmptyDescription></EmptyHeader></Empty>
       ) : (
         <div className="grid gap-4">
-          <div className="md:hidden">{isLoading ? <p className="rounded-structural border border-border p-4 text-[14px] text-muted-foreground">Loading...</p> : null}{!isLoading ? mobileList : null}</div>
-          <div className="hidden overflow-x-auto rounded-structural border border-border md:block">{isLoading ? <p className="px-4 py-5 text-[14px] text-muted-foreground">Loading...</p> : table}</div>
+          <div className="md:hidden">{isLoading ? <p className="rounded-structural border border-border p-4 text-[14px] text-muted-foreground">{t('accessModel.common.loading')}</p> : null}{!isLoading ? mobileList : null}</div>
+          <div className="hidden overflow-x-auto rounded-structural border border-border md:block">{isLoading ? <p className="px-4 py-5 text-[14px] text-muted-foreground">{t('accessModel.common.loading')}</p> : table}</div>
           {!isLoading && !isError && totalItems > 0 ? (
             <div className="flex flex-col gap-3 text-[14px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-              <p>Showing {firstItem}-{lastItem} of {totalItems}</p>
+              <p>{t('accessModel.common.showing', { first: firstItem, last: lastItem, total: totalItems })}</p>
               <Pagination className="sm:mx-0 sm:w-auto"><PaginationContent><PaginationItem><PaginationPrevious disabled={currentPage === 0} onClick={() => setPage(Math.max(0, currentPage - 1))} /></PaginationItem>{visiblePages.map((visiblePage, index) => visiblePage === 'ellipsis' ? <PaginationItem key={`${visiblePage}-${index}`}><PaginationEllipsis /></PaginationItem> : <PaginationItem key={visiblePage}><PaginationLink isActive={visiblePage === currentPage} onClick={() => setPage(visiblePage)}>{visiblePage + 1}</PaginationLink></PaginationItem>)}<PaginationItem><PaginationNext disabled={currentPage >= totalPages - 1} onClick={() => setPage(Math.min(totalPages - 1, currentPage + 1))} /></PaginationItem></PaginationContent></Pagination>
             </div>
           ) : null}
@@ -700,11 +1024,15 @@ function RuleGroupCard({ name, rules, onToggle, onRemove, busy }: { readonly nam
 }
 
 function RulePackageRow({ packageName, isEnabled, onToggle, onRemove, busy }: { readonly packageName: string; readonly isEnabled: boolean; readonly onToggle: () => void; readonly onRemove: () => void; readonly busy: boolean; }) {
-  return <div className="flex items-center justify-between gap-4 rounded-structural border border-border bg-background p-3"><div className="min-w-0"><p className="font-medium text-foreground">{packageName}</p><p className="mt-1 text-[14px] text-muted-foreground">Package automation</p></div><div className="flex items-center gap-2"><Badge variant={isEnabled ? 'success' : 'secondary'}>{isEnabled ? 'Enabled' : 'Disabled'}</Badge><Button type="button" variant="outline" size="sm" disabled={busy} onClick={onToggle}>{isEnabled ? 'Disable' : 'Enable'}</Button><Button type="button" variant="outline" size="sm" disabled={busy} onClick={onRemove}>Remove</Button></div></div>;
+  const { t } = useTranslation();
+
+  return <div className="flex items-center justify-between gap-4 rounded-structural border border-border bg-background p-3"><div className="min-w-0"><p className="font-medium text-foreground">{packageName}</p><p className="mt-1 text-[14px] text-muted-foreground">{t('accessModel.common.packageAutomation')}</p></div><div className="flex items-center gap-2"><Badge variant={isEnabled ? 'success' : 'secondary'}>{isEnabled ? t('accessModel.common.enabled') : t('accessModel.common.disabled')}</Badge><Button type="button" variant="outline" size="sm" disabled={busy} onClick={onToggle}>{isEnabled ? t('accessModel.common.disable') : t('accessModel.common.enable')}</Button><Button type="button" variant="outline" size="sm" disabled={busy} onClick={onRemove}>{t('accessModel.common.remove')}</Button></div></div>;
 }
 
 function RuleAddForm({ labelA, valueA, onChangeA, optionsA, labelB, valueB, onChangeB, optionsB, submitLabel, disabled, onSubmit, emptyStateMessage }: { readonly labelA: string; readonly valueA: string; readonly onChangeA: (value: string) => void; readonly optionsA: readonly RuleOption[]; readonly labelB: string; readonly valueB: string; readonly onChangeB: (value: string) => void; readonly optionsB: readonly RuleOption[]; readonly submitLabel: string; readonly disabled: boolean; readonly onSubmit: () => void; readonly emptyStateMessage?: string; }) {
-  return <div className="grid gap-3 rounded-structural border border-border p-4"><label className="grid gap-2 text-[14px] font-medium"><span>{labelA}</span><select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={valueA} onChange={(event) => onChangeA(event.target.value)}><option value="">Select {labelA.toLowerCase()}</option>{optionsA.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label className="grid gap-2 text-[14px] font-medium"><span>{labelB}</span><select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={valueB} onChange={(event) => onChangeB(event.target.value)} disabled={!valueA || optionsB.length === 0}><option value="">Select {labelB.toLowerCase()}</option>{optionsB.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{emptyStateMessage ? <p className="text-[13px] text-muted-foreground">{emptyStateMessage}</p> : null}<div className="flex justify-end"><Button type="button" disabled={disabled} onClick={onSubmit}>{submitLabel}</Button></div></div>;
+  const { t } = useTranslation();
+
+  return <div className="grid gap-3 rounded-structural border border-border p-4"><label className="grid gap-2 text-[14px] font-medium"><span>{labelA}</span><select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={valueA} onChange={(event) => onChangeA(event.target.value)}><option value="">{t('accessModel.common.selectPrefix', { label: labelA.toLowerCase() })}</option>{optionsA.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label className="grid gap-2 text-[14px] font-medium"><span>{labelB}</span><select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={valueB} onChange={(event) => onChangeB(event.target.value)} disabled={!valueA || optionsB.length === 0}><option value="">{t('accessModel.common.selectPrefix', { label: labelB.toLowerCase() })}</option>{optionsB.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>{emptyStateMessage ? <p className="text-[13px] text-muted-foreground">{emptyStateMessage}</p> : null}<div className="flex justify-end"><Button type="button" disabled={disabled} onClick={onSubmit}>{submitLabel}</Button></div></div>;
 }
 
 function getAvailablePackageOptions(options: readonly RuleOption[], usedPackageIds: ReadonlySet<string>) {

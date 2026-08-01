@@ -1,6 +1,7 @@
 import { Link, useLocation } from '@tanstack/react-router';
 import { ChevronDown } from 'lucide-react';
 import { type ReactNode, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from 'react-oidc-context';
 
 import { useCurrentActor } from '@/shared/actors/current-actor';
@@ -16,6 +17,7 @@ import { useTenantSettings } from '@/shared/tenant/tenant-settings-context';
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
+  const { t } = useTranslation();
   const auth = useAuth();
   const branding = useBranding();
   const actorQuery = useCurrentActor();
@@ -25,7 +27,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const activePerspective = getPerspectiveByPathname(location.pathname);
   const showPerspectiveShell = auth.isAuthenticated && !isFullscreenElsaRoute && activePerspective && availablePerspectives.length > 0;
   const showNoPerspectiveWarning = auth.isAuthenticated && !isFullscreenElsaRoute && !actorQuery.isLoading && !actorQuery.isError && availablePerspectives.length === 0;
-  const currentUserName = actorQuery.data?.displayName ?? readProfileValue(auth.user?.profile.name) ?? readProfileValue(auth.user?.profile.preferred_username) ?? readProfileValue(auth.user?.profile.email) ?? 'Signed in';
+  const currentUserName = actorQuery.data?.displayName ?? readProfileValue(auth.user?.profile.name) ?? readProfileValue(auth.user?.profile.preferred_username) ?? readProfileValue(auth.user?.profile.email) ?? t('common.signedIn');
   const currentUserSecondary = actorQuery.data?.email ?? readProfileValue(auth.user?.profile.email) ?? readProfileValue(auth.user?.profile.preferred_username);
 
   useEffect(() => {
@@ -51,7 +53,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <div className="ml-auto">
                 {auth.isAuthenticated ? (
                   <Popover>
-                    <PopoverTrigger render={<Button type="button" variant="outline" className="max-w-[16rem] justify-between sm:max-w-[20rem]" aria-label="Open account menu" />}>
+                    <PopoverTrigger render={<Button type="button" variant="outline" className="max-w-[16rem] justify-between sm:max-w-[20rem]" aria-label={t('common.openAccountMenu')} />}>
                       <span className="truncate text-left text-[14px] font-semibold">{currentUserName}</span>
                       <ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />
                     </PopoverTrigger>
@@ -61,7 +63,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                         {currentUserSecondary && currentUserSecondary !== currentUserName ? <p className="mt-1 truncate text-[13px] text-muted-foreground">{currentUserSecondary}</p> : null}
                       </div>
                       <Button type="button" variant="ghost" className="justify-start" onClick={() => void auth.signoutRedirect().catch(() => auth.removeUser())}>
-                        Sign out
+                        {t('common.signOut')}
                       </Button>
                     </PopoverContent>
                   </Popover>

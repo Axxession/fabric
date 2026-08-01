@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { ArrowLeft, Save } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import { api } from '@/shared/api/client';
@@ -21,6 +22,7 @@ export default function EncoderFormPage() {
 }
 
 export function EncoderFormPageContent({ encoderId = null }: { readonly encoderId?: string | null }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const mode = encoderId ? 'edit' : 'create';
@@ -32,7 +34,7 @@ export function EncoderFormPageContent({ encoderId = null }: { readonly encoderI
     queryFn: async () => {
       const { data, error } = await api.GET('/api/desfire/encoders/{id}', { params: { path: { id: encoderId ?? '' } } });
       if (error || !data) {
-        throw new Error('Could not load encoder.');
+        throw new Error(t('cardManagement.encoderForm.couldNotLoadEncoder'));
       }
       return data;
     },
@@ -43,7 +45,7 @@ export function EncoderFormPageContent({ encoderId = null }: { readonly encoderI
     queryFn: async () => {
       const { data, error } = await api.GET('/api/hardware/agents', { params: { query: { Page: 0, PageSize: 100 } } });
       if (error || !data) {
-        throw new Error('Could not load hardware agents.');
+        throw new Error(t('cardManagement.encoderForm.couldNotLoadHardwareAgents'));
       }
       return data.items ?? [];
     },
@@ -73,29 +75,29 @@ export function EncoderFormPageContent({ encoderId = null }: { readonly encoderI
       if (mode === 'create') {
         const { error } = await api.POST('/api/desfire/encoders', { body: request });
         if (error) {
-          throw new Error('Could not create encoder.');
+          throw new Error(t('cardManagement.encoderForm.createFailed'));
         }
         return;
       }
 
       const { error } = await api.PUT('/api/desfire/encoders/{id}', { params: { path: { id: encoderId ?? '' } }, body: request });
       if (error) {
-        throw new Error('Could not update encoder.');
+        throw new Error(t('cardManagement.encoderForm.updateFailed'));
       }
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: encodersQueryKey });
-      toast.success(mode === 'create' ? 'Encoder created.' : 'Encoder updated.');
+      toast.success(mode === 'create' ? t('cardManagement.encoderForm.created') : t('cardManagement.encoderForm.updated'));
       await navigate({ to: '/desfire-studio/printing' });
     },
-    onError: () => toast.error(mode === 'create' ? 'Could not create encoder.' : 'Could not update encoder.'),
+    onError: () => toast.error(mode === 'create' ? t('cardManagement.encoderForm.createFailed') : t('cardManagement.encoderForm.updateFailed')),
   });
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const [agentId, deviceId] = values.hardwareRef.split('|');
     if (!agentId || !deviceId) {
-      toast.error('Select a hardware device.');
+      toast.error(t('cardManagement.encoderForm.selectHardwareDevice'));
       return;
     }
     saveEncoder.mutate({ name: values.name.trim(), agentId, deviceId, enabled: values.enabled });
@@ -106,21 +108,21 @@ export function EncoderFormPageContent({ encoderId = null }: { readonly encoderI
 
   return (
     <section className="grid gap-6">
-      <Link to="/desfire-studio/printing" className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground"><ArrowLeft className="size-4" />Back to printing</Link>
+      <Link to="/desfire-studio/printing" className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground"><ArrowLeft className="size-4" />{t('cardManagement.encoderForm.backToPrinting')}</Link>
       <Card>
         <CardHeader>
-          <CardTitle>{mode === 'create' ? 'Add Encoder' : 'Edit Encoder'}</CardTitle>
-          <CardDescription>Bind a DESFire encoder to an existing hardware device. Capabilities are managed by backend rules.</CardDescription>
+          <CardTitle>{mode === 'create' ? t('cardManagement.encoderForm.addTitle') : t('cardManagement.encoderForm.editTitle')}</CardTitle>
+          <CardDescription>{t('cardManagement.encoderForm.description')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="grid gap-5" onSubmit={submit}>
             <div className="grid gap-4 md:grid-cols-2">
-              <label className="grid gap-2 text-[14px] font-medium"><span>Name</span><Input value={values.name} onChange={(event) => setValues({ ...values, name: event.target.value })} placeholder="Back office encoder" required /></label>
-              <label className="grid gap-2 text-[14px] font-medium"><span>Hardware device</span><DeviceSelect value={values.hardwareRef} agents={agentsQuery.data ?? []} devices={encodingDevices} onChange={(hardwareRef) => setValues({ ...values, hardwareRef })} /></label>
+              <label className="grid gap-2 text-[14px] font-medium"><span>{t('cardManagement.encoderForm.name')}</span><Input value={values.name} onChange={(event) => setValues({ ...values, name: event.target.value })} placeholder={t('cardManagement.encoderForm.namePlaceholder')} required /></label>
+              <label className="grid gap-2 text-[14px] font-medium"><span>{t('cardManagement.encoderForm.hardwareDevice')}</span><DeviceSelect value={values.hardwareRef} agents={agentsQuery.data ?? []} devices={encodingDevices} onChange={(hardwareRef) => setValues({ ...values, hardwareRef })} /></label>
             </div>
-            <label className="flex items-center gap-2 text-[14px] font-medium"><input type="checkbox" checked={values.enabled} onChange={(event) => setValues({ ...values, enabled: event.target.checked })} />Enabled</label>
-            <div className="flex flex-wrap gap-2"><Badge variant={selectedDevice ? 'success' : 'secondary'}>{selectedDevice ? 'Supports encoding workflow' : 'Select encoding-capable device'}</Badge><Badge variant="secondary">No printing support</Badge></div>
-            <div className="flex justify-end"><Button type="submit" disabled={saveEncoder.isPending}><Save className="size-4" aria-hidden="true" />Save encoder</Button></div>
+            <label className="flex items-center gap-2 text-[14px] font-medium"><input type="checkbox" checked={values.enabled} onChange={(event) => setValues({ ...values, enabled: event.target.checked })} />{t('cardManagement.encoderForm.enabled')}</label>
+            <div className="flex flex-wrap gap-2"><Badge variant={selectedDevice ? 'success' : 'secondary'}>{selectedDevice ? t('cardManagement.encoderForm.supportsEncodingWorkflow') : t('cardManagement.encoderForm.selectEncodingCapableDevice')}</Badge><Badge variant="secondary">{t('cardManagement.encoderForm.noPrintingSupport')}</Badge></div>
+            <div className="flex justify-end"><Button type="submit" disabled={saveEncoder.isPending}><Save className="size-4" aria-hidden="true" />{t('cardManagement.encoderForm.save')}</Button></div>
           </form>
         </CardContent>
       </Card>
@@ -129,7 +131,9 @@ export function EncoderFormPageContent({ encoderId = null }: { readonly encoderI
 }
 
 function DeviceSelect({ value, agents, devices, onChange }: { readonly value: string; readonly agents: HardwareAgent[]; readonly devices: HardwareDevice[]; readonly onChange: (value: string) => void }) {
-  return <select className="h-9 rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary" value={value} onChange={(event) => onChange(event.target.value)} required><option value="">Select encoding-capable hardware device</option>{devices.map((device) => <option key={`${device.agentId}|${device.deviceId}`} value={`${device.agentId}|${device.deviceId}`}>{agents.find((agent) => agent.id === device.agentId)?.name ?? device.agentId} / {device.deviceId} ({device.kind}, {device.state})</option>)}</select>;
+  const { t } = useTranslation();
+
+  return <select className="h-9 rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary" value={value} onChange={(event) => onChange(event.target.value)} required><option value="">{t('cardManagement.encoderForm.selectEncodingHardwareDevice')}</option>{devices.map((device) => <option key={`${device.agentId}|${device.deviceId}`} value={`${device.agentId}|${device.deviceId}`}>{agents.find((agent) => agent.id === device.agentId)?.name ?? device.agentId} / {device.deviceId} ({device.kind}, {device.state})</option>)}</select>;
 }
 
 function supportsEncoding(device: HardwareDevice) {

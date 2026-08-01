@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useCurrentActor } from '@/shared/actors/current-actor';
 import { api } from '@/shared/api/client';
@@ -31,6 +32,7 @@ type ExpectedVisitorRow = {
 };
 
 export function PerspectiveHomePage({ perspectiveId }: { perspectiveId: PerspectiveId }) {
+  const { t } = useTranslation();
   const perspective = getPerspectiveById(perspectiveId);
 
   if (!perspective) {
@@ -48,19 +50,20 @@ export function PerspectiveHomePage({ perspectiveId }: { perspectiveId: Perspect
   return (
     <section className="grid gap-6">
       <div className="rounded-structural border border-border bg-content p-6 sm:p-8">
-        <p className="text-[14px] font-semibold uppercase text-primary">Perspective</p>
+        <p className="text-[14px] font-semibold uppercase text-primary">{t('perspectives.placeholder.title')}</p>
         <h1 className="mt-3 text-[30px] font-semibold tracking-tight">{perspective.label}</h1>
         <p className="mt-3 max-w-2xl text-[14px] leading-6 text-muted-foreground">{perspective.description}</p>
       </div>
 
       <div className="rounded-structural border border-dashed border-border bg-content p-6 text-[14px] text-muted-foreground">
-        No pages moved into this perspective yet.
+        {t('perspectives.placeholder.empty')}
       </div>
     </section>
   );
 }
 
 function ManagerOverviewPage() {
+  const { t } = useTranslation();
   const actorQuery = useCurrentActor();
   const employeeId = actorQuery.data?.employeeId ?? null;
 
@@ -99,34 +102,34 @@ function ManagerOverviewPage() {
   return (
     <section className="grid gap-6">
       <div className="rounded-structural border border-border bg-content p-6 sm:p-8">
-        <p className="text-[14px] font-semibold uppercase text-primary">Perspective</p>
-        <h1 className="mt-3 text-[30px] font-semibold tracking-tight">Manager Overview</h1>
+        <p className="text-[14px] font-semibold uppercase text-primary">{t('perspectives.placeholder.title')}</p>
+        <h1 className="mt-3 text-[30px] font-semibold tracking-tight">{t('perspectives.managerHome.title')}</h1>
         <p className="mt-3 max-w-2xl text-[14px] leading-6 text-muted-foreground">
-          {actorQuery.data?.displayName ? `Signed in as ${actorQuery.data.displayName}. Review your team and act on approvals.` : 'Review your team and act on approvals.'}
+          {actorQuery.data?.displayName ? t('perspectives.managerHome.signedInAs', { name: actorQuery.data.displayName }) : t('perspectives.managerHome.defaultDescription')}
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
-          <Link to="/manager/my-team" className={buttonVariants()}>Open My Team</Link>
-          <Link to="/manager/approval-inbox" className={buttonVariants({ variant: 'outline' })}>Open Approval Inbox</Link>
+          <Link to="/manager/my-team" className={buttonVariants()}>{t('perspectives.managerHome.openMyTeam')}</Link>
+          <Link to="/manager/approval-inbox" className={buttonVariants({ variant: 'outline' })}>{t('perspectives.managerHome.openApprovalInbox')}</Link>
         </div>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>My Team</CardTitle>
-            <CardDescription>Direct reports by default, with optional indirect reporting line view.</CardDescription>
+            <CardTitle>{t('perspectives.managerHome.myTeam')}</CardTitle>
+            <CardDescription>{t('perspectives.managerHome.myTeamDescription')}</CardDescription>
           </CardHeader>
           <CardContent>
-            {directReportsQuery.isError || totalReportsQuery.isError ? <ErrorText message="Could not load team summary." /> : null}
-            {directReportsQuery.isLoading || totalReportsQuery.isLoading ? <MutedText message="Loading team summary..." /> : null}
+            {directReportsQuery.isError || totalReportsQuery.isError ? <ErrorText message={t('perspectives.managerHome.couldNotLoadTeamSummary')} /> : null}
+            {directReportsQuery.isLoading || totalReportsQuery.isLoading ? <MutedText message={t('perspectives.managerHome.loadingTeamSummary')} /> : null}
             {!directReportsQuery.isLoading && !totalReportsQuery.isLoading ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-structural border border-border p-4">
-                  <p className="text-[12px] uppercase tracking-[0.18em] text-muted-foreground">Direct reports</p>
+                  <p className="text-[12px] uppercase tracking-[0.18em] text-muted-foreground">{t('perspectives.managerHome.directReports')}</p>
                   <p className="mt-3 text-[28px] font-semibold tracking-tight text-foreground">{directReportsQuery.data?.length ?? 0}</p>
                 </div>
                 <div className="rounded-structural border border-border p-4">
-                  <p className="text-[12px] uppercase tracking-[0.18em] text-muted-foreground">Direct + indirect</p>
+                  <p className="text-[12px] uppercase tracking-[0.18em] text-muted-foreground">{t('perspectives.managerHome.directAndIndirect')}</p>
                   <p className="mt-3 text-[28px] font-semibold tracking-tight text-foreground">{totalReportsQuery.data?.length ?? 0}</p>
                 </div>
               </div>
@@ -136,13 +139,13 @@ function ManagerOverviewPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Approval Inbox</CardTitle>
-            <CardDescription>Open pending approval work from the manager perspective.</CardDescription>
+            <CardTitle>{t('perspectives.managerHome.approvalInbox')}</CardTitle>
+            <CardDescription>{t('perspectives.managerHome.approvalInboxDescription')}</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-[14px] text-muted-foreground">Review requests waiting for your decision, then open the full request for context.</p>
+            <p className="text-[14px] text-muted-foreground">{t('perspectives.managerHome.approvalInboxBody')}</p>
             <Link to="/manager/approval-inbox" className={`${buttonVariants({ variant: 'outline' })} mt-4`}>
-              Review Approvals
+              {t('perspectives.managerHome.reviewApprovals')}
             </Link>
           </CardContent>
         </Card>

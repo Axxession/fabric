@@ -1,6 +1,7 @@
 import { Link, Navigate, useNavigate } from '@tanstack/react-router';
 import { CheckCircle2, Home } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { buttonVariants } from '@/shared/components/ui/button';
 
@@ -11,6 +12,7 @@ const redirectSeconds = 10;
 
 export default function ReceptionKioskSuccessPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [secondsLeft, setSecondsLeft] = useState(redirectSeconds);
   const result = getReceptionKioskResult();
 
@@ -39,7 +41,7 @@ export default function ReceptionKioskSuccessPage() {
     return <Navigate to="/reception-kiosk" replace />;
   }
 
-  const content = getSuccessContent(result.kind);
+  const content = getSuccessContent(result.kind, t);
 
   return (
     <section className="w-full rounded-[2rem] border border-border bg-content p-8 text-center shadow-sm sm:p-12">
@@ -53,40 +55,40 @@ export default function ReceptionKioskSuccessPage() {
         {content.message}
       </p>
       <p className="mx-auto mt-4 max-w-2xl text-[16px] leading-7 text-muted-foreground sm:text-[18px]">
-        Returning to home in {secondsLeft} second{secondsLeft === 1 ? '' : 's'}.
+        {t('receptionKiosk.success.returningHome', { count: secondsLeft })}
       </p>
 
       <div className="mt-10 grid gap-4 sm:grid-cols-1">
         <Link to="/reception-kiosk" className={buttonVariants({ size: 'lg', className: 'h-16 rounded-[1rem] text-[20px]' })} onClick={() => clearReceptionKioskResult()}>
           <Home className="size-6" aria-hidden="true" />
-          Go to home
+          {t('receptionKiosk.success.goHome')}
         </Link>
       </div>
     </section>
   );
 }
 
-function getSuccessContent(kind: 'onboarding-success' | 'check-in-success' | 'check-out-success' | 'visit-completed') {
+function getSuccessContent(kind: 'onboarding-success' | 'check-in-success' | 'check-out-success' | 'visit-completed', t: ReturnType<typeof useTranslation>['t']) {
   return {
     'onboarding-success': {
-      eyebrow: 'Arrival registered',
-      title: 'Thank you',
-      message: 'Host has been notified of your arrival.',
+      eyebrow: t('receptionKiosk.success.arrivalRegisteredEyebrow'),
+      title: t('receptionKiosk.success.arrivalRegisteredTitle'),
+      message: t('receptionKiosk.success.arrivalRegisteredMessage'),
     },
     'check-in-success': {
-      eyebrow: 'Checked in',
-      title: 'You have been checked in',
-      message: 'Have a great visit.',
+      eyebrow: t('receptionKiosk.success.checkedInEyebrow'),
+      title: t('receptionKiosk.success.checkedInTitle'),
+      message: t('receptionKiosk.success.checkedInMessage'),
     },
     'check-out-success': {
-      eyebrow: 'Checked out',
-      title: 'You have been checked out',
-      message: 'Thank you for visiting.',
+      eyebrow: t('receptionKiosk.success.checkedOutEyebrow'),
+      title: t('receptionKiosk.success.checkedOutTitle'),
+      message: t('receptionKiosk.success.checkedOutMessage'),
     },
     'visit-completed': {
-      eyebrow: 'Visit completed',
-      title: 'This visit has already been completed',
-      message: 'If you still need access, please contact the reception or host.',
+      eyebrow: t('receptionKiosk.success.visitCompletedEyebrow'),
+      title: t('receptionKiosk.success.visitCompletedTitle'),
+      message: t('receptionKiosk.success.visitCompletedMessage'),
     },
   }[kind];
 }

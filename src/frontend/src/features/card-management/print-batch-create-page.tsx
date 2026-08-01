@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { ArrowLeft, Save, Upload } from 'lucide-react';
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import { api } from '@/shared/api/client';
@@ -20,6 +21,7 @@ const printBatchCreateTransformationsQueryKey = ['card-management', 'print-batch
 type InputMode = 'count' | 'csv';
 
 export default function PrintBatchCreatePage() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [name, setName] = useState('');
   const [encoderId, setEncoderId] = useState('');
@@ -34,7 +36,7 @@ export default function PrintBatchCreatePage() {
     queryFn: async () => {
       const { data, error } = await api.GET('/api/desfire/transformations', { params: { query: { Page: 0, PageSize: 100 } } });
       if (error || !data) {
-        throw new Error('Could not load transformations.');
+        throw new Error(t('cardManagement.printBatchCreate.couldNotLoadTransformations'));
       }
       return data;
     },
@@ -45,7 +47,7 @@ export default function PrintBatchCreatePage() {
     queryFn: async () => {
       const { data, error } = await api.GET('/api/desfire/encoders', { params: { query: { Page: 0, PageSize: 100 } } });
       if (error || !data) {
-        throw new Error('Could not load encoders.');
+        throw new Error(t('cardManagement.printBatchCreate.couldNotLoadEncoders'));
       }
       return data;
     },
@@ -68,37 +70,37 @@ export default function PrintBatchCreatePage() {
     mutationFn: async (request: CreateEncodingBatchRequest) => {
       const { data, error } = await api.POST('/api/desfire/encoding-batches', { body: request });
       if (error || !data) {
-        throw new Error('Could not schedule print batch.');
+        throw new Error(t('cardManagement.printBatchCreate.couldNotSchedule'));
       }
       return data;
     },
     onSuccess: async (batch) => {
       await queryClient.invalidateQueries({ queryKey: printingBatchesQueryKey });
-      toast.success('Print batch scheduled.');
+      toast.success(t('cardManagement.printBatchCreate.scheduled'));
       window.location.assign(`/desfire-studio/printing/${batch.id}`);
     },
-    onError: () => toast.error('Could not schedule print batch.'),
+    onError: () => toast.error(t('cardManagement.printBatchCreate.couldNotSchedule')),
   });
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!selectedTransformation) {
-      toast.error('Select a transformation.');
+      toast.error(t('cardManagement.printBatchCreate.selectTransformation'));
       return;
     }
     if (!encoderId) {
-      toast.error('Select an encoder.');
+      toast.error(t('cardManagement.printBatchCreate.selectEncoder'));
       return;
     }
 
     if (inputMode === 'count') {
       const parsedBadgeCount = Number(badgeCount);
       if (hasUserVariables) {
-        toast.error('CSV input is required for this transformation.');
+        toast.error(t('cardManagement.printBatchCreate.csvRequired'));
         return;
       }
       if (!Number.isInteger(parsedBadgeCount) || parsedBadgeCount < 1) {
-        toast.error('Number of badges must be at least 1.');
+        toast.error(t('cardManagement.printBatchCreate.numberOfBadgesMin'));
         return;
       }
 
@@ -120,11 +122,11 @@ export default function PrintBatchCreatePage() {
       return;
     }
     if (missingHeaders.length > 0) {
-      toast.error(`CSV missing headers: ${missingHeaders.join(', ')}`);
+      toast.error(t('cardManagement.printBatchCreate.csvMissingHeaders', { headers: missingHeaders.join(', ') }));
       return;
     }
     if (parseResult.rows.length === 0) {
-      toast.error('CSV must contain at least one data row.');
+      toast.error(t('cardManagement.printBatchCreate.csvNeedsData'));
       return;
     }
 
@@ -142,44 +144,44 @@ export default function PrintBatchCreatePage() {
 
   return (
     <section className="grid gap-6">
-      <Link to="/desfire-studio/printing" className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground"><ArrowLeft className="size-4" />Back to printing</Link>
+      <Link to="/desfire-studio/printing" className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground"><ArrowLeft className="size-4" />{t('cardManagement.printBatchCreate.backToPrinting')}</Link>
       <Card>
         <CardHeader>
-          <CardTitle>Schedule Print Batch</CardTitle>
-          <CardDescription>Paste or upload CSV rows when user variables are needed. For system-only transformations, you can schedule by badge count.</CardDescription>
+          <CardTitle>{t('cardManagement.printBatchCreate.title')}</CardTitle>
+          <CardDescription>{t('cardManagement.printBatchCreate.description')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="grid gap-5" onSubmit={submit}>
             <div className="grid gap-4 md:grid-cols-2">
-              <label className="grid gap-2 text-[14px] font-medium"><span>Name</span><Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Q3 employee badges" required /></label>
-              <label className="grid gap-2 text-[14px] font-medium"><span>Transformation</span><select className="h-9 rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary" value={transformationId} onChange={(event) => setTransformationId(event.target.value)} required><option value="">Select transformation</option>{transformations.map((transformation) => <option key={transformation.id} value={transformation.id}>{transformation.name}</option>)}</select></label>
-              <label className="grid gap-2 text-[14px] font-medium"><span>Encoder</span><EncoderSelect value={encoderId} encoders={encoders} onChange={setEncoderId} /></label>
-              <label className="grid gap-2 text-[14px] font-medium"><span>Priority</span><Input value={priority} type="number" onChange={(event) => setPriority(event.target.value)} /></label>
+              <label className="grid gap-2 text-[14px] font-medium"><span>{t('cardManagement.printBatchCreate.name')}</span><Input value={name} onChange={(event) => setName(event.target.value)} placeholder={t('cardManagement.printBatchCreate.namePlaceholder')} required /></label>
+              <label className="grid gap-2 text-[14px] font-medium"><span>{t('cardManagement.printBatchCreate.transformation')}</span><select className="h-9 rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary" value={transformationId} onChange={(event) => setTransformationId(event.target.value)} required><option value="">{t('cardManagement.printBatchCreate.selectTransformationOption')}</option>{transformations.map((transformation) => <option key={transformation.id} value={transformation.id}>{transformation.name}</option>)}</select></label>
+              <label className="grid gap-2 text-[14px] font-medium"><span>{t('cardManagement.printBatchCreate.encoder')}</span><EncoderSelect value={encoderId} encoders={encoders} onChange={setEncoderId} /></label>
+              <label className="grid gap-2 text-[14px] font-medium"><span>{t('cardManagement.printBatchCreate.priority')}</span><Input value={priority} type="number" onChange={(event) => setPriority(event.target.value)} /></label>
             </div>
 
             {selectedTransformation ? <VariableHint userVariableFields={userVariableFields} missingHeaders={missingHeaders} /> : null}
 
             {!hasUserVariables ? (
               <div className="flex flex-wrap gap-2">
-                <Button type="button" variant={inputMode === 'count' ? 'default' : 'outline'} onClick={() => setInputMode('count')}>Badge count</Button>
-                <Button type="button" variant={inputMode === 'csv' ? 'default' : 'outline'} onClick={() => setInputMode('csv')}>CSV input</Button>
+                <Button type="button" variant={inputMode === 'count' ? 'default' : 'outline'} onClick={() => setInputMode('count')}>{t('cardManagement.printBatchCreate.badgeCount')}</Button>
+                <Button type="button" variant={inputMode === 'csv' ? 'default' : 'outline'} onClick={() => setInputMode('csv')}>{t('cardManagement.printBatchCreate.csvInput')}</Button>
               </div>
             ) : null}
 
             {inputMode === 'count' ? (
               <label className="grid gap-2 text-[14px] font-medium">
-                <span>Number of badges</span>
+                <span>{t('cardManagement.printBatchCreate.numberOfBadges')}</span>
                 <Input value={badgeCount} type="number" min={1} onChange={(event) => setBadgeCount(event.target.value)} />
               </label>
             ) : (
               <>
                 <label className="grid gap-2 text-[14px] font-medium">
-                  <span>CSV rows</span>
+                  <span>{t('cardManagement.printBatchCreate.csvRows')}</span>
                   <Textarea value={csvText} onChange={(event) => setCsvText(event.target.value)} rows={10} />
                 </label>
                 <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-interactive border border-border px-3 py-2 text-[14px] font-medium transition hover:bg-hover-gray">
                   <Upload className="size-4" aria-hidden="true" />
-                  Upload CSV
+                  {t('cardManagement.printBatchCreate.uploadCsv')}
                   <input className="sr-only" type="file" accept=".csv,text/csv" onChange={(event) => void loadCsvFile(event, setCsvText)} />
                 </label>
 
@@ -189,7 +191,7 @@ export default function PrintBatchCreatePage() {
             )}
 
             <div className="flex justify-end gap-2">
-              <Button type="submit" disabled={createBatch.isPending}><Save className="size-4" aria-hidden="true" />Schedule print batch</Button>
+              <Button type="submit" disabled={createBatch.isPending}><Save className="size-4" aria-hidden="true" />{t('cardManagement.printBatchCreate.schedule')}</Button>
             </div>
           </form>
         </CardContent>
@@ -199,19 +201,24 @@ export default function PrintBatchCreatePage() {
 }
 
 function EncoderSelect({ value, encoders, onChange }: { readonly value: string; readonly encoders: Encoder[]; readonly onChange: (value: string) => void }) {
-  return <select className="h-9 rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary" value={value} onChange={(event) => onChange(event.target.value)} required><option value="">Select encoder</option>{encoders.map((encoder) => <option key={encoder.id} value={encoder.id}>{encoder.name} ({encoder.agentId} / {encoder.deviceId})</option>)}</select>;
+  const { t } = useTranslation();
+
+  return <select className="h-9 rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary" value={value} onChange={(event) => onChange(event.target.value)} required><option value="">{t('cardManagement.printBatchCreate.selectEncoderOption')}</option>{encoders.map((encoder) => <option key={encoder.id} value={encoder.id}>{encoder.name} ({encoder.agentId} / {encoder.deviceId})</option>)}</select>;
 }
 
 function VariableHint({ userVariableFields, missingHeaders }: { readonly userVariableFields: string[]; readonly missingHeaders: string[] }) {
+  const { t } = useTranslation();
   if (userVariableFields.length === 0) {
-    return <div className="rounded-structural border border-border bg-hover-gray p-4 text-[14px] text-muted-foreground">No user variables required. Enter badge count or switch to CSV input.</div>;
+    return <div className="rounded-structural border border-border bg-hover-gray p-4 text-[14px] text-muted-foreground">{t('cardManagement.printBatchCreate.noUserVariables')}</div>;
   }
 
-  return <div className="rounded-structural border border-border bg-hover-gray p-4 text-[14px]"><div className="font-medium text-foreground">Required CSV headers</div><div className="mt-2 flex flex-wrap gap-2">{userVariableFields.map((variable) => <span key={variable} className={missingHeaders.includes(variable) ? 'rounded-full bg-error-background px-3 py-1 text-error' : 'rounded-full bg-content px-3 py-1 text-muted-foreground'}>{variable}</span>)}</div></div>;
+  return <div className="rounded-structural border border-border bg-hover-gray p-4 text-[14px]"><div className="font-medium text-foreground">{t('cardManagement.printBatchCreate.requiredCsvHeaders')}</div><div className="mt-2 flex flex-wrap gap-2">{userVariableFields.map((variable) => <span key={variable} className={missingHeaders.includes(variable) ? 'rounded-full bg-error-background px-3 py-1 text-error' : 'rounded-full bg-content px-3 py-1 text-muted-foreground'}>{variable}</span>)}</div></div>;
 }
 
 function CsvPreview({ headers, rows, totalRows }: { readonly headers: string[]; readonly rows: Record<string, string>[]; readonly totalRows: number }) {
-  return <div className="overflow-x-auto rounded-structural border border-border"><table className="w-full min-w-[36rem] border-collapse text-left text-[13px]"><thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground"><tr>{headers.map((header) => <th key={header} className="px-3 py-2 font-semibold">{header}</th>)}</tr></thead><tbody className="divide-y divide-border">{rows.map((row, index) => <tr key={index}>{headers.map((header) => <td key={header} className="px-3 py-2 text-muted-foreground">{row[header]}</td>)}</tr>)}</tbody></table><div className="border-t border-border px-3 py-2 text-[12px] text-muted-foreground">Showing {rows.length} of {totalRows} rows.</div></div>;
+  const { t } = useTranslation();
+
+  return <div className="overflow-x-auto rounded-structural border border-border"><table className="w-full min-w-[36rem] border-collapse text-left text-[13px]"><thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground"><tr>{headers.map((header) => <th key={header} className="px-3 py-2 font-semibold">{header}</th>)}</tr></thead><tbody className="divide-y divide-border">{rows.map((row, index) => <tr key={index}>{headers.map((header) => <td key={header} className="px-3 py-2 text-muted-foreground">{row[header]}</td>)}</tr>)}</tbody></table><div className="border-t border-border px-3 py-2 text-[12px] text-muted-foreground">{t('cardManagement.printBatchCreate.showingRows', { shown: rows.length, total: totalRows })}</div></div>;
 }
 
 function parseCsv(text: string): { headers: string[]; rows: Record<string, string>[]; error: string | null } {

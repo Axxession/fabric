@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import { api } from '@/shared/api/client';
@@ -32,6 +33,7 @@ const emptyCreateValues: CreateFormValues = {
 };
 
 export function KeyGroupCreatePage() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [values, setValues] = useState<CreateFormValues>(emptyCreateValues);
@@ -73,7 +75,7 @@ export function KeyGroupCreatePage() {
           <ArrowLeft className="size-4" aria-hidden="true" />
         </Button>
         <div>
-          <h2 className="text-[20px] font-semibold tracking-tight">Generate key group</h2>
+          <h2 className="text-[20px] font-semibold tracking-tight">{t('cardManagement.keyGroupForm.generateTitle')}</h2>
           <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">Fabric will generate random keys for every key slot. You can review and adjust them on the next page before locking.</p>
         </div>
       </header>
@@ -92,11 +94,11 @@ export function KeyGroupCreatePage() {
               </select>
             </label>
             <label className="grid gap-2 text-[14px] font-medium">
-              Number of key sets
+                {t('cardManagement.keyGroupForm.numberOfKeySets')}
               <Input value={values.numberOfKeySets} type="number" min={1} max={16} onChange={(event) => updateValue('numberOfKeySets', event.target.value)} required />
             </label>
             <label className="grid gap-2 text-[14px] font-medium">
-              Number of keys
+                {t('cardManagement.keyGroupForm.numberOfKeys')}
               <Input value={values.numberOfKeys} type="number" min={1} max={16} onChange={(event) => updateValue('numberOfKeys', event.target.value)} required />
             </label>
           </div>
@@ -125,6 +127,7 @@ export function KeyGroupEditPageContent({ keyGroupId }: { readonly keyGroupId: s
 }
 
 function KeyGroupFormPage({ mode, keyGroupId }: { readonly mode: 'edit'; readonly keyGroupId?: string }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [values, setValues] = useState<FormValues>(emptyValues);
 
@@ -133,7 +136,7 @@ function KeyGroupFormPage({ mode, keyGroupId }: { readonly mode: 'edit'; readonl
     queryFn: async () => {
       const { data, error } = await api.GET('/api/desfire/key-groups/{id}', { params: { path: { id: keyGroupId ?? '' } } });
       if (error || !data) {
-        throw new Error('Could not load key group.');
+        throw new Error(t('cardManagement.keyGroupForm.couldNotLoadKeyGroup'));
       }
       return data;
     },
@@ -205,18 +208,18 @@ function KeyGroupFormPage({ mode, keyGroupId }: { readonly mode: 'edit'; readonl
         </Button>
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-[20px] font-semibold tracking-tight">{values.name || 'Edit key group'}</h2>
+            <h2 className="text-[20px] font-semibold tracking-tight">{values.name || t('cardManagement.keyGroupForm.editTitle')}</h2>
             {locked ? <Badge variant="warning">Locked</Badge> : null}
           </div>
           <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">Update key values and diversification settings. Generated key set and key IDs are fixed after creation.</p>
         </div>
       </header>
 
-      {keyGroupQuery.isError ? <PanelError>Could not load key group.</PanelError> : null}
-      {locked ? <PanelError>Locked key groups cannot be edited from the API. Backend encoding can still use the stored keys.</PanelError> : null}
+      {keyGroupQuery.isError ? <PanelError>{t('cardManagement.keyGroupForm.couldNotLoadKeyGroup')}</PanelError> : null}
+      {locked ? <PanelError>{t('cardManagement.keyGroupForm.lockedMessage')}</PanelError> : null}
 
       <Card className="p-4 sm:p-6">
-        {keyGroupQuery.isLoading ? <p className="text-[14px] text-muted-foreground">Loading key group...</p> : null}
+        {keyGroupQuery.isLoading ? <p className="text-[14px] text-muted-foreground">{t('cardManagement.keyGroupForm.loading')}</p> : null}
         {keyGroupQuery.data ? (
           <form className="grid gap-5" onSubmit={handleSubmit}>
             <div className="grid gap-4 md:grid-cols-2">
@@ -231,7 +234,7 @@ function KeyGroupFormPage({ mode, keyGroupId }: { readonly mode: 'edit'; readonl
                 </span>
               </label>
               <label className="grid gap-2 text-[14px] font-medium md:col-span-2">
-                Diversification strategy
+                {t('cardManagement.keyGroupForm.diversificationStrategy')}
                 <select className="h-9 rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary" value={values.diversificationStrategyId} disabled={locked} onChange={(event) => updateValue('diversificationStrategyId', event.target.value)}>
                   <option value="">None</option>
                   {strategies.map((strategy) => <option key={strategy.id} value={strategy.id}>{strategy.name}</option>)}
@@ -253,6 +256,7 @@ function KeyGroupFormPage({ mode, keyGroupId }: { readonly mode: 'edit'; readonl
 }
 
 function KeySetsEditor({ values, disabled, onChange }: { readonly values: KeySetRow[]; readonly disabled: boolean; readonly onChange: (values: KeySetRow[]) => void }) {
+  const { t } = useTranslation();
   function updateKeySet(index: number, keySet: KeySetRow) {
     onChange(values.map((current, currentIndex) => currentIndex === index ? keySet : current));
   }
@@ -260,8 +264,8 @@ function KeySetsEditor({ values, disabled, onChange }: { readonly values: KeySet
   return (
     <section className="grid gap-4">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-[16px] font-semibold tracking-tight">Key sets</h3>
-        <span className="text-[13px] text-muted-foreground">Structure fixed after generation</span>
+        <h3 className="text-[16px] font-semibold tracking-tight">{t('cardManagement.keyGroupForm.keySets')}</h3>
+        <span className="text-[13px] text-muted-foreground">{t('cardManagement.keyGroupForm.structureFixed')}</span>
       </div>
 
       {values.map((keySet, index) => (
@@ -275,16 +279,16 @@ function KeySetsEditor({ values, disabled, onChange }: { readonly values: KeySet
             {keySet.keys.map((key, keyIndex) => (
               <div key={keyIndex} className="grid gap-3 rounded-interactive border border-border p-3 md:grid-cols-[5rem_1fr_auto] md:items-end">
                 <div className="grid gap-2 text-[14px] font-medium">
-                  Key id
+                  {t('cardManagement.keyGroupForm.keyId')}
                   <Badge variant="secondary" className="h-9 w-fit px-3">{key.keyId}</Badge>
                 </div>
                 <label className="grid gap-2 text-[14px] font-medium">
-                  Key value hex
+                  {t('cardManagement.keyGroupForm.keyValueHex')}
                   <Input value={key.value} disabled={disabled} onChange={(event) => updateKeySet(index, { ...keySet, keys: keySet.keys.map((current, currentIndex) => currentIndex === keyIndex ? { ...current, value: event.target.value } : current) })} required />
                 </label>
                 <label className="flex items-center gap-2 rounded-interactive border border-border px-3 py-2 text-[14px] font-medium">
                   <input type="checkbox" checked={key.isDiversified} disabled={disabled} onChange={(event) => updateKeySet(index, { ...keySet, keys: keySet.keys.map((current, currentIndex) => currentIndex === keyIndex ? { ...current, isDiversified: event.target.checked } : current) })} />
-                  Diversified
+                  {t('cardManagement.keyGroupForm.diversified')}
                 </label>
               </div>
             ))}
