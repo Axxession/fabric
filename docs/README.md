@@ -20,4 +20,17 @@ When a task matches one of the conditions below, use the Read tool to load the c
 | `standards/dotnet/api-versioning.md` | URL path versioning, deprecation, backward compat | versioning the API |
 | `standards/dotnet/migration-workflow.md` | EF Core migration naming, squashing, applying | managing database migrations |
 
+### Design
+
+| File | Covers | Load when... |
+|---|---|---|
+| `design/access-domain-overview.md` | Access-domain glossary, ownership split, dependency direction | choosing bounded-context ownership or high-level access-domain structure |
+| `design/locations.md` | Location hierarchy, location ownership, boundary rules | designing or changing location models and location references |
+| `design/access-control.md` | PACS systems, access items, PACS targets, provisioning, subject import | changing PACS integrations, access-level mappings, provisioning, or PACS onboarding |
+| `design/access-catalog.md` | Catalogs, packages, requests, approvals, grants | changing package composition, request flows, approvals, or grants |
+| `design/employees.md` | Employee facts, personas, work locations, lifecycle calculation | changing employee sync, hierarchy, personas, or lifecycle facts |
+| `design/actors.md` | Current actor resolution, caching, `/api/actors/me` shape | changing current-user resolution or frontend actor context |
+| `design/automation-sagas.md` | Automatic grants, visitor automation, lifecycle side effects | changing automation rules, sagas, or lifecycle-driven access behavior |
+| `design/credential-management.md` | Credential issuance, ranges, recycle rules, PACS credential targeting | changing credential allocation, issuance, recycle, or PACS credential provisioning |
+| `design/access-cross-context-use-cases.md` | End-to-end examples across access domains | validating or understanding cross-context access flows |
 
