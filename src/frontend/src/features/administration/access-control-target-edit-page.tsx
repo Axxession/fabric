@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { AccessControlProviderBadge } from '@/shared/components/access-control-provider-badge';
-import { Badge } from '@/shared/components/ui/badge';
+import { LocationSelector } from '@/shared/components/location-selector';
 import { Button } from '@/shared/components/ui/button';
 import { Card } from '@/shared/components/ui/card';
 
@@ -19,6 +19,7 @@ type UpdateUnipassAccessLevelTargetRequest = components['schemas']['UpdateUnipas
 
 type FormValues = {
   name: string;
+  locationId: string | null;
   siteId: string;
   accessRuleId: string;
   isEnabled: boolean;
@@ -31,7 +32,7 @@ const accessControlSystemsQueryKey = ['administration', 'access-control', 'syste
 export default function AccessControlTargetEditPage() {
   const { itemId, targetId } = useParams({ from: '/main/administration/access-control/items/$itemId/targets/$targetId/edit' });
   const queryClient = useQueryClient();
-  const [values, setValues] = useState<FormValues>({ name: '', siteId: '', accessRuleId: '', isEnabled: true, provisioningTiming: 'Eager' });
+  const [values, setValues] = useState<FormValues>({ name: '', locationId: null, siteId: '', accessRuleId: '', isEnabled: true, provisioningTiming: 'Eager' });
 
   const targetsQuery = useQuery({
     queryKey: [...accessLevelTargetsQueryKey, itemId],
@@ -70,6 +71,7 @@ export default function AccessControlTargetEditPage() {
 
     setValues({
       name: target.name,
+      locationId: target.locationId ?? null,
       siteId: String(target.siteId),
       accessRuleId: String(target.accessRuleId),
       isEnabled: target.isEnabled,
@@ -101,6 +103,7 @@ export default function AccessControlTargetEditPage() {
     }
 
     updateTarget.mutate({
+      locationId: values.locationId,
       name: values.name,
       siteId: Number(values.siteId),
       accessRuleId: Number(values.accessRuleId),
@@ -148,6 +151,12 @@ export default function AccessControlTargetEditPage() {
                   Name
                   <input className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={values.name} onChange={(event) => setValues((current) => ({ ...current, name: event.target.value }))} required />
                 </label>
+
+                <div className="grid gap-2 text-[14px] font-medium md:col-span-2">
+                  <span>Applies To Location</span>
+                  <LocationSelector value={values.locationId} onChange={(locationId) => setValues((current) => ({ ...current, locationId }))} level="Room" disabled={updateTarget.isPending} />
+                  <span className="text-[12px] font-normal text-muted-foreground">Optional. Leave empty to use this target for every resolved location in the selected PACS.</span>
+                </div>
 
                 <label className="grid gap-2 text-[14px] font-medium">
                   Status

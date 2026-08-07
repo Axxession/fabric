@@ -1732,6 +1732,8 @@ export interface paths {
                     Query?: string;
                     Status: components["schemas"]["EmployeeStatus"][];
                     OrganizationUnitId?: string;
+                    ManagerEmployeeId?: string;
+                    IncludeIndirectReports?: boolean;
                     IncludeDescendants: boolean;
                 };
                 header?: never;
@@ -2850,6 +2852,8 @@ export interface paths {
                     Query?: string;
                     Status: components["schemas"]["EmployeeStatus"][];
                     OrganizationUnitId?: string;
+                    ManagerEmployeeId?: string;
+                    IncludeIndirectReports?: boolean;
                     IncludeDescendants: boolean;
                 };
                 header?: never;
@@ -3235,6 +3239,8 @@ export interface paths {
                     Query?: string;
                     Status: components["schemas"]["EmployeeStatus"][];
                     OrganizationUnitId?: string;
+                    ManagerEmployeeId?: string;
+                    IncludeIndirectReports?: boolean;
                     IncludeDescendants: boolean;
                 };
                 header?: never;
@@ -7336,6 +7342,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/reception/arrivals/{id}/documents/{documentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve arrival document
+         * @description Retrieve a stored arrival document
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    documentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/reception/arrivals/{id}/onboard": {
         parameters: {
             query?: never;
@@ -11162,6 +11215,8 @@ export interface paths {
                     "multipart/form-data": string & {
                         kind: components["schemas"]["KioskAssetKind"];
                     } & {
+                        visibility: components["schemas"]["StoredFileVisibility"];
+                    } & {
                         file: components["schemas"]["IFormFile"];
                     };
                 };
@@ -13758,7 +13813,7 @@ export interface components {
             materializationOutcomes: components["schemas"]["AccessGrantMaterializationOutcomeResponse"][];
         };
         /** @enum {unknown} */
-        AccessGrantRevokeCause: "Manual" | "VisitRescheduled" | "ArrivalRelocated" | "VisitCancelled" | "VisitOffboarded" | "EmployeeLifecycleAutomation";
+        AccessGrantRevokeCause: "Manual" | "VisitRescheduled" | "ArrivalRelocated" | "VisitCancelled" | "VisitOffboarded" | "EmployeeLifecycleAutomation" | null;
         /** @enum {unknown} */
         AccessGrantStatus: "Active" | "Revoked";
         AccessItemResponse: {
@@ -13774,6 +13829,8 @@ export interface components {
         AccessLevelTargetResponseUnipassAccessLevelTargetResponse: {
             /** @enum {string} */
             type?: "unipass";
+            /** Format: uuid */
+            locationId: null | string;
             /** Format: int32 */
             siteId: number | string;
             siteName: string;
@@ -14529,6 +14586,8 @@ export interface components {
         CreateUnipassAccessLevelTargetRequest: {
             /** Format: uuid */
             accessControlSystemId: string;
+            /** Format: uuid */
+            locationId?: null | string;
             name: string;
             /** Format: int32 */
             siteId: number | string;
@@ -15230,6 +15289,10 @@ export interface components {
             contentType: string;
             /** Format: int64 */
             size: number | string;
+            visibility: components["schemas"]["StoredFileVisibility"];
+            uploadedByOid: null | string;
+            uploadedByEmail: null | string;
+            uploadedByDisplayName: null | string;
             altTextKey: null | string;
             /** Format: date-time */
             createdAt: string;
@@ -16688,6 +16751,8 @@ export interface components {
         StartKioskSessionRequest: {
             languageCode: null | string;
         };
+        /** @enum {unknown} */
+        StoredFileVisibility: "Private" | "Public";
         SubmitKioskInstructionResponseRequest: {
             values: {
                 [key: string]: string;
@@ -16794,6 +16859,8 @@ export interface components {
         TransformationVariableKind: "UserProvided" | "SystemProvided";
         Type: unknown;
         UnipassAccessLevelTargetResponse: {
+            /** Format: uuid */
+            locationId: null | string;
             /** Format: int32 */
             siteId: number | string;
             siteName: string;
@@ -17046,6 +17113,8 @@ export interface components {
             status: components["schemas"]["AccessControlSystemStatus"];
         };
         UpdateUnipassAccessLevelTargetRequest: {
+            /** Format: uuid */
+            locationId?: null | string;
             name: string;
             /** Format: int32 */
             siteId: number | string;

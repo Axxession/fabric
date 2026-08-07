@@ -29,6 +29,8 @@
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="$(MicrosoftNetVersion)" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="$(MicrosoftNetVersion)" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="$(MicrosoftNetVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="$(MicrosoftNetVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="$(MicrosoftNetVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="$(MicrosoftNetVersion)" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="$(MicrosoftNetVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="$(MicrosoftNetVersion)" />

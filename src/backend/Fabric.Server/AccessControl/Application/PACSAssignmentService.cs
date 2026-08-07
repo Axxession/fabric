@@ -21,10 +21,15 @@ public sealed class PACSAssignmentService(
         DateTimeOffset? validUntil,
         CancellationToken cancellationToken = default)
     {
+        Result<ResolvedLocationPath, AccessControlErrors> locationPathResult = await resolver.ResolveLocationPathAsync(locationId, cancellationToken);
+        if (locationPathResult.IsFailure(out AccessControlErrors locationError))
+            return Result.Failure<IReadOnlyList<PACSAssignment>, AccessControlErrors>(locationError);
+
         Result<ResolvedAccessControlSystem, AccessControlErrors> resolvedResult = await resolver.ResolveSystemForLocationAsync(locationId, cancellationToken);
         if (resolvedResult.IsFailure(out AccessControlErrors resolveError))
             return Result.Failure<IReadOnlyList<PACSAssignment>, AccessControlErrors>(resolveError);
 
+        locationPathResult.IsSuccess(out ResolvedLocationPath locationPath);
         resolvedResult.IsSuccess(out ResolvedAccessControlSystem resolved);
 
         AccessControlSystem? system = await db.AccessControlSystems.SingleOrDefaultAsync(item => item.Id == resolved.AccessControlSystemId, cancellationToken);
@@ -41,11 +46,22 @@ public sealed class PACSAssignmentService(
             .OrderBy(target => target.Name)
             .ToArrayAsync(cancellationToken);
 
-        if (targets.Length == 0)
+        AccessLevelTarget[] matchingTargets = targets
+            .Where(target => target.LocationId is null || locationPath.CandidateLocationIds.Contains(target.LocationId.Value))
+            .ToArray();
+
+        if (matchingTargets.Length == 0)
             return Result.Failure<IReadOnlyList<PACSAssignment>, AccessControlErrors>(AccessControlErrors.NoAccessLevelTargetsResolved);
 
+        AccessLevelTarget[] bestTargets = matchingTargets
+            .GroupBy(target => GetScopeRank(target.LocationId, locationPath.CandidateLocationIds))
+            .OrderBy(group => group.Key)
+            .First()
+            .OrderBy(target => target.Name)
+            .ToArray();
+
         List<PACSAssignment> assignments = [];
-        foreach (AccessLevelTarget target in targets)
+        foreach (AccessLevelTarget target in bestTargets)
         {
             PACSAssignment? existing = await db.PACSAssignments.SingleOrDefaultAsync(
                 item => item.SourceAssignmentId == sourceAssignmentId && item.AccessLevelTargetId == target.Id && item.IdentityId == identityId,
@@ -79,6 +95,15 @@ public sealed class PACSAssignmentService(
         await reconciliationService.EnqueueAsync(identityId, system.Id, cancellationToken);
 
         return Result.Success<IReadOnlyList<PACSAssignment>, AccessControlErrors>(assignments);
+    }
+
+    private static int GetScopeRank(Guid? targetLocationId, Guid[] candidateLocationIds)
+    {
+        if (!targetLocationId.HasValue)
+            return int.MaxValue;
+
+        int index = Array.IndexOf(candidateLocationIds, targetLocationId.Value);
+        return index >= 0 ? index : int.MaxValue;
     }
 
     public async Task<Result<PACSAssignment, AccessControlErrors>> RevokeAsync(Guid assignmentId, CancellationToken cancellationToken = default)

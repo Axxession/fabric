@@ -16,6 +16,7 @@ public sealed class AccessLevelTargetConfiguration : IEntityTypeConfiguration<Ac
         builder.Property(target => target.Id).HasColumnName("id").ValueGeneratedNever();
         builder.Property(target => target.AccessItemId).HasColumnName("access_item_id").IsRequired();
         builder.Property(target => target.AccessControlSystemId).HasColumnName("access_control_system_id").IsRequired();
+        builder.Property(target => target.LocationId).HasColumnName("location_id");
         builder.Property(target => target.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
         builder.Property(target => target.IsEnabled).HasColumnName("is_enabled").IsRequired();
         builder.Property(target => target.ProvisioningTiming).HasColumnName("provisioning_timing").HasConversion<string>().HasMaxLength(50).IsRequired();
@@ -42,6 +43,10 @@ public sealed class AccessLevelTargetConfiguration : IEntityTypeConfiguration<Ac
 
         builder.HasIndex(TenantDbContext.TenantIdPropertyName, nameof(AccessLevelTarget.AccessControlSystemId))
             .HasDatabaseName("ix_access_level_targets_tenant_id_access_control_system_id");
+
+        builder.HasIndex(TenantDbContext.TenantIdPropertyName, nameof(AccessLevelTarget.LocationId))
+            .HasDatabaseName("ix_access_level_targets_tenant_id_location_id");
+
     }
 }
 
@@ -61,6 +66,18 @@ public sealed class UnipassAccessLevelTargetConfiguration : IEntityTypeConfigura
                 nameof(UnipassAccessLevelTarget.SiteId),
                 nameof(UnipassAccessLevelTarget.AccessRuleId))
             .IsUnique()
-            .HasDatabaseName("ix_access_level_targets_tenant_id_item_system_site_rule");
+            .HasFilter("location_id IS NULL")
+            .HasDatabaseName("ix_access_level_targets_tenant_id_item_system_site_rule_global");
+
+        builder.HasIndex(
+                TenantDbContext.TenantIdPropertyName,
+                nameof(AccessLevelTarget.AccessItemId),
+                nameof(AccessLevelTarget.AccessControlSystemId),
+                nameof(AccessLevelTarget.LocationId),
+                nameof(UnipassAccessLevelTarget.SiteId),
+                nameof(UnipassAccessLevelTarget.AccessRuleId))
+            .IsUnique()
+            .HasFilter("location_id IS NOT NULL")
+            .HasDatabaseName("ix_access_level_targets_tenant_id_item_system_location_site_rule");
     }
 }

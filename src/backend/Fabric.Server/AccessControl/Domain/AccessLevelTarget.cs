@@ -9,6 +9,7 @@ public abstract class AccessLevelTarget
     public Guid Id { get; protected set; }
     public Guid AccessItemId { get; protected set; }
     public Guid AccessControlSystemId { get; protected set; }
+    public Guid? LocationId { get; protected set; }
     public string Name { get; protected set; } = null!;
     public bool IsEnabled { get; protected set; }
     public ProvisioningTiming ProvisioningTiming { get; protected set; }
@@ -32,6 +33,7 @@ public sealed class UnipassAccessLevelTarget : AccessLevelTarget
     public static UnipassAccessLevelTarget Create(
         Guid accessItemId,
         Guid accessControlSystemId,
+        Guid? locationId,
         string name,
         int accessRuleId,
         int siteId,
@@ -43,6 +45,7 @@ public sealed class UnipassAccessLevelTarget : AccessLevelTarget
             Id = Guid.NewGuid(),
             AccessItemId = accessItemId,
             AccessControlSystemId = accessControlSystemId,
+            LocationId = locationId,
             Name = name,
             IsEnabled = true,
             ProvisioningTiming = provisioningTiming,
@@ -53,6 +56,7 @@ public sealed class UnipassAccessLevelTarget : AccessLevelTarget
         };
 
     public Result<AccessControlErrors> Update(
+        Guid? locationId,
         string name,
         int accessRuleId,
         int siteId,
@@ -60,6 +64,7 @@ public sealed class UnipassAccessLevelTarget : AccessLevelTarget
         string siteName,
         ProvisioningTiming provisioningTiming)
     {
+        LocationId = locationId;
         Name = name;
         AccessRuleId = accessRuleId;
         SiteId = siteId;
@@ -71,6 +76,7 @@ public sealed class UnipassAccessLevelTarget : AccessLevelTarget
 
     public override bool MatchesNativeTarget(AccessLevelTarget other) =>
         other is UnipassAccessLevelTarget target &&
+        LocationId == target.LocationId &&
         AccessControlSystemId == target.AccessControlSystemId &&
         AccessRuleId == target.AccessRuleId &&
         SiteId == target.SiteId;
