@@ -121,6 +121,46 @@ public sealed class PACSProvisioningGuardTests
         Assert.Equal(CredentialPACSAssignmentStatus.Pending, updated.Status);
     }
 
+    [Fact]
+    public async Task GetDueProvisioningIdsAsync_IncludesPendingRevocationEvenWhenSubjectIsBlocked()
+    {
+        using TestDbScope scope = CreateScope();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+
+        Result<UnipassSystemConfig, AccessControlErrors> configResult = UnipassSystemConfig.Create("https://unipass.local", false, "user", "pass");
+        Assert.True(configResult.IsSuccess(out UnipassSystemConfig? config));
+        Result<AccessControlSystem, AccessControlErrors> systemResult = AccessControlSystem.CreateUnipass("Main PACS", config!, AnomalyBlockMode.WarnOnly);
+        Assert.True(systemResult.IsSuccess(out AccessControlSystem? system));
+
+        AccessItem accessItem = AccessItem.Create("Warehouse", null);
+        UnipassAccessLevelTarget target = UnipassAccessLevelTarget.Create(accessItem.Id, system!.Id, null, "Target", 10, 100, "Rule", "Site", Fabric.Server.AccessControl.Domain.ProvisioningTiming.Eager);
+        PACSProvisioning provisioning = PACSProvisioning.Create(target.Id, system.Id, Guid.NewGuid(), PACSAssignmentDurationKind.Permanent, now.AddMinutes(-5), null, Fabric.Server.AccessControl.Domain.ProvisioningTiming.Eager, now.AddMinutes(-1));
+        provisioning.MarkProvisioned("99", now.AddMinutes(-5));
+        provisioning.MarkPendingRevocation(now.AddMinutes(-1));
+        PACSSubject subject = PACSSubject.Create(provisioning.IdentityId, system.Id, "1001", PACSSubjectState.Active, "Ada", "Lovelace", null, now);
+        Assert.True(subject.BlockProvisioningManually("Cleanup required", now).IsSuccess(out _));
+
+        scope.AccessControlDb.AccessControlSystems.Add(system);
+        scope.AccessControlDb.AccessItems.Add(accessItem);
+        scope.AccessControlDb.AccessLevelTargets.Add(target);
+        scope.AccessControlDb.PACSProvisionings.Add(provisioning);
+        scope.AccessControlDb.PACSSubjects.Add(subject);
+        await scope.AccessControlDb.SaveChangesAsync();
+
+        PACSProvisioningReconciliationService service = new(
+            scope.AccessControlDb,
+            scope.TenantContext,
+            new PACSProvisioningReconciliationTrigger(),
+            new PACSSubjectService(scope.AccessControlDb, scope.IdentitiesDb, null!, TimeProvider.System),
+            null!,
+            null!,
+            TimeProvider.System);
+
+        IReadOnlyList<Guid> dueIds = await service.GetDueProvisioningIdsAsync();
+
+        Assert.Contains(provisioning.Id, dueIds);
+    }
+
     private static TestDbScope CreateScope()
     {
         TenantContext tenantContext = new();

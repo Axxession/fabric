@@ -16,6 +16,9 @@ public sealed class UnipassPACSProvisioner(
 {
     public async Task ProvisionAsync(PACSProvisioning provisioning, CancellationToken cancellationToken = default)
     {
+        if (provisioning.Status != PACSProvisioningStatus.Pending)
+            return;
+
         (PACSSubjectProvisioningBlockStatus blockStatus, string? blockReason) = await subjectService.GetProvisioningBlockAsync(provisioning.IdentityId, provisioning.AccessControlSystemId, cancellationToken);
         if (blockStatus != PACSSubjectProvisioningBlockStatus.ProvisioningAllowed)
             return;
@@ -27,7 +30,8 @@ public sealed class UnipassPACSProvisioner(
 
         if (system is null || target is null || system.UnipassConfig is null)
         {
-            provisioning.MarkFailed("System or target not found.", timeProvider.GetUtcNow());
+            DateTimeOffset now = timeProvider.GetUtcNow();
+            provisioning.MarkAttemptFailed("System or target not found.", now.AddMinutes(5), now);
             await db.SaveChangesAsync(cancellationToken);
             return;
         }
@@ -35,7 +39,8 @@ public sealed class UnipassPACSProvisioner(
         Result<PACSSubject, AccessControlErrors> subjectResult = await subjectService.GetOrCreateAsync(provisioning.IdentityId, system, cancellationToken);
         if (subjectResult.IsFailure(out AccessControlErrors error))
         {
-            provisioning.MarkFailed(error.ToString(), timeProvider.GetUtcNow());
+            DateTimeOffset now = timeProvider.GetUtcNow();
+            provisioning.MarkAttemptFailed(error.ToString(), now.AddMinutes(5), now);
             await db.SaveChangesAsync(cancellationToken);
             return;
         }
@@ -60,7 +65,8 @@ public sealed class UnipassPACSProvisioner(
             var response = await api.ApplyChangeSet(changeSet, cancellationToken);
             if (!response.Success || string.IsNullOrWhiteSpace(response.Id))
             {
-                provisioning.MarkFailed(response.Message ?? "Unipass access rule assignment failed.", timeProvider.GetUtcNow());
+                DateTimeOffset now = timeProvider.GetUtcNow();
+                provisioning.MarkAttemptFailed(response.Message ?? "Unipass access rule assignment failed.", now.AddMinutes(5), now);
                 await db.SaveChangesAsync(cancellationToken);
                 return;
             }
@@ -71,19 +77,20 @@ public sealed class UnipassPACSProvisioner(
         }
         catch (Exception ex)
         {
-            provisioning.MarkFailed(ex.Message, timeProvider.GetUtcNow());
+            DateTimeOffset now = timeProvider.GetUtcNow();
+            provisioning.MarkAttemptFailed(ex.Message, now.AddMinutes(5), now);
             await db.SaveChangesAsync(cancellationToken);
         }
     }
 
     public async Task RevokeAsync(PACSProvisioning provisioning, CancellationToken cancellationToken = default)
     {
-        if (provisioning.Status == PACSProvisioningStatus.Revoked)
+        if (provisioning.Status != PACSProvisioningStatus.PendingRevocation)
             return;
 
-        if (provisioning.Status != PACSProvisioningStatus.Provisioned || string.IsNullOrWhiteSpace(provisioning.NativeAssignmentId))
+        if (string.IsNullOrWhiteSpace(provisioning.NativeAssignmentId))
         {
-            provisioning.MarkRevoked(timeProvider.GetUtcNow());
+            db.PACSProvisionings.Remove(provisioning);
             await db.SaveChangesAsync(cancellationToken);
             return;
         }
@@ -94,7 +101,8 @@ public sealed class UnipassPACSProvisioner(
 
         if (system is null || target is null || subject is null || system.UnipassConfig is null)
         {
-            provisioning.MarkFailed("Unable to revoke provisioning because provider state is incomplete.", timeProvider.GetUtcNow());
+            DateTimeOffset now = timeProvider.GetUtcNow();
+            provisioning.MarkAttemptFailed("Unable to revoke provisioning because provider state is incomplete.", now.AddMinutes(5), now);
             await db.SaveChangesAsync(cancellationToken);
             return;
         }
@@ -104,13 +112,17 @@ public sealed class UnipassPACSProvisioner(
         try
         {
             await api.ApplyChangeSet(AssignedAccessRuleChangeSet.Revoke(int.Parse(subject.NativeSubjectId), target.SiteId, int.Parse(provisioning.NativeAssignmentId)), cancellationToken);
-            provisioning.MarkRevoked(timeProvider.GetUtcNow());
+            _ = await db.PACSProvisioningSourceAssignments
+                .Where(item => item.PACSProvisioningId == provisioning.Id)
+                .ExecuteDeleteAsync(cancellationToken);
+            db.PACSProvisionings.Remove(provisioning);
             await db.SaveChangesAsync(cancellationToken);
             await conformityAuditService.EnqueueAsync(provisioning.IdentityId, provisioning.AccessControlSystemId, cancellationToken);
         }
         catch (Exception ex)
         {
-            provisioning.MarkFailed(ex.Message, timeProvider.GetUtcNow());
+            DateTimeOffset now = timeProvider.GetUtcNow();
+            provisioning.MarkAttemptFailed(ex.Message, now.AddMinutes(5), now);
             await db.SaveChangesAsync(cancellationToken);
         }
     }

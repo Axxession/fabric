@@ -205,12 +205,28 @@ Effective provisioning rules:
 
 - `PACSAssignment` is a source row, not the final provider row.
 - Effective provider state is represented by `PACSProvisioning`.
+- `PACSProvisioning` is current expected PACS state, not a historical ledger. If no provider row should exist, no `PACSProvisioning` row should exist.
 - Reconciliation groups source assignments by `IdentityId`, `AccessControlSystemId`, and native target (`AccessLevelTargetId`).
 - If any grouped source assignment is permanent, the effective provisioning row is permanent.
 - Temporary source assignments merge when their windows overlap or are adjacent.
 - Disjoint temporary windows become multiple effective `PACSProvisioning` rows.
 - `PACSProvisioningSourceAssignment` preserves traceability from an effective provider row back to the contributing source assignments.
+- `PACSProvisioning` lifecycle is:
+  - `Pending`: Fabric wants the native PACS row created. It is not yet expected to exist in PACS.
+  - `Provisioned`: Fabric expects the native PACS row to exist.
+  - `PendingRevocation`: Fabric wants the native PACS row removed, but still expects it to remain in PACS until delete succeeds.
+- Provisioning failures are retry metadata on the current row, not separate terminal status values. Failed create keeps the row `Pending`. Failed revoke keeps the row `PendingRevocation`.
+- When PACS delete succeeds, the `PACSProvisioning` row and its source links are removed.
 - For Unipass permanent provisioning, no start time or end time is written. Temporary provisioning writes start and end times.
+
+Conformity audit rules:
+
+- Audit compares actual PACS state against current `PACSProvisioning` rows for the subject and PACS.
+- Expected access for audit includes `PACSProvisioning` rows in `Provisioned` and `PendingRevocation`.
+- Expected access excludes `Pending` because those rows are not yet expected in PACS.
+- Audit compares all current native access rows returned by Unipass. It does not filter to only currently active windows.
+- Native access comparison uses provider-shape keys: site, rule, start, and end.
+- Comparison uses counts, not only set membership, so duplicate native rows are anomalies.
 
 ## Existing PACS Subject And Credential Onboarding
 

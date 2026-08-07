@@ -71,7 +71,6 @@ public sealed class PACSProvisioningReconciliationService(
             PACSProvisioning[] existingProvisionings = await db.PACSProvisionings
                 .Where(item => item.IdentityId == identityId)
                 .Where(item => item.AccessControlSystemId == accessControlSystemId)
-                .Where(item => item.Status != PACSProvisioningStatus.Revoked)
                 .ToArrayAsync(cancellationToken);
 
             List<DesiredProvisioning> desiredProvisionings = await BuildDesiredProvisioningsAsync(assignments, cancellationToken);
@@ -106,6 +105,10 @@ public sealed class PACSProvisioningReconciliationService(
                     db.PACSProvisionings.Add(match);
                     existingProvisionings = [.. existingProvisionings, match];
                 }
+                else if (match.Status == PACSProvisioningStatus.PendingRevocation)
+                {
+                    match.RestoreProvisioned();
+                }
 
                 await ReplaceLinksAsync(match.Id, desired.SourceAssignmentIds, cancellationToken);
             }
@@ -123,6 +126,10 @@ public sealed class PACSProvisioningReconciliationService(
                 if (stillDesired)
                     continue;
 
+                _ = await db.PACSProvisioningSourceAssignments
+                    .Where(item => item.PACSProvisioningId == existing.Id)
+                    .ExecuteDeleteAsync(cancellationToken);
+
                 await RevokeProvisioningAsync(existing, system, cancellationToken);
             }
 
@@ -131,7 +138,6 @@ public sealed class PACSProvisioningReconciliationService(
             PACSProvisioning[] currentProvisionings = await db.PACSProvisionings
                 .Where(item => item.IdentityId == identityId)
                 .Where(item => item.AccessControlSystemId == accessControlSystemId)
-                .Where(item => item.Status != PACSProvisioningStatus.Revoked)
                 .ToArrayAsync(cancellationToken);
 
             PACSProvisioningSourceAssignment[] currentLinks = await db.PACSProvisioningSourceAssignments
@@ -156,7 +162,7 @@ public sealed class PACSProvisioningReconciliationService(
         DateTimeOffset now = timeProvider.GetUtcNow();
         List<Guid> candidateIds = await db.PACSProvisionings
             .AsNoTracking()
-            .Where(item => item.Status == PACSProvisioningStatus.Pending || item.Status == PACSProvisioningStatus.Failed)
+            .Where(item => item.Status == PACSProvisioningStatus.Pending || item.Status == PACSProvisioningStatus.PendingRevocation)
             .Where(item => item.ScheduledFor <= now)
             .OrderBy(item => item.ScheduledFor)
             .Select(item => item.Id)
@@ -168,6 +174,12 @@ public sealed class PACSProvisioningReconciliationService(
             PACSProvisioning? provisioning = await db.PACSProvisionings.AsNoTracking().SingleOrDefaultAsync(item => item.Id == provisioningId, cancellationToken);
             if (provisioning is null)
                 continue;
+
+            if (provisioning.Status == PACSProvisioningStatus.PendingRevocation)
+            {
+                dueIds.Add(provisioningId);
+                continue;
+            }
 
             (PACSSubjectProvisioningBlockStatus status, _) = await subjectService.GetProvisioningBlockAsync(provisioning.IdentityId, provisioning.AccessControlSystemId, cancellationToken);
             if (status == PACSSubjectProvisioningBlockStatus.ProvisioningAllowed)
@@ -199,13 +211,21 @@ public sealed class PACSProvisioningReconciliationService(
         if (system is null)
             return;
 
+        if (provisioning.Status == PACSProvisioningStatus.PendingRevocation)
+        {
+            await RevokeProvisioningAsync(provisioning, system, cancellationToken);
+            await EnqueueAsync(provisioning.IdentityId, provisioning.AccessControlSystemId, cancellationToken);
+            await conformityAuditService.EnqueueAsync(provisioning.IdentityId, provisioning.AccessControlSystemId, cancellationToken);
+            return;
+        }
+
         switch (system.ProviderKind)
         {
             case AccessControlProviderKind.Unipass:
                 await unipassProvisioner.ProvisionAsync(provisioning, cancellationToken);
                 break;
             default:
-                provisioning.MarkFailed("System provider not supported.", timeProvider.GetUtcNow());
+                provisioning.MarkAttemptFailed("System provider not supported.", GetRetryAt(1, timeProvider.GetUtcNow()), timeProvider.GetUtcNow());
                 await db.SaveChangesAsync(cancellationToken);
                 break;
         }
@@ -224,6 +244,8 @@ public sealed class PACSProvisioningReconciliationService(
         if (system is null)
             return;
 
+        provisioning.MarkPendingRevocation(timeProvider.GetUtcNow());
+        await db.SaveChangesAsync(cancellationToken);
         await RevokeProvisioningAsync(provisioning, system, cancellationToken);
         await EnqueueAsync(provisioning.IdentityId, provisioning.AccessControlSystemId, cancellationToken);
         await conformityAuditService.EnqueueAsync(provisioning.IdentityId, provisioning.AccessControlSystemId, cancellationToken);
@@ -299,13 +321,16 @@ public sealed class PACSProvisioningReconciliationService(
 
     private async Task RevokeProvisioningAsync(PACSProvisioning provisioning, AccessControlSystem system, CancellationToken cancellationToken)
     {
+        if (provisioning.Status != PACSProvisioningStatus.PendingRevocation)
+            provisioning.MarkPendingRevocation(timeProvider.GetUtcNow());
+
         switch (system.ProviderKind)
         {
             case AccessControlProviderKind.Unipass:
                 await unipassProvisioner.RevokeAsync(provisioning, cancellationToken);
                 break;
             default:
-                provisioning.MarkFailed("System provider not supported.", timeProvider.GetUtcNow());
+                provisioning.MarkAttemptFailed("System provider not supported.", GetRetryAt(1, timeProvider.GetUtcNow()), timeProvider.GetUtcNow());
                 await db.SaveChangesAsync(cancellationToken);
                 break;
         }
@@ -327,12 +352,6 @@ public sealed class PACSProvisioningReconciliationService(
             if (!statusesByAssignment.TryGetValue(assignment.Id, out PACSProvisioningStatus[]? statuses) || statuses.Length == 0)
             {
                 assignment.MarkPending();
-                continue;
-            }
-
-            if (statuses.Any(status => status == PACSProvisioningStatus.Failed))
-            {
-                assignment.MarkFailed("Effective PACS provisioning failed.", now);
                 continue;
             }
 

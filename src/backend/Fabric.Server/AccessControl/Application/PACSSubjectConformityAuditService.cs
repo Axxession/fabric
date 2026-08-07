@@ -1,12 +1,14 @@
 using AccessControl.Unipass.Contracts;
 using AccessControl.Unipass.Entities;
+using System.Globalization;
 using Fabric.Server.AccessControl.Domain;
 using Fabric.Server.AccessControl.Persistence;
+using Fabric.Server.Core;
 using Fabric.Server.CredentialManagement.Domain;
 using Fabric.Server.CredentialManagement.Persistence;
-using Fabric.Server.Core;
 using Fabric.Server.Infrastructure.Tenancy;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Fabric.Server.AccessControl.Application;
 
@@ -16,7 +18,8 @@ public sealed class PACSSubjectConformityAuditService(
     ITenantContext tenantContext,
     PACSSubjectConformityAuditTrigger trigger,
     UnipassApiFactory apiFactory,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider,
+    ILogger<PACSSubjectConformityAuditService> logger)
 {
     private static readonly TimeSpan RoutineAuditInterval = TimeSpan.FromHours(24);
     private static readonly TimeSpan FailedAuditRetryInterval = TimeSpan.FromMinutes(15);
@@ -130,17 +133,26 @@ public sealed class PACSSubjectConformityAuditService(
             List<UnipassAssignedAccessRule> assignedRules = await api.GetAssignedAccessRules(personId, cancellationToken);
             UnipassPerson? person = await api.GetPerson(personId, cancellationToken);
 
-            HashSet<AccessRuleKey> actualAccess = [.. assignedRules
-                .Where(rule => IsCurrentlyActive(rule.StartDate ?? DateTimeOffset.MinValue, rule.EndDate, now))
-                .Select(rule => new AccessRuleKey(rule.SiteId, rule.RuleId))];
+            AccessRuleKey[] expectedAccessKeys = [.. expectedAccess];
+            AccessRuleKey[] actualAccessKeys = [.. assignedRules.Select(AccessRuleKey.FromAssignedRule)];
             HashSet<int> actualCards = [.. person?.Cards.Select(card => card.BadgeNumber) ?? []];
+            AccessRuleCount[] missingAccess = CalculateMissing(expectedAccessKeys, actualAccessKeys);
+            AccessRuleCount[] unexpectedAccess = CalculateMissing(actualAccessKeys, expectedAccessKeys);
+
+            PACSSubjectConformityAuditLog.AccessRuleComparison(
+                logger,
+                subject.NativeSubjectId,
+                FormatAccessRules(expectedAccessKeys),
+                FormatAccessRules(actualAccessKeys),
+                FormatAccessDiffs(missingAccess),
+                FormatAccessDiffs(unexpectedAccess));
 
             List<string> issues = [];
-            foreach (AccessRuleKey missing in expectedAccess.Except(actualAccess))
-                issues.Add($"Missing access rule site={missing.SiteId}, rule={missing.RuleId}");
+            foreach (AccessRuleCount missing in missingAccess)
+                issues.Add($"Missing access rule {missing.Key.ToDisplayString()} x{missing.Count}");
 
-            foreach (AccessRuleKey unexpected in actualAccess.Except(expectedAccess))
-                issues.Add($"Unexpected access rule site={unexpected.SiteId}, rule={unexpected.RuleId}");
+            foreach (AccessRuleCount unexpected in unexpectedAccess)
+                issues.Add($"Unexpected access rule {unexpected.Key.ToDisplayString()} x{unexpected.Count}");
 
             foreach (int missing in expectedCards.Except(actualCards))
                 issues.Add($"Missing credential {missing}");
@@ -166,9 +178,7 @@ public sealed class PACSSubjectConformityAuditService(
         PACSProvisioning[] provisionings = await db.PACSProvisionings
             .Where(item => item.IdentityId == identityId)
             .Where(item => item.AccessControlSystemId == accessControlSystemId)
-            .Where(item => item.Status == PACSProvisioningStatus.Provisioned)
-            .Where(item => item.ValidFrom <= now)
-            .Where(item => !item.ValidUntil.HasValue || item.ValidUntil > now)
+            .Where(item => item.Status == PACSProvisioningStatus.Provisioned || item.Status == PACSProvisioningStatus.PendingRevocation)
             .ToArrayAsync(cancellationToken);
 
         Guid[] targetIds = provisionings.Select(item => item.AccessLevelTargetId).Distinct().ToArray();
@@ -177,7 +187,11 @@ public sealed class PACSSubjectConformityAuditService(
             .Where(item => targetIds.Contains(item.Id))
             .ToArrayAsync(cancellationToken);
 
-        return [.. targets.Select(item => new AccessRuleKey(item.SiteId, item.AccessRuleId))];
+        return [.. provisionings.Join(
+            targets,
+            provisioning => provisioning.AccessLevelTargetId,
+            target => target.Id,
+            (provisioning, target) => AccessRuleKey.FromProvisioning(target.SiteId, target.AccessRuleId, provisioning.ValidFrom, provisioning.ValidUntil, provisioning.DurationKind))];
     }
 
     private async Task<HashSet<int>> GetExpectedCardsAsync(Guid identityId, Guid accessControlSystemId, DateTimeOffset now, CancellationToken cancellationToken)
@@ -209,8 +223,78 @@ public sealed class PACSSubjectConformityAuditService(
         return cards;
     }
 
-    private static bool IsCurrentlyActive(DateTimeOffset validFrom, DateTimeOffset? validUntil, DateTimeOffset now) =>
-        validFrom <= now && (!validUntil.HasValue || validUntil.Value > now);
+    private static AccessRuleCount[] CalculateMissing(IEnumerable<AccessRuleKey> expected, IEnumerable<AccessRuleKey> actual)
+    {
+        Dictionary<AccessRuleKey, int> actualCounts = actual
+            .GroupBy(item => item)
+            .ToDictionary(group => group.Key, group => group.Count());
 
-    private sealed record AccessRuleKey(int SiteId, int RuleId);
+        return [.. expected
+            .GroupBy(item => item)
+            .Select(group => new AccessRuleCount(group.Key, group.Count() - actualCounts.GetValueOrDefault(group.Key, 0)))
+            .Where(item => item.Count > 0)
+            .OrderBy(item => item.Key.SiteId)
+            .ThenBy(item => item.Key.RuleId)
+            .ThenBy(item => item.Key.Start)
+            .ThenBy(item => item.Key.End)];
+    }
+
+    private static string FormatAccessRules(IEnumerable<AccessRuleKey> accessRules) =>
+        string.Join(", ", accessRules.OrderBy(item => item.SiteId).ThenBy(item => item.RuleId).ThenBy(item => item.Start).ThenBy(item => item.End).Select(item => item.ToDisplayString()));
+
+    private static string FormatAccessDiffs(IEnumerable<AccessRuleCount> accessRules) =>
+        string.Join(", ", accessRules.Select(item => $"{item.Key.ToDisplayString()} x{item.Count}"));
+
+    private sealed record AccessRuleKey(int SiteId, int RuleId, DateTimeOffset? Start, DateTimeOffset? End)
+    {
+        public static AccessRuleKey FromAssignedRule(UnipassAssignedAccessRule rule) =>
+            new(rule.SiteId, rule.RuleId, NormalizeTime(rule.StartDate), NormalizeTime(rule.EndDate));
+
+        public static AccessRuleKey FromProvisioning(int siteId, int ruleId, DateTimeOffset validFrom, DateTimeOffset? validUntil, PACSAssignmentDurationKind durationKind) =>
+            durationKind == PACSAssignmentDurationKind.Permanent
+                ? new(siteId, ruleId, null, null)
+                : new(siteId, ruleId, NormalizeTime(validFrom), NormalizeTime(AdjustInclusiveEnd(validUntil)));
+
+        public string ToDisplayString() => $"site={SiteId},rule={RuleId},start={FormatTime(Start)},end={FormatTime(End)}";
+
+        private static string FormatTime(DateTimeOffset? value) => value?.ToString("O", CultureInfo.InvariantCulture) ?? "null";
+    }
+
+    private sealed record AccessRuleCount(AccessRuleKey Key, int Count);
+
+    private static DateTimeOffset? AdjustInclusiveEnd(DateTimeOffset? value)
+    {
+        if (!value.HasValue)
+            return null;
+
+        DateTimeOffset adjusted = value.Value.AddMinutes(-1);
+        if (adjusted.Hour == 0 && adjusted.Minute == 0)
+            adjusted = adjusted.AddMinutes(-1);
+
+        return adjusted;
+    }
+
+    private static DateTimeOffset? NormalizeTime(DateTimeOffset? value)
+    {
+        if (!value.HasValue)
+            return null;
+
+        DateTimeOffset local = value.Value.ToLocalTime();
+        return new DateTimeOffset(local.Year, local.Month, local.Day, local.Hour, local.Minute, 0, local.Offset);
+    }
+}
+
+internal static partial class PACSSubjectConformityAuditLog
+{
+    [LoggerMessage(
+        EventId = 1,
+        Level = LogLevel.Debug,
+        Message = "PACS subject {NativeSubjectId} access compare. expected=[{ExpectedAccess}] actual=[{ActualAccess}] expectedExceptActual=[{MissingAccess}] actualExceptExpected=[{UnexpectedAccess}]")]
+    public static partial void AccessRuleComparison(
+        ILogger logger,
+        string nativeSubjectId,
+        string expectedAccess,
+        string actualAccess,
+        string missingAccess,
+        string unexpectedAccess);
 }

@@ -47,8 +47,7 @@ public enum PACSProvisioningStatus
 {
     Pending,
     Provisioned,
-    Failed,
-    Revoked
+    PendingRevocation
 }
 
 public enum CredentialPACSAssignmentStatus

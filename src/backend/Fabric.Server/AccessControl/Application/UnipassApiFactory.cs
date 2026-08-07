@@ -6,9 +6,9 @@ using Fabric.Server.AccessControl.Domain;
 
 namespace Fabric.Server.AccessControl.Application;
 
-public sealed class UnipassApiFactory
+public class UnipassApiFactory
 {
-    public IUnipassApi Create(UnipassSystemConfig config)
+    public virtual IUnipassApi Create(UnipassSystemConfig config)
     {
         HttpClientHandler handler = new();
         if (!config.SslValidation)

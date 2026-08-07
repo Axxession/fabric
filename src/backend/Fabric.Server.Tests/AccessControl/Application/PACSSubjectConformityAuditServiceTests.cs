@@ -1,4 +1,8 @@
 using System.Reflection;
+using AccessControl.Unipass.ChangeSets;
+using AccessControl.Unipass.Contracts;
+using AccessControl.Unipass.Entities;
+using AccessControl.Unipass.Filters;
 using Fabric.Server.AccessControl.Application;
 using Fabric.Server.AccessControl.Domain;
 using Fabric.Server.AccessControl.Persistence;
@@ -7,6 +11,7 @@ using Fabric.Server.CredentialManagement.Domain;
 using Fabric.Server.CredentialManagement.Persistence;
 using Fabric.Server.Infrastructure.Tenancy;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Fabric.Server.Tests.AccessControl.Application;
 
@@ -73,7 +78,8 @@ public sealed class PACSSubjectConformityAuditServiceTests
             scope.TenantContext,
             new PACSSubjectConformityAuditTrigger(),
             null!,
-            TimeProvider.System);
+            TimeProvider.System,
+            NullLogger<PACSSubjectConformityAuditService>.Instance);
 
         MethodInfo method = typeof(PACSSubjectConformityAuditService)
             .GetMethod("GetExpectedCardsAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
@@ -110,7 +116,8 @@ public sealed class PACSSubjectConformityAuditServiceTests
             scope.TenantContext,
             trigger,
             null!,
-            TimeProvider.System);
+            TimeProvider.System,
+            NullLogger<PACSSubjectConformityAuditService>.Instance);
 
         Result<PACSSubjectConformityAuditService.PACSSubjectConformityAuditEnqueueSummary, AccessControlErrors> result = await service.EnqueueByAccessControlSystemIdAsync(system.Id);
 
@@ -121,6 +128,93 @@ public sealed class PACSSubjectConformityAuditServiceTests
         Assert.Equal(1, summary.RecentlyAuditedSubjects);
         Assert.Equal(1, summary.EnqueuedSubjects);
     }
+
+    [Fact]
+    public async Task AuditAsync_WhenProvisioningIsPendingRevocation_StillExpectsUnipassRow()
+    {
+        using TestDbScope scope = CreateScope();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+
+        Result<UnipassSystemConfig, AccessControlErrors> configResult = UnipassSystemConfig.Create("https://unipass.local", false, "user", "pass");
+        Assert.True(configResult.IsSuccess(out UnipassSystemConfig? config));
+        Result<AccessControlSystem, AccessControlErrors> systemResult = AccessControlSystem.CreateUnipass("Main PACS", config!, AnomalyBlockMode.WarnOnly);
+        Assert.True(systemResult.IsSuccess(out AccessControlSystem? system));
+
+        AccessItem accessItem = AccessItem.Create("Warehouse", null);
+        UnipassAccessLevelTarget target = UnipassAccessLevelTarget.Create(accessItem.Id, system!.Id, null, "Target", 100, 10, "Rule", "Site", Fabric.Server.AccessControl.Domain.ProvisioningTiming.Eager);
+        Guid identityId = Guid.NewGuid();
+        PACSSubject subject = PACSSubject.Create(identityId, system.Id, "93", PACSSubjectState.Active, "Ada", "Lovelace", null, now);
+        PACSProvisioning provisioning = PACSProvisioning.Create(target.Id, system.Id, identityId, PACSAssignmentDurationKind.Permanent, now.AddDays(-10), null, Fabric.Server.AccessControl.Domain.ProvisioningTiming.Eager, now.AddDays(-10));
+        provisioning.MarkProvisioned("1", now.AddDays(-10));
+        provisioning.MarkPendingRevocation(now);
+
+        scope.AccessControlDb.AccessControlSystems.Add(system);
+        scope.AccessControlDb.AccessItems.Add(accessItem);
+        scope.AccessControlDb.AccessLevelTargets.Add(target);
+        scope.AccessControlDb.PACSSubjects.Add(subject);
+        scope.AccessControlDb.PACSProvisionings.Add(provisioning);
+        await scope.AccessControlDb.SaveChangesAsync();
+
+        PACSSubjectConformityAuditService service = CreateAuditService(scope, new TestUnipassApi(
+            [new UnipassAssignedAccessRule { PersonId = 93, SiteId = 10, RuleId = 100 }],
+            new UnipassPerson { Id = 93 }));
+
+        await service.AuditAsync(identityId, system.Id);
+
+        PACSSubject updated = await scope.AccessControlDb.PACSSubjects.SingleAsync(item => item.Id == subject.Id);
+        Assert.Equal(PACSSubjectConformityStatus.Conform, updated.ConformityStatus);
+        Assert.Null(updated.ConformityDetails);
+    }
+
+    [Fact]
+    public async Task AuditAsync_WhenSameSiteAndRuleHaveDifferentTimes_MarksAnomaly()
+    {
+        using TestDbScope scope = CreateScope();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+
+        Result<UnipassSystemConfig, AccessControlErrors> configResult = UnipassSystemConfig.Create("https://unipass.local", false, "user", "pass");
+        Assert.True(configResult.IsSuccess(out UnipassSystemConfig? config));
+        Result<AccessControlSystem, AccessControlErrors> systemResult = AccessControlSystem.CreateUnipass("Main PACS", config!, AnomalyBlockMode.WarnOnly);
+        Assert.True(systemResult.IsSuccess(out AccessControlSystem? system));
+
+        AccessItem accessItem = AccessItem.Create("Warehouse", null);
+        UnipassAccessLevelTarget target = UnipassAccessLevelTarget.Create(accessItem.Id, system!.Id, null, "Target", 100, 10, "Rule", "Site", Fabric.Server.AccessControl.Domain.ProvisioningTiming.Eager);
+        Guid identityId = Guid.NewGuid();
+        PACSSubject subject = PACSSubject.Create(identityId, system.Id, "93", PACSSubjectState.Active, "Ada", "Lovelace", null, now);
+        DateTimeOffset validFrom = new(2026, 8, 7, 8, 45, 0, TimeSpan.Zero);
+        DateTimeOffset validUntil = new(2026, 8, 7, 17, 0, 0, TimeSpan.Zero);
+        PACSProvisioning provisioning = PACSProvisioning.Create(target.Id, system.Id, identityId, PACSAssignmentDurationKind.Temporary, validFrom, validUntil, Fabric.Server.AccessControl.Domain.ProvisioningTiming.Eager, validFrom);
+        provisioning.MarkProvisioned("1", now);
+
+        scope.AccessControlDb.AccessControlSystems.Add(system);
+        scope.AccessControlDb.AccessItems.Add(accessItem);
+        scope.AccessControlDb.AccessLevelTargets.Add(target);
+        scope.AccessControlDb.PACSSubjects.Add(subject);
+        scope.AccessControlDb.PACSProvisionings.Add(provisioning);
+        await scope.AccessControlDb.SaveChangesAsync();
+
+        PACSSubjectConformityAuditService service = CreateAuditService(scope, new TestUnipassApi(
+            [new UnipassAssignedAccessRule { PersonId = 93, SiteId = 10, RuleId = 100, StartDate = validFrom.AddMinutes(30), EndDate = validUntil }],
+            new UnipassPerson { Id = 93 }));
+
+        await service.AuditAsync(identityId, system.Id);
+
+        PACSSubject updated = await scope.AccessControlDb.PACSSubjects.SingleAsync(item => item.Id == subject.Id);
+        Assert.Equal(PACSSubjectConformityStatus.Anomaly, updated.ConformityStatus);
+        Assert.NotNull(updated.ConformityDetails);
+        Assert.Contains("Missing access rule", updated.ConformityDetails);
+        Assert.Contains("Unexpected access rule", updated.ConformityDetails);
+    }
+
+    private static PACSSubjectConformityAuditService CreateAuditService(TestDbScope scope, IUnipassApi api) =>
+        new(
+            scope.AccessControlDb,
+            scope.CredentialDb,
+            scope.TenantContext,
+            new PACSSubjectConformityAuditTrigger(),
+            new TestUnipassApiFactory(api),
+            TimeProvider.System,
+            NullLogger<PACSSubjectConformityAuditService>.Instance);
 
     private static TestDbScope CreateScope()
     {
@@ -148,5 +242,27 @@ public sealed class PACSSubjectConformityAuditServiceTests
             AccessControlDb.Dispose();
             CredentialDb.Dispose();
         }
+    }
+
+    private sealed class TestUnipassApiFactory(IUnipassApi api) : UnipassApiFactory
+    {
+        public override IUnipassApi Create(UnipassSystemConfig config) => api;
+    }
+
+    private sealed class TestUnipassApi(IReadOnlyList<UnipassAssignedAccessRule> assignedRules, UnipassPerson person) : IUnipassApi
+    {
+        public void Dispose() { }
+
+        public Task<List<UnipassSite>> GetSites(SitesFilter? sitesFilter = null, CancellationToken ct = default) => Task.FromResult<List<UnipassSite>>([]);
+
+        public Task<List<AccessRuleDto>> GetAccessRules(AccessRuleFilter? accessRuleFilter = null, CancellationToken ct = default) => Task.FromResult<List<AccessRuleDto>>([]);
+
+        public Task<List<UnipassAssignedAccessRule>> GetAssignedAccessRules(int personId, CancellationToken ct = default) => Task.FromResult(assignedRules.Where(item => item.PersonId == personId).ToList());
+
+        public Task<UnipassPerson?> GetPerson(int personId, CancellationToken ct = default) => Task.FromResult<UnipassPerson?>(person.Id == personId ? person : null);
+
+        public Task<List<UnipassPerson>> GetPersons(PersonFilter? personFilter, CancellationToken ct = default) => Task.FromResult<List<UnipassPerson>>([person]);
+
+        public Task<UnipassOperationResponse> ApplyChangeSet(IChangeSet changeSet, CancellationToken ct = default) => Task.FromResult(new UnipassOperationResponse { Id = "1", Success = true });
     }
 }

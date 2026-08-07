@@ -15950,7 +15950,7 @@ export interface components {
             sourceAssignmentIds: string[];
         };
         /** @enum {unknown} */
-        PACSProvisioningStatus: "Pending" | "Provisioned" | "Failed" | "Revoked";
+        PACSProvisioningStatus: "Pending" | "Provisioned" | "PendingRevocation";
         /** @enum {unknown} */
         PACSSubjectProvisioningReason: "ProfileChanged" | "EmployeeLeave" | "EmployeeSuspension" | "EmployeeLifecycleRestored" | "ArchiveRequested" | "Manual";
         PACSSubjectProvisioningResponse: {

@@ -54,14 +54,14 @@ public sealed class PACSProvisioning
         DurationKind == durationKind &&
         ValidFrom == validFrom &&
         ValidUntil == validUntil &&
-        ProvisioningTiming == provisioningTiming &&
-        Status != PACSProvisioningStatus.Revoked;
+        ProvisioningTiming == provisioningTiming;
 
     public void MarkPending(DateTimeOffset scheduledFor)
     {
         Status = PACSProvisioningStatus.Pending;
         ScheduledFor = scheduledFor;
         FailureReason = null;
+        CompletedAt = null;
     }
 
     public void MarkProvisioned(string nativeAssignmentId, DateTimeOffset now)
@@ -73,17 +73,25 @@ public sealed class PACSProvisioning
         CompletedAt = now;
     }
 
-    public void MarkFailed(string reason, DateTimeOffset now)
+    public void RestoreProvisioned()
     {
-        Status = PACSProvisioningStatus.Failed;
-        FailureReason = reason;
-        CompletedAt = now;
+        Status = PACSProvisioningStatus.Provisioned;
+        FailureReason = null;
+        CompletedAt = null;
     }
 
-    public void MarkRevoked(DateTimeOffset now)
+    public void MarkPendingRevocation(DateTimeOffset scheduledFor)
     {
-        Status = PACSProvisioningStatus.Revoked;
+        Status = PACSProvisioningStatus.PendingRevocation;
+        ScheduledFor = scheduledFor;
         FailureReason = null;
+        CompletedAt = null;
+    }
+
+    public void MarkAttemptFailed(string reason, DateTimeOffset scheduledFor, DateTimeOffset now)
+    {
+        FailureReason = reason;
+        ScheduledFor = scheduledFor;
         CompletedAt = now;
     }
 }

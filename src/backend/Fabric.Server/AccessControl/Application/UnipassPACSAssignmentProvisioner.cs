@@ -43,11 +43,13 @@ public sealed class UnipassPACSAssignmentProvisioner(
         {
             int personId = int.Parse(subject.NativeSubjectId);
             await api.ApplyChangeSet(PersonChangeSet.Update(personId).EnableSite(target.SiteId), cancellationToken);
-            AssignedAccessRuleChangeSet changeSet = AssignedAccessRuleChangeSet.Assign(personId, target.SiteId, target.AccessRuleId)
-                .StartTime(assignment.ValidFrom);
-
-            if (assignment.ValidUntil.HasValue)
-                changeSet.EndTime(assignment.ValidUntil.Value);
+            AssignedAccessRuleChangeSet changeSet = AssignedAccessRuleChangeSet.Assign(personId, target.SiteId, target.AccessRuleId);
+            if (assignment.DurationKind == PACSAssignmentDurationKind.Temporary)
+            {
+                changeSet.StartTime(assignment.ValidFrom);
+                if (assignment.ValidUntil.HasValue)
+                    changeSet.EndTime(assignment.ValidUntil.Value);
+            }
 
             var response = await api.ApplyChangeSet(changeSet, cancellationToken);
 
