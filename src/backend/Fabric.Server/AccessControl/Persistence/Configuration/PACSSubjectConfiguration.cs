@@ -18,6 +18,13 @@ public sealed class PACSSubjectConfiguration : IEntityTypeConfiguration<PACSSubj
         builder.Property(subject => subject.AccessControlSystemId).HasColumnName("access_control_system_id").IsRequired();
         builder.Property(subject => subject.NativeSubjectId).HasColumnName("native_subject_id").HasMaxLength(200).IsRequired();
         builder.Property(subject => subject.State).HasColumnName("state").HasConversion<string>().HasMaxLength(50).IsRequired();
+        builder.Property(subject => subject.ConformityStatus).HasColumnName("conformity_status").HasConversion<string>().HasMaxLength(50).IsRequired();
+        builder.Property(subject => subject.ConformityDetails).HasColumnName("conformity_details").HasMaxLength(2_000);
+        builder.Property(subject => subject.LastConformityCheckedAt).HasColumnName("last_conformity_checked_at");
+        builder.Property(subject => subject.LastConformityError).HasColumnName("last_conformity_error").HasMaxLength(2_000);
+        builder.Property(subject => subject.IsManualProvisioningBlocked).HasColumnName("is_manual_provisioning_blocked").IsRequired();
+        builder.Property(subject => subject.ManualProvisioningBlockedReason).HasColumnName("manual_provisioning_blocked_reason").HasMaxLength(2_000);
+        builder.Property(subject => subject.ManualProvisioningBlockedAt).HasColumnName("manual_provisioning_blocked_at");
         builder.Property(subject => subject.FirstName).HasColumnName("first_name").HasMaxLength(200).IsRequired();
         builder.Property(subject => subject.LastName).HasColumnName("last_name").HasMaxLength(200).IsRequired();
         builder.Property(subject => subject.Email).HasColumnName("email").HasMaxLength(320);

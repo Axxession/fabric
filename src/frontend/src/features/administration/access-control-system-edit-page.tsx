@@ -13,6 +13,8 @@ import { Card } from '@/shared/components/ui/card';
 
 type AccessControlSystemLocationResponse = components['schemas']['AccessControlSystemLocationResponse'];
 type AccessControlSystemDetailsResponse = components['schemas']['AccessControlSystemDetailsResponse'];
+type AccessControlSystemAuditResponse = components['schemas']['AccessControlSystemAuditResponse'];
+type AnomalyBlockMode = components['schemas']['AnomalyBlockMode'];
 type AccessControlSystemStatus = components['schemas']['AccessControlSystemStatus'];
 type LinkAccessControlSystemLocationRequest = components['schemas']['LinkAccessControlSystemLocationRequest'];
 type UpdateUnipassAccessControlSystemRequest = components['schemas']['UpdateUnipassAccessControlSystemRequest'];
@@ -24,6 +26,7 @@ type FormValues = {
   username: string;
   password: string;
   status: AccessControlSystemStatus;
+  anomalyBlockMode: AnomalyBlockMode;
 };
 
 const systemsQueryKey = ['administration', 'access-control', 'systems'] as const;
@@ -34,6 +37,7 @@ const emptyFormValues: FormValues = {
   username: '',
   password: '',
   status: 'Active',
+  anomalyBlockMode: 'WarnOnly',
 };
 
 export default function AccessControlSystemEditPage() {
@@ -144,6 +148,20 @@ export default function AccessControlSystemEditPage() {
     onError: () => toast.error('Could not unlink location.'),
   });
 
+  const auditSystemSubjects = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST('/api/access-control/systems/{systemId}/audit', { params: { path: { systemId } } });
+      if (error || !data) {
+        throw new Error('Could not start PACS subject audit.');
+      }
+      return data as AccessControlSystemAuditResponse;
+    },
+    onSuccess: (data) => {
+      toast.success(`Audit queued for ${data.enqueuedSubjects} subject(s). ${data.recentlyAuditedSubjects} skipped due to recent audit.`);
+    },
+    onError: () => toast.error('Could not start PACS subject audit.'),
+  });
+
   function updateValue<TKey extends keyof FormValues>(key: TKey, value: FormValues[TKey]) {
     setValues((current) => ({ ...current, [key]: value }));
   }
@@ -166,6 +184,7 @@ export default function AccessControlSystemEditPage() {
       username: values.username,
       password: values.password.trim() === '' ? null : values.password,
       status: values.status,
+      anomalyBlockMode: values.anomalyBlockMode,
     });
   }
 
@@ -192,6 +211,9 @@ export default function AccessControlSystemEditPage() {
           <h2 className="text-[20px] font-semibold tracking-tight">Edit access control system</h2>
           <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">Update access control system configuration. System type cannot be changed.</p>
         </div>
+        <Button type="button" variant="outline" disabled={auditSystemSubjects.isPending} onClick={() => auditSystemSubjects.mutate()}>
+          {auditSystemSubjects.isPending ? 'Queueing audit...' : 'Audit subjects now'}
+        </Button>
       </header>
 
       <Card className="p-6">
@@ -250,10 +272,22 @@ export default function AccessControlSystemEditPage() {
                 Validate SSL certificate
               </label>
 
+              <label className="grid gap-2 text-[14px] font-medium md:max-w-sm">
+                Anomaly policy
+                <select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={values.anomalyBlockMode} onChange={(event) => updateValue('anomalyBlockMode', event.target.value as AnomalyBlockMode)}>
+                  <option value="WarnOnly">Warn only</option>
+                  <option value="BlockProvisioning">Block provisioning</option>
+                </select>
+              </label>
+
               <div className="flex justify-end">
                 <Button type="submit" disabled={updateUnipassSystem.isPending}>
                   {updateUnipassSystem.isPending ? 'Saving...' : 'Save'}
                 </Button>
+              </div>
+
+              <div className="rounded-structural border border-border bg-background p-4 text-[14px] text-muted-foreground">
+                System audit uses subject cooldown policy. Subjects audited in the last 5 minutes are skipped.
               </div>
             </form>
           ) : (
@@ -325,5 +359,6 @@ function toFormValues(details: AccessControlSystemDetailsResponse): FormValues {
     username: isUnipassDetails(details) ? details.configuration.username : '',
     password: '',
     status: details.system.status,
+    anomalyBlockMode: details.system.anomalyBlockMode,
   };
 }

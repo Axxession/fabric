@@ -4244,6 +4244,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/access-control/systems/{systemId}/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    systemId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AccessControlSystemAuditResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/access-control/systems/{systemId}/locations": {
         parameters: {
             query?: never;
@@ -5246,6 +5292,50 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/access-control/subjects/{subjectId}/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    subjectId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -13749,6 +13839,18 @@ export interface components {
             system: components["schemas"]["AccessControlSystemResponse"];
             configuration: components["schemas"]["AccessControlSystemConfigurationResponse"];
         };
+        AccessControlSystemAuditResponse: {
+            /** Format: uuid */
+            accessControlSystemId: string;
+            /** Format: int32 */
+            totalSubjects: number | string;
+            /** Format: int32 */
+            eligibleSubjects: number | string;
+            /** Format: int32 */
+            recentlyAuditedSubjects: number | string;
+            /** Format: int32 */
+            enqueuedSubjects: number | string;
+        };
         AccessControlSystemLocationResponse: {
             /** Format: uuid */
             id: string;
@@ -13763,10 +13865,13 @@ export interface components {
             name: string;
             providerKind: components["schemas"]["AccessControlProviderKind"];
             status: components["schemas"]["AccessControlSystemStatus"];
+            anomalyBlockMode: components["schemas"]["AnomalyBlockMode"];
             endpoint: string;
             sslValidation: boolean;
             hasSecret: boolean;
         };
+        /** @enum {unknown} */
+        AnomalyBlockMode: "WarnOnly" | "BlockProvisioning";
         /** @enum {unknown} */
         AccessControlSystemStatus: "Active" | "Inactive";
         /** @enum {unknown} */
@@ -14582,6 +14687,7 @@ export interface components {
             sslValidation: boolean;
             username: string;
             password: string;
+            anomalyBlockMode: components["schemas"]["AnomalyBlockMode"];
         };
         CreateUnipassAccessLevelTargetRequest: {
             /** Format: uuid */
@@ -15890,12 +15996,25 @@ export interface components {
             accessControlSystemId: string;
             nativeSubjectId: string;
             state: components["schemas"]["PACSSubjectState"];
+            conformityStatus: components["schemas"]["PACSSubjectConformityStatus"];
+            conformityDetails: null | string;
+            /** Format: date-time */
+            lastConformityCheckedAt: null | string;
+            lastConformityError: null | string;
+            provisioningBlockStatus: components["schemas"]["PACSSubjectProvisioningBlockStatus"];
+            provisioningBlockedReason: null | string;
+            /** Format: date-time */
+            provisioningBlockedAt: null | string;
             firstName: string;
             lastName: string;
             email: null | string;
             /** Format: date-time */
             lastSynchronizedAt: string;
         };
+        /** @enum {unknown} */
+        PACSSubjectConformityStatus: "Unknown" | "Conform" | "Anomaly";
+        /** @enum {unknown} */
+        PACSSubjectProvisioningBlockStatus: "ProvisioningAllowed" | "BlockedManual" | "BlockedByAnomaly";
         /** @enum {unknown} */
         PACSSubjectState: "Active" | "Blocked" | "Archived";
         PagedListResponseOfLinkedWorkflowDefinitionSummary: {
@@ -17111,6 +17230,7 @@ export interface components {
             username: string;
             password: null | string;
             status: components["schemas"]["AccessControlSystemStatus"];
+            anomalyBlockMode: components["schemas"]["AnomalyBlockMode"];
         };
         UpdateUnipassAccessLevelTargetRequest: {
             /** Format: uuid */

@@ -13,6 +13,7 @@ public sealed class UnipassCredentialPacsProvisioner(
     AccessControlDbContext db,
     CredentialManagementDbContext credentialDb,
     PACSSubjectService subjectService,
+    PACSSubjectConformityAuditService conformityAuditService,
     UnipassApiFactory apiFactory,
     TimeProvider timeProvider)
 {
@@ -56,6 +57,10 @@ public sealed class UnipassCredentialPacsProvisioner(
             return;
         }
 
+        (PACSSubjectProvisioningBlockStatus blockStatus, string? blockReason) = await subjectService.GetProvisioningBlockAsync(credential.IdentityId, assignment.AccessControlSystemId, cancellationToken);
+        if (blockStatus != PACSSubjectProvisioningBlockStatus.ProvisioningAllowed)
+            return;
+
         Result<PACSSubject, AccessControlErrors> subjectResult;
         try
         {
@@ -90,6 +95,7 @@ public sealed class UnipassCredentialPacsProvisioner(
 
             assignment.MarkProvisioned(response.Id ?? string.Empty, now);
             await db.SaveChangesAsync(cancellationToken);
+            await conformityAuditService.EnqueueAsync(credential.IdentityId, assignment.AccessControlSystemId, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -150,6 +156,7 @@ public sealed class UnipassCredentialPacsProvisioner(
             await api.ApplyChangeSet(CardChangeSet.Revoke(int.Parse(subject.NativeSubjectId), int.Parse(assignment.NativeAssignmentId)), cancellationToken);
             assignment.MarkRevoked(timeProvider.GetUtcNow());
             await db.SaveChangesAsync(cancellationToken);
+            await conformityAuditService.EnqueueAsync(credential.IdentityId, assignment.AccessControlSystemId, cancellationToken);
         }
         catch (Exception ex)
         {

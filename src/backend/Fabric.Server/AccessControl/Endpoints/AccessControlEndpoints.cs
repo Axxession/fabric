@@ -40,6 +40,9 @@ public static class AccessControlEndpoints
         systems.MapGet("/{systemId:guid}/metadata", GetSystemMetadata)
             .Produces<SystemMetadata>()
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound);
+        systems.MapPost("/{systemId:guid}/audit", TriggerSystemAudit)
+            .Produces<AccessControlSystemAuditResponse>(StatusCodes.Status202Accepted)
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound);
         systems.MapGet("/{systemId:guid}/locations", ListSystemLocations)
             .Produces<Page<AccessControlSystemLocationResponse>>();
         systems.MapPost("/{systemId:guid}/locations", LinkSystemLocation)
@@ -113,6 +116,16 @@ public static class AccessControlEndpoints
         subjects.MapGet("/{subjectId:guid}", GetSubject)
             .Produces<PACSSubjectResponse>()
             .Produces(StatusCodes.Status404NotFound);
+        subjects.MapPost("/{subjectId:guid}/block-provisioning", BlockSubjectProvisioning)
+            .Produces<PACSSubjectResponse>()
+            .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound);
+        subjects.MapPost("/{subjectId:guid}/allow-provisioning", AllowSubjectProvisioning)
+            .Produces<PACSSubjectResponse>()
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound);
+        subjects.MapPost("/{subjectId:guid}/audit", TriggerSubjectAudit)
+            .Produces(StatusCodes.Status202Accepted)
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound);
 
         subjectProvisionings.MapGet("", ListSubjectProvisionings)
             .Produces<Page<PACSSubjectProvisioningResponse>>();
@@ -156,7 +169,7 @@ public static class AccessControlEndpoints
             return Result.Failure(error).AsResponse(MapError);
 
         config.IsSuccess(out UnipassSystemConfig value);
-        Result<AccessControlSystem, AccessControlErrors> result = await service.CreateUnipassSystemAsync(request.Name, value, cancellationToken);
+        Result<AccessControlSystem, AccessControlErrors> result = await service.CreateUnipassSystemAsync(request.Name, value, request.AnomalyBlockMode, cancellationToken);
 
         return result.Match<IResult>(
             system => Results.Created($"/api/access-control/systems/{system.Id}", system.ToResponse()),
@@ -195,6 +208,7 @@ public static class AccessControlEndpoints
             request.Username,
             request.Password,
             request.Status,
+            request.AnomalyBlockMode,
             cancellationToken);
 
         return result.Map(system => system.ToResponse()).AsResponse(MapError);
@@ -207,6 +221,15 @@ public static class AccessControlEndpoints
     {
         Result<SystemMetadata, AccessControlErrors> result = await service.FetchMetadataAsync(systemId, cancellationToken);
         return result.AsResponse(MapError);
+    }
+
+    private static async Task<IResult> TriggerSystemAudit(
+        Guid systemId,
+        PACSSubjectConformityAuditService service,
+        CancellationToken cancellationToken = default)
+    {
+        Result<PACSSubjectConformityAuditService.PACSSubjectConformityAuditEnqueueSummary, AccessControlErrors> result = await service.EnqueueByAccessControlSystemIdAsync(systemId, cancellationToken);
+        return result.Match<IResult>(summary => Results.Accepted($"/api/access-control/systems/{systemId}/audit", summary.ToResponse()), error => MapError(error).ToResult());
     }
 
     private static async Task<IResult> ListSystemLocations(
@@ -545,7 +568,12 @@ public static class AccessControlEndpoints
             .ThenBy(item => item.AccessControlSystemId)
             .GetPageAsync(request.Page, request.PageSize, cancellationToken);
 
-        return Results.Ok(result.Map(item => item.ToResponse()));
+        Guid[] systemIds = result.Items.Select(item => item.AccessControlSystemId).Distinct().ToArray();
+        Dictionary<Guid, AnomalyBlockMode> anomalyModes = await db.AccessControlSystems.AsNoTracking()
+            .Where(item => systemIds.Contains(item.Id))
+            .ToDictionaryAsync(item => item.Id, item => item.AnomalyBlockMode, cancellationToken);
+
+        return Results.Ok(result.Map(item => item.ToResponse(anomalyModes.GetValueOrDefault(item.AccessControlSystemId, AnomalyBlockMode.WarnOnly))));
     }
 
     private static async Task<IResult> GetSubject(
@@ -554,7 +582,61 @@ public static class AccessControlEndpoints
         CancellationToken cancellationToken = default)
     {
         PACSSubject? subject = await db.PACSSubjects.AsNoTracking().SingleOrDefaultAsync(item => item.Id == subjectId, cancellationToken);
-        return subject is null ? Results.NotFound() : Results.Ok(subject.ToResponse());
+        if (subject is null)
+            return Results.NotFound();
+
+        AnomalyBlockMode anomalyBlockMode = await db.AccessControlSystems.AsNoTracking()
+            .Where(item => item.Id == subject.AccessControlSystemId)
+            .Select(item => item.AnomalyBlockMode)
+            .SingleAsync(cancellationToken);
+
+        return Results.Ok(subject.ToResponse(anomalyBlockMode));
+    }
+
+    private static async Task<IResult> BlockSubjectProvisioning(
+        Guid subjectId,
+        [FromBody] BlockPACSSubjectProvisioningRequest request,
+        PACSSubjectService service,
+        AccessControlDbContext db,
+        CancellationToken cancellationToken = default)
+    {
+        Result<PACSSubject, AccessControlErrors> result = await service.BlockProvisioningManuallyAsync(subjectId, request.Reason, cancellationToken);
+        if (result.IsFailure(out AccessControlErrors error))
+            return MapError(error).ToResult();
+
+        result.IsSuccess(out PACSSubject subject);
+        AnomalyBlockMode anomalyBlockMode = await db.AccessControlSystems.AsNoTracking()
+            .Where(item => item.Id == subject.AccessControlSystemId)
+            .Select(item => item.AnomalyBlockMode)
+            .SingleAsync(cancellationToken);
+        return Results.Ok(subject.ToResponse(anomalyBlockMode));
+    }
+
+    private static async Task<IResult> AllowSubjectProvisioning(
+        Guid subjectId,
+        PACSSubjectService service,
+        AccessControlDbContext db,
+        CancellationToken cancellationToken = default)
+    {
+        Result<PACSSubject, AccessControlErrors> result = await service.AllowProvisioningManuallyAsync(subjectId, cancellationToken);
+        if (result.IsFailure(out AccessControlErrors error))
+            return MapError(error).ToResult();
+
+        result.IsSuccess(out PACSSubject subject);
+        AnomalyBlockMode anomalyBlockMode = await db.AccessControlSystems.AsNoTracking()
+            .Where(item => item.Id == subject.AccessControlSystemId)
+            .Select(item => item.AnomalyBlockMode)
+            .SingleAsync(cancellationToken);
+        return Results.Ok(subject.ToResponse(anomalyBlockMode));
+    }
+
+    private static async Task<IResult> TriggerSubjectAudit(
+        Guid subjectId,
+        PACSSubjectConformityAuditService service,
+        CancellationToken cancellationToken = default)
+    {
+        Result<PACSSubject, AccessControlErrors> result = await service.EnqueueBySubjectIdAsync(subjectId, cancellationToken);
+        return result.Match<IResult>(_ => Results.Accepted(), error => MapError(error).ToResult());
     }
 
     private static async Task<IResult> ListSubjectProvisionings(
@@ -609,6 +691,7 @@ public static class AccessControlEndpoints
             AccessControlErrors.PACSAssignmentNotFound => Problem(StatusCodes.Status404NotFound, "PACS assignment not found."),
             AccessControlErrors.PACSSubjectNotFound => Problem(StatusCodes.Status404NotFound, "PACS subject not found."),
             AccessControlErrors.PACSSubjectProvisioningNotFound => Problem(StatusCodes.Status404NotFound, "PACS subject provisioning not found."),
+            AccessControlErrors.ProvisioningBlockReasonRequired => Problem(StatusCodes.Status400BadRequest, "Provisioning block reason is required."),
             AccessControlErrors.ConfigInvalid => Problem(StatusCodes.Status400BadRequest, "Config invalid."),
             AccessControlErrors.SystemProviderNotSupported => Problem(StatusCodes.Status400BadRequest, "System provider not supported."),
             AccessControlErrors.NoAccessLevelTargetsResolved => Problem(StatusCodes.Status400BadRequest, "No enabled access level targets resolved for the requested access item and PACS."),

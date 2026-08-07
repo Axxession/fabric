@@ -16,13 +16,14 @@ public sealed class AccessControlSystemService(
     public async Task<Result<AccessControlSystem, AccessControlErrors>> CreateUnipassSystemAsync(
         string name,
         UnipassSystemConfig config,
+        AnomalyBlockMode anomalyBlockMode,
         CancellationToken cancellationToken = default)
     {
         bool exists = await db.AccessControlSystems.AnyAsync(system => system.Name == name, cancellationToken);
         if (exists)
             return Result.Failure<AccessControlSystem, AccessControlErrors>(AccessControlErrors.SystemNameAlreadyExists);
 
-        Result<AccessControlSystem, AccessControlErrors> create = AccessControlSystem.CreateUnipass(name, config);
+        Result<AccessControlSystem, AccessControlErrors> create = AccessControlSystem.CreateUnipass(name, config, anomalyBlockMode);
         if (create.IsFailure(out AccessControlErrors error))
             return Result.Failure<AccessControlSystem, AccessControlErrors>(error);
 
@@ -40,6 +41,7 @@ public sealed class AccessControlSystemService(
         string username,
         string? password,
         AccessControlSystemStatus status,
+        AnomalyBlockMode anomalyBlockMode,
         CancellationToken cancellationToken = default)
     {
         AccessControlSystem? system = await db.AccessControlSystems.SingleOrDefaultAsync(item => item.Id == systemId, cancellationToken);
@@ -69,6 +71,7 @@ public sealed class AccessControlSystemService(
 
         system.Rename(name);
         system.SetStatus(status);
+        system.SetAnomalyBlockMode(anomalyBlockMode);
         await db.SaveChangesAsync(cancellationToken);
         return Result.Success<AccessControlSystem, AccessControlErrors>(system);
     }

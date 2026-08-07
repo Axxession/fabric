@@ -10,9 +10,10 @@ public sealed class AccessControlSystem
     public string Name { get; private set; } = null!;
     public AccessControlProviderKind ProviderKind { get; private set; }
     public AccessControlSystemStatus Status { get; private set; }
+    public AnomalyBlockMode AnomalyBlockMode { get; private set; }
     public UnipassSystemConfig? UnipassConfig { get; private set; }
 
-    public static Result<AccessControlSystem, AccessControlErrors> CreateUnipass(string name, UnipassSystemConfig config)
+    public static Result<AccessControlSystem, AccessControlErrors> CreateUnipass(string name, UnipassSystemConfig config, AnomalyBlockMode anomalyBlockMode)
     {
         if (!config.IsValid())
             return Result.Failure<AccessControlSystem, AccessControlErrors>(AccessControlErrors.ConfigInvalid);
@@ -23,6 +24,7 @@ public sealed class AccessControlSystem
             Name = name,
             ProviderKind = AccessControlProviderKind.Unipass,
             Status = AccessControlSystemStatus.Active,
+            AnomalyBlockMode = anomalyBlockMode,
             UnipassConfig = config
         });
     }
@@ -42,6 +44,8 @@ public sealed class AccessControlSystem
     }
 
     public void SetStatus(AccessControlSystemStatus status) => Status = status;
+
+    public void SetAnomalyBlockMode(AnomalyBlockMode anomalyBlockMode) => AnomalyBlockMode = anomalyBlockMode;
 }
 
 public sealed record UnipassSystemConfig
