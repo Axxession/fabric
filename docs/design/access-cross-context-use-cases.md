@@ -39,7 +39,7 @@ Resolution:
 ```text
 Site Antwerp -> nearest PACS link -> PACS BE
 Package Warehouse -> AccessItem Warehouse
-AccessItem Warehouse + PACS BE -> AccessLevelTarget Warehouse Antwerp
+AccessItem Warehouse + PACS BE + Site Antwerp -> AccessLevelTarget Warehouse Antwerp
 Facility Managers + Site Antwerp hierarchy -> Sverre
 ```
 
@@ -50,6 +50,60 @@ Sverre approves.
 After approval, Access Control creates a PACSAssignment for PACS BE / Warehouse Antwerp.
 PACS FR / Warehouse Lille is not involved.
 Kris is not asked to approve unless organizational approval requires L+2.
+```
+
+## One PACS With Building-Specific Targets
+
+Setup:
+
+```text
+Locations:
+- Site Leuven
+  - Building A
+  - Building B
+
+Access Control:
+- PACS BE linked to Site Leuven
+- AccessItem IT Staff
+- AccessLevelTarget:
+  - LocationId: Building A
+  - PACS: BE
+  - Native target: IT Building A
+- AccessLevelTarget:
+  - LocationId: Building B
+  - PACS: BE
+  - Native target: IT Building B
+```
+
+Flow:
+
+```text
+Grant location = Building A
+-> nearest PACS link = PACS BE
+-> best target scope in PACS BE = Building A
+-> assign native target IT Building A
+```
+
+## Multiple Targets At The Same Winning Scope
+
+Setup:
+
+```text
+AccessItem Warehouse
+PACS BE
+Grant location: Site Antwerp
+
+Targets at Site Antwerp scope:
+- Warehouse Doors
+- Warehouse Turnstiles
+```
+
+Flow:
+
+```text
+Site Antwerp wins as best scope
+-> all enabled targets at Site Antwerp scope apply
+-> create multiple PACSAssignments for the same grant reason
 ```
 
 ## Automatic Employee Assignment From Organizational Unit
