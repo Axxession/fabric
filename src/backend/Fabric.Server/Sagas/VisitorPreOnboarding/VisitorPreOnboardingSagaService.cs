@@ -910,11 +910,9 @@ public class VisitorPreOnboardingSagaService(SagasDbContext db, VisitorsDbContex
         return SagaStepResult.Retry;
     }
 
-    private DateTimeOffset GetRetryAt(int retryCount)
+    private DateTimeOffset GetRetryAt(int _)
     {
-        var delay = TimeSpan.FromMinutes(5 * Math.Pow(2, retryCount - 1));
-        var capped = TimeSpan.FromMinutes(Math.Min(delay.TotalMinutes, 60));
-        return timeProvider.GetUtcNow().Add(capped);
+        return timeProvider.GetUtcNow().Add(TimeSpan.FromMinutes(5));
     }
 
     private static bool HasQrGenerated(VisitorPreOnboardingSaga saga) =>
