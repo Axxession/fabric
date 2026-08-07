@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { AccessControlProviderBadge } from '@/shared/components/access-control-provider-badge';
+import { getLocationLabel, LocationSelector, type LocationResponse } from '@/shared/components/location-selector';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Card } from '@/shared/components/ui/card';
@@ -50,6 +51,7 @@ export default function AccessItemEditPage() {
   const [isAddTargetOpen, setIsAddTargetOpen] = useState(false);
   const [selectedSystemId, setSelectedSystemId] = useState('');
   const [targetName, setTargetName] = useState('');
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [selectedSiteId, setSelectedSiteId] = useState('');
   const [selectedAccessRuleId, setSelectedAccessRuleId] = useState('');
   const [provisioningTiming, setProvisioningTiming] = useState<ProvisioningTiming>('Eager');
@@ -124,6 +126,24 @@ export default function AccessItemEditPage() {
         throw new Error('Could not load system metadata.');
       }
       return data;
+    },
+  });
+
+  const targetLocationDetailsQuery = useQuery({
+    queryKey: [...accessLevelTargetsQueryKey, itemId, 'location-details', (targetsQuery.data?.items ?? []).map((target) => target.locationId ?? '').join(',')],
+    enabled: Boolean((targetsQuery.data?.items ?? []).some((target) => Boolean(target.locationId))),
+    queryFn: async () => {
+      const locations = await Promise.all((targetsQuery.data?.items ?? [])
+        .filter((target) => target.locationId)
+        .map(async (target) => {
+          const { data, error } = await api.GET('/api/locations/locations/{id}', { params: { path: { id: target.locationId ?? '' } } });
+          if (error || !data) {
+            throw new Error('Could not load target locations.');
+          }
+          return data;
+        }));
+
+      return new Map(locations.map((location) => [location.id, location]));
     },
   });
 
@@ -220,6 +240,7 @@ export default function AccessItemEditPage() {
       setIsAddTargetOpen(false);
       setSelectedSystemId('');
       setTargetName('');
+      setSelectedLocationId(null);
       setSelectedSiteId('');
       setSelectedAccessRuleId('');
       setProvisioningTiming('Eager');
@@ -235,6 +256,7 @@ export default function AccessItemEditPage() {
   const systemsById = new Map(systems.map((system) => [system.id, system]));
   const selectedSystem = systems.find((system) => system.id === selectedSystemId);
   const targets = targetsQuery.data?.items ?? [];
+  const targetLocationDetails = targetLocationDetailsQuery.data ?? new Map<string, LocationResponse>();
   const metadata = targetMetadataQuery.data;
   const isMetadataReady = isUnipassMetadata(metadata);
 
@@ -250,6 +272,7 @@ export default function AccessItemEditPage() {
 
     createTarget.mutate({
       accessControlSystemId: selectedSystemId,
+      locationId: selectedLocationId,
       name: targetName,
       siteId: Number(selectedSiteId),
       accessRuleId: Number(selectedAccessRuleId),
@@ -364,6 +387,11 @@ export default function AccessItemEditPage() {
                     <span>Name</span>
                     <input className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={targetName} onChange={(event) => setTargetName(event.target.value)} />
                   </label>
+                  <div className="grid gap-2 text-[14px] font-medium md:col-span-2">
+                    <span>Applies To Location</span>
+                    <LocationSelector value={selectedLocationId} onChange={setSelectedLocationId} level="Room" disabled={createTarget.isPending} />
+                    <span className="text-[12px] font-normal text-muted-foreground">Optional. Leave empty to use this target for every resolved location in the selected PACS.</span>
+                  </div>
                   <label className="grid gap-2 text-[14px] font-medium">
                     <span>Provisioning Timing</span>
                     <select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={provisioningTiming} onChange={(event) => setProvisioningTiming(event.target.value as ProvisioningTiming)}>
@@ -400,9 +428,9 @@ export default function AccessItemEditPage() {
           </div>
         ) : null}
 
-        {targetsQuery.isError || systemsQuery.isError || targetMetadataQuery.isError || createTarget.isError ? (
+        {targetsQuery.isError || systemsQuery.isError || targetMetadataQuery.isError || targetLocationDetailsQuery.isError || createTarget.isError ? (
           <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">
-            {targetsQuery.isError ? 'Could not load access control targets.' : systemsQuery.isError ? 'Could not load access control systems.' : targetMetadataQuery.isError ? 'Could not load system metadata.' : 'Could not create access control target.'}
+            {targetsQuery.isError ? 'Could not load access control targets.' : systemsQuery.isError ? 'Could not load access control systems.' : targetMetadataQuery.isError ? 'Could not load system metadata.' : targetLocationDetailsQuery.isError ? 'Could not load target locations.' : 'Could not create access control target.'}
           </p>
         ) : null}
 
@@ -425,7 +453,8 @@ export default function AccessItemEditPage() {
                     <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
                   </div>
                 </div>
-                <dl className="mt-3 grid gap-2 text-[14px] text-muted-foreground md:grid-cols-3">
+                <dl className="mt-3 grid gap-2 text-[14px] text-muted-foreground md:grid-cols-4">
+                  <div><dt className="font-medium text-foreground">Applies To</dt><dd>{target.locationId ? getLocationLabel(targetLocationDetails.get(target.locationId)) : 'All resolved locations'}</dd></div>
                   <div><dt className="font-medium text-foreground">Site</dt><dd>{target.siteName}</dd></div>
                   <div><dt className="font-medium text-foreground">Access Rule</dt><dd>{target.accessRuleName}</dd></div>
                   <div><dt className="font-medium text-foreground">Provisioning Timing</dt><dd>{target.provisioningTiming}</dd></div>

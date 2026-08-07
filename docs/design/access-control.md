@@ -18,6 +18,11 @@ Resolution rules:
 
 `AccessLevelTarget` maps an access item to one or more native PACS access objects. For Unipass, a target maps to an access rule and site. It also defines technical provisioning timing such as eager provisioning or provisioning at valid-from.
 
+`AccessLevelTarget.LocationId` is optional target-selection scope inside a PACS:
+
+- `LocationId = null`: target is global within that PACS for the access item.
+- `LocationId = X`: target applies only when the grant location is inside X's location tree.
+
 `PACSAssignment` is the source technical assignment input for one `AccessGrant` reason. Multiple `PACSAssignment` rows can point to the same native PACS target for the same identity.
 
 `PACSProvisioning` is the effective technical PACS row that should exist in the provider after reconciling all active `PACSAssignment` inputs for an identity and native target.
@@ -54,6 +59,7 @@ classDiagram
         Guid Id
         Guid AccessItemId
         Guid AccessControlSystemId
+        Guid LocationId
         string Name
         bool IsEnabled
         ProvisioningTiming ProvisioningTiming
@@ -180,6 +186,20 @@ Boundary rules:
 - Access Control owns PACS subject/cardholder projections and provisioning operations.
 - Access Control owns PACS subject import batches and reports.
 - Access Control does not own request approval or package request workflow.
+
+Target resolution rules:
+
+- PACS routing and target selection are separate steps.
+- Step 1: resolve the nearest linked PACS from the grant location.
+- Step 2: inside that PACS, resolve the best matching enabled `AccessLevelTarget` scope for the access item:
+  - exact room
+  - then building
+  - then site
+  - then global target where `LocationId = null`
+- If multiple targets exist at the winning scope, all of them apply.
+- A less specific scope must not be combined with a more specific winning scope for the same provisioning decision.
+
+This separation matters for customers with one PACS that covers many sites or buildings. PACS links answer which PACS handles a location. Scoped access-level targets answer which native rule inside that PACS should be used.
 
 Effective provisioning rules:
 

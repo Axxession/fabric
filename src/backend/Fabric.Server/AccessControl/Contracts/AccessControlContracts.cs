@@ -36,19 +36,25 @@ public sealed record CreateAccessItemRequest(string Name, string? Description);
 
 public sealed record UpdateAccessItemRequest(string Name, string? Description, AccessItemStatus Status);
 
-public sealed record CreateUnipassAccessLevelTargetRequest(
-    Guid AccessControlSystemId,
-    string Name,
-    int SiteId,
-    int AccessRuleId,
-    ProvisioningTiming ProvisioningTiming);
+public sealed record CreateUnipassAccessLevelTargetRequest
+{
+    public required Guid AccessControlSystemId { get; init; }
+    public Guid? LocationId { get; init; }
+    public required string Name { get; init; }
+    public required int SiteId { get; init; }
+    public required int AccessRuleId { get; init; }
+    public required ProvisioningTiming ProvisioningTiming { get; init; }
+}
 
-public sealed record UpdateUnipassAccessLevelTargetRequest(
-    string Name,
-    int SiteId,
-    int AccessRuleId,
-    bool IsEnabled,
-    ProvisioningTiming ProvisioningTiming);
+public sealed record UpdateUnipassAccessLevelTargetRequest
+{
+    public Guid? LocationId { get; init; }
+    public required string Name { get; init; }
+    public required int SiteId { get; init; }
+    public required int AccessRuleId { get; init; }
+    public required bool IsEnabled { get; init; }
+    public required ProvisioningTiming ProvisioningTiming { get; init; }
+}
 
 public sealed record ListCredentialTypeTargetsRequest : BaseListRequest
 {
@@ -262,6 +268,7 @@ public abstract record AccessLevelTargetResponse
 
 public sealed record UnipassAccessLevelTargetResponse : AccessLevelTargetResponse
 {
+    public required Guid? LocationId { get; init; }
     public required int SiteId { get; init; }
     public required string SiteName { get; init; }
     public required int AccessRuleId { get; init; }
@@ -307,6 +314,7 @@ public static class AccessControlMapper
                 Id = unipass.Id,
                 AccessItemId = unipass.AccessItemId,
                 AccessControlSystemId = unipass.AccessControlSystemId,
+                LocationId = unipass.LocationId,
                 Name = unipass.Name,
                 IsEnabled = unipass.IsEnabled,
                 ProvisioningTiming = unipass.ProvisioningTiming,

@@ -327,6 +327,7 @@ public static class AccessControlEndpoints
         Result<UnipassAccessLevelTarget, AccessControlErrors> result = await service.CreateUnipassTargetAsync(
             itemId,
             request.AccessControlSystemId,
+            request.LocationId,
             request.Name,
             request.SiteId,
             request.AccessRuleId,
@@ -401,6 +402,7 @@ public static class AccessControlEndpoints
     {
         Result<UnipassAccessLevelTarget, AccessControlErrors> result = await service.UpdateUnipassTargetAsync(
             targetId,
+            request.LocationId,
             request.Name,
             request.SiteId,
             request.AccessRuleId,

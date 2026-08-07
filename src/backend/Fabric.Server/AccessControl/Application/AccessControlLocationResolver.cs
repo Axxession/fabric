@@ -7,12 +7,13 @@ using Microsoft.EntityFrameworkCore;
 namespace Fabric.Server.AccessControl.Application;
 
 public sealed record ResolvedAccessControlSystem(Guid LocationId, Guid AccessControlSystemId);
+public sealed record ResolvedLocationPath(Guid LocationId, Guid[] CandidateLocationIds);
 
 public sealed class AccessControlLocationResolver(
     AccessControlDbContext db,
     LocationsDbContext locationsDb)
 {
-    public async Task<Result<ResolvedAccessControlSystem, AccessControlErrors>> ResolveSystemForLocationAsync(
+    public async Task<Result<ResolvedLocationPath, AccessControlErrors>> ResolveLocationPathAsync(
         Guid locationId,
         CancellationToken cancellationToken = default)
     {
@@ -21,7 +22,7 @@ public sealed class AccessControlLocationResolver(
             .SingleOrDefaultAsync(item => item.Id == locationId, cancellationToken);
 
         if (lookup is null)
-            return Result.Failure<ResolvedAccessControlSystem, AccessControlErrors>(AccessControlErrors.LocationNotFound);
+            return Result.Failure<ResolvedLocationPath, AccessControlErrors>(AccessControlErrors.LocationNotFound);
 
         Guid[] candidateIds = lookup.Type switch
         {
@@ -31,12 +32,25 @@ public sealed class AccessControlLocationResolver(
             _ => [locationId]
         };
 
+        return Result.Success<ResolvedLocationPath, AccessControlErrors>(new ResolvedLocationPath(locationId, candidateIds));
+    }
+
+    public async Task<Result<ResolvedAccessControlSystem, AccessControlErrors>> ResolveSystemForLocationAsync(
+        Guid locationId,
+        CancellationToken cancellationToken = default)
+    {
+        Result<ResolvedLocationPath, AccessControlErrors> locationPathResult = await ResolveLocationPathAsync(locationId, cancellationToken);
+        if (locationPathResult.IsFailure(out AccessControlErrors error))
+            return Result.Failure<ResolvedAccessControlSystem, AccessControlErrors>(error);
+
+        locationPathResult.IsSuccess(out ResolvedLocationPath locationPath);
+
         AccessControlSystemLocation[] links = await db.AccessControlSystemLocations
             .AsNoTracking()
-            .Where(link => candidateIds.Contains(link.LocationId))
+            .Where(link => locationPath.CandidateLocationIds.Contains(link.LocationId))
             .ToArrayAsync(cancellationToken);
 
-        AccessControlSystemLocation? match = candidateIds
+        AccessControlSystemLocation? match = locationPath.CandidateLocationIds
             .Select(candidateId => links.SingleOrDefault(link => link.LocationId == candidateId))
             .FirstOrDefault(link => link is not null);
 
