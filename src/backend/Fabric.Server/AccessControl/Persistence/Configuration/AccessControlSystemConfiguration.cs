@@ -17,6 +17,7 @@ public sealed class AccessControlSystemConfiguration : IEntityTypeConfiguration<
         builder.Property(system => system.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
         builder.Property(system => system.ProviderKind).HasColumnName("provider_kind").HasConversion<string>().HasMaxLength(50).IsRequired();
         builder.Property(system => system.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(50).IsRequired();
+        builder.Property(system => system.AnomalyBlockMode).HasColumnName("anomaly_block_mode").HasConversion<string>().HasMaxLength(50).IsRequired();
 
         builder.OwnsOne(system => system.UnipassConfig, config =>
         {

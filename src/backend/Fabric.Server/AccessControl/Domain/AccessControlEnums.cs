@@ -11,6 +11,12 @@ public enum AccessControlSystemStatus
     Inactive
 }
 
+public enum AnomalyBlockMode
+{
+    WarnOnly,
+    BlockProvisioning
+}
+
 public enum AccessItemStatus
 {
     Active,
@@ -59,6 +65,20 @@ public enum PACSSubjectState
     Active,
     Blocked,
     Archived
+}
+
+public enum PACSSubjectConformityStatus
+{
+    Unknown,
+    Conform,
+    Anomaly
+}
+
+public enum PACSSubjectProvisioningBlockStatus
+{
+    ProvisioningAllowed,
+    BlockedManual,
+    BlockedByAnomaly
 }
 
 public enum PACSSubjectProvisioningStatus

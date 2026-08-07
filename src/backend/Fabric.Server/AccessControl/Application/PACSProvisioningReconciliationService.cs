@@ -10,6 +10,8 @@ public sealed class PACSProvisioningReconciliationService(
     AccessControlDbContext db,
     ITenantContext tenantContext,
     PACSProvisioningReconciliationTrigger trigger,
+    PACSSubjectService subjectService,
+    PACSSubjectConformityAuditService conformityAuditService,
     UnipassPACSProvisioner unipassProvisioner,
     TimeProvider timeProvider)
 {
@@ -152,13 +154,27 @@ public sealed class PACSProvisioningReconciliationService(
     public async Task<IReadOnlyList<Guid>> GetDueProvisioningIdsAsync(CancellationToken cancellationToken = default)
     {
         DateTimeOffset now = timeProvider.GetUtcNow();
-        return await db.PACSProvisionings
+        List<Guid> candidateIds = await db.PACSProvisionings
             .AsNoTracking()
             .Where(item => item.Status == PACSProvisioningStatus.Pending || item.Status == PACSProvisioningStatus.Failed)
             .Where(item => item.ScheduledFor <= now)
             .OrderBy(item => item.ScheduledFor)
             .Select(item => item.Id)
             .ToListAsync(cancellationToken);
+
+        List<Guid> dueIds = [];
+        foreach (Guid provisioningId in candidateIds)
+        {
+            PACSProvisioning? provisioning = await db.PACSProvisionings.AsNoTracking().SingleOrDefaultAsync(item => item.Id == provisioningId, cancellationToken);
+            if (provisioning is null)
+                continue;
+
+            (PACSSubjectProvisioningBlockStatus status, _) = await subjectService.GetProvisioningBlockAsync(provisioning.IdentityId, provisioning.AccessControlSystemId, cancellationToken);
+            if (status == PACSSubjectProvisioningBlockStatus.ProvisioningAllowed)
+                dueIds.Add(provisioningId);
+        }
+
+        return dueIds;
     }
 
     public async Task<IReadOnlyList<Guid>> GetExpiredProvisioningIdsAsync(CancellationToken cancellationToken = default)
@@ -195,6 +211,7 @@ public sealed class PACSProvisioningReconciliationService(
         }
 
         await EnqueueAsync(provisioning.IdentityId, provisioning.AccessControlSystemId, cancellationToken);
+        await conformityAuditService.EnqueueAsync(provisioning.IdentityId, provisioning.AccessControlSystemId, cancellationToken);
     }
 
     public async Task RevokeExpiredProvisioningAsync(Guid provisioningId, CancellationToken cancellationToken = default)
@@ -209,6 +226,7 @@ public sealed class PACSProvisioningReconciliationService(
 
         await RevokeProvisioningAsync(provisioning, system, cancellationToken);
         await EnqueueAsync(provisioning.IdentityId, provisioning.AccessControlSystemId, cancellationToken);
+        await conformityAuditService.EnqueueAsync(provisioning.IdentityId, provisioning.AccessControlSystemId, cancellationToken);
     }
 
     private async Task<List<DesiredProvisioning>> BuildDesiredProvisioningsAsync(PACSAssignment[] assignments, CancellationToken cancellationToken)

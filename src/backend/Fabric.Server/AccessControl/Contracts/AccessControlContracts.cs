@@ -20,7 +20,8 @@ public sealed record CreateUnipassAccessControlSystemRequest(
     string Endpoint,
     bool SslValidation,
     string Username,
-    string Password);
+    string Password,
+    AnomalyBlockMode AnomalyBlockMode);
 
 public sealed record UpdateUnipassAccessControlSystemRequest(
     string Name,
@@ -28,7 +29,8 @@ public sealed record UpdateUnipassAccessControlSystemRequest(
     bool SslValidation,
     string Username,
     string? Password,
-    AccessControlSystemStatus Status);
+    AccessControlSystemStatus Status,
+    AnomalyBlockMode AnomalyBlockMode);
 
 public sealed record LinkAccessControlSystemLocationRequest(Guid LocationId);
 
@@ -111,6 +113,15 @@ public sealed record UpsertPACSSubjectProvisioningRequest(
     PACSSubjectProvisioningSourceKind SourceKind,
     Guid SourceId);
 
+public sealed record BlockPACSSubjectProvisioningRequest(string Reason);
+
+public sealed record AccessControlSystemAuditResponse(
+    Guid AccessControlSystemId,
+    int TotalSubjects,
+    int EligibleSubjects,
+    int RecentlyAuditedSubjects,
+    int EnqueuedSubjects);
+
 public sealed record ResolveAccessControlSystemResponse(Guid MatchedLocationId, Guid AccessControlSystemId);
 
 public sealed record PACSSubjectResponse(
@@ -119,6 +130,13 @@ public sealed record PACSSubjectResponse(
     Guid AccessControlSystemId,
     string NativeSubjectId,
     PACSSubjectState State,
+    PACSSubjectConformityStatus ConformityStatus,
+    string? ConformityDetails,
+    DateTimeOffset? LastConformityCheckedAt,
+    string? LastConformityError,
+    PACSSubjectProvisioningBlockStatus ProvisioningBlockStatus,
+    string? ProvisioningBlockedReason,
+    DateTimeOffset? ProvisioningBlockedAt,
     string FirstName,
     string LastName,
     string? Email,
@@ -233,6 +251,7 @@ public sealed record AccessControlSystemResponse(
     string Name,
     AccessControlProviderKind ProviderKind,
     AccessControlSystemStatus Status,
+    AnomalyBlockMode AnomalyBlockMode,
     string Endpoint,
     bool SslValidation,
     bool HasSecret);
@@ -283,6 +302,7 @@ public static class AccessControlMapper
             system.Name,
             system.ProviderKind,
             system.Status,
+            system.AnomalyBlockMode,
             system.UnipassConfig?.Endpoint ?? string.Empty,
             system.UnipassConfig?.SslValidation ?? false,
             !string.IsNullOrWhiteSpace(system.UnipassConfig?.Password));
@@ -329,13 +349,20 @@ public static class AccessControlMapper
     public static ResolveAccessControlSystemResponse ToResponse(this ResolvedAccessControlSystem resolved) =>
         new(resolved.LocationId, resolved.AccessControlSystemId);
 
-    public static PACSSubjectResponse ToResponse(this PACSSubject subject) =>
+    public static PACSSubjectResponse ToResponse(this PACSSubject subject, AnomalyBlockMode anomalyBlockMode) =>
         new(
             subject.Id,
             subject.IdentityId,
             subject.AccessControlSystemId,
             subject.NativeSubjectId,
             subject.State,
+            subject.ConformityStatus,
+            subject.ConformityDetails,
+            subject.LastConformityCheckedAt,
+            subject.LastConformityError,
+            subject.GetProvisioningBlockStatus(anomalyBlockMode),
+            subject.GetProvisioningBlockedReason(anomalyBlockMode),
+            subject.GetProvisioningBlockedAt(anomalyBlockMode),
             subject.FirstName,
             subject.LastName,
             subject.Email,
@@ -361,7 +388,7 @@ public static class AccessControlMapper
             provisioning.UpdatedAt);
 
     public static PACSSubjectProvisioningResultResponse ToResponse(this PACSSubjectProvisioningResult result) =>
-        new(result.Subject.ToResponse(), result.Provisioning?.ToResponse());
+        new(result.Subject.ToResponse(result.AnomalyBlockMode), result.Provisioning?.ToResponse());
 
     public static PACSAssignmentResponse ToResponse(this PACSAssignment assignment) =>
         new(
@@ -416,4 +443,7 @@ public static class AccessControlMapper
 
     public static CredentialPACSAssignmentResponse ToResponse(this CredentialPACSAssignment assignment) =>
         new(assignment.Id, assignment.CredentialId, assignment.CredentialTypeTargetId, assignment.AccessControlSystemId, assignment.Status, assignment.ScheduledFor, assignment.AttemptCount, assignment.LastAttemptAt, assignment.NativeAssignmentId, assignment.ProvisionedAt, assignment.RevokedAt, assignment.FailureReasonCode, assignment.ErrorMessage, assignment.CreatedAt, assignment.UpdatedAt);
+
+    public static AccessControlSystemAuditResponse ToResponse(this PACSSubjectConformityAuditService.PACSSubjectConformityAuditEnqueueSummary summary) =>
+        new(summary.AccessControlSystemId, summary.TotalSubjects, summary.EligibleSubjects, summary.RecentlyAuditedSubjects, summary.EnqueuedSubjects);
 }

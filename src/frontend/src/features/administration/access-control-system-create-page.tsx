@@ -10,6 +10,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Card } from '@/shared/components/ui/card';
 
 type SystemType = '' | 'unipass' | 'lenel';
+type AnomalyBlockMode = components['schemas']['AnomalyBlockMode'];
 type CreateUnipassAccessControlSystemRequest = components['schemas']['CreateUnipassAccessControlSystemRequest'];
 
 type FormValues = {
@@ -18,6 +19,7 @@ type FormValues = {
   sslValidation: boolean;
   username: string;
   password: string;
+  anomalyBlockMode: AnomalyBlockMode;
 };
 
 const systemsQueryKey = ['administration', 'access-control', 'systems'] as const;
@@ -27,6 +29,7 @@ const emptyFormValues: FormValues = {
   sslValidation: true,
   username: '',
   password: '',
+  anomalyBlockMode: 'WarnOnly',
 };
 
 export default function AccessControlSystemCreatePage() {
@@ -70,6 +73,7 @@ export default function AccessControlSystemCreatePage() {
       sslValidation: values.sslValidation,
       username: values.username,
       password: values.password,
+      anomalyBlockMode: values.anomalyBlockMode,
     });
   }
 
@@ -137,10 +141,18 @@ export default function AccessControlSystemCreatePage() {
               </label>
             </div>
 
-            <label className="flex items-center gap-3 text-[14px] font-medium">
-              <input type="checkbox" checked={values.sslValidation} onChange={(event) => updateValue('sslValidation', event.target.checked)} />
-              Validate SSL certificate
-            </label>
+              <label className="flex items-center gap-3 text-[14px] font-medium">
+                <input type="checkbox" checked={values.sslValidation} onChange={(event) => updateValue('sslValidation', event.target.checked)} />
+                Validate SSL certificate
+              </label>
+
+              <label className="grid gap-2 text-[14px] font-medium md:max-w-sm">
+                Anomaly policy
+                <select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={values.anomalyBlockMode} onChange={(event) => updateValue('anomalyBlockMode', event.target.value as AnomalyBlockMode)}>
+                  <option value="WarnOnly">Warn only</option>
+                  <option value="BlockProvisioning">Block provisioning</option>
+                </select>
+              </label>
 
             <div className="flex justify-end">
               <Button type="submit" disabled={createUnipassSystem.isPending}>

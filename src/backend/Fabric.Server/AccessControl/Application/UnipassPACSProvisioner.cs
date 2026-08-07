@@ -10,11 +10,16 @@ namespace Fabric.Server.AccessControl.Application;
 public sealed class UnipassPACSProvisioner(
     AccessControlDbContext db,
     PACSSubjectService subjectService,
+    PACSSubjectConformityAuditService conformityAuditService,
     UnipassApiFactory apiFactory,
     TimeProvider timeProvider)
 {
     public async Task ProvisionAsync(PACSProvisioning provisioning, CancellationToken cancellationToken = default)
     {
+        (PACSSubjectProvisioningBlockStatus blockStatus, string? blockReason) = await subjectService.GetProvisioningBlockAsync(provisioning.IdentityId, provisioning.AccessControlSystemId, cancellationToken);
+        if (blockStatus != PACSSubjectProvisioningBlockStatus.ProvisioningAllowed)
+            return;
+
         AccessControlSystem? system = await db.AccessControlSystems.SingleOrDefaultAsync(item => item.Id == provisioning.AccessControlSystemId, cancellationToken);
         UnipassAccessLevelTarget? target = await db.AccessLevelTargets
             .OfType<UnipassAccessLevelTarget>()
@@ -62,6 +67,7 @@ public sealed class UnipassPACSProvisioner(
 
             provisioning.MarkProvisioned(response.Id, timeProvider.GetUtcNow());
             await db.SaveChangesAsync(cancellationToken);
+            await conformityAuditService.EnqueueAsync(provisioning.IdentityId, provisioning.AccessControlSystemId, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -100,6 +106,7 @@ public sealed class UnipassPACSProvisioner(
             await api.ApplyChangeSet(AssignedAccessRuleChangeSet.Revoke(int.Parse(subject.NativeSubjectId), target.SiteId, int.Parse(provisioning.NativeAssignmentId)), cancellationToken);
             provisioning.MarkRevoked(timeProvider.GetUtcNow());
             await db.SaveChangesAsync(cancellationToken);
+            await conformityAuditService.EnqueueAsync(provisioning.IdentityId, provisioning.AccessControlSystemId, cancellationToken);
         }
         catch (Exception ex)
         {

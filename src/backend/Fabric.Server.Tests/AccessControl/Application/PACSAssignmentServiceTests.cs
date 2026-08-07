@@ -148,6 +148,8 @@ public sealed class PACSAssignmentServiceTests
             scope.TenantContext,
             new PACSProvisioningReconciliationTrigger(),
             null!,
+            null!,
+            null!,
             TimeProvider.System);
 
         return new PACSAssignmentService(
@@ -177,7 +179,7 @@ public sealed class PACSAssignmentServiceTests
         Assert.True(configResult.IsSuccess(out UnipassSystemConfig? config));
         Assert.NotNull(config);
 
-        Result<AccessControlSystem, AccessControlErrors> systemResult = AccessControlSystem.CreateUnipass("Main PACS", config);
+        Result<AccessControlSystem, AccessControlErrors> systemResult = AccessControlSystem.CreateUnipass("Main PACS", config, AnomalyBlockMode.WarnOnly);
         Assert.True(systemResult.IsSuccess(out system));
 
         scope.AccessControlDb.AccessItems.Add(accessItem);

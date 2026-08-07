@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fabric.Server.AccessControl.Application;
 
-public sealed record PACSSubjectProvisioningResult(PACSSubject Subject, PACSSubjectProvisioning? Provisioning);
+public sealed record PACSSubjectProvisioningResult(PACSSubject Subject, PACSSubjectProvisioning? Provisioning, AnomalyBlockMode AnomalyBlockMode);
 
 public sealed class PACSSubjectProvisioningService(
     AccessControlDbContext db,
@@ -78,7 +78,7 @@ public sealed class PACSSubjectProvisioningService(
 
         await db.SaveChangesAsync(cancellationToken);
         PACSSubjectProvisioning? remaining = await ApplyAsync(existing.Id, cancellationToken);
-        return Result.Success<PACSSubjectProvisioningResult, AccessControlErrors>(new PACSSubjectProvisioningResult(subject, remaining));
+        return Result.Success<PACSSubjectProvisioningResult, AccessControlErrors>(new PACSSubjectProvisioningResult(subject, remaining, system.AnomalyBlockMode));
     }
 
     public async Task<PACSSubjectProvisioning?> ApplyAsync(Guid provisioningId, CancellationToken cancellationToken = default)

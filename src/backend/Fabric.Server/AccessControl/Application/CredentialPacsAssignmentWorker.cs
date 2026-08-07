@@ -1,6 +1,7 @@
 using Fabric.Server.Infrastructure.Tenancy;
 using Fabric.Server.AccessControl.Domain;
 using Fabric.Server.AccessControl.Persistence;
+using Fabric.Server.CredentialManagement.Persistence;
 using Fabric.Server.Tenants.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -37,6 +38,7 @@ public sealed class CredentialPacsAssignmentWorker(
                 AccessControlDbContext db = tenantScope.ServiceProvider.GetRequiredService<AccessControlDbContext>();
                 CredentialPACSAssignmentService service = tenantScope.ServiceProvider.GetRequiredService<CredentialPACSAssignmentService>();
                 UnipassCredentialPacsProvisioner provisioner = tenantScope.ServiceProvider.GetRequiredService<UnipassCredentialPacsProvisioner>();
+                PACSSubjectService subjectService = tenantScope.ServiceProvider.GetRequiredService<PACSSubjectService>();
                 DateTimeOffset now = timeProvider.GetUtcNow();
 
                 Guid[] dueIds = await db.CredentialPACSAssignments
@@ -48,7 +50,24 @@ public sealed class CredentialPacsAssignmentWorker(
                     .ToArrayAsync(cancellationToken);
 
                 foreach (Guid assignmentId in dueIds)
+                {
+                    CredentialPACSAssignment? assignment = await db.CredentialPACSAssignments.AsNoTracking().SingleOrDefaultAsync(item => item.Id == assignmentId, cancellationToken);
+                    if (assignment is null)
+                        continue;
+
+                    Guid? identityId = await tenantScope.ServiceProvider.GetRequiredService<CredentialManagementDbContext>().Credentials
+                        .Where(item => item.Id == assignment.CredentialId)
+                        .Select(item => (Guid?)item.IdentityId)
+                        .SingleOrDefaultAsync(cancellationToken);
+                    if (!identityId.HasValue)
+                        continue;
+
+                    (PACSSubjectProvisioningBlockStatus status, _) = await subjectService.GetProvisioningBlockAsync(identityId.Value, assignment.AccessControlSystemId, cancellationToken);
+                    if (status != PACSSubjectProvisioningBlockStatus.ProvisioningAllowed)
+                        continue;
+
                     await provisioner.ApplyAsync(assignmentId, cancellationToken);
+                }
 
                 IReadOnlyList<Guid> revocationIds = await service.GetProvisionedAssignmentIdsNeedingRevocationAsync(cancellationToken);
                 foreach (Guid assignmentId in revocationIds)

@@ -846,6 +846,21 @@ function PacsAssignmentRow({ row, provisioningTitle }: { readonly row: PacsAssig
 
 function KnownInSection({ subjects, isLoading, isError, systemsById }: { readonly subjects: PACSSubjectResponse[]; readonly isLoading: boolean; readonly isError: boolean; readonly systemsById: Map<string, AccessControlSystemResponse>; }) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
+
+  const auditSubject = useMutation({
+    mutationFn: async (subjectId: string) => {
+      const { error } = await api.POST('/api/access-control/subjects/{subjectId}/audit', { params: { path: { subjectId } } });
+      if (error) {
+        throw new Error('Could not start PACS subject audit.');
+      }
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['security-officer', 'identity-360'] });
+      toast.success('PACS subject audit queued. Recent/duplicate audits may be skipped.');
+    },
+    onError: () => toast.error('Could not start PACS subject audit.'),
+  });
 
   if (isError) {
     return <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">{t('identities.detail.couldNotLoadPacsSubjects')}</p>;
@@ -868,13 +883,24 @@ function KnownInSection({ subjects, isLoading, isError, systemsById }: { readonl
               <h2 className="text-[18px] font-semibold tracking-tight">{systemsById.get(subject.accessControlSystemId)?.name ?? subject.accessControlSystemId}</h2>
               <p className="mt-1 text-[14px] text-muted-foreground">{t('identities.detail.nativeSubjectId', { value: subject.nativeSubjectId })}</p>
             </div>
-            <Badge variant={subject.state === 'Active' ? 'success' : subject.state === 'Blocked' ? 'secondary' : 'error'}>{subject.state}</Badge>
+            <div className="flex flex-wrap items-center gap-2 justify-end">
+              <Badge variant={subject.state === 'Active' ? 'success' : subject.state === 'Blocked' ? 'secondary' : 'error'}>{subject.state}</Badge>
+              <Badge variant={subject.conformityStatus === 'Conform' ? 'success' : subject.conformityStatus === 'Anomaly' ? 'error' : 'secondary'}>{subject.conformityStatus}</Badge>
+              <Badge variant={subject.provisioningBlockStatus === 'ProvisioningAllowed' ? 'success' : 'error'}>{subject.provisioningBlockStatus}</Badge>
+              <Button type="button" variant="outline" size="sm" disabled={auditSubject.isPending} onClick={() => auditSubject.mutate(subject.id)}>
+                {auditSubject.isPending ? 'Queueing...' : 'Audit now'}
+              </Button>
+            </div>
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <Info label={t('identities.detail.firstName')} value={subject.firstName} />
             <Info label={t('identities.detail.lastName')} value={subject.lastName} />
             <Info label={t('identities.list.email')} value={subject.email ?? '-'} />
             <Info label={t('identities.detail.lastSynchronized')} value={formatDateTimeLabel(subject.lastSynchronizedAt)} />
+            <Info label="Conformity details" value={subject.conformityDetails ?? '-'} />
+            <Info label="Conformity checked" value={subject.lastConformityCheckedAt ? formatDateTimeLabel(subject.lastConformityCheckedAt) : '-'} />
+            <Info label="Conformity error" value={subject.lastConformityError ?? '-'} />
+            <Info label="Provisioning block reason" value={subject.provisioningBlockedReason ?? '-'} />
           </div>
         </Card>
       ))}

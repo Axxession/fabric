@@ -23,5 +23,6 @@ public enum AccessControlErrors
     PACSSubjectNotFound,
     PACSSubjectProvisioningNotFound,
     CredentialTypeTargetNotFound,
-    CredentialTypeTargetAlreadyExists
+    CredentialTypeTargetAlreadyExists,
+    ProvisioningBlockReasonRequired
 }
