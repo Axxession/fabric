@@ -20,6 +20,7 @@ type PaginationState = {
   readonly lastItem: number;
   readonly totalItems: number;
   readonly totalPages: number;
+  readonly hasNextPage: boolean;
   readonly visiblePages: readonly (number | 'ellipsis')[];
 };
 
@@ -116,7 +117,7 @@ export default function IdentitiesPage() {
             ))}
           </div>
 
-          {pagination.totalPages > 1 ? (
+          {pagination.totalPages > 1 || pagination.hasNextPage ? (
             <div className="mt-6 flex flex-col gap-3 border-t border-border pt-4 text-[14px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
               <p>{t('identities.list.showing', { first: pagination.firstItem, last: pagination.lastItem, total: pagination.totalItems })}</p>
               <Pagination>
@@ -128,7 +129,7 @@ export default function IdentitiesPage() {
                     item === 'ellipsis' ? <PaginationItem key={`ellipsis-${index}`}><PaginationEllipsis /></PaginationItem> : <PaginationItem key={item}><PaginationLink isActive={item === pagination.currentPage} onClick={() => setPage(item)}>{item + 1}</PaginationLink></PaginationItem>
                   ))}
                   <PaginationItem>
-                    <PaginationNext disabled={pagination.currentPage >= pagination.totalPages - 1} onClick={() => { if (pagination.currentPage < pagination.totalPages - 1) setPage(pagination.currentPage + 1); }} />
+                    <PaginationNext disabled={!pagination.hasNextPage} onClick={() => { if (pagination.hasNextPage) setPage(pagination.currentPage + 1); }} />
                   </PaginationItem>
                 </PaginationContent>
               </Pagination>
@@ -168,7 +169,8 @@ function getStatusVariant(status: IdentityStatus) {
 function getPaginationState(response: components['schemas']['PageOfIdentityResponse'] | undefined, itemCount: number, page: number, currentPageSize: number): PaginationState {
   const totalItems = Number(response?.totalItems ?? itemCount);
   const totalPages = Math.max(1, Number(response?.totalPages ?? (currentPageSize > 0 ? Math.ceil(totalItems / currentPageSize) : 1)));
-  const currentPage = Math.min(page, totalPages - 1);
+  const currentPage = Math.min(Number(response?.currentPage ?? page), totalPages - 1);
+  const hasNextPage = response?.isLastPage === undefined ? currentPage < totalPages - 1 : !response.isLastPage;
   const firstItem = itemCount === 0 ? 0 : currentPage * currentPageSize + 1;
   const lastItem = itemCount === 0 ? 0 : firstItem + itemCount - 1;
 
@@ -178,6 +180,7 @@ function getPaginationState(response: components['schemas']['PageOfIdentityRespo
     lastItem,
     totalItems,
     totalPages,
+    hasNextPage,
     visiblePages: buildVisiblePages(currentPage, totalPages),
   };
 }

@@ -1265,7 +1265,7 @@ function getProvisioningSummary(items: readonly PACSProvisioningResponse[]) {
     return { label: i18n.t('identities.detail.notMaterialized'), variant: 'secondary' as const };
   }
 
-  if (items.some((item) => item.status === 'Failed')) {
+  if (items.some((item) => String(item.status) === 'Failed')) {
     return { label: i18n.t('identities.detail.provisioningIssue'), variant: 'error' as const };
   }
 

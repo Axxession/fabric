@@ -31,6 +31,9 @@ const CatalogueEditPage = lazy(() => import('@/features/administration/catalogue
 const CardManagementChipDesignCreatePage = lazy(() => import('@/features/card-management/chip-design-create-page'));
 const CardManagementChipDesignEditPageDesfireStudio = lazy(() => import('@/features/card-management/chip-design-edit-page-desfire-studio'));
 const CardManagementChipDesignerPage = lazy(() => import('@/features/card-management/chip-designer-page'));
+const CardManagementCardEditorPage = lazy(() => import('@/features/card-management/card-editor-page'));
+const CardManagementPrintDesignCreatePage = lazy(() => import('@/features/card-management/print-design-create-page'));
+const CardManagementPrintDesignEditPage = lazy(() => import('@/features/card-management/print-design-form-page'));
 const CardManagementKeyGroupCreatePage = lazy(() => import('@/features/card-management/key-group-create-page'));
 const CardManagementKeyGroupEditPageDesfireStudio = lazy(() => import('@/features/card-management/key-group-edit-page-desfire-studio'));
 const CardManagementKeyManagementPage = lazy(() => import('@/features/card-management/key-management-page'));
@@ -579,6 +582,24 @@ const desfireStudioChipDesignerRoute = createRoute({
   component: () => <ProtectedLazyRoute component={<CardManagementChipDesignerPage />} />,
 });
 
+const desfireStudioCardEditorRoute = createRoute({
+  getParentRoute: () => desfireStudioLayoutRoute,
+  path: '/card-editor',
+  component: () => <ProtectedLazyRoute component={<CardManagementCardEditorPage />} />,
+});
+
+const desfireStudioCardEditorCreateRoute = createRoute({
+  getParentRoute: () => desfireStudioLayoutRoute,
+  path: '/card-editor/new',
+  component: () => <ProtectedLazyRoute component={<CardManagementPrintDesignCreatePage />} />,
+});
+
+const desfireStudioCardEditorEditRoute = createRoute({
+  getParentRoute: () => desfireStudioLayoutRoute,
+  path: '/card-editor/$printDesignId/edit',
+  component: () => <ProtectedLazyRoute component={<CardManagementPrintDesignEditPage />} />,
+});
+
 const desfireStudioChipDesignCreateRoute = createRoute({
   getParentRoute: () => desfireStudioLayoutRoute,
   path: '/chip-designs/new',
@@ -838,6 +859,9 @@ const routeTree = rootRoute.addChildren([
     desfireStudioStrategyCreateRoute,
     desfireStudioStrategyEditRoute,
     desfireStudioChipDesignerRoute,
+    desfireStudioCardEditorRoute,
+    desfireStudioCardEditorCreateRoute,
+    desfireStudioCardEditorEditRoute,
     desfireStudioChipDesignCreateRoute,
     desfireStudioChipDesignEditRoute,
     desfireStudioTransformationCreateRoute,

@@ -23,6 +23,7 @@ export function DesfireStudioLayout({ children }: { readonly children: ReactNode
     { label: t('desfireStudio.menu.hardwareAgents.label'), description: t('desfireStudio.menu.hardwareAgents.description'), to: '/desfire-studio/hardware-agents' },
     { label: t('desfireStudio.menu.keyManagement.label'), description: t('desfireStudio.menu.keyManagement.description'), to: '/desfire-studio/key-management' },
     { label: t('desfireStudio.menu.chipDesigner.label'), description: t('desfireStudio.menu.chipDesigner.description'), to: '/desfire-studio/chip-designer' },
+    { label: t('desfireStudio.menu.cardEditor.label'), description: t('desfireStudio.menu.cardEditor.description'), to: '/desfire-studio/card-editor' },
     { label: t('desfireStudio.menu.printing.label'), description: t('desfireStudio.menu.printing.description'), to: '/desfire-studio/printing' },
   ] as const;
   const currentUserName = actorQuery.data?.displayName ?? readProfileValue(auth.user?.profile.name) ?? readProfileValue(auth.user?.profile.preferred_username) ?? readProfileValue(auth.user?.profile.email) ?? t('common.signedIn');

@@ -24,6 +24,8 @@ using Fabric.Server.Kiosk.Endpoints;
 using Fabric.Server.Locations;
 using Fabric.Server.Locations.Endpoints;
 using Fabric.Server.Notifications;
+using Fabric.Server.Printing;
+using Fabric.Server.Printing.Endpoints;
 using Fabric.Server.Reception;
 using Fabric.Server.Reception.Endpoints;
 using Fabric.Server.Sagas;
@@ -79,6 +81,7 @@ builder.Services
     .SetupVisitors(builder.Configuration)
     .SetupSagas(builder.Configuration)
     .SetupDesfire(builder.Configuration)
+    .SetupPrinting(builder.Configuration)
     .SetupHardware(builder.Configuration)
     .SetupKiosk(builder.Configuration)
     .SetupLocations(builder.Configuration)
@@ -148,6 +151,7 @@ app.MapDesfireEncoderEndpoints();
 app.MapDesfireKeyDiversificationStrategyEndpoints();
 app.MapDesfireKeyGroupEndpoints();
 app.MapDesfireEncodingEndpoints();
+app.MapPrintDesignEndpoints();
 app.MapKioskProfileEndpoints();
 app.MapKioskEndpoints(enableAutomation);
 

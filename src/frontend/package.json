@@ -23,6 +23,7 @@
     "class-variance-authority": "latest",
     "clsx": "latest",
     "date-fns": "^4.4.0",
+    "fabric": "^7.4.0",
     "i18next": "latest",
     "lucide-react": "latest",
     "oidc-client-ts": "^3.5.0",

@@ -5298,6 +5298,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/access-control/subjects/{subjectId}/block-provisioning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    subjectId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["BlockPACSSubjectProvisioningRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PACSSubjectResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/access-control/subjects/{subjectId}/allow-provisioning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    subjectId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PACSSubjectResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/access-control/subjects/{subjectId}/audit": {
         parameters: {
             query?: never;
@@ -10704,6 +10809,206 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/printing/designs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    Name?: string;
+                    MediaLabel?: string;
+                    SurfaceKind?: components["schemas"]["PrintSurfaceKind"];
+                    ids: string[];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PageOfPrintDesignSummaryResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreatePrintDesignRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PrintDesignResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/printing/designs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PrintDesignResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdatePrintDesignRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PrintDesignResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/printing/media/standard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RenderMediaResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/kiosk-profiles": {
         parameters: {
             query?: never;
@@ -13829,16 +14134,6 @@ export interface components {
     schemas: {
         /** @enum {unknown} */
         AccessControlProviderKind: "Unipass";
-        AccessControlSystemConfigurationResponse: components["schemas"]["AccessControlSystemConfigurationResponseUnipassAccessControlSystemConfigurationResponse"];
-        AccessControlSystemConfigurationResponseUnipassAccessControlSystemConfigurationResponse: {
-            /** @enum {string} */
-            type?: "unipass";
-            username: string;
-        };
-        AccessControlSystemDetailsResponse: {
-            system: components["schemas"]["AccessControlSystemResponse"];
-            configuration: components["schemas"]["AccessControlSystemConfigurationResponse"];
-        };
         AccessControlSystemAuditResponse: {
             /** Format: uuid */
             accessControlSystemId: string;
@@ -13850,6 +14145,16 @@ export interface components {
             recentlyAuditedSubjects: number | string;
             /** Format: int32 */
             enqueuedSubjects: number | string;
+        };
+        AccessControlSystemConfigurationResponse: components["schemas"]["AccessControlSystemConfigurationResponseUnipassAccessControlSystemConfigurationResponse"];
+        AccessControlSystemConfigurationResponseUnipassAccessControlSystemConfigurationResponse: {
+            /** @enum {string} */
+            type?: "unipass";
+            username: string;
+        };
+        AccessControlSystemDetailsResponse: {
+            system: components["schemas"]["AccessControlSystemResponse"];
+            configuration: components["schemas"]["AccessControlSystemConfigurationResponse"];
         };
         AccessControlSystemLocationResponse: {
             /** Format: uuid */
@@ -13870,8 +14175,6 @@ export interface components {
             sslValidation: boolean;
             hasSecret: boolean;
         };
-        /** @enum {unknown} */
-        AnomalyBlockMode: "WarnOnly" | "BlockProvisioning";
         /** @enum {unknown} */
         AccessControlSystemStatus: "Active" | "Inactive";
         /** @enum {unknown} */
@@ -14108,6 +14411,8 @@ export interface components {
         };
         /** @enum {unknown} */
         AffiliationStatus: "Active" | "Ended";
+        /** @enum {unknown} */
+        AnomalyBlockMode: "WarnOnly" | "BlockProvisioning";
         ApplicationKeySettingsSpecification: {
             changeKey?: string;
             changeable?: boolean;
@@ -14318,6 +14623,9 @@ export interface components {
         AssignmentChannel: "CatalogRequest" | "AutomaticConfiguration" | "Manual";
         /** @enum {unknown} */
         AssignmentSourceKind: "CatalogRequest" | "OrganizationalUnit" | "Persona" | "ReceptionArrival" | "VisitorLocation" | "Manual";
+        BlockPACSSubjectProvisioningRequest: {
+            reason: string;
+        };
         Bookmark: {
             id?: string;
             name?: string;
@@ -14646,6 +14954,14 @@ export interface components {
         };
         CreatePersonaRequest: {
             name: string;
+        };
+        CreatePrintDesignRequest: {
+            name: string;
+            /** Format: int32 */
+            version: null | number | string;
+            description: null | string;
+            surfaceKind: components["schemas"]["PrintSurfaceKind"];
+            designJson: string;
         };
         CreateReceptionDeskWorkstationRequest: {
             name: string;
@@ -15753,6 +16069,8 @@ export interface components {
             parentId: null | string;
             isActive: boolean;
         };
+        /** @enum {unknown} */
+        Orientation: "Portrait" | "Landscape";
         OutputDefinition: {
             type?: components["schemas"]["Type"];
             name?: string;
@@ -15952,6 +16270,10 @@ export interface components {
         /** @enum {unknown} */
         PACSProvisioningStatus: "Pending" | "Provisioned" | "PendingRevocation";
         /** @enum {unknown} */
+        PACSSubjectConformityStatus: "Unknown" | "Conform" | "Anomaly";
+        /** @enum {unknown} */
+        PACSSubjectProvisioningBlockStatus: "ProvisioningAllowed" | "BlockedManual" | "BlockedByAnomaly";
+        /** @enum {unknown} */
         PACSSubjectProvisioningReason: "ProfileChanged" | "EmployeeLeave" | "EmployeeSuspension" | "EmployeeLifecycleRestored" | "ArchiveRequested" | "Manual";
         PACSSubjectProvisioningResponse: {
             /** Format: uuid */
@@ -16011,10 +16333,6 @@ export interface components {
             /** Format: date-time */
             lastSynchronizedAt: string;
         };
-        /** @enum {unknown} */
-        PACSSubjectConformityStatus: "Unknown" | "Conform" | "Anomaly";
-        /** @enum {unknown} */
-        PACSSubjectProvisioningBlockStatus: "ProvisioningAllowed" | "BlockedManual" | "BlockedByAnomaly";
         /** @enum {unknown} */
         PACSSubjectState: "Active" | "Blocked" | "Archived";
         PagedListResponseOfLinkedWorkflowDefinitionSummary: {
@@ -16515,6 +16833,18 @@ export interface components {
             items?: components["schemas"]["PersonaResponse"][];
             isLastPage?: boolean;
         };
+        PageOfPrintDesignSummaryResponse: {
+            /** Format: int32 */
+            currentPage?: number | string;
+            /** Format: int32 */
+            totalPages?: null | number | string;
+            /** Format: int32 */
+            pageSize?: number | string;
+            /** Format: int32 */
+            totalItems?: null | number | string;
+            items?: components["schemas"]["PrintDesignSummaryResponse"][];
+            isLastPage?: boolean;
+        };
         PageOfReceptionDeskWorkstationResponse: {
             /** Format: int32 */
             currentPage?: number | string;
@@ -16689,12 +17019,47 @@ export interface components {
             beneficiaryIdentityId: string;
             locationIds: string[];
         };
+        PrintDesignResponse: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: int32 */
+            version: number | string;
+            description: null | string;
+            surfaceKind: components["schemas"]["PrintSurfaceKind"];
+            designJson: string;
+            media: components["schemas"]["RenderMediaResponse"];
+            /** Format: int32 */
+            dpi: number | string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PrintDesignSummaryResponse: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: int32 */
+            version: number | string;
+            description: null | string;
+            surfaceKind: components["schemas"]["PrintSurfaceKind"];
+            media: components["schemas"]["RenderMediaResponse"];
+            /** Format: int32 */
+            dpi: number | string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         PrintLabelRequest: {
             template: string;
             /** Format: int32 */
             copies: number | string;
             data: components["schemas"]["JsonObject"];
         };
+        /** @enum {unknown} */
+        PrintSurfaceKind: "Card" | "Label";
         ProblemDetails: {
             type?: null | string;
             title?: null | string;
@@ -16799,6 +17164,14 @@ export interface components {
         RelocateVisitRequest: {
             /** Format: uuid */
             locationId: null | string;
+        };
+        RenderMediaResponse: {
+            label: string;
+            /** Format: double */
+            width: number | string;
+            /** Format: double */
+            height: number | string;
+            orientation: components["schemas"]["Orientation"];
         };
         ReplaceEmployeePersonasRequest: {
             personaIds: string[];
@@ -17169,6 +17542,14 @@ export interface components {
         };
         UpdatePersonaRequest: {
             name: string;
+        };
+        UpdatePrintDesignRequest: {
+            name: string;
+            /** Format: int32 */
+            version: number | string;
+            description: null | string;
+            surfaceKind: components["schemas"]["PrintSurfaceKind"];
+            designJson: string;
         };
         UpdateReceptionDeskWorkstationRequest: {
             name: string;

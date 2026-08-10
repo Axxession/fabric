@@ -37,8 +37,14 @@ export type CreateEncoderRequest = components['schemas']['CreateEncoderRequest']
 export type UpdateEncoderRequest = components['schemas']['UpdateEncoderRequest'];
 export type HardwareAgent = components['schemas']['HardwareAgentResponse'];
 export type HardwareDevice = components['schemas']['HardwareDeviceResponse'];
+export type PrintDesign = components['schemas']['PrintDesignResponse'];
+export type PrintDesignSummary = components['schemas']['PrintDesignSummaryResponse'];
+export type CreatePrintDesignRequest = components['schemas']['CreatePrintDesignRequest'];
+export type UpdatePrintDesignRequest = components['schemas']['UpdatePrintDesignRequest'];
+export type RenderMedia = components['schemas']['RenderMediaResponse'];
+export type PrintSurfaceKind = components['schemas']['PrintSurfaceKind'];
 
-export const chipDesignsQueryKey = ['card-management', 'chip-designs'] as const;
+ export const chipDesignsQueryKey = ['card-management', 'chip-designs'] as const;
 export const transformationsQueryKey = ['card-management', 'transformations'] as const;
 export const systemProvidersQueryKey = ['card-management', 'system-providers'] as const;
 export const printingBatchesQueryKey = ['card-management', 'printing', 'batches'] as const;
@@ -46,6 +52,8 @@ export const printingRunsQueryKey = ['card-management', 'printing', 'runs'] as c
 export const encodersQueryKey = ['card-management', 'printing', 'encoders'] as const;
 export const keyGroupsQueryKey = ['card-management', 'key-groups'] as const;
 export const strategiesQueryKey = ['card-management', 'diversification-strategies'] as const;
+export const printDesignsQueryKey = ['card-management', 'print-designs'] as const;
+export const standardPrintMediaQueryKey = ['card-management', 'print-media', 'standard'] as const;
 
 export const fileModes: FileMode[] = ['Plain', 'Mac', 'Encrypted'];
 export const variableFormatKinds: DesfireVariableFormatKind[] = ['Hex', 'Text', 'UInt', 'PaddedDecimal', 'PaddedHex'];
