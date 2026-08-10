@@ -1,4 +1,6 @@
 using System.IO.Compression;
+using System.Globalization;
+using System.Text.RegularExpressions;
 using Fabric.Server.Printing.Domain;
 using SkiaSharp;
 
@@ -6,6 +8,8 @@ namespace Fabric.Server.Printing.Application;
 
 internal sealed class ImageRenderService : IRenderService
 {
+    private static readonly Regex RgbColorPattern = new(@"^rgba?\((.+)\)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     private readonly ILogger<ImageRenderService> _logger;
     private readonly MailMerge _mailMerge;
     private readonly FontProvider _fontProvider;
@@ -446,12 +450,93 @@ internal sealed class ImageRenderService : IRenderService
 
         try
         {
-            return SKColor.Parse(colorValue.Trim());
+            string normalized = colorValue.Trim();
+
+            if (TryParseCssRgbColor(normalized, out SKColor cssColor))
+                return cssColor;
+
+            return SKColor.Parse(normalized);
         }
         catch (Exception exception)
         {
             _logger.LogDebug(exception, "Failed to parse color '{ColorValue}'. Using fallback.", colorValue);
             return fallback;
         }
+    }
+
+    private static bool TryParseCssRgbColor(string colorValue, out SKColor color)
+    {
+        color = default;
+
+        Match match = RgbColorPattern.Match(colorValue);
+        if (!match.Success)
+            return false;
+
+        string[] parts = match.Groups[1].Value.Split(',');
+        if (parts.Length is not 3 and not 4)
+            return false;
+
+        if (!TryParseRgbChannel(parts[0], out byte red)
+            || !TryParseRgbChannel(parts[1], out byte green)
+            || !TryParseRgbChannel(parts[2], out byte blue))
+            return false;
+
+        byte alpha = 255;
+        if (parts.Length == 4 && !TryParseAlphaChannel(parts[3], out alpha))
+            return false;
+
+        color = new SKColor(red, green, blue, alpha);
+        return true;
+    }
+
+    private static bool TryParseRgbChannel(string value, out byte channel)
+    {
+        channel = 0;
+        string normalized = value.Trim();
+
+        if (normalized.EndsWith("%", StringComparison.Ordinal))
+        {
+            if (!double.TryParse(normalized[..^1], CultureInfo.InvariantCulture, out double percent) || percent is < 0 or > 100)
+                return false;
+
+            channel = (byte)Math.Round(percent / 100d * 255d);
+            return true;
+        }
+
+        if (!int.TryParse(normalized, CultureInfo.InvariantCulture, out int intValue) || intValue is < 0 or > 255)
+            return false;
+
+        channel = (byte)intValue;
+        return true;
+    }
+
+    private static bool TryParseAlphaChannel(string value, out byte alpha)
+    {
+        alpha = 255;
+        string normalized = value.Trim();
+
+        if (normalized.EndsWith("%", StringComparison.Ordinal))
+        {
+            if (!double.TryParse(normalized[..^1], CultureInfo.InvariantCulture, out double percent) || percent is < 0 or > 100)
+                return false;
+
+            alpha = (byte)Math.Round(percent / 100d * 255d);
+            return true;
+        }
+
+        if (!double.TryParse(normalized, CultureInfo.InvariantCulture, out double numericValue))
+            return false;
+
+        if (numericValue is >= 0 and <= 1)
+        {
+            alpha = (byte)Math.Round(numericValue * 255d);
+            return true;
+        }
+
+        if (numericValue is < 0 or > 255)
+            return false;
+
+        alpha = (byte)Math.Round(numericValue);
+        return true;
     }
 }

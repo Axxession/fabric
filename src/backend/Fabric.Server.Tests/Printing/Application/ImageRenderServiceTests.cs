@@ -78,6 +78,42 @@ public sealed class ImageRenderServiceTests
         Assert.Equal("render-002.png", archive.Entries[1].Name);
     }
 
+    [Fact(DisplayName = "RenderAsync_WhenTextUsesCssRgbColor_RendersNonBlackText")]
+    public async Task RenderAsync_WhenTextUsesCssRgbColor_RendersNonBlackText()
+    {
+        ImageRenderService service = CreateService(new RenderProfile
+        {
+            Target = RenderTarget.BmpImage,
+            Dpi = 300,
+            Background = "#FFFFFF"
+        });
+
+        RenderedDocument document = await service.RenderAsync(
+            new Dictionary<string, string>(),
+            new PrintTemplate
+            {
+                Dpi = 300,
+                Media = new RenderMedia(40, 20, Orientation.Landscape, "Badge"),
+                Objects =
+                [
+                    new TemplateObject
+                    {
+                        Type = "text",
+                        Text = "Color",
+                        Left = 10,
+                        Top = 10,
+                        Width = 120,
+                        Height = 20,
+                        FontSize = 14,
+                        Fill = "rgb(255, 0, 0)"
+                    }
+                ]
+            },
+            CancellationToken.None);
+
+        Assert.True(ContainsPredominantlyRedPixel(document.Content));
+    }
+
     private ImageRenderService CreateService(RenderProfile profile) => new(
         NullLogger<ImageRenderService>.Instance,
         _mailMerge,
@@ -109,4 +145,29 @@ public sealed class ImageRenderServiceTests
             }
         ]
     };
+
+    private static bool ContainsPredominantlyRedPixel(byte[] bmp)
+    {
+        int pixelOffset = BitConverter.ToInt32(bmp, 10);
+        int width = BitConverter.ToInt32(bmp, 18);
+        int height = BitConverter.ToInt32(bmp, 22);
+        int rowSize = ((24 * width + 31) / 32) * 4;
+
+        for (int y = 0; y < height; y++)
+        {
+            int rowStart = pixelOffset + y * rowSize;
+            for (int x = 0; x < width; x++)
+            {
+                int pixelStart = rowStart + x * 3;
+                byte blue = bmp[pixelStart];
+                byte green = bmp[pixelStart + 1];
+                byte red = bmp[pixelStart + 2];
+
+                if (red > 0 && red > green && red > blue)
+                    return true;
+            }
+        }
+
+        return false;
+    }
 }
