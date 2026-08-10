@@ -52,6 +52,8 @@
     <PackageVersion Include="PCSC.Iso7816" Version="7.0.1" />
     <PackageVersion Include="QRCoder" Version="1.7.0" />
     <PackageVersion Include="Riok.Mapperly" Version="4.3.1" />
+    <PackageVersion Include="SkiaSharp" Version="2.88.9" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="2.88.9" />
     <PackageVersion Include="System.IO.Ports" Version="10.0.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />

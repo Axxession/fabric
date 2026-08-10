@@ -11,3 +11,10 @@ public enum Orientation
     Portrait,
     Landscape
 }
+
+public enum RenderTarget
+{
+    BmpImage,
+    PngImage,
+    JpegImage
+}

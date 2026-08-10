@@ -16,6 +16,8 @@ export const FALLBACK_FONTS = [
   'DejaVu Sans',
 ] as const;
 
+const MAIL_MERGE_PATTERN = /\{\{(.*?)\}\}/g;
+
 export function mmToPx(mm: number) {
   return Math.round((mm / 25.4) * CARD_EDITOR_DPI);
 }
@@ -86,6 +88,21 @@ export function buildTemplateJson(media: CardSize, objects: object[]): TemplateJ
   };
 }
 
+export function detectTemplateFields(designJson: string) {
+  if (!designJson.trim()) {
+    return [] as string[];
+  }
+
+  try {
+    const parsed = JSON.parse(designJson) as unknown;
+    const fields = new Set<string>();
+    collectTemplateFields(parsed, fields);
+    return [...fields].sort((left, right) => left.localeCompare(right));
+  } catch {
+    return [] as string[];
+  }
+}
+
 function isCardSizeLike(value: unknown): value is CardSize {
   if (!value || typeof value !== 'object') {
     return false;
@@ -96,4 +113,32 @@ function isCardSizeLike(value: unknown): value is CardSize {
     && typeof candidate.width === 'number'
     && typeof candidate.height === 'number'
     && typeof candidate.orientation === 'string';
+}
+
+function collectTemplateFields(value: unknown, fields: Set<string>) {
+  if (typeof value === 'string') {
+    for (const match of value.matchAll(MAIL_MERGE_PATTERN)) {
+      const key = match[1]?.trim();
+      if (key) {
+        fields.add(key);
+      }
+    }
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectTemplateFields(item, fields));
+    return;
+  }
+
+  if (!value || typeof value !== 'object') {
+    return;
+  }
+
+  const candidate = value as { fieldType?: unknown; dataField?: unknown };
+  if (candidate.fieldType === 'image-placeholder' && typeof candidate.dataField === 'string' && candidate.dataField.trim()) {
+    fields.add(candidate.dataField.trim());
+  }
+
+  Object.values(value).forEach((item) => collectTemplateFields(item, fields));
 }

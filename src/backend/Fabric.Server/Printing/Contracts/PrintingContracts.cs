@@ -10,9 +10,34 @@ public sealed record ListPrintDesignsRequest : BaseListRequest
     public PrintSurfaceKind? SurfaceKind { get; init; }
 }
 
-public sealed record CreatePrintDesignRequest(string Name, int? Version, string? Description, PrintSurfaceKind SurfaceKind, string DesignJson);
+public sealed record RenderProfileRequest(RenderTarget Target, int Dpi, string? Background = null, int? Quality = null);
 
-public sealed record UpdatePrintDesignRequest(string Name, int Version, string? Description, PrintSurfaceKind SurfaceKind, string DesignJson);
+public sealed record CreatePrintDesignRequest(
+    string Name,
+    int? Version,
+    string? Description,
+    PrintSurfaceKind SurfaceKind,
+    string DesignJson,
+    RenderProfileRequest? DefaultRenderProfile = null);
+
+public sealed record UpdatePrintDesignRequest(
+    string Name,
+    int Version,
+    string? Description,
+    PrintSurfaceKind SurfaceKind,
+    string DesignJson,
+    RenderProfileRequest? DefaultRenderProfile = null);
+
+public sealed record PreviewPrintDesignRequest(
+    Dictionary<string, string> Data,
+    RenderProfileRequest? RenderProfile = null);
+
+public sealed record PreviewPrintTemplateRequest(
+    string DesignJson,
+    Dictionary<string, string> Data,
+    RenderProfileRequest? RenderProfile = null);
+
+public sealed record RenderProfileResponse(RenderTarget Target, int Dpi, string? Background = null, int? Quality = null);
 
 public sealed record RenderMediaResponse(string Label, double Width, double Height, Orientation Orientation);
 
@@ -36,5 +61,6 @@ public sealed record PrintDesignResponse(
     string DesignJson,
     RenderMediaResponse Media,
     int Dpi,
+    RenderProfileResponse? DefaultRenderProfile,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);

@@ -15,6 +15,7 @@ public sealed class PrintDesign
     public double MediaHeight { get; private set; }
     public Orientation MediaOrientation { get; private set; }
     public int Dpi { get; private set; }
+    public RenderProfile? DefaultRenderProfile { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
@@ -29,6 +30,7 @@ public sealed class PrintDesign
         double mediaHeight,
         Orientation mediaOrientation,
         int dpi,
+        RenderProfile? defaultRenderProfile,
         DateTimeOffset now) => new()
     {
         Id = Guid.NewGuid(),
@@ -42,6 +44,7 @@ public sealed class PrintDesign
         MediaHeight = mediaHeight,
         MediaOrientation = mediaOrientation,
         Dpi = dpi,
+        DefaultRenderProfile = defaultRenderProfile,
         CreatedAt = now,
         UpdatedAt = now
     };
@@ -57,6 +60,7 @@ public sealed class PrintDesign
         double mediaHeight,
         Orientation mediaOrientation,
         int dpi,
+        RenderProfile? defaultRenderProfile,
         DateTimeOffset now)
     {
         Name = name.Trim();
@@ -69,8 +73,17 @@ public sealed class PrintDesign
         MediaHeight = mediaHeight;
         MediaOrientation = mediaOrientation;
         Dpi = dpi;
+        DefaultRenderProfile = defaultRenderProfile;
         UpdatedAt = now;
     }
 
     private static string? NormalizeOptional(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+}
+
+public readonly record struct RenderProfile
+{
+    public RenderTarget Target { get; init; }
+    public int Dpi { get; init; }
+    public string? Background { get; init; }
+    public int? Quality { get; init; }
 }

@@ -41,7 +41,11 @@ export type PrintDesign = components['schemas']['PrintDesignResponse'];
 export type PrintDesignSummary = components['schemas']['PrintDesignSummaryResponse'];
 export type CreatePrintDesignRequest = components['schemas']['CreatePrintDesignRequest'];
 export type UpdatePrintDesignRequest = components['schemas']['UpdatePrintDesignRequest'];
+export type PreviewPrintTemplateRequest = components['schemas']['PreviewPrintTemplateRequest'];
 export type RenderMedia = components['schemas']['RenderMediaResponse'];
+export type RenderProfile = components['schemas']['RenderProfileResponse'];
+export type RenderProfileRequest = components['schemas']['RenderProfileRequest'];
+export type RenderTarget = components['schemas']['RenderTarget'];
 export type PrintSurfaceKind = components['schemas']['PrintSurfaceKind'];
 
  export const chipDesignsQueryKey = ['card-management', 'chip-designs'] as const;

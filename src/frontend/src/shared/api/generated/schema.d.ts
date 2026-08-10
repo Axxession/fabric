@@ -10974,6 +10974,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/printing/designs/{id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PreviewPrintDesignRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "image/bmp": string;
+                        "image/png": string;
+                        "image/jpeg": string;
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        get?: never;
+        put?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/printing/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PreviewPrintTemplateRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "image/bmp": string;
+                        "image/png": string;
+                        "image/jpeg": string;
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        get?: never;
+        put?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/printing/media/standard": {
         parameters: {
             query?: never;
@@ -14962,6 +15067,7 @@ export interface components {
             description: null | string;
             surfaceKind: components["schemas"]["PrintSurfaceKind"];
             designJson: string;
+            defaultRenderProfile?: null | components["schemas"]["RenderProfileRequest"];
         };
         CreateReceptionDeskWorkstationRequest: {
             name: string;
@@ -17019,6 +17125,19 @@ export interface components {
             beneficiaryIdentityId: string;
             locationIds: string[];
         };
+        PreviewPrintDesignRequest: {
+            data: {
+                [key: string]: string;
+            };
+            renderProfile?: null | components["schemas"]["RenderProfileRequest"];
+        };
+        PreviewPrintTemplateRequest: {
+            designJson: string;
+            data: {
+                [key: string]: string;
+            };
+            renderProfile?: null | components["schemas"]["RenderProfileRequest"];
+        };
         PrintDesignResponse: {
             /** Format: uuid */
             id: string;
@@ -17031,6 +17150,7 @@ export interface components {
             media: components["schemas"]["RenderMediaResponse"];
             /** Format: int32 */
             dpi: number | string;
+            defaultRenderProfile?: null | components["schemas"]["RenderProfileResponse"];
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -17058,6 +17178,24 @@ export interface components {
             copies: number | string;
             data: components["schemas"]["JsonObject"];
         };
+        RenderProfileRequest: {
+            target: components["schemas"]["RenderTarget"];
+            /** Format: int32 */
+            dpi: number | string;
+            background?: null | string;
+            /** Format: int32 */
+            quality?: null | number | string;
+        };
+        RenderProfileResponse: {
+            target: components["schemas"]["RenderTarget"];
+            /** Format: int32 */
+            dpi: number | string;
+            background?: null | string;
+            /** Format: int32 */
+            quality?: null | number | string;
+        };
+        /** @enum {unknown} */
+        RenderTarget: "BmpImage" | "PngImage" | "JpegImage";
         /** @enum {unknown} */
         PrintSurfaceKind: "Card" | "Label";
         ProblemDetails: {
@@ -17550,6 +17688,7 @@ export interface components {
             description: null | string;
             surfaceKind: components["schemas"]["PrintSurfaceKind"];
             designJson: string;
+            defaultRenderProfile?: null | components["schemas"]["RenderProfileRequest"];
         };
         UpdateReceptionDeskWorkstationRequest: {
             name: string;

@@ -18,6 +18,14 @@ public static class PrintDesignEndpoints
         designs.MapGet("/{id:guid}", GetPrintDesign).Produces<PrintDesignResponse>().Produces(StatusCodes.Status404NotFound);
         designs.MapPut("/{id:guid}", UpdatePrintDesign).Produces<PrintDesignResponse>().Produces(StatusCodes.Status404NotFound);
         designs.MapDelete("/{id:guid}", DeletePrintDesign).Produces(StatusCodes.Status204NoContent).Produces(StatusCodes.Status404NotFound);
+        designs.MapPost("/{id:guid}/preview", PreviewPrintDesign)
+            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status404NotFound);
+
+        app.MapPost("/api/printing/preview", PreviewPrintTemplate)
+            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status400BadRequest);
 
         RouteGroupBuilder media = app.MapGroup("/api/printing/media");
         media.MapGet("/standard", ListStandardMedia).Produces<RenderMediaResponse[]>();
@@ -65,6 +73,9 @@ public static class PrintDesignEndpoints
         TimeProvider timeProvider,
         CancellationToken cancellationToken = default)
     {
+        if (!TryValidateRenderProfile(request.DefaultRenderProfile, out IResult? renderProfileError))
+            return renderProfileError!;
+
         if (!TryBuildDesignMetadata(request.DesignJson, parser, out PrintTemplate? template, out IResult? errorResult))
             return errorResult!;
 
@@ -74,6 +85,7 @@ public static class PrintDesignEndpoints
             return Results.Problem("Print design version already exists.", statusCode: StatusCodes.Status409Conflict);
 
         DateTimeOffset now = timeProvider.GetUtcNow();
+        RenderProfile? defaultRenderProfile = request.DefaultRenderProfile?.ToDomain();
         PrintDesign design = PrintDesign.Create(
             request.Name,
             version,
@@ -85,6 +97,7 @@ public static class PrintDesignEndpoints
             template.Media.Height,
             template.Media.Orientation,
             template.Dpi,
+            defaultRenderProfile,
             now);
 
         db.PrintDesigns.Add(design);
@@ -110,12 +123,17 @@ public static class PrintDesignEndpoints
         if (design is null)
             return Results.NotFound();
 
+        if (!TryValidateRenderProfile(request.DefaultRenderProfile, out IResult? renderProfileError))
+            return renderProfileError!;
+
         if (!TryBuildDesignMetadata(request.DesignJson, parser, out PrintTemplate? template, out IResult? errorResult))
             return errorResult!;
 
         bool exists = await db.PrintDesigns.AnyAsync(item => item.Id != id && item.Name == request.Name && item.Version == request.Version, cancellationToken);
         if (exists)
             return Results.Problem("Print design version already exists.", statusCode: StatusCodes.Status409Conflict);
+
+        RenderProfile? defaultRenderProfile = request.DefaultRenderProfile?.ToDomain();
 
         design.Update(
             request.Name,
@@ -128,6 +146,7 @@ public static class PrintDesignEndpoints
             template.Media.Height,
             template.Media.Orientation,
             template.Dpi,
+            defaultRenderProfile,
             timeProvider.GetUtcNow());
 
         await db.SaveChangesAsync(cancellationToken);
@@ -143,6 +162,46 @@ public static class PrintDesignEndpoints
         db.PrintDesigns.Remove(design);
         await db.SaveChangesAsync(cancellationToken);
         return Results.NoContent();
+    }
+
+    private static async Task<IResult> PreviewPrintDesign(
+        Guid id,
+        [FromBody] PreviewPrintDesignRequest request,
+        PrintingDbContext db,
+        PrintDesignParser parser,
+        RenderProfileResolver renderProfileResolver,
+        RenderServiceFactory renderServiceFactory,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryValidateRenderProfile(request.RenderProfile, out IResult? renderProfileError, "Render profile"))
+            return renderProfileError!;
+
+        PrintDesign? design = await db.PrintDesigns.AsNoTracking().SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (design is null)
+            return Results.NotFound();
+
+        if (!TryBuildDesignMetadata(design.DesignJson, parser, out PrintTemplate? template, out IResult? templateError))
+            return templateError!;
+
+        RenderProfile effectiveProfile = renderProfileResolver.Resolve(request.RenderProfile?.ToDomain(), design.DefaultRenderProfile);
+        return await RenderPreviewAsync(request.Data, template!, effectiveProfile, renderServiceFactory, cancellationToken);
+    }
+
+    private static async Task<IResult> PreviewPrintTemplate(
+        [FromBody] PreviewPrintTemplateRequest request,
+        PrintDesignParser parser,
+        RenderProfileResolver renderProfileResolver,
+        RenderServiceFactory renderServiceFactory,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryValidateRenderProfile(request.RenderProfile, out IResult? renderProfileError, "Render profile"))
+            return renderProfileError!;
+
+        if (!TryBuildDesignMetadata(request.DesignJson, parser, out PrintTemplate? template, out IResult? templateError))
+            return templateError!;
+
+        RenderProfile effectiveProfile = renderProfileResolver.Resolve(request.RenderProfile?.ToDomain(), null);
+        return await RenderPreviewAsync(request.Data, template!, effectiveProfile, renderServiceFactory, cancellationToken);
     }
 
     private static IResult ListStandardMedia() => Results.Ok(StandardMedia.All.Select(item => item.ToResponse()).ToArray());
@@ -169,6 +228,40 @@ public static class PrintDesignEndpoints
         }
 
         return true;
+    }
+
+    private static bool TryValidateRenderProfile(RenderProfileRequest? profile, out IResult? errorResult, string profileLabel = "Default render profile")
+    {
+        errorResult = null;
+
+        if (profile is null)
+            return true;
+
+        if (profile.Dpi <= 0)
+        {
+            errorResult = Results.Problem($"{profileLabel} DPI must be positive.", statusCode: StatusCodes.Status400BadRequest);
+            return false;
+        }
+
+        if (profile.Quality is < 0 or > 100)
+        {
+            errorResult = Results.Problem($"{profileLabel} quality must be between 0 and 100.", statusCode: StatusCodes.Status400BadRequest);
+            return false;
+        }
+
+        return true;
+    }
+
+    private static async Task<IResult> RenderPreviewAsync(
+        IReadOnlyDictionary<string, string> data,
+        PrintTemplate template,
+        RenderProfile effectiveProfile,
+        RenderServiceFactory renderServiceFactory,
+        CancellationToken cancellationToken)
+    {
+        IRenderService renderService = renderServiceFactory.Create(effectiveProfile);
+        RenderedDocument document = await renderService.RenderAsync(data, template, cancellationToken);
+        return Results.File(document.Content, document.ContentType, document.FileName);
     }
 
     private static async Task<int> GetNextVersionAsync(string name, PrintingDbContext db, CancellationToken cancellationToken)

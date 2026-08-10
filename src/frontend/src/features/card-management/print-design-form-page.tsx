@@ -1,20 +1,35 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
-import { ArrowLeft, Save } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, RefreshCcw, Save } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
-import { api } from '@/shared/api/client';
+import { api, apiBaseUrl, getAccessToken } from '@/shared/api/client';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Input } from '@/shared/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 
 import { CardEditor, type CardEditorHandle } from './card-editor/card-editor';
 import type { CardSize } from './card-editor/card-editor.types';
-import { printDesignsQueryKey, standardPrintMediaQueryKey, type CreatePrintDesignRequest, type PrintDesign, type PrintSurfaceKind, type RenderMedia, type UpdatePrintDesignRequest } from './card-management-types';
+import { detectTemplateFields } from './card-editor/card-editor.utils';
+import { printDesignsQueryKey, standardPrintMediaQueryKey, type CreatePrintDesignRequest, type PreviewPrintTemplateRequest, type PrintDesign, type RenderMedia, type RenderProfile, type RenderProfileRequest, type RenderTarget, type UpdatePrintDesignRequest } from './card-management-types';
 
 type Mode = 'create' | 'edit';
+type RenderProfileFormState = {
+  target: RenderTarget;
+  dpi: string;
+  background: string;
+  quality: string;
+};
+
+const DEFAULT_RENDER_PROFILE: RenderProfileFormState = {
+  target: 'BmpImage',
+  dpi: '300',
+  background: '#FFFFFF',
+  quality: '',
+};
 
 export function PrintDesignCreatePage() {
   return <PrintDesignFormPage mode="create" />;
@@ -33,6 +48,14 @@ function PrintDesignFormPage({ mode, printDesignId }: { readonly mode: Mode; rea
   const [name, setName] = useState('');
   const [version, setVersion] = useState('');
   const [description, setDescription] = useState('');
+  const [renderProfile, setRenderProfile] = useState<RenderProfileFormState>(DEFAULT_RENDER_PROFILE);
+  const [previewFields, setPreviewFields] = useState<string[]>([]);
+  const [previewData, setPreviewData] = useState<Record<string, string>>({});
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewContentType, setPreviewContentType] = useState<string | null>(null);
+  const [previewFileName, setPreviewFileName] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const previewObjectUrlRef = useRef<string | null>(null);
 
   const standardMediaQuery = useQuery({
     queryKey: standardPrintMediaQueryKey,
@@ -69,7 +92,15 @@ function PrintDesignFormPage({ mode, printDesignId }: { readonly mode: Mode; rea
     setName(printDesign.name);
     setVersion(String(printDesign.version));
     setDescription(printDesign.description ?? '');
+    setRenderProfile(toRenderProfileFormState(printDesign.defaultRenderProfile));
+    syncPreviewFields(printDesign.designJson);
   }, [printDesign]);
+
+  useEffect(() => {
+    return () => {
+      revokePreviewUrl(previewObjectUrlRef);
+    };
+  }, []);
 
   const savePrintDesign = useMutation({
     mutationFn: async (request: CreatePrintDesignRequest | UpdatePrintDesignRequest) => {
@@ -101,6 +132,47 @@ function PrintDesignFormPage({ mode, printDesignId }: { readonly mode: Mode; rea
     onError: () => toast.error(mode === 'create' ? t('cardManagement.printDesignForm.createFailed') : t('cardManagement.printDesignForm.updateFailed')),
   });
 
+  const previewMutation = useMutation({
+    mutationFn: async (request: PreviewPrintTemplateRequest) => {
+      const accessToken = getAccessToken();
+      const response = await fetch(`${apiBaseUrl || ''}/api/printing/preview`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify(request),
+      });
+
+      if (!response.ok) {
+        throw new Error('Could not render print preview.');
+      }
+
+      const blob = await response.blob();
+      return {
+        blob,
+        contentType: response.headers.get('content-type') ?? blob.type,
+        fileName: parseFileName(response.headers.get('content-disposition')),
+      };
+    },
+    onSuccess: ({ blob, contentType, fileName }) => {
+      revokePreviewUrl(previewObjectUrlRef);
+      const nextPreviewUrl = URL.createObjectURL(blob);
+      previewObjectUrlRef.current = nextPreviewUrl;
+      setPreviewUrl(nextPreviewUrl);
+      setPreviewContentType(contentType || null);
+      setPreviewFileName(fileName);
+      setPreviewError(null);
+    },
+    onError: () => {
+      setPreviewError(t('cardManagement.printDesignForm.previewFailed'));
+      revokePreviewUrl(previewObjectUrlRef);
+      setPreviewUrl(null);
+      setPreviewContentType(null);
+      setPreviewFileName(null);
+    },
+  });
+
   function submit() {
     const designJson = editorRef.current?.serialize() ?? '';
     if (!designJson) {
@@ -113,6 +185,12 @@ function PrintDesignFormPage({ mode, printDesignId }: { readonly mode: Mode; rea
       return;
     }
 
+    const nextRenderProfile = toRenderProfileRequest(renderProfile);
+    if (!nextRenderProfile) {
+      toast.error(t('cardManagement.printDesignForm.renderProfileInvalid'));
+      return;
+    }
+
     if (mode === 'create') {
       savePrintDesign.mutate({
         name: name.trim(),
@@ -120,6 +198,7 @@ function PrintDesignFormPage({ mode, printDesignId }: { readonly mode: Mode; rea
         description: description.trim() || null,
         surfaceKind: 'Card',
         designJson,
+        defaultRenderProfile: nextRenderProfile,
       });
       return;
     }
@@ -130,7 +209,49 @@ function PrintDesignFormPage({ mode, printDesignId }: { readonly mode: Mode; rea
       description: description.trim() || null,
       surfaceKind: 'Card',
       designJson,
+      defaultRenderProfile: nextRenderProfile,
     });
+  }
+
+  function refreshPreviewFields() {
+    const designJson = editorRef.current?.serialize() ?? printDesign?.designJson ?? '';
+    syncPreviewFields(designJson);
+  }
+
+  function preview() {
+    const designJson = editorRef.current?.serialize() ?? '';
+    if (!designJson) {
+      toast.error(t('cardManagement.printDesignForm.emptyDesign'));
+      return;
+    }
+
+    syncPreviewFields(designJson);
+
+    const nextRenderProfile = toRenderProfileRequest(renderProfile);
+    if (!nextRenderProfile) {
+      toast.error(t('cardManagement.printDesignForm.renderProfileInvalid'));
+      return;
+    }
+
+    setPreviewError(null);
+    previewMutation.mutate({
+      designJson,
+      data: previewData,
+      renderProfile: nextRenderProfile,
+    });
+  }
+
+  function syncPreviewFields(designJson: string) {
+    const detectedFields = detectTemplateFields(designJson);
+    setPreviewFields(detectedFields);
+    setPreviewData((current) => {
+      const next: Record<string, string> = {};
+      detectedFields.forEach((field) => {
+        next[field] = current[field] ?? '';
+      });
+      return next;
+    });
+    return detectedFields;
   }
 
   return (
@@ -161,18 +282,115 @@ function PrintDesignFormPage({ mode, printDesignId }: { readonly mode: Mode; rea
             </label>
           </div>
 
-          {standardMediaQuery.isLoading || (mode === 'edit' && printDesignQuery.isLoading) ? <p className="text-[14px] text-muted-foreground">{t('cardManagement.printDesignForm.loading')}</p> : null}
-          {!standardMediaQuery.isLoading && (mode === 'create' || printDesign) ? (
-            <CardEditor
-              ref={editorRef}
-              cardSizes={cardSizes}
-              profile="id-card"
-              initialTemplate={printDesign?.designJson ?? null}
-              onSave={() => {
-                toast.success(t('cardManagement.printDesignForm.editorSaved'));
-              }}
-            />
-          ) : null}
+          <Card className="border-border/70">
+            <CardHeader>
+              <CardTitle>{t('cardManagement.printDesignForm.renderProfileTitle')}</CardTitle>
+              <CardDescription>{t('cardManagement.printDesignForm.renderProfileDescription')}</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <label className="grid gap-2 text-[14px] font-medium">
+                <span>{t('cardManagement.printDesignForm.renderTarget')}</span>
+                <select
+                  className="h-9 rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary"
+                  value={renderProfile.target}
+                  onChange={(event) => setRenderProfile((current) => ({ ...current, target: event.target.value as RenderTarget }))}
+                >
+                  <option value="BmpImage">BMP</option>
+                  <option value="PngImage">PNG</option>
+                  <option value="JpegImage">JPEG</option>
+                </select>
+              </label>
+              <label className="grid gap-2 text-[14px] font-medium">
+                <span>{t('cardManagement.printDesignForm.renderDpi')}</span>
+                <Input type="number" min={1} value={renderProfile.dpi} onChange={(event) => setRenderProfile((current) => ({ ...current, dpi: event.target.value }))} />
+              </label>
+              <label className="grid gap-2 text-[14px] font-medium">
+                <span>{t('cardManagement.printDesignForm.renderBackground')}</span>
+                <input type="color" value={renderProfile.background} onChange={(event) => setRenderProfile((current) => ({ ...current, background: event.target.value }))} className="h-10 w-full rounded-interactive border border-border bg-content p-1" />
+              </label>
+              <label className="grid gap-2 text-[14px] font-medium">
+                <span>{t('cardManagement.printDesignForm.renderQuality')}</span>
+                <Input type="number" min={0} max={100} value={renderProfile.quality} onChange={(event) => setRenderProfile((current) => ({ ...current, quality: event.target.value }))} placeholder="90" />
+              </label>
+            </CardContent>
+          </Card>
+
+          <Tabs defaultValue="edit">
+            <TabsList className="w-fit">
+              <TabsTrigger value="edit">{t('cardManagement.printDesignForm.editTab')}</TabsTrigger>
+              <TabsTrigger value="preview">{t('cardManagement.printDesignForm.previewTab')}</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="edit" forceMount className="grid gap-6 data-[state=inactive]:hidden">
+              {standardMediaQuery.isLoading || (mode === 'edit' && printDesignQuery.isLoading) ? <p className="text-[14px] text-muted-foreground">{t('cardManagement.printDesignForm.loading')}</p> : null}
+              {!standardMediaQuery.isLoading && (mode === 'create' || printDesign) ? (
+                <CardEditor
+                  ref={editorRef}
+                  cardSizes={cardSizes}
+                  profile="id-card"
+                  initialTemplate={printDesign?.designJson ?? null}
+                  onSave={(designJson) => {
+                    syncPreviewFields(designJson);
+                    toast.success(t('cardManagement.printDesignForm.editorSaved'));
+                  }}
+                />
+              ) : null}
+            </TabsContent>
+
+            <TabsContent value="preview" forceMount className="grid gap-6 data-[state=inactive]:hidden xl:grid-cols-[22rem_minmax(0,1fr)]">
+              <Card className="border-border/70">
+                <CardHeader>
+                  <CardTitle>{t('cardManagement.printDesignForm.previewFieldsTitle')}</CardTitle>
+                  <CardDescription>{t('cardManagement.printDesignForm.previewFieldsDescription')}</CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[13px] text-muted-foreground">{t('cardManagement.printDesignForm.previewDescription')}</p>
+                    <Button type="button" variant="outline" size="sm" onClick={refreshPreviewFields}>
+                      <RefreshCcw className="size-4" aria-hidden="true" />
+                      {t('cardManagement.printDesignForm.refreshFields')}
+                    </Button>
+                  </div>
+
+                  {previewFields.length === 0 ? <p className="text-[14px] text-muted-foreground">{t('cardManagement.printDesignForm.noPreviewFields')}</p> : null}
+
+                  {previewFields.map((field) => (
+                    <label key={field} className="grid gap-2 text-[14px] font-medium">
+                      <span>{field}</span>
+                      <Input value={previewData[field] ?? ''} onChange={(event) => setPreviewData((current) => ({ ...current, [field]: event.target.value }))} />
+                    </label>
+                  ))}
+
+                  <Button type="button" variant="outline" onClick={preview} disabled={previewMutation.isPending || standardMediaQuery.isLoading || (mode === 'edit' && printDesignQuery.isLoading)}>
+                    {previewMutation.isPending ? t('cardManagement.printDesignForm.previewLoading') : t('cardManagement.printDesignForm.previewAction')}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/70">
+                <CardHeader>
+                  <CardTitle>{t('cardManagement.printDesignForm.previewTitle')}</CardTitle>
+                  <CardDescription>{t('cardManagement.printDesignForm.previewDescription')}</CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-4">
+                  {previewError ? <PanelError>{previewError}</PanelError> : null}
+
+                  <div className="flex min-h-[20rem] items-center justify-center rounded-structural border border-border bg-background p-4">
+                    {previewUrl ? <img src={previewUrl} alt={t('cardManagement.printDesignForm.previewImageAlt')} className="max-h-[28rem] max-w-full rounded border border-border bg-white shadow-sm" /> : <p className="text-center text-[14px] text-muted-foreground">{previewMutation.isPending ? t('cardManagement.printDesignForm.previewLoading') : t('cardManagement.printDesignForm.previewEmpty')}</p>}
+                  </div>
+
+                  {previewUrl ? (
+                    <div className="grid gap-1 text-[13px] text-muted-foreground">
+                      <p>{t('cardManagement.printDesignForm.previewTargetValue', { target: renderProfile.target })}</p>
+                      <p>{t('cardManagement.printDesignForm.previewDpiValue', { dpi: renderProfile.dpi || '300' })}</p>
+                      {previewContentType ? <p>{t('cardManagement.printDesignForm.previewContentTypeValue', { contentType: previewContentType })}</p> : null}
+                      {previewFileName ? <p>{t('cardManagement.printDesignForm.previewFileNameValue', { fileName: previewFileName })}</p> : null}
+                    </div>
+                  ) : null}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
 
           <div className="flex justify-end gap-2">
             <Button type="button" onClick={submit} disabled={savePrintDesign.isPending || standardMediaQuery.isLoading || (mode === 'edit' && printDesignQuery.isLoading)}>
@@ -210,4 +428,53 @@ function toCardSize(media: RenderMedia): CardSize {
 
 function PanelError({ children }: { readonly children: React.ReactNode }) {
   return <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">{children}</p>;
+}
+
+function toRenderProfileFormState(renderProfile: RenderProfile | null | undefined): RenderProfileFormState {
+  if (!renderProfile) {
+    return DEFAULT_RENDER_PROFILE;
+  }
+
+  return {
+    target: renderProfile.target,
+    dpi: String(renderProfile.dpi),
+    background: renderProfile.background ?? '#FFFFFF',
+    quality: renderProfile.quality == null ? '' : String(renderProfile.quality),
+  };
+}
+
+function toRenderProfileRequest(renderProfile: RenderProfileFormState): RenderProfileRequest | null {
+  const dpi = Number(renderProfile.dpi);
+  if (!Number.isFinite(dpi) || dpi <= 0) {
+    return null;
+  }
+
+  const qualityValue = renderProfile.quality.trim();
+  const parsedQuality = qualityValue ? Number(qualityValue) : null;
+  if (qualityValue && (parsedQuality === null || !Number.isFinite(parsedQuality) || parsedQuality < 0 || parsedQuality > 100)) {
+    return null;
+  }
+
+  return {
+    target: renderProfile.target,
+    dpi,
+    background: renderProfile.background.trim() || null,
+    quality: parsedQuality,
+  };
+}
+
+function revokePreviewUrl(previewObjectUrlRef: MutableRefObject<string | null>) {
+  if (previewObjectUrlRef.current) {
+    URL.revokeObjectURL(previewObjectUrlRef.current);
+    previewObjectUrlRef.current = null;
+  }
+}
+
+function parseFileName(contentDisposition: string | null) {
+  if (!contentDisposition) {
+    return null;
+  }
+
+  const match = /filename="?([^\"]+)"?/i.exec(contentDisposition);
+  return match?.[1] ?? null;
 }

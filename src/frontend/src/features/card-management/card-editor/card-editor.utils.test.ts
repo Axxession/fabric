@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildTemplateJson, computeCanvasScale, formatCardSizeOption, getProfileCopy, mmToPx, resolveFonts, resolveTemplateMedia } from './card-editor.utils';
+import { buildTemplateJson, computeCanvasScale, detectTemplateFields, formatCardSizeOption, getProfileCopy, mmToPx, resolveFonts, resolveTemplateMedia } from './card-editor.utils';
 
 describe('card-editor utils', () => {
   it('converts millimeters to 300 dpi pixels', () => {
@@ -45,5 +45,24 @@ describe('card-editor utils', () => {
   it('returns profile-specific copy', () => {
     expect(getProfileCopy('generic').exportFilename).toBe('card-template.json');
     expect(getProfileCopy('id-card').addPlaceholderButton).toBe('Add Photo Placeholder');
+  });
+
+  it('detects mail-merge tokens and image-placeholder fields', () => {
+    const designJson = JSON.stringify({
+      version: 2,
+      media: { label: 'CR80', width: 85.6, height: 54, orientation: 'Landscape' },
+      dpi: 300,
+      objects: [
+        { type: 'textbox', text: 'Hi, {{ Name }}', fill: '{{ BrandColor }}' },
+        { type: 'rect', fieldType: 'image-placeholder', dataField: 'Photo' },
+        { type: 'image', src: '/badges/{{ BadgeId }}.png' },
+      ],
+    });
+
+    expect(detectTemplateFields(designJson)).toEqual(['BadgeId', 'BrandColor', 'Name', 'Photo']);
+  });
+
+  it('returns empty list for invalid json', () => {
+    expect(detectTemplateFields('{')).toEqual([]);
   });
 });

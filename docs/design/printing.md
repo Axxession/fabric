@@ -19,6 +19,10 @@ It owns:
 
 `PrintTemplate` is Fabric's normalized internal render model. It is derived from `PrintDesign.DesignJson` and keeps only the fields relevant to rendering.
 
+`MailMerge` is Printing's shared personalization step. It merges runtime `Dictionary<string, string>` data into the current known string fields on a `PrintTemplate` by replacing `{{ DataPoint }}` tokens before rendering.
+
+`RenderProfile` is Printing's render-configuration value object. It defines the target renderer and output settings used to turn a personalized `PrintTemplate` into a concrete artifact.
+
 `RenderMedia` describes the physical printable media, such as CR80 card or shipping label stock.
 
 `TemplateObject` is one renderable object inside a template. It represents text, image, placeholder, or other printable content after Fabric normalizes the editor JSON.
@@ -41,8 +45,16 @@ classDiagram
         double MediaHeight
         Orientation MediaOrientation
         int Dpi
+        RenderProfile DefaultRenderProfile
         DateTimeOffset CreatedAt
         DateTimeOffset UpdatedAt
+    }
+
+    class RenderProfile {
+        RenderTarget Target
+        int Dpi
+        string Background
+        int Quality
     }
 
     class PrintTemplate {
@@ -89,13 +101,21 @@ classDiagram
         byte[] Content
     }
 
+    class MailMerge {
+        Merge(data, template)
+    }
+
     class IRenderService {
         RenderAsync(data, template)
         RenderManyAsync(rows, template)
     }
 
+    PrintDesign "1" --> "0..1" RenderProfile
     PrintTemplate "1" --> "1" RenderMedia
     PrintTemplate "1" --> "*" TemplateObject
+    IRenderService ..> MailMerge
+    IRenderService ..> RenderProfile
+    MailMerge ..> PrintTemplate
     IRenderService ..> PrintTemplate
     IRenderService ..> RenderedDocument
     PrintDesign ..> PrintTemplate : parses into
@@ -107,6 +127,7 @@ Source-of-truth rules:
 
 - `PrintDesign.DesignJson` is the persisted canonical payload.
 - `PrintTemplate` is derived from `DesignJson`.
+- `PrintDesign.DefaultRenderProfile` is an optional persisted default render configuration.
 - Fabric must preserve the original design JSON even when it can derive a normalized template from it.
 - Media summary fields on `PrintDesign` are convenience fields for querying and list UX, not the canonical source.
 
@@ -119,8 +140,14 @@ Versioning rules:
 Rendering rules:
 
 - Rendering consumes `PrintTemplate`, not raw editor JSON.
+- Rendering order is `PrintTemplate -> MailMerge(data) -> RenderProfile resolution -> renderer-specific output`.
 - Unknown editor-only Fabric fields should be ignored unless required for rendering correctness.
 - Placeholder and field-bound objects resolve from runtime key-value data.
+- `MailMerge` replaces `{{ DataPoint }}` tokens in the current known string fields on `PrintTemplate`, `RenderMedia`, and `TemplateObject`.
+- `MailMerge` trims token whitespace during lookup and leaves unknown tokens unchanged.
+- `RenderProfile` is a value object, not a separately managed aggregate or preset entity.
+- Effective render profile precedence is request or job override, then `PrintDesign.DefaultRenderProfile`, then system fallback.
+- Current fallback render profile is BMP at 300 DPI.
 - The same `PrintDesign` may be rendered multiple times with different runtime data.
 
 Boundary rules:

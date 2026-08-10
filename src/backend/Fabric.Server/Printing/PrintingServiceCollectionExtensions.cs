@@ -17,7 +17,11 @@ public static class PrintingServiceCollectionExtensions
         collection.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Add(PrintingJsonSerializerContext.Default));
 
+        collection.AddSingleton<FontProvider>();
         collection.AddScoped<PrintDesignParser>();
+        collection.AddScoped<MailMerge>();
+        collection.AddScoped<RenderProfileResolver>();
+        collection.AddScoped<RenderServiceFactory>();
 
         return collection;
     }
