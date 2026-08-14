@@ -2,6 +2,7 @@ using System.Text.Json;
 using Fabric.Hardware.Desfire.Encoding.Models;
 using Fabric.Hardware.Desfire.Encoding.Specifications;
 using Fabric.Hardware.Desfire.Protocol;
+using Fabric.Server.Hardware.Domain;
 using Fabric.Server.Desfire.Application;
 using Fabric.Server.Desfire.Domain;
 
@@ -55,26 +56,26 @@ public sealed record KeyGroupKeySetRequest(int KeySetId, IReadOnlyList<KeyGroupK
 
 public sealed record KeyGroupKeyRequest(int KeyId, string Value, bool IsDiversified);
 
-public sealed record EncodingBatchResponse(Guid Id, string Name, Guid? EncoderId, Guid TransformationId, EncodingBatchStatus Status, JsonElement OriginalInput, JsonElement NormalizedRows, int TotalRuns, int PendingRuns, int RunningRuns, int SucceededRuns, int FailedRuns, int CancelledRuns, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
+public sealed record BadgeBatchResponse(Guid Id, string Name, Guid? EncoderId, Guid? TransformationId, Guid? PrintDesignId, BadgeBatchStatus Status, JsonElement OriginalInput, JsonElement NormalizedRows, int TotalJobs, int PendingJobs, int RunningJobs, int SucceededJobs, int FailedJobs, int CancelledJobs, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
 
-public sealed record CreateEncodingBatchRequest(string Name, Guid EncoderId, Guid TransformationId, JsonElement OriginalInput, JsonElement NormalizedRows, string? RequestedAgentId, string? RequestedDeviceId, int Priority = 0);
+public sealed record CreateBadgeBatchRequest(string Name, Guid EncoderId, Guid? TransformationId, Guid? PrintDesignId, JsonElement OriginalInput, JsonElement NormalizedRows, string? RequestedAgentId, string? RequestedDeviceId, int Priority = 0);
 
-public sealed record EncodingBatchRunSummary(Guid BatchId, int TotalRuns, int PendingRuns, int RunningRuns, int SucceededRuns, int FailedRuns, int CancelledRuns)
+public sealed record BadgeBatchJobSummary(Guid BatchId, int TotalJobs, int PendingJobs, int RunningJobs, int SucceededJobs, int FailedJobs, int CancelledJobs)
 {
-    public EncodingBatchStatus Status => TotalRuns switch
+    public BadgeBatchStatus Status => TotalJobs switch
     {
-        0 => EncodingBatchStatus.Pending,
-        _ when RunningRuns > 0 => EncodingBatchStatus.Running,
-        _ when PendingRuns > 0 => SucceededRuns > 0 || FailedRuns > 0 || CancelledRuns > 0 ? EncodingBatchStatus.Running : EncodingBatchStatus.Pending,
-        _ when FailedRuns > 0 => EncodingBatchStatus.Failed,
-        _ when CancelledRuns > 0 && SucceededRuns == 0 => EncodingBatchStatus.Cancelled,
-        _ => EncodingBatchStatus.Completed
+        0 => BadgeBatchStatus.Pending,
+        _ when RunningJobs > 0 => BadgeBatchStatus.Running,
+        _ when PendingJobs > 0 => SucceededJobs > 0 || FailedJobs > 0 || CancelledJobs > 0 ? BadgeBatchStatus.Running : BadgeBatchStatus.Pending,
+        _ when FailedJobs > 0 => BadgeBatchStatus.Failed,
+        _ when CancelledJobs > 0 && SucceededJobs == 0 => BadgeBatchStatus.Cancelled,
+        _ => BadgeBatchStatus.Completed
     };
 }
 
-public sealed record EncodingRunResponse(Guid Id, Guid TransformationId, Guid? BatchId, Guid? EncoderId, EncodingRunKind Kind, string? Source, EncodingRunStatus Status, JsonElement Input, JsonElement ResolvedVariables, JsonElement PlanSummary, JsonElement CommandAudit, string? CardUid, string? HardwareAgentId, string? DeviceId, string? ErrorMessage, DateTimeOffset RequestedAt, DateTimeOffset? StartedAt, DateTimeOffset? CompletedAt);
+public sealed record BadgeJobResponse(Guid Id, Guid? TransformationId, Guid? BatchId, Guid? EncoderId, Guid? PrintDesignId, BadgeJobKind Kind, string? Source, BadgeJobStatus Status, JsonElement Input, JsonElement ResolvedVariables, JsonElement PlanSummary, JsonElement CommandAudit, string? CardUid, string? HardwareAgentId, string? DeviceId, string? ErrorMessage, DateTimeOffset RequestedAt, DateTimeOffset? StartedAt, DateTimeOffset? CompletedAt);
 
-public sealed record CreateAdHocEncodingRequest(Guid TransformationId, string? AgentId, string? DeviceId, JsonElement UserVariables, AdHocEncodingMode Mode = AdHocEncodingMode.Sync, int Priority = 0, string? Source = null, Guid? KioskSessionId = null);
+public sealed record CreateBadgeJobRequest(Guid? EncoderId, Guid? TransformationId, Guid? PrintDesignId, string? AgentId, string? DeviceId, JsonElement Input, BadgeJobMode Mode = BadgeJobMode.Sync, int Priority = 0, string? Source = null, Guid? KioskSessionId = null);
 
 public sealed record EncodingVariableRequest(string Name, VariableProviderRequest Provider, VariableFormatRequest Format);
 
@@ -154,40 +155,64 @@ public static class DesfireMapper
         encoder.CreatedAt,
         encoder.UpdatedAt);
 
-    public static EncodingBatchResponse ToResponse(this EncodingBatch batch, EncodingBatchRunSummary? summary = null) => new(
+    public static EncoderResponse ToResponse(this DesfireEncoder encoder, HardwareDevice? device)
+    {
+        bool supportsEncoding = device is null ? encoder.SupportsEncoding : SupportsFullEncodingWorkflow(device.Capabilities);
+        bool supportsPrinting = device is null ? encoder.SupportsPrinting : device.Capabilities.Contains("card.print", StringComparer.OrdinalIgnoreCase);
+
+        return new EncoderResponse(
+            encoder.Id,
+            encoder.Name,
+            encoder.AgentId,
+            encoder.DeviceId,
+            supportsEncoding,
+            supportsPrinting,
+            encoder.Enabled,
+            encoder.CreatedAt,
+            encoder.UpdatedAt);
+    }
+
+    public static BadgeBatchResponse ToResponse(this BadgeBatch batch, BadgeBatchJobSummary? summary = null) => new(
         batch.Id,
         batch.Name,
         batch.EncoderId,
         batch.TransformationId,
+        batch.PrintDesignId,
         summary?.Status ?? batch.Status,
         JsonSerializer.Deserialize<JsonElement>(batch.OriginalInputJson, DesfireJson.Options),
         JsonSerializer.Deserialize<JsonElement>(batch.NormalizedRowsJson, DesfireJson.Options),
-        summary?.TotalRuns ?? 0,
-        summary?.PendingRuns ?? 0,
-        summary?.RunningRuns ?? 0,
-        summary?.SucceededRuns ?? 0,
-        summary?.FailedRuns ?? 0,
-        summary?.CancelledRuns ?? 0,
+        summary?.TotalJobs ?? 0,
+        summary?.PendingJobs ?? 0,
+        summary?.RunningJobs ?? 0,
+        summary?.SucceededJobs ?? 0,
+        summary?.FailedJobs ?? 0,
+        summary?.CancelledJobs ?? 0,
         batch.CreatedAt,
         batch.UpdatedAt);
 
-    public static EncodingRunResponse ToResponse(this EncodingRun run) => new(
-        run.Id,
-        run.TransformationId,
-        run.BatchId,
-        run.EncoderId,
-        run.Kind,
-        run.Source,
-        run.Status,
-        JsonSerializer.Deserialize<JsonElement>(run.InputJson, DesfireJson.Options),
-        JsonSerializer.Deserialize<JsonElement>(run.ResolvedVariablesJson, DesfireJson.Options),
-        JsonSerializer.Deserialize<JsonElement>(run.PlanSummaryJson, DesfireJson.Options),
-        JsonSerializer.Deserialize<JsonElement>(run.CommandAuditJson, DesfireJson.Options),
-        run.CardUid,
-        run.HardwareAgentId,
-        run.DeviceId,
-        run.ErrorMessage,
-        run.RequestedAt,
-        run.StartedAt,
-        run.CompletedAt);
+    public static BadgeJobResponse ToResponse(this BadgeJob job) => new(
+        job.Id,
+        job.TransformationId,
+        job.BatchId,
+        job.EncoderId,
+        job.PrintDesignId,
+        job.Kind,
+        job.Source,
+        job.Status,
+        JsonSerializer.Deserialize<JsonElement>(job.InputJson, DesfireJson.Options),
+        JsonSerializer.Deserialize<JsonElement>(job.ResolvedVariablesJson, DesfireJson.Options),
+        JsonSerializer.Deserialize<JsonElement>(job.PlanSummaryJson, DesfireJson.Options),
+        JsonSerializer.Deserialize<JsonElement>(job.CommandAuditJson, DesfireJson.Options),
+        job.CardUid,
+        job.HardwareAgentId,
+        job.DeviceId,
+        job.ErrorMessage,
+        job.RequestedAt,
+        job.StartedAt,
+        job.CompletedAt);
+
+    private static bool SupportsFullEncodingWorkflow(IReadOnlyList<string> capabilities) =>
+        capabilities.Contains("card.present", StringComparer.OrdinalIgnoreCase)
+        && capabilities.Contains("rfid.apdu.exchange", StringComparer.OrdinalIgnoreCase)
+        && capabilities.Contains("card.eject", StringComparer.OrdinalIgnoreCase);
 }

@@ -23,10 +23,11 @@ public static class DesfireEncoderEndpoints
         return app;
     }
 
-    private static async Task<IResult> ListEncoders([AsParameters] BaseListRequest request, DesfireDbContext db, CancellationToken cancellationToken = default)
+    private static async Task<IResult> ListEncoders([AsParameters] BaseListRequest request, DesfireDbContext db, HardwareDbContext hardwareDb, CancellationToken cancellationToken = default)
     {
         IPaged<DesfireEncoder> result = await db.Encoders.AsNoTracking().OrderBy(encoder => encoder.Name).GetPageAsync(request.Page, request.PageSize, cancellationToken);
-        return Results.Ok(result.Map(encoder => encoder.ToResponse()));
+        Dictionary<(string AgentId, string DeviceId), HardwareDevice> devicesByBinding = await LoadDevicesByBindingAsync(hardwareDb, result.Items, cancellationToken);
+        return Results.Ok(result.Map(encoder => encoder.ToResponse(devicesByBinding.GetValueOrDefault((encoder.AgentId, encoder.DeviceId)))));
     }
 
     private static async Task<IResult> CreateEncoder([FromBody] CreateEncoderRequest request, DesfireDbContext db, HardwareDbContext hardwareDb, TimeProvider timeProvider, CancellationToken cancellationToken = default)
@@ -42,16 +43,20 @@ public static class DesfireEncoderEndpoints
         if (exists)
             return Results.Problem("Encoder name or hardware device is already in use.", statusCode: StatusCodes.Status409Conflict);
 
-        DesfireEncoder encoder = DesfireEncoder.Create(name, agentId, deviceId, validation.SupportsEncoding, supportsPrinting: false, request.Enabled, timeProvider.GetUtcNow());
+        DesfireEncoder encoder = DesfireEncoder.Create(name, agentId, deviceId, validation.SupportsEncoding, validation.SupportsPrinting, request.Enabled, timeProvider.GetUtcNow());
         db.Encoders.Add(encoder);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Created($"/api/desfire/encoders/{encoder.Id}", encoder.ToResponse());
     }
 
-    private static async Task<IResult> GetEncoder(Guid id, DesfireDbContext db, CancellationToken cancellationToken = default)
+    private static async Task<IResult> GetEncoder(Guid id, DesfireDbContext db, HardwareDbContext hardwareDb, CancellationToken cancellationToken = default)
     {
         DesfireEncoder? encoder = await db.Encoders.AsNoTracking().SingleOrDefaultAsync(encoder => encoder.Id == id, cancellationToken);
-        return encoder is null ? Results.NotFound() : Results.Ok(encoder.ToResponse());
+        if (encoder is null)
+            return Results.NotFound();
+
+        HardwareDevice? device = await hardwareDb.Devices.AsNoTracking().SingleOrDefaultAsync(candidate => candidate.AgentId == encoder.AgentId && candidate.DeviceId == encoder.DeviceId, cancellationToken);
+        return Results.Ok(encoder.ToResponse(device));
     }
 
     private static async Task<IResult> UpdateEncoder(Guid id, [FromBody] UpdateEncoderRequest request, DesfireDbContext db, HardwareDbContext hardwareDb, TimeProvider timeProvider, CancellationToken cancellationToken = default)
@@ -76,9 +81,9 @@ public static class DesfireEncoderEndpoints
             return Results.Problem("Cannot change hardware binding after an encoder has been used by a print batch.", statusCode: StatusCodes.Status409Conflict);
 
         if (bindingChanged)
-            encoder.Update(name, agentId, deviceId, validation.SupportsEncoding, supportsPrinting: false, request.Enabled, timeProvider.GetUtcNow());
+            encoder.Update(name, agentId, deviceId, validation.SupportsEncoding, validation.SupportsPrinting, request.Enabled, timeProvider.GetUtcNow());
         else
-            encoder.UpdateMetadata(name, validation.SupportsEncoding, supportsPrinting: false, request.Enabled, timeProvider.GetUtcNow());
+            encoder.UpdateMetadata(name, validation.SupportsEncoding, validation.SupportsPrinting, request.Enabled, timeProvider.GetUtcNow());
 
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(encoder.ToResponse());
@@ -101,21 +106,22 @@ public static class DesfireEncoderEndpoints
     private static async Task<EncoderHardwareValidation> ValidateRequestAsync(string name, string agentId, string deviceId, HardwareDbContext hardwareDb, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(name))
-            return new EncoderHardwareValidation(false, Results.Problem("Encoder name is required.", statusCode: StatusCodes.Status400BadRequest));
+            return new EncoderHardwareValidation(false, false, Results.Problem("Encoder name is required.", statusCode: StatusCodes.Status400BadRequest));
 
         if (string.IsNullOrWhiteSpace(agentId) || string.IsNullOrWhiteSpace(deviceId))
-            return new EncoderHardwareValidation(false, Results.Problem("Encoder hardware device is required.", statusCode: StatusCodes.Status400BadRequest));
+            return new EncoderHardwareValidation(false, false, Results.Problem("Encoder hardware device is required.", statusCode: StatusCodes.Status400BadRequest));
 
         string normalizedAgentId = HardwareAgent.NormalizeId(agentId);
         string normalizedDeviceId = HardwareDevice.NormalizeDeviceId(deviceId);
         HardwareDevice? device = await hardwareDb.Devices.AsNoTracking().SingleOrDefaultAsync(device => device.AgentId == normalizedAgentId && device.DeviceId == normalizedDeviceId, cancellationToken);
         if (device is null)
-            return new EncoderHardwareValidation(false, Results.Problem("Hardware device does not exist.", statusCode: StatusCodes.Status409Conflict));
+            return new EncoderHardwareValidation(false, false, Results.Problem("Hardware device does not exist.", statusCode: StatusCodes.Status409Conflict));
 
         bool supportsEncoding = SupportsFullEncodingWorkflow(device.Capabilities);
-        return supportsEncoding
-            ? new EncoderHardwareValidation(true, null)
-            : new EncoderHardwareValidation(false, Results.Problem("Hardware device must support card.present, rfid.apdu.exchange, and card.eject.", statusCode: StatusCodes.Status409Conflict));
+        bool supportsPrinting = device.Capabilities.Contains(HardwareCapabilities.CardPrint, StringComparer.OrdinalIgnoreCase);
+        return supportsEncoding || SupportsPrintOnlyWorkflow(device.Capabilities)
+            ? new EncoderHardwareValidation(true, supportsPrinting, null)
+            : new EncoderHardwareValidation(false, false, Results.Problem("Hardware device must support either full RFID encoding workflow or print-only badge workflow.", statusCode: StatusCodes.Status409Conflict));
     }
 
     private static bool SupportsFullEncodingWorkflow(IReadOnlyList<string> capabilities) =>
@@ -123,9 +129,29 @@ public static class DesfireEncoderEndpoints
         && capabilities.Contains(HardwareCapabilities.RfidApduExchange, StringComparer.OrdinalIgnoreCase)
         && capabilities.Contains(HardwareCapabilities.CardEject, StringComparer.OrdinalIgnoreCase);
 
+    private static bool SupportsPrintOnlyWorkflow(IReadOnlyList<string> capabilities) =>
+        capabilities.Contains(HardwareCapabilities.CardPresent, StringComparer.OrdinalIgnoreCase)
+        && capabilities.Contains(HardwareCapabilities.CardPrint, StringComparer.OrdinalIgnoreCase)
+        && capabilities.Contains(HardwareCapabilities.CardEject, StringComparer.OrdinalIgnoreCase);
+
     private static async Task<bool> IsReferencedAsync(Guid id, DesfireDbContext db, CancellationToken cancellationToken) =>
-        await db.EncodingBatches.AnyAsync(batch => batch.EncoderId == id, cancellationToken)
-        || await db.EncodingRuns.AnyAsync(run => run.EncoderId == id, cancellationToken);
+        await db.BadgeBatches.AnyAsync(batch => batch.EncoderId == id, cancellationToken)
+        || await db.BadgeJobs.AnyAsync(run => run.EncoderId == id, cancellationToken);
+
+    private static async Task<Dictionary<(string AgentId, string DeviceId), HardwareDevice>> LoadDevicesByBindingAsync(HardwareDbContext hardwareDb, IEnumerable<DesfireEncoder> encoders, CancellationToken cancellationToken)
+    {
+        DesfireEncoder[] encoderArray = encoders.ToArray();
+        if (encoderArray.Length == 0)
+            return [];
+
+        string[] agentIds = encoderArray.Select(encoder => encoder.AgentId).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        List<HardwareDevice> devices = await hardwareDb.Devices
+            .AsNoTracking()
+            .Where(device => agentIds.Contains(device.AgentId))
+            .ToListAsync(cancellationToken);
+
+        return devices.ToDictionary(device => (device.AgentId, device.DeviceId));
+    }
 }
 
-public sealed record EncoderHardwareValidation(bool SupportsEncoding, IResult? Failure);
+public sealed record EncoderHardwareValidation(bool SupportsEncoding, bool SupportsPrinting, IResult? Failure);

@@ -37,6 +37,15 @@ public sealed class HardwareAgentOptionsValidator(IReadOnlyList<EncoderOptions> 
                 if (dispenserEncoder.ResponseTimeout <= TimeSpan.Zero)
                     failures.Add($"Encoder {dispenserEncoder.DeviceId} response timeout must be positive.");
             }
+
+            if (encoder is BadgePrinterEncoderOptions badgePrinterEncoder)
+            {
+                if (string.IsNullOrWhiteSpace(badgePrinterEncoder.PrinterName))
+                    failures.Add($"Encoder {badgePrinterEncoder.DeviceId} printer name is required.");
+
+                if (string.IsNullOrWhiteSpace(badgePrinterEncoder.Station))
+                    failures.Add($"Encoder {badgePrinterEncoder.DeviceId} station is required.");
+            }
         }
 
         string[] duplicateEncoderIds = encoders

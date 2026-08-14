@@ -2,7 +2,7 @@ using Fabric.Server.Printing.Domain;
 
 namespace Fabric.Server.Printing.Application;
 
-internal sealed class RenderServiceFactory(IServiceProvider services)
+public sealed class RenderServiceFactory(IServiceProvider services)
 {
     public IRenderService Create(RenderProfile profile)
     {

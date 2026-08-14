@@ -12,5 +12,7 @@ public interface IEncoderDevice
 
     Task<byte[]> ExchangeApduAsync(byte[] command, CancellationToken cancellationToken);
 
+    Task PrintAsync(byte[] image, CancellationToken cancellationToken);
+
     Task WaitForCardRemovalAsync(CancellationToken cancellationToken);
 }

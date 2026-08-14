@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Fabric.Hardware.Dependencies.EvolisPrinter</PackageId>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="evolis-sdk-cs">
+      <HintPath>$(MSBuildThisFileDirectory)evolis-sdk-cs.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="evolis-sdk-cs.dll" Pack="true" PackagePath="lib/net10.0/" />
+    <None Include="evolis-sdk-cs.xml" Pack="true" PackagePath="lib/net10.0/" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Evolis.SDK" />
+  </ItemGroup>
+</Project>

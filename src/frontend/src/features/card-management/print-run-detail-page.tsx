@@ -11,6 +11,7 @@ import { JsonDetails, StatusBadge } from './printing-page';
 
 const printRunDetailEncodersQueryKey = ['card-management', 'printing', 'print-run-detail-page', 'encoders'] as const;
 const printRunDetailTransformationsQueryKey = ['card-management', 'print-run-detail-page', 'transformations'] as const;
+const printRunDetailPrintDesignsQueryKey = ['card-management', 'print-run-detail-page', 'print-designs'] as const;
 
 export default function PrintRunDetailPage() {
   const { runId } = useParams({ from: '/desfire-studio/printing/runs/$runId' });
@@ -24,7 +25,7 @@ export function PrintRunDetailPageContent({ runId }: { readonly runId: string })
   const runQuery = useQuery({
     queryKey: [...printingRunsQueryKey, runId],
     queryFn: async () => {
-      const { data, error } = await api.GET('/api/desfire/encoding-runs/{id}', { params: { path: { id: runId } } });
+      const { data, error } = await api.GET('/api/desfire/badge-jobs/{id}', { params: { path: { id: runId } } });
       if (error || !data) {
         throw new Error(t('cardManagement.printing.couldNotLoadPrintRun'));
       }
@@ -43,6 +44,17 @@ export function PrintRunDetailPageContent({ runId }: { readonly runId: string })
     },
   });
 
+  const printDesignsQuery = useQuery({
+    queryKey: printRunDetailPrintDesignsQueryKey,
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/printing/designs', { params: { query: { SurfaceKind: 'Card', ids: [] } } });
+      if (error || !data) {
+        throw new Error(t('cardManagement.printing.couldNotLoadPrintDesigns'));
+      }
+      return data;
+    },
+  });
+
   const encodersQuery = useQuery({
     queryKey: printRunDetailEncodersQueryKey,
     queryFn: async () => {
@@ -56,6 +68,7 @@ export function PrintRunDetailPageContent({ runId }: { readonly runId: string })
 
   const run = runQuery.data;
   const transformation = (transformationsQuery.data?.items ?? []).find((item) => item.id === run?.transformationId);
+  const printDesign = (printDesignsQuery.data?.items ?? []).find((item) => item.id === run?.printDesignId);
   const encoder = (encodersQuery.data?.items ?? []).find((item) => item.id === run?.encoderId);
 
   if (runQuery.isLoading) {
@@ -74,7 +87,7 @@ export function PrintRunDetailPageContent({ runId }: { readonly runId: string })
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <CardTitle>{t('cardManagement.printing.printRunTitle')}</CardTitle>
-              <CardDescription>{transformation?.name ?? run.transformationId}</CardDescription>
+              <CardDescription>{formatRunSubtitle(transformation?.name, printDesign?.name, t)}</CardDescription>
             </div>
             <StatusBadge status={run.status} />
           </div>
@@ -90,6 +103,9 @@ export function PrintRunDetailPageContent({ runId }: { readonly runId: string })
             <Info label={t('cardManagement.printing.completed')} value={run.completedAt ? formatDateTime(run.completedAt) : t('cardManagement.printing.notCompleted')} />
             <Info label={t('cardManagement.printing.kind')} value={run.kind} />
             <Info label={t('cardManagement.printing.source')} value={run.source ?? t('cardManagement.printing.unknown')} />
+            <Info label={t('cardManagement.printing.jobType')} value={formatJobType(run.transformationId, run.printDesignId, t)} />
+            <Info label={t('cardManagement.printing.transformation')} value={transformation?.name ?? (run.transformationId ?? '-')} />
+            <Info label={t('cardManagement.printing.printDesign')} value={printDesign?.name ?? (run.printDesignId ?? '-')} />
           </div>
         </CardContent>
       </Card>
@@ -100,6 +116,32 @@ export function PrintRunDetailPageContent({ runId }: { readonly runId: string })
       <JsonDetails title={t('cardManagement.printing.jsonCommandAudit')} value={run.commandAudit} />
     </section>
   );
+}
+
+function formatRunSubtitle(transformationName: string | undefined, printDesignName: string | undefined, t: ReturnType<typeof useTranslation>['t']) {
+  if (transformationName && printDesignName) {
+    return t('cardManagement.printing.batchSubtitleEncodeAndPrint', { transformation: transformationName, printDesign: printDesignName });
+  }
+  if (transformationName) {
+    return transformationName;
+  }
+  if (printDesignName) {
+    return printDesignName;
+  }
+  return '-';
+}
+
+function formatJobType(transformationId: string | null | undefined, printDesignId: string | null | undefined, t: ReturnType<typeof useTranslation>['t']) {
+  if (transformationId && printDesignId) {
+    return t('cardManagement.printing.jobTypeEncodeAndPrint');
+  }
+  if (transformationId) {
+    return t('cardManagement.printing.jobTypeEncodeOnly');
+  }
+  if (printDesignId) {
+    return t('cardManagement.printing.jobTypePrintOnly');
+  }
+  return '-';
 }
 
 function Info({ label, value }: { readonly label: string; readonly value: string }) {

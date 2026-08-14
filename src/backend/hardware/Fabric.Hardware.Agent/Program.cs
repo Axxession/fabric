@@ -85,10 +85,14 @@ builder.Services.AddSingleton<IReadOnlyList<IEncoderDevice>>(serviceProvider =>
     ILogger<Fabric.Hardware.Dispenser.DispenserSerialPort> dispenserLogger = serviceProvider.GetRequiredService<ILogger<Fabric.Hardware.Dispenser.DispenserSerialPort>>();
     ILogger<HumanAssistedPcscEncoderDevice> humanAssistedLogger = serviceProvider.GetRequiredService<ILogger<HumanAssistedPcscEncoderDevice>>();
     ILogger<DispenserEncoderDevice> dispenserEncoderLogger = serviceProvider.GetRequiredService<ILogger<DispenserEncoderDevice>>();
+    ILogger<EvolisEncoderDevice> evolisEncoderLogger = serviceProvider.GetRequiredService<ILogger<EvolisEncoderDevice>>();
+    ILogger<FargoEncoderDevice> fargoEncoderLogger = serviceProvider.GetRequiredService<ILogger<FargoEncoderDevice>>();
     return options.Select(encoder => (IEncoderDevice)(encoder switch
     {
         HumanAssistedEncoderOptions humanAssistedEncoder => new HumanAssistedPcscEncoderDevice(humanAssistedEncoder, humanAssistedLogger),
         DispenserEncoderOptions dispenserEncoder => new DispenserEncoderDevice(dispenserEncoder, dispenserLogger, dispenserEncoderLogger),
+        EvolisEncoderOptions evolisEncoder => new EvolisEncoderDevice(evolisEncoder, evolisEncoderLogger),
+        FargoEncoderOptions fargoEncoder => new FargoEncoderDevice(fargoEncoder, fargoEncoderLogger),
         _ => throw new InvalidOperationException($"Unsupported encoder option type '{encoder.GetType().Name}'.")
     })).ToArray();
 });

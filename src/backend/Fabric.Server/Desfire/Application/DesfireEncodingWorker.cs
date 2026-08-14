@@ -176,7 +176,7 @@ public sealed class DesfireEncodingWorker(
                 if (running.Count >= options.Value.MaxConcurrentRuns)
                     break;
 
-                Domain.EncodingRun? run = await encodingService.TryClaimNextRunForDeviceAsync(device.AgentId, device.DeviceId, _workerId, ct);
+                Domain.BadgeJob? run = await encodingService.TryClaimNextRunForDeviceAsync(device.AgentId, device.DeviceId, _workerId, ct);
                 if (run is null)
                 {
                     logger.DesfireEncodingWorkerNoRunForDevice(_workerId, tenant.Id, device.AgentId, device.DeviceId);

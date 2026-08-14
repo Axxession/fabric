@@ -175,6 +175,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/printing/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PreviewPrintTemplateRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/visitors/visitors": {
         parameters: {
             query?: never;
@@ -10565,7 +10609,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/desfire/encoding-batches": {
+    "/api/desfire/badge-batches": {
         parameters: {
             query?: never;
             header?: never;
@@ -10590,7 +10634,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["PageOfEncodingBatchResponse"];
+                        "application/json": components["schemas"]["PageOfBadgeBatchResponse"];
                     };
                 };
             };
@@ -10605,7 +10649,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["CreateEncodingBatchRequest"];
+                    "application/json": components["schemas"]["CreateBadgeBatchRequest"];
                 };
             };
             responses: {
@@ -10615,7 +10659,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["EncodingBatchResponse"];
+                        "application/json": components["schemas"]["BadgeBatchResponse"];
                     };
                 };
             };
@@ -10626,7 +10670,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/desfire/encoding-batches/{id}": {
+    "/api/desfire/badge-batches/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -10650,7 +10694,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["EncodingBatchResponse"];
+                        "application/json": components["schemas"]["BadgeBatchResponse"];
                     };
                 };
                 /** @description Not Found */
@@ -10670,7 +10714,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/desfire/encoding-runs": {
+    "/api/desfire/badge-jobs": {
         parameters: {
             query?: never;
             header?: never;
@@ -10699,20 +10743,57 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["PageOfEncodingRunResponse"];
+                        "application/json": components["schemas"]["PageOfBadgeJobResponse"];
                     };
                 };
             };
         };
         put?: never;
-        post?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateBadgeJobRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BadgeJobResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/desfire/encoding-runs/{id}": {
+    "/api/desfire/badge-jobs/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -10736,7 +10817,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["EncodingRunResponse"];
+                        "application/json": components["schemas"]["BadgeJobResponse"];
                     };
                 };
                 /** @description Not Found */
@@ -10750,59 +10831,6 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/desfire/ad-hoc-encodings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["CreateAdHocEncodingRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["EncodingRunResponse"];
-                    };
-                };
-                /** @description Not Found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
         delete?: never;
         options?: never;
         head?: never;
@@ -10981,6 +11009,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        get?: never;
+        put?: never;
         post: {
             parameters: {
                 query?: never;
@@ -11001,11 +11031,7 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content: {
-                        "image/bmp": string;
-                        "image/png": string;
-                        "image/jpeg": string;
-                    };
+                    content?: never;
                 };
                 /** @description Bad Request */
                 400: {
@@ -11023,56 +11049,6 @@ export interface paths {
                 };
             };
         };
-        get?: never;
-        put?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/printing/preview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["PreviewPrintTemplateRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "image/bmp": string;
-                        "image/png": string;
-                        "image/jpeg": string;
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        get?: never;
-        put?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -14502,11 +14478,6 @@ export interface components {
             capacity: number | string;
             wheelchairAccessible: boolean;
         };
-        /**
-         * @default Sync
-         * @enum {unknown}
-         */
-        AdHocEncodingMode: "Sync" | "Queued";
         AdminTenantSettingsResponse: {
             version: string;
             oidc: components["schemas"]["OidcSettingsResponse"];
@@ -14728,6 +14699,76 @@ export interface components {
         AssignmentChannel: "CatalogRequest" | "AutomaticConfiguration" | "Manual";
         /** @enum {unknown} */
         AssignmentSourceKind: "CatalogRequest" | "OrganizationalUnit" | "Persona" | "ReceptionArrival" | "VisitorLocation" | "Manual";
+        BadgeBatchResponse: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: uuid */
+            encoderId: null | string;
+            /** Format: uuid */
+            transformationId: null | string;
+            /** Format: uuid */
+            printDesignId: null | string;
+            status: components["schemas"]["BadgeBatchStatus"];
+            originalInput: components["schemas"]["JsonElement"];
+            normalizedRows: components["schemas"]["JsonElement"];
+            /** Format: int32 */
+            totalJobs: number | string;
+            /** Format: int32 */
+            pendingJobs: number | string;
+            /** Format: int32 */
+            runningJobs: number | string;
+            /** Format: int32 */
+            succeededJobs: number | string;
+            /** Format: int32 */
+            failedJobs: number | string;
+            /** Format: int32 */
+            cancelledJobs: number | string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        /** @enum {unknown} */
+        BadgeBatchStatus: "Pending" | "Running" | "Completed" | "Failed" | "Cancelled";
+        /** @enum {unknown} */
+        BadgeJobKind: "Single" | "Batch";
+        /**
+         * @default Sync
+         * @enum {unknown}
+         */
+        BadgeJobMode: "Sync" | "Queued";
+        BadgeJobResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            transformationId: null | string;
+            /** Format: uuid */
+            batchId: null | string;
+            /** Format: uuid */
+            encoderId: null | string;
+            /** Format: uuid */
+            printDesignId: null | string;
+            kind: components["schemas"]["BadgeJobKind"];
+            source: null | string;
+            status: components["schemas"]["BadgeJobStatus"];
+            input: components["schemas"]["JsonElement"];
+            resolvedVariables: components["schemas"]["JsonElement"];
+            planSummary: components["schemas"]["JsonElement"];
+            commandAudit: components["schemas"]["JsonElement"];
+            cardUid: null | string;
+            hardwareAgentId: null | string;
+            deviceId: null | string;
+            errorMessage: null | string;
+            /** Format: date-time */
+            requestedAt: string;
+            /** Format: date-time */
+            startedAt: null | string;
+            /** Format: date-time */
+            completedAt: null | string;
+        };
+        /** @enum {unknown} */
+        BadgeJobStatus: "Pending" | "Claimed" | "Running" | "Succeeded" | "Failed" | "Cancelled" | "Timeout" | "DeviceUnavailable";
         BlockPACSSubjectProvisioningRequest: {
             reason: string;
         };
@@ -14846,22 +14887,6 @@ export interface components {
             gracePeriodMinutes: number | string;
             trigger: components["schemas"]["ReceptionAccessPolicyTrigger"];
         };
-        CreateAdHocEncodingRequest: {
-            /** Format: uuid */
-            transformationId: string;
-            agentId: null | string;
-            deviceId: null | string;
-            userVariables: components["schemas"]["JsonElement"];
-            mode?: components["schemas"]["AdHocEncodingMode"];
-            /**
-             * Format: int32
-             * @default 0
-             */
-            priority: number | string;
-            source?: null | string;
-            /** Format: uuid */
-            kioskSessionId?: null | string;
-        };
         CreateApprovalDecisionRequest: {
             /** Format: uuid */
             approverIdentityId: string;
@@ -14885,6 +14910,44 @@ export interface components {
         };
         CreateApprovalGroupRequest: {
             name: string;
+        };
+        CreateBadgeBatchRequest: {
+            name: string;
+            /** Format: uuid */
+            encoderId: string;
+            /** Format: uuid */
+            transformationId: null | string;
+            /** Format: uuid */
+            printDesignId: null | string;
+            originalInput: components["schemas"]["JsonElement"];
+            normalizedRows: components["schemas"]["JsonElement"];
+            requestedAgentId: null | string;
+            requestedDeviceId: null | string;
+            /**
+             * Format: int32
+             * @default 0
+             */
+            priority: number | string;
+        };
+        CreateBadgeJobRequest: {
+            /** Format: uuid */
+            encoderId: null | string;
+            /** Format: uuid */
+            transformationId: null | string;
+            /** Format: uuid */
+            printDesignId: null | string;
+            agentId: null | string;
+            deviceId: null | string;
+            input: components["schemas"]["JsonElement"];
+            mode?: components["schemas"]["BadgeJobMode"];
+            /**
+             * Format: int32
+             * @default 0
+             */
+            priority: number | string;
+            source?: null | string;
+            /** Format: uuid */
+            kioskSessionId?: null | string;
         };
         CreateCatalogRequest: {
             name: string;
@@ -14951,22 +15014,6 @@ export interface components {
             deviceId: string;
             /** @default true */
             enabled: boolean;
-        };
-        CreateEncodingBatchRequest: {
-            name: string;
-            /** Format: uuid */
-            encoderId: string;
-            /** Format: uuid */
-            transformationId: string;
-            originalInput: components["schemas"]["JsonElement"];
-            normalizedRows: components["schemas"]["JsonElement"];
-            requestedAgentId: null | string;
-            requestedDeviceId: null | string;
-            /**
-             * Format: int32
-             * @default 0
-             */
-            priority: number | string;
         };
         CreateHardwareAgentRequest: {
             id: string;
@@ -15397,67 +15444,6 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
-        EncodingBatchResponse: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-            /** Format: uuid */
-            encoderId: null | string;
-            /** Format: uuid */
-            transformationId: string;
-            status: components["schemas"]["EncodingBatchStatus"];
-            originalInput: components["schemas"]["JsonElement"];
-            normalizedRows: components["schemas"]["JsonElement"];
-            /** Format: int32 */
-            totalRuns: number | string;
-            /** Format: int32 */
-            pendingRuns: number | string;
-            /** Format: int32 */
-            runningRuns: number | string;
-            /** Format: int32 */
-            succeededRuns: number | string;
-            /** Format: int32 */
-            failedRuns: number | string;
-            /** Format: int32 */
-            cancelledRuns: number | string;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-        };
-        /** @enum {unknown} */
-        EncodingBatchStatus: "Pending" | "Running" | "Completed" | "Failed" | "Cancelled";
-        /** @enum {unknown} */
-        EncodingRunKind: "Single" | "Batch";
-        EncodingRunResponse: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            transformationId: string;
-            /** Format: uuid */
-            batchId: null | string;
-            /** Format: uuid */
-            encoderId: null | string;
-            kind: components["schemas"]["EncodingRunKind"];
-            source: null | string;
-            status: components["schemas"]["EncodingRunStatus"];
-            input: components["schemas"]["JsonElement"];
-            resolvedVariables: components["schemas"]["JsonElement"];
-            planSummary: components["schemas"]["JsonElement"];
-            commandAudit: components["schemas"]["JsonElement"];
-            cardUid: null | string;
-            hardwareAgentId: null | string;
-            deviceId: null | string;
-            errorMessage: null | string;
-            /** Format: date-time */
-            requestedAt: string;
-            /** Format: date-time */
-            startedAt: null | string;
-            /** Format: date-time */
-            completedAt: null | string;
-        };
-        /** @enum {unknown} */
-        EncodingRunStatus: "Pending" | "Claimed" | "Running" | "Succeeded" | "Failed" | "Cancelled" | "Timeout" | "DeviceUnavailable";
         ExceptionState: {
             type?: components["schemas"]["Type"];
             message?: string;
@@ -16591,6 +16577,30 @@ export interface components {
             items?: components["schemas"]["ArrivalResponse"][];
             isLastPage?: boolean;
         };
+        PageOfBadgeBatchResponse: {
+            /** Format: int32 */
+            currentPage?: number | string;
+            /** Format: int32 */
+            totalPages?: null | number | string;
+            /** Format: int32 */
+            pageSize?: number | string;
+            /** Format: int32 */
+            totalItems?: null | number | string;
+            items?: components["schemas"]["BadgeBatchResponse"][];
+            isLastPage?: boolean;
+        };
+        PageOfBadgeJobResponse: {
+            /** Format: int32 */
+            currentPage?: number | string;
+            /** Format: int32 */
+            totalPages?: null | number | string;
+            /** Format: int32 */
+            pageSize?: number | string;
+            /** Format: int32 */
+            totalItems?: null | number | string;
+            items?: components["schemas"]["BadgeJobResponse"][];
+            isLastPage?: boolean;
+        };
         PageOfCatalogPackageResponse: {
             /** Format: int32 */
             currentPage?: number | string;
@@ -16697,30 +16707,6 @@ export interface components {
             /** Format: int32 */
             totalItems?: null | number | string;
             items?: components["schemas"]["EncoderResponse"][];
-            isLastPage?: boolean;
-        };
-        PageOfEncodingBatchResponse: {
-            /** Format: int32 */
-            currentPage?: number | string;
-            /** Format: int32 */
-            totalPages?: null | number | string;
-            /** Format: int32 */
-            pageSize?: number | string;
-            /** Format: int32 */
-            totalItems?: null | number | string;
-            items?: components["schemas"]["EncodingBatchResponse"][];
-            isLastPage?: boolean;
-        };
-        PageOfEncodingRunResponse: {
-            /** Format: int32 */
-            currentPage?: number | string;
-            /** Format: int32 */
-            totalPages?: null | number | string;
-            /** Format: int32 */
-            pageSize?: number | string;
-            /** Format: int32 */
-            totalItems?: null | number | string;
-            items?: components["schemas"]["EncodingRunResponse"][];
             isLastPage?: boolean;
         };
         PageOfHardwareAgentResponse: {
@@ -17150,7 +17136,7 @@ export interface components {
             media: components["schemas"]["RenderMediaResponse"];
             /** Format: int32 */
             dpi: number | string;
-            defaultRenderProfile?: null | components["schemas"]["RenderProfileResponse"];
+            defaultRenderProfile: null | components["schemas"]["RenderProfileResponse"];
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -17178,24 +17164,6 @@ export interface components {
             copies: number | string;
             data: components["schemas"]["JsonObject"];
         };
-        RenderProfileRequest: {
-            target: components["schemas"]["RenderTarget"];
-            /** Format: int32 */
-            dpi: number | string;
-            background?: null | string;
-            /** Format: int32 */
-            quality?: null | number | string;
-        };
-        RenderProfileResponse: {
-            target: components["schemas"]["RenderTarget"];
-            /** Format: int32 */
-            dpi: number | string;
-            background?: null | string;
-            /** Format: int32 */
-            quality?: null | number | string;
-        };
-        /** @enum {unknown} */
-        RenderTarget: "BmpImage" | "PngImage" | "JpegImage";
         /** @enum {unknown} */
         PrintSurfaceKind: "Card" | "Label";
         ProblemDetails: {
@@ -17311,6 +17279,24 @@ export interface components {
             height: number | string;
             orientation: components["schemas"]["Orientation"];
         };
+        RenderProfileRequest: {
+            target: components["schemas"]["RenderTarget"];
+            /** Format: int32 */
+            dpi: number | string;
+            background?: null | string;
+            /** Format: int32 */
+            quality?: null | number | string;
+        };
+        RenderProfileResponse: {
+            target: components["schemas"]["RenderTarget"];
+            /** Format: int32 */
+            dpi: number | string;
+            background?: null | string;
+            /** Format: int32 */
+            quality?: null | number | string;
+        };
+        /** @enum {unknown} */
+        RenderTarget: "BmpImage" | "PngImage" | "JpegImage";
         ReplaceEmployeePersonasRequest: {
             personaIds: string[];
         };

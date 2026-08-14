@@ -13,7 +13,7 @@ public sealed class DesfireDeviceLeaseConfiguration : IEntityTypeConfiguration<D
         builder.Property(lease => lease.Id).ValueGeneratedNever();
         builder.Property(lease => lease.AgentId).IsRequired().HasMaxLength(100);
         builder.Property(lease => lease.DeviceId).IsRequired().HasMaxLength(100);
-        builder.Property(lease => lease.EncodingRunId).IsRequired();
+        builder.Property(lease => lease.BadgeJobId).IsRequired();
         builder.Property(lease => lease.AcquiredAt).IsRequired();
         builder.Property(lease => lease.ExpiresAt).IsRequired();
         builder.Property(lease => lease.ReleasedAt);

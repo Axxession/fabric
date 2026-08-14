@@ -9,6 +9,26 @@ namespace Fabric.Server.Printing.Application;
 internal sealed class ImageRenderService : IRenderService
 {
     private static readonly Regex RgbColorPattern = new(@"^rgba?\((.+)\)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly IReadOnlyDictionary<string, SKColor> NamedColors = new Dictionary<string, SKColor>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["white"] = SKColors.White,
+        ["black"] = SKColors.Black,
+        ["transparent"] = SKColors.Transparent,
+        ["red"] = SKColors.Red,
+        ["green"] = SKColors.Green,
+        ["blue"] = SKColors.Blue,
+        ["yellow"] = SKColors.Yellow,
+        ["gray"] = SKColors.Gray,
+        ["grey"] = SKColors.Gray,
+        ["lightgray"] = SKColors.LightGray,
+        ["lightgrey"] = SKColors.LightGray,
+        ["darkgray"] = SKColors.DarkGray,
+        ["darkgrey"] = SKColors.DarkGray,
+        ["orange"] = SKColors.Orange,
+        ["purple"] = SKColors.Purple,
+        ["pink"] = SKColors.Pink,
+        ["brown"] = SKColors.Brown
+    };
 
     private readonly ILogger<ImageRenderService> _logger;
     private readonly MailMerge _mailMerge;
@@ -451,6 +471,9 @@ internal sealed class ImageRenderService : IRenderService
         try
         {
             string normalized = colorValue.Trim();
+
+            if (NamedColors.TryGetValue(normalized, out SKColor namedColor))
+                return namedColor;
 
             if (TryParseCssRgbColor(normalized, out SKColor cssColor))
                 return cssColor;

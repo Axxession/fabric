@@ -4,16 +4,17 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Fabric.Server.Desfire.Persistence.Configuration;
 
-public sealed class EncodingRunConfiguration : IEntityTypeConfiguration<EncodingRun>
+public sealed class BadgeJobConfiguration : IEntityTypeConfiguration<BadgeJob>
 {
-    public void Configure(EntityTypeBuilder<EncodingRun> builder)
+    public void Configure(EntityTypeBuilder<BadgeJob> builder)
     {
-        builder.ToTable("encoding_runs");
+        builder.ToTable("badge_jobs");
         builder.HasKey(run => run.Id);
         builder.Property(run => run.Id).ValueGeneratedNever();
-        builder.Property(run => run.TransformationId).IsRequired();
+        builder.Property(run => run.TransformationId);
         builder.Property(run => run.BatchId);
         builder.Property(run => run.EncoderId);
+        builder.Property(run => run.PrintDesignId);
         builder.Property(run => run.KioskSessionId);
         builder.Property(run => run.Kind).HasConversion<string>().IsRequired().HasMaxLength(50);
         builder.Property(run => run.Source).HasMaxLength(100);
@@ -38,6 +39,7 @@ public sealed class EncodingRunConfiguration : IEntityTypeConfiguration<Encoding
         builder.HasIndex(run => run.TransformationId);
         builder.HasIndex(run => run.BatchId);
         builder.HasIndex(run => run.EncoderId);
+        builder.HasIndex(run => run.PrintDesignId);
         builder.HasIndex(run => run.KioskSessionId);
         builder.HasIndex(run => run.Source);
         builder.HasIndex(run => run.CardUid);

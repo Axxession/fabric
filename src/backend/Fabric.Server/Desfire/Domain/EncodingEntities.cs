@@ -1,26 +1,28 @@
 namespace Fabric.Server.Desfire.Domain;
 
-public sealed class EncodingBatch
+public sealed class BadgeBatch
 {
-    private EncodingBatch() { }
+    private BadgeBatch() { }
 
     public Guid Id { get; private set; }
     public string Name { get; private set; } = default!;
     public Guid? EncoderId { get; private set; }
-    public Guid TransformationId { get; private set; }
-    public EncodingBatchStatus Status { get; private set; }
+    public Guid? TransformationId { get; private set; }
+    public Guid? PrintDesignId { get; private set; }
+    public BadgeBatchStatus Status { get; private set; }
     public string OriginalInputJson { get; private set; } = "{}";
     public string NormalizedRowsJson { get; private set; } = "[]";
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
-    public static EncodingBatch Create(string name, Guid encoderId, Guid transformationId, string originalInputJson, string normalizedRowsJson, DateTimeOffset now) => new()
+    public static BadgeBatch Create(string name, Guid encoderId, Guid? transformationId, Guid? printDesignId, string originalInputJson, string normalizedRowsJson, DateTimeOffset now) => new()
     {
         Id = Guid.NewGuid(),
         Name = name.Trim(),
         EncoderId = encoderId,
         TransformationId = transformationId,
-        Status = EncodingBatchStatus.Pending,
+        PrintDesignId = printDesignId,
+        Status = BadgeBatchStatus.Pending,
         OriginalInputJson = originalInputJson,
         NormalizedRowsJson = normalizedRowsJson,
         CreatedAt = now,
@@ -28,18 +30,19 @@ public sealed class EncodingBatch
     };
 }
 
-public sealed class EncodingRun
+public sealed class BadgeJob
 {
-    private EncodingRun() { }
+    private BadgeJob() { }
 
     public Guid Id { get; private set; }
-    public Guid TransformationId { get; private set; }
+    public Guid? TransformationId { get; private set; }
     public Guid? BatchId { get; private set; }
     public Guid? EncoderId { get; private set; }
+    public Guid? PrintDesignId { get; private set; }
     public Guid? KioskSessionId { get; private set; }
-    public EncodingRunKind Kind { get; private set; }
+    public BadgeJobKind Kind { get; private set; }
     public string? Source { get; private set; }
-    public EncodingRunStatus Status { get; private set; }
+    public BadgeJobStatus Status { get; private set; }
     public string InputJson { get; private set; } = "{}";
     public string ResolvedVariablesJson { get; private set; } = "{}";
     public string PlanSummaryJson { get; private set; } = "{}";
@@ -60,16 +63,17 @@ public sealed class EncodingRun
     public DateTimeOffset? StartedAt { get; private set; }
     public DateTimeOffset? CompletedAt { get; private set; }
 
-    public static EncodingRun Create(Guid transformationId, Guid? batchId, Guid? encoderId, Guid? kioskSessionId, EncodingRunKind kind, string? source, string inputJson, string variableConfigJson, string? requestedAgentId, string? requestedDeviceId, int priority, DateTimeOffset now) => new()
+    public static BadgeJob Create(Guid? transformationId, Guid? batchId, Guid? encoderId, Guid? printDesignId, Guid? kioskSessionId, BadgeJobKind kind, string? source, string inputJson, string variableConfigJson, string? requestedAgentId, string? requestedDeviceId, int priority, DateTimeOffset now) => new()
     {
         Id = Guid.NewGuid(),
         TransformationId = transformationId,
         BatchId = batchId,
         EncoderId = encoderId,
+        PrintDesignId = printDesignId,
         KioskSessionId = kioskSessionId,
         Kind = kind,
         Source = NormalizeOptional(source),
-        Status = EncodingRunStatus.Pending,
+        Status = BadgeJobStatus.Pending,
         InputJson = inputJson,
         VariableConfigJson = variableConfigJson,
         RequestedAgentId = NormalizeOptional(requestedAgentId),
@@ -78,11 +82,11 @@ public sealed class EncodingRun
         RequestedAt = now
     };
 
-    public bool CanClaim(DateTimeOffset now) => Status == EncodingRunStatus.Pending || (Status == EncodingRunStatus.Claimed && ClaimExpiresAt <= now);
+    public bool CanClaim(DateTimeOffset now) => Status == BadgeJobStatus.Pending || (Status == BadgeJobStatus.Claimed && ClaimExpiresAt <= now);
 
     public void Claim(string workerId, DateTimeOffset now, DateTimeOffset expiresAt)
     {
-        Status = EncodingRunStatus.Claimed;
+        Status = BadgeJobStatus.Claimed;
         ClaimedBy = workerId;
         ClaimedAt = now;
         ClaimExpiresAt = expiresAt;
@@ -93,27 +97,27 @@ public sealed class EncodingRun
     {
         HardwareAgentId = hardwareAgentId.Trim().ToLowerInvariant();
         DeviceId = deviceId.Trim().ToLowerInvariant();
-        Status = EncodingRunStatus.Running;
+        Status = BadgeJobStatus.Running;
         StartedAt = now;
     }
 
     public void Complete(string? cardUid, string resolvedVariablesJson, string planSummaryJson, string commandAuditJson, DateTimeOffset now)
     {
-        if (Status == EncodingRunStatus.Cancelled)
+        if (Status == BadgeJobStatus.Cancelled)
             return;
 
         CardUid = NormalizeCardUid(cardUid);
         ResolvedVariablesJson = resolvedVariablesJson;
         PlanSummaryJson = planSummaryJson;
         CommandAuditJson = commandAuditJson;
-        Status = EncodingRunStatus.Succeeded;
+        Status = BadgeJobStatus.Succeeded;
         CompletedAt = now;
         ClaimExpiresAt = null;
     }
 
-    public void Fail(EncodingRunStatus status, string errorMessage, string commandAuditJson, DateTimeOffset now, string? cardUid = null)
+    public void Fail(BadgeJobStatus status, string errorMessage, string commandAuditJson, DateTimeOffset now, string? cardUid = null)
     {
-        if (Status == EncodingRunStatus.Cancelled)
+        if (Status == BadgeJobStatus.Cancelled)
             return;
 
         Status = status;
@@ -126,10 +130,10 @@ public sealed class EncodingRun
 
     public void Requeue(string errorMessage, DateTimeOffset now)
     {
-        if (Status == EncodingRunStatus.Cancelled)
+        if (Status == BadgeJobStatus.Cancelled)
             return;
 
-        Status = EncodingRunStatus.Pending;
+        Status = BadgeJobStatus.Pending;
         ErrorMessage = errorMessage;
         ClaimedBy = null;
         ClaimExpiresAt = null;
@@ -138,7 +142,7 @@ public sealed class EncodingRun
 
     public void Cancel(string? errorMessage, string commandAuditJson, DateTimeOffset now)
     {
-        Status = EncodingRunStatus.Cancelled;
+        Status = BadgeJobStatus.Cancelled;
         ErrorMessage = string.IsNullOrWhiteSpace(errorMessage) ? "Encoding run cancelled." : errorMessage.Trim();
         CommandAuditJson = commandAuditJson;
         CompletedAt = now;
@@ -285,17 +289,17 @@ public sealed class DesfireDeviceLease
     public Guid Id { get; private set; }
     public string AgentId { get; private set; } = default!;
     public string DeviceId { get; private set; } = default!;
-    public Guid EncodingRunId { get; private set; }
+    public Guid BadgeJobId { get; private set; }
     public DateTimeOffset AcquiredAt { get; private set; }
     public DateTimeOffset ExpiresAt { get; private set; }
     public DateTimeOffset? ReleasedAt { get; private set; }
 
-    public static DesfireDeviceLease Create(string agentId, string deviceId, Guid encodingRunId, DateTimeOffset now, DateTimeOffset expiresAt) => new()
+    public static DesfireDeviceLease Create(string agentId, string deviceId, Guid badgeJobId, DateTimeOffset now, DateTimeOffset expiresAt) => new()
     {
         Id = Guid.NewGuid(),
         AgentId = agentId.Trim().ToLowerInvariant(),
         DeviceId = deviceId.Trim().ToLowerInvariant(),
-        EncodingRunId = encodingRunId,
+        BadgeJobId = badgeJobId,
         AcquiredAt = now,
         ExpiresAt = expiresAt
     };

@@ -37,6 +37,36 @@ public static class EncoderOptionsParser
                 continue;
             }
 
+            if (string.Equals(type, "EvolisEncoder", StringComparison.OrdinalIgnoreCase))
+            {
+                encoders.Add(new EvolisEncoderOptions
+                {
+                    DeviceId = encoderSection["deviceId"] ?? string.Empty,
+                    PrinterName = encoderSection["printerName"] ?? string.Empty,
+                    Reader = encoderSection["reader"] ?? string.Empty,
+                    Implementation = ParseImplementation(encoderSection["implementation"]),
+                    Station = encoderSection["station"] ?? "Contactless",
+                    InputHopper = encoderSection["inputHopper"] ?? "0",
+                    Verbose = ParseBool(encoderSection["verbose"])
+                });
+                continue;
+            }
+
+            if (string.Equals(type, "FargoEncoder", StringComparison.OrdinalIgnoreCase))
+            {
+                encoders.Add(new FargoEncoderOptions
+                {
+                    DeviceId = encoderSection["deviceId"] ?? string.Empty,
+                    PrinterName = encoderSection["printerName"] ?? string.Empty,
+                    Reader = encoderSection["reader"] ?? string.Empty,
+                    Implementation = ParseImplementation(encoderSection["implementation"]),
+                    Station = encoderSection["station"] ?? "Contactless",
+                    InputHopper = encoderSection["inputHopper"] ?? "0",
+                    Verbose = ParseBool(encoderSection["verbose"])
+                });
+                continue;
+            }
+
             throw new InvalidOperationException($"Unsupported encoder type '{type ?? "<null>"}'.");
         }
 
@@ -62,4 +92,9 @@ public static class EncoderOptionsParser
             ? parsed
             : throw new InvalidOperationException($"Invalid time span '{value}'.");
     }
+
+    private static bool ParseBool(string? value) =>
+        !string.IsNullOrWhiteSpace(value) && bool.TryParse(value, out bool parsed)
+            ? parsed
+            : false;
 }

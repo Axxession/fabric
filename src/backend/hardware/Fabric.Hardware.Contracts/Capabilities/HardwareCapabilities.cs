@@ -4,6 +4,7 @@ public static class HardwareCapabilities
 {
     public const string QrScan = "qr.scan";
     public const string CardPresent = "card.present";
+    public const string CardPrint = "card.print";
     public const string CardDrop = "card.drop";
     public const string CardDispense = "card.dispense";
     public const string CardCollect = "card.collect";

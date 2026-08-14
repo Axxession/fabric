@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Fabric.Hardware.Dependencies.FargoPrinter</PackageId>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="FargoNetAPI">
+      <HintPath>$(MSBuildThisFileDirectory)FargoNetAPI.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="FargoNetAPI.dll" Pack="true" PackagePath="lib/net10.0/" />
+    <None Include="FargoNetAPI.xml" Pack="true" PackagePath="lib/net10.0/" />
+  </ItemGroup>
+</Project>

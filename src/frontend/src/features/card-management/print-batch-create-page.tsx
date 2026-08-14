@@ -11,12 +11,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/sha
 import { Input } from '@/shared/components/ui/input';
 import { Textarea } from '@/shared/components/ui/textarea';
 
-import { printingBatchesQueryKey, type CreateEncodingBatchRequest, type Encoder } from './card-management-types';
+import { encodersQueryKey, printingBatchesQueryKey, type CreateBadgeBatchRequest, type Encoder, type PrintDesignSummary } from './card-management-types';
 
 const emptyCsv = 'badgeNumber,facilityCode\n10001,10\n10002,10';
 
-const printBatchCreateEncodersQueryKey = ['card-management', 'printing', 'print-batch-create-page', 'encoders'] as const;
 const printBatchCreateTransformationsQueryKey = ['card-management', 'print-batch-create-page', 'transformations'] as const;
+const printBatchCreatePrintDesignsQueryKey = ['card-management', 'print-batch-create-page', 'print-designs'] as const;
 
 type InputMode = 'count' | 'csv';
 
@@ -26,6 +26,7 @@ export default function PrintBatchCreatePage() {
   const [name, setName] = useState('');
   const [encoderId, setEncoderId] = useState('');
   const [transformationId, setTransformationId] = useState('');
+  const [printDesignId, setPrintDesignId] = useState('');
   const [csvText, setCsvText] = useState(emptyCsv);
   const [badgeCount, setBadgeCount] = useState('1');
   const [inputMode, setInputMode] = useState<InputMode>('csv');
@@ -42,8 +43,19 @@ export default function PrintBatchCreatePage() {
     },
   });
 
+  const printDesignsQuery = useQuery({
+    queryKey: printBatchCreatePrintDesignsQueryKey,
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/printing/designs', { params: { query: { SurfaceKind: 'Card', ids: [] } } });
+      if (error || !data) {
+        throw new Error(t('cardManagement.printBatchCreate.couldNotLoadPrintDesigns'));
+      }
+      return data;
+    },
+  });
+
   const encodersQuery = useQuery({
-    queryKey: printBatchCreateEncodersQueryKey,
+    queryKey: encodersQueryKey,
     queryFn: async () => {
       const { data, error } = await api.GET('/api/desfire/encoders', { params: { query: { Page: 0, PageSize: 100 } } });
       if (error || !data) {
@@ -54,8 +66,24 @@ export default function PrintBatchCreatePage() {
   });
 
   const transformations = transformationsQuery.data?.items ?? [];
-  const encoders = (encodersQuery.data?.items ?? []).filter((encoder) => encoder.enabled && encoder.supportsEncoding);
+  const printDesigns = printDesignsQuery.data?.items ?? [];
   const selectedTransformation = transformations.find((transformation) => transformation.id === transformationId);
+  const selectedPrintDesign = printDesigns.find((design) => design.id === printDesignId);
+  const requiresEncoding = transformationId.length > 0;
+  const requiresPrinting = printDesignId.length > 0;
+  const encoders = (encodersQuery.data?.items ?? []).filter((encoder) => {
+    if (!encoder.enabled) {
+      return false;
+    }
+    if (requiresEncoding && !encoder.supportsEncoding) {
+      return false;
+    }
+    if (requiresPrinting && !encoder.supportsPrinting) {
+      return false;
+    }
+    return true;
+  });
+
   const userVariables = selectedTransformation?.variables.filter((variable) => variable.kind === 'UserProvided') ?? [];
   const userVariableFields = [...new Set(userVariables.map((variable) => (variable.field ?? variable.name).trim()).filter(Boolean))];
   const hasUserVariables = userVariableFields.length > 0;
@@ -64,11 +92,17 @@ export default function PrintBatchCreatePage() {
 
   useEffect(() => {
     setInputMode(hasUserVariables ? 'csv' : 'count');
-  }, [hasUserVariables, transformationId]);
+  }, [hasUserVariables, transformationId, printDesignId]);
+
+  useEffect(() => {
+    if (encoderId && !encoders.some((encoder) => encoder.id === encoderId)) {
+      setEncoderId('');
+    }
+  }, [encoderId, encoders]);
 
   const createBatch = useMutation({
-    mutationFn: async (request: CreateEncodingBatchRequest) => {
-      const { data, error } = await api.POST('/api/desfire/encoding-batches', { body: request });
+    mutationFn: async (request: CreateBadgeBatchRequest) => {
+      const { data, error } = await api.POST('/api/desfire/badge-batches', { body: request });
       if (error || !data) {
         throw new Error(t('cardManagement.printBatchCreate.couldNotSchedule'));
       }
@@ -84,12 +118,21 @@ export default function PrintBatchCreatePage() {
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!selectedTransformation) {
-      toast.error(t('cardManagement.printBatchCreate.selectTransformation'));
+
+    if (!requiresEncoding && !requiresPrinting) {
+      toast.error(t('cardManagement.printBatchCreate.selectTransformationOrPrintDesign'));
       return;
     }
     if (!encoderId) {
       toast.error(t('cardManagement.printBatchCreate.selectEncoder'));
+      return;
+    }
+    if (requiresPrinting && !selectedPrintDesign) {
+      toast.error(t('cardManagement.printBatchCreate.selectPrintDesign'));
+      return;
+    }
+    if (requiresEncoding && !selectedTransformation) {
+      toast.error(t('cardManagement.printBatchCreate.selectTransformation'));
       return;
     }
 
@@ -107,7 +150,8 @@ export default function PrintBatchCreatePage() {
       createBatch.mutate({
         name: name.trim(),
         encoderId,
-        transformationId: selectedTransformation.id,
+        transformationId: selectedTransformation?.id ?? null,
+        printDesignId: selectedPrintDesign?.id ?? null,
         originalInput: { format: 'count', count: parsedBadgeCount },
         normalizedRows: Array.from({ length: parsedBadgeCount }, () => ({})),
         requestedAgentId: null,
@@ -133,7 +177,8 @@ export default function PrintBatchCreatePage() {
     createBatch.mutate({
       name: name.trim(),
       encoderId,
-      transformationId: selectedTransformation.id,
+      transformationId: selectedTransformation?.id ?? null,
+      printDesignId: selectedPrintDesign?.id ?? null,
       originalInput: { format: 'csv', text: csvText },
       normalizedRows: parseResult.rows,
       requestedAgentId: null,
@@ -154,10 +199,17 @@ export default function PrintBatchCreatePage() {
           <form className="grid gap-5" onSubmit={submit}>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="grid gap-2 text-[14px] font-medium"><span>{t('cardManagement.printBatchCreate.name')}</span><Input value={name} onChange={(event) => setName(event.target.value)} placeholder={t('cardManagement.printBatchCreate.namePlaceholder')} required /></label>
-              <label className="grid gap-2 text-[14px] font-medium"><span>{t('cardManagement.printBatchCreate.transformation')}</span><select className="h-9 rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary" value={transformationId} onChange={(event) => setTransformationId(event.target.value)} required><option value="">{t('cardManagement.printBatchCreate.selectTransformationOption')}</option>{transformations.map((transformation) => <option key={transformation.id} value={transformation.id}>{transformation.name}</option>)}</select></label>
+              <label className="grid gap-2 text-[14px] font-medium"><span>{t('cardManagement.printBatchCreate.transformation')}</span><select className="h-9 rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary" value={transformationId} onChange={(event) => setTransformationId(event.target.value)}><option value="">{t('cardManagement.printBatchCreate.selectTransformationOption')}</option>{transformations.map((transformation) => <option key={transformation.id} value={transformation.id}>{transformation.name}</option>)}</select></label>
+              <label className="grid gap-2 text-[14px] font-medium"><span>{t('cardManagement.printBatchCreate.printDesign')}</span><PrintDesignSelect value={printDesignId} printDesigns={printDesigns} onChange={setPrintDesignId} /></label>
               <label className="grid gap-2 text-[14px] font-medium"><span>{t('cardManagement.printBatchCreate.encoder')}</span><EncoderSelect value={encoderId} encoders={encoders} onChange={setEncoderId} /></label>
               <label className="grid gap-2 text-[14px] font-medium"><span>{t('cardManagement.printBatchCreate.priority')}</span><Input value={priority} type="number" onChange={(event) => setPriority(event.target.value)} /></label>
             </div>
+
+            <div className="rounded-structural border border-border bg-hover-gray p-4 text-[14px] text-muted-foreground">
+              {t('cardManagement.printBatchCreate.selectedMode', { mode: formatSelectedMode(requiresEncoding, requiresPrinting, t) })}
+            </div>
+
+            {requiresEncoding || requiresPrinting ? <EncoderAvailabilityHint encoderCount={encoders.length} requiresEncoding={requiresEncoding} requiresPrinting={requiresPrinting} /> : null}
 
             {selectedTransformation ? <VariableHint userVariableFields={userVariableFields} missingHeaders={missingHeaders} /> : null}
 
@@ -204,6 +256,30 @@ function EncoderSelect({ value, encoders, onChange }: { readonly value: string; 
   const { t } = useTranslation();
 
   return <select className="h-9 rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary" value={value} onChange={(event) => onChange(event.target.value)} required><option value="">{t('cardManagement.printBatchCreate.selectEncoderOption')}</option>{encoders.map((encoder) => <option key={encoder.id} value={encoder.id}>{encoder.name} ({encoder.agentId} / {encoder.deviceId})</option>)}</select>;
+}
+
+function PrintDesignSelect({ value, printDesigns, onChange }: { readonly value: string; readonly printDesigns: PrintDesignSummary[]; readonly onChange: (value: string) => void }) {
+  const { t } = useTranslation();
+
+  return <select className="h-9 rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary" value={value} onChange={(event) => onChange(event.target.value)}><option value="">{t('cardManagement.printBatchCreate.selectPrintDesignOption')}</option>{printDesigns.map((design) => <option key={design.id} value={design.id}>{design.name} v{design.version}</option>)}</select>;
+}
+
+function EncoderAvailabilityHint({ encoderCount, requiresEncoding, requiresPrinting }: { readonly encoderCount: number; readonly requiresEncoding: boolean; readonly requiresPrinting: boolean }) {
+  const { t } = useTranslation();
+  if (encoderCount > 0) {
+    return null;
+  }
+
+  let message = t('cardManagement.printBatchCreate.noMatchingEncoders');
+  if (requiresEncoding && requiresPrinting) {
+    message = t('cardManagement.printBatchCreate.noMatchingEncodersEncodeAndPrint');
+  } else if (requiresPrinting) {
+    message = t('cardManagement.printBatchCreate.noMatchingEncodersPrintOnly');
+  } else if (requiresEncoding) {
+    message = t('cardManagement.printBatchCreate.noMatchingEncodersEncodeOnly');
+  }
+
+  return <div className="rounded-interactive border border-warning bg-warning-background px-4 py-3 text-[14px] text-warning-foreground">{message}</div>;
 }
 
 function VariableHint({ userVariableFields, missingHeaders }: { readonly userVariableFields: string[]; readonly missingHeaders: string[] }) {
@@ -266,6 +342,19 @@ async function loadCsvFile(event: ChangeEvent<HTMLInputElement>, setCsvText: (va
     return;
   }
   setCsvText(await file.text());
+}
+
+function formatSelectedMode(requiresEncoding: boolean, requiresPrinting: boolean, t: ReturnType<typeof useTranslation>['t']) {
+  if (requiresEncoding && requiresPrinting) {
+    return t('cardManagement.printing.jobTypeEncodeAndPrint');
+  }
+  if (requiresEncoding) {
+    return t('cardManagement.printing.jobTypeEncodeOnly');
+  }
+  if (requiresPrinting) {
+    return t('cardManagement.printing.jobTypePrintOnly');
+  }
+  return t('cardManagement.printBatchCreate.noModeSelected');
 }
 
 function PanelError({ children }: { readonly children: React.ReactNode }) {

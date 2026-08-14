@@ -3,8 +3,8 @@
     "LogLevel": {
       "Default": "Information",
       "Microsoft.Hosting.Lifetime": "Information",
-      "Fabric" : "Trace",
-      "System.Net.Http" : "Warning"
+      "Fabric": "Trace",
+      "System.Net.Http": "Warning"
     }
   },
   "HardwareAgent": {
@@ -31,6 +31,16 @@
         "Reader": "smart-card-hid-2",
         "Implementation": "Iso",
         "ResponseTimeout": "00:00:05"
+      },
+      {
+        "$type": "FargoEncoder",
+        "DeviceId": "badge-printer-02",
+        "PrinterName": "HDP5000",
+        "Reader": "HID OMNIKEY 5427 CK (01010053575235303105353340223530) 00 00",
+        "Implementation": "Native",
+        "Station": "Contactless",
+        "InputHopper": "0",
+        "Verbose": false
       }
     ],
     "QrReaders": [

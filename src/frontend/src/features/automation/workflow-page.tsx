@@ -37,7 +37,7 @@ export default function WorkflowPage() {
 
   const definitionsQuery = useQuery({
     queryKey: workflowDefinitionsQueryKey,
-    queryFn: () => fetchElsa<WorkflowDefinitionsResponse>('/elsa/api/workflow-definitions?versionOptions=Published', auth.user?.access_token),
+    queryFn: () => fetchElsa<WorkflowDefinitionsResponse>('/elsa/api/workflow-definitions?versionOptions=Latest', auth.user?.access_token),
   });
 
   const allDefinitionsQuery = useQuery({

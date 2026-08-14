@@ -8,11 +8,12 @@ import { buttonVariants } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { i18n } from '@/shared/i18n/i18n';
 
-import { formatDateTime, printingBatchesQueryKey, printingRunsQueryKey, type Encoder, type EncodingRun, type Transformation } from './card-management-types';
+import { formatDateTime, printingBatchesQueryKey, printingRunsQueryKey, type BadgeJob, type Encoder, type PrintDesignSummary, type Transformation } from './card-management-types';
 import { JsonDetails, StatusBadge } from './printing-page';
 
 const printBatchDetailEncodersQueryKey = ['card-management', 'printing', 'print-batch-detail-page', 'encoders'] as const;
 const printBatchDetailTransformationsQueryKey = ['card-management', 'print-batch-detail-page', 'transformations'] as const;
+const printBatchDetailPrintDesignsQueryKey = ['card-management', 'print-batch-detail-page', 'print-designs'] as const;
 
 export default function PrintBatchDetailPage() {
   const { batchId } = useParams({ from: '/desfire-studio/printing/$batchId' });
@@ -26,7 +27,7 @@ export function PrintBatchDetailPageContent({ batchId }: { readonly batchId: str
   const batchQuery = useQuery({
     queryKey: [...printingBatchesQueryKey, batchId],
     queryFn: async () => {
-      const { data, error } = await api.GET('/api/desfire/encoding-batches/{id}', { params: { path: { id: batchId } } });
+      const { data, error } = await api.GET('/api/desfire/badge-batches/{id}', { params: { path: { id: batchId } } });
       if (error || !data) {
         throw new Error(t('cardManagement.printing.couldNotLoadPrintBatch'));
       }
@@ -37,7 +38,7 @@ export function PrintBatchDetailPageContent({ batchId }: { readonly batchId: str
   const runsQuery = useQuery({
     queryKey: [...printingRunsQueryKey, 'batch', batchId],
     queryFn: async () => {
-      const { data, error } = await api.GET('/api/desfire/encoding-runs', { params: { query: { Page: 0, PageSize: 500, batchId } } });
+      const { data, error } = await api.GET('/api/desfire/badge-jobs', { params: { query: { Page: 0, PageSize: 500, batchId } } });
       if (error || !data) {
         throw new Error(t('cardManagement.printing.couldNotLoadPrintRuns'));
       }
@@ -56,6 +57,17 @@ export function PrintBatchDetailPageContent({ batchId }: { readonly batchId: str
     },
   });
 
+  const printDesignsQuery = useQuery({
+    queryKey: printBatchDetailPrintDesignsQueryKey,
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/printing/designs', { params: { query: { SurfaceKind: 'Card', ids: [] } } });
+      if (error || !data) {
+        throw new Error(t('cardManagement.printing.couldNotLoadPrintDesigns'));
+      }
+      return data;
+    },
+  });
+
   const encodersQuery = useQuery({
     queryKey: printBatchDetailEncodersQueryKey,
     queryFn: async () => {
@@ -69,6 +81,7 @@ export function PrintBatchDetailPageContent({ batchId }: { readonly batchId: str
 
   const batch = batchQuery.data;
   const transformation = (transformationsQuery.data?.items ?? []).find((item) => item.id === batch?.transformationId);
+  const printDesign = (printDesignsQuery.data?.items ?? []).find((item) => item.id === batch?.printDesignId);
   const encoder = (encodersQuery.data?.items ?? []).find((item) => item.id === batch?.encoderId);
   const runs = runsQuery.data ?? [];
 
@@ -88,18 +101,21 @@ export function PrintBatchDetailPageContent({ batchId }: { readonly batchId: str
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <CardTitle>{batch.name}</CardTitle>
-              <CardDescription>{transformation?.name ?? batch.transformationId}</CardDescription>
+              <CardDescription>{formatBatchSubtitle(transformation?.name, printDesign?.name, t)}</CardDescription>
             </div>
             <StatusBadge status={batch.status} />
           </div>
         </CardHeader>
         <CardContent className="grid gap-4">
           <div className="grid gap-3 md:grid-cols-4">
-            <Info label={t('cardManagement.printing.total')} value={String(batch.totalRuns)} />
-            <Info label={t('cardManagement.printing.succeeded')} value={String(batch.succeededRuns)} />
-            <Info label={t('cardManagement.printing.failed')} value={String(Number(batch.failedRuns) + Number(batch.cancelledRuns))} />
+            <Info label={t('cardManagement.printing.total')} value={String(batch.totalJobs)} />
+            <Info label={t('cardManagement.printing.succeeded')} value={String(batch.succeededJobs)} />
+            <Info label={t('cardManagement.printing.failed')} value={String(Number(batch.failedJobs) + Number(batch.cancelledJobs))} />
             <Info label={t('cardManagement.printing.created')} value={formatDateTime(batch.createdAt)} />
             <Info label={t('cardManagement.printing.encoder')} value={encoder?.name ?? batch.encoderId ?? t('cardManagement.printing.unknown')} />
+            <Info label={t('cardManagement.printing.transformation')} value={transformation?.name ?? (batch.transformationId ?? '-')} />
+            <Info label={t('cardManagement.printing.printDesign')} value={printDesign?.name ?? (batch.printDesignId ?? '-')} />
+            <Info label={t('cardManagement.printing.jobType')} value={formatJobType(batch.transformationId, batch.printDesignId, t)} />
           </div>
           <JsonDetails title={t('cardManagement.printing.jsonOriginalInput')} value={batch.originalInput} />
           <NormalizedRowsTable rows={Array.isArray(batch.normalizedRows) ? (batch.normalizedRows as Record<string, string>[]) : []} />
@@ -114,25 +130,25 @@ export function PrintBatchDetailPageContent({ batchId }: { readonly batchId: str
         <CardContent>
           {runsQuery.isError ? <PanelError>{t('cardManagement.printing.couldNotLoadPrintRuns')}</PanelError> : null}
           {runsQuery.isLoading ? <p className="text-[14px] text-muted-foreground">{t('cardManagement.printing.loadingPrintRuns')}</p> : null}
-          {runs.length > 0 ? <RunsTable runs={runs} transformation={transformation} encoders={encodersQuery.data?.items ?? []} /> : null}
+          {runs.length > 0 ? <RunsTable runs={runs} transformation={transformation} printDesign={printDesign} encoders={encodersQuery.data?.items ?? []} /> : null}
         </CardContent>
       </Card>
     </section>
   );
 }
 
-function RunsTable({ runs, transformation, encoders }: { readonly runs: EncodingRun[]; readonly transformation?: Transformation; readonly encoders: Encoder[] }) {
+function RunsTable({ runs, transformation, printDesign, encoders }: { readonly runs: BadgeJob[]; readonly transformation?: Transformation; readonly printDesign?: PrintDesignSummary; readonly encoders: Encoder[] }) {
   const { t } = useTranslation();
   return (
     <div className="overflow-x-auto rounded-structural border border-border">
-      <table className="w-full min-w-[72rem] border-collapse text-left text-[14px]">
+      <table className="w-full min-w-[84rem] border-collapse text-left text-[14px]">
         <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
           <tr><th className="px-4 py-3 font-semibold">{t('cardManagement.printing.input')}</th><th className="px-4 py-3 font-semibold">{t('cardManagement.printing.status')}</th><th className="px-4 py-3 font-semibold">{t('cardManagement.printing.cardUid')}</th><th className="px-4 py-3 font-semibold">{t('cardManagement.printing.device')}</th><th className="px-4 py-3 font-semibold">{t('cardManagement.printing.requested')}</th><th className="px-4 py-3 text-right font-semibold">{t('cardManagement.printing.actions')}</th></tr>
         </thead>
         <tbody className="divide-y divide-border">
           {runs.map((run) => (
             <tr key={run.id}>
-              <td className="max-w-[22rem] truncate px-4 py-4 text-muted-foreground">{summarizeInput(run.input, transformation)}</td>
+              <td className="max-w-[22rem] truncate px-4 py-4 text-muted-foreground">{summarizeInput(run.input, transformation, printDesign)}</td>
               <td className="px-4 py-4"><StatusBadge status={run.status} /></td>
               <td className="px-4 py-4 text-muted-foreground">{run.cardUid ?? t('cardManagement.printing.notRead')}</td>
               <td className="px-4 py-4 text-muted-foreground">{formatRunDevice(run, encoders)}</td>
@@ -146,19 +162,46 @@ function RunsTable({ runs, transformation, encoders }: { readonly runs: Encoding
   );
 }
 
-function formatRunDevice(run: EncodingRun, encoders: Encoder[]) {
+function formatRunDevice(run: BadgeJob, encoders: Encoder[]) {
   const encoder = encoders.find((item) => item.id === run.encoderId);
   const hardware = run.hardwareAgentId && run.deviceId ? `${run.hardwareAgentId} / ${run.deviceId}` : i18n.t('cardManagement.printing.unassigned');
   return encoder ? `${encoder.name} (${hardware})` : hardware;
 }
 
-function summarizeInput(input: unknown, transformation?: Transformation) {
+function summarizeInput(input: unknown, transformation?: Transformation, printDesign?: PrintDesignSummary) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     return JSON.stringify(input);
   }
   const row = input as Record<string, unknown>;
   const fields = transformation?.requiredVariables.length ? transformation.requiredVariables : Object.keys(row);
-  return fields.slice(0, 4).map((field) => `${field}: ${String(row[field] ?? '')}`).join(', ');
+  const summary = fields.slice(0, 4).map((field) => `${field}: ${String(row[field] ?? '')}`).join(', ');
+  return summary || printDesign?.name || '{}';
+}
+
+function formatBatchSubtitle(transformationName: string | undefined, printDesignName: string | undefined, t: ReturnType<typeof useTranslation>['t']) {
+  if (transformationName && printDesignName) {
+    return t('cardManagement.printing.batchSubtitleEncodeAndPrint', { transformation: transformationName, printDesign: printDesignName });
+  }
+  if (transformationName) {
+    return transformationName;
+  }
+  if (printDesignName) {
+    return printDesignName;
+  }
+  return '-';
+}
+
+function formatJobType(transformationId: string | null | undefined, printDesignId: string | null | undefined, t: ReturnType<typeof useTranslation>['t']) {
+  if (transformationId && printDesignId) {
+    return t('cardManagement.printing.jobTypeEncodeAndPrint');
+  }
+  if (transformationId) {
+    return t('cardManagement.printing.jobTypeEncodeOnly');
+  }
+  if (printDesignId) {
+    return t('cardManagement.printing.jobTypePrintOnly');
+  }
+  return '-';
 }
 
 function Info({ label, value }: { readonly label: string; readonly value: string }) {

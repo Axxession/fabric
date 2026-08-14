@@ -40,7 +40,7 @@ public sealed class DesfireDeviceLeaseStore(DesfireDbContext db, TimeProvider ti
         DesfireDeviceLease? lease = await db.DeviceLeases
             .Where(candidate => candidate.AgentId == normalizedAgentId
                 && candidate.DeviceId == normalizedDeviceId
-                && candidate.EncodingRunId == encodingRunId
+                && candidate.BadgeJobId == encodingRunId
                 && candidate.ReleasedAt == null)
             .OrderByDescending(candidate => candidate.AcquiredAt)
             .FirstOrDefaultAsync(ct);

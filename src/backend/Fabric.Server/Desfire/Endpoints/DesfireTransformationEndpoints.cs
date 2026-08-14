@@ -114,7 +114,7 @@ public static class DesfireTransformationEndpoints
         if (transformation is null)
             return Results.NotFound();
 
-        bool referenced = await db.EncodingBatches.AnyAsync(batch => batch.TransformationId == id, cancellationToken) || await db.EncodingRuns.AnyAsync(run => run.TransformationId == id, cancellationToken);
+        bool referenced = await db.BadgeBatches.AnyAsync(batch => batch.TransformationId == id, cancellationToken) || await db.BadgeJobs.AnyAsync(run => run.TransformationId == id, cancellationToken);
         if (referenced)
             return Results.Problem("Cannot delete a transformation referenced by encoding history.", statusCode: StatusCodes.Status409Conflict);
 

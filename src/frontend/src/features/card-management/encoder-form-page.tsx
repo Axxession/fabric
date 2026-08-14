@@ -103,8 +103,10 @@ export function EncoderFormPageContent({ encoderId = null }: { readonly encoderI
     saveEncoder.mutate({ name: values.name.trim(), agentId, deviceId, enabled: values.enabled });
   };
 
-  const encodingDevices = (devicesQuery.data ?? []).filter(supportsEncoding);
-  const selectedDevice = encodingDevices.find((device) => `${device.agentId}|${device.deviceId}` === values.hardwareRef);
+  const badgeDevices = (devicesQuery.data ?? []).filter(supportsBadgeWorkflow);
+  const selectedDevice = badgeDevices.find((device) => `${device.agentId}|${device.deviceId}` === values.hardwareRef);
+  const selectedDeviceSupportsPrinting = selectedDevice ? supportsPrinting(selectedDevice) : false;
+  const selectedDeviceSupportsEncoding = selectedDevice ? supportsEncoding(selectedDevice) : false;
 
   return (
     <section className="grid gap-6">
@@ -118,10 +120,10 @@ export function EncoderFormPageContent({ encoderId = null }: { readonly encoderI
           <form className="grid gap-5" onSubmit={submit}>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="grid gap-2 text-[14px] font-medium"><span>{t('cardManagement.encoderForm.name')}</span><Input value={values.name} onChange={(event) => setValues({ ...values, name: event.target.value })} placeholder={t('cardManagement.encoderForm.namePlaceholder')} required /></label>
-              <label className="grid gap-2 text-[14px] font-medium"><span>{t('cardManagement.encoderForm.hardwareDevice')}</span><DeviceSelect value={values.hardwareRef} agents={agentsQuery.data ?? []} devices={encodingDevices} onChange={(hardwareRef) => setValues({ ...values, hardwareRef })} /></label>
+              <label className="grid gap-2 text-[14px] font-medium"><span>{t('cardManagement.encoderForm.hardwareDevice')}</span><DeviceSelect value={values.hardwareRef} agents={agentsQuery.data ?? []} devices={badgeDevices} onChange={(hardwareRef) => setValues({ ...values, hardwareRef })} /></label>
             </div>
             <label className="flex items-center gap-2 text-[14px] font-medium"><input type="checkbox" checked={values.enabled} onChange={(event) => setValues({ ...values, enabled: event.target.checked })} />{t('cardManagement.encoderForm.enabled')}</label>
-            <div className="flex flex-wrap gap-2"><Badge variant={selectedDevice ? 'success' : 'secondary'}>{selectedDevice ? t('cardManagement.encoderForm.supportsEncodingWorkflow') : t('cardManagement.encoderForm.selectEncodingCapableDevice')}</Badge><Badge variant="secondary">{t('cardManagement.encoderForm.noPrintingSupport')}</Badge></div>
+            <div className="flex flex-wrap gap-2"><Badge variant={selectedDeviceSupportsEncoding ? 'success' : 'secondary'}>{selectedDeviceSupportsEncoding ? t('cardManagement.encoderForm.supportsEncodingWorkflow') : t('cardManagement.encoderForm.noEncodingSupport')}</Badge><Badge variant={selectedDeviceSupportsPrinting ? 'success' : 'secondary'}>{selectedDeviceSupportsPrinting ? t('cardManagement.printing.printingCapability') : t('cardManagement.encoderForm.noPrintingSupport')}</Badge></div>
             <div className="flex justify-end"><Button type="submit" disabled={saveEncoder.isPending}><Save className="size-4" aria-hidden="true" />{t('cardManagement.encoderForm.save')}</Button></div>
           </form>
         </CardContent>
@@ -138,6 +140,18 @@ function DeviceSelect({ value, agents, devices, onChange }: { readonly value: st
 
 function supportsEncoding(device: HardwareDevice) {
   return ['card.present', 'rfid.apdu.exchange', 'card.eject'].every((required) => device.capabilities.some((capability) => capability.toLowerCase() === required));
+}
+
+function supportsPrinting(device: HardwareDevice) {
+  return device.capabilities.some((capability) => capability.toLowerCase() === 'card.print');
+}
+
+function supportsBadgeWorkflow(device: HardwareDevice) {
+  return supportsPrintOnly(device) || supportsEncoding(device);
+}
+
+function supportsPrintOnly(device: HardwareDevice) {
+  return ['card.present', 'card.print', 'card.eject'].every((required) => device.capabilities.some((capability) => capability.toLowerCase() === required));
 }
 
 function getEncoderIdFromPath() {

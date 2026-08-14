@@ -27,6 +27,7 @@ public static class HardwareServiceCollectionExtensions
         collection.AddScoped<HardwareAgentKeyHasher>();
         collection.AddScoped<IQrScanner, QrScanner>();
         collection.AddScoped<ILabelPrinter, LabelPrinter>();
+        collection.AddScoped<ICardPrinter, CardPrinter>();
         collection.AddSingleton<HardwareCommandStore>();
         collection.AddSingleton<HardwareAgentConnectionManager>();
         collection.AddSingleton<HardwareConnectionStatusResolver>();

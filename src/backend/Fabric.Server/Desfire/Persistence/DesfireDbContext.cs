@@ -13,8 +13,8 @@ public sealed class DesfireDbContext : TenantDbContext
     public DbSet<Transformation> Transformations { get; set; } = null!;
     public DbSet<KeyDiversificationStrategyEntity> KeyDiversificationStrategies { get; set; } = null!;
     public DbSet<KeyGroup> KeyGroups { get; set; } = null!;
-    public DbSet<EncodingBatch> EncodingBatches { get; set; } = null!;
-    public DbSet<EncodingRun> EncodingRuns { get; set; } = null!;
+    public DbSet<BadgeBatch> BadgeBatches { get; set; } = null!;
+    public DbSet<BadgeJob> BadgeJobs { get; set; } = null!;
     public DbSet<DesfireDeviceLease> DeviceLeases { get; set; } = null!;
     public DbSet<DesfireVariableSequence> VariableSequences { get; set; } = null!;
     public DbSet<DesfireSystemProvider> SystemProviders { get; set; } = null!;
@@ -37,8 +37,8 @@ public sealed class DesfireDbContext : TenantDbContext
         modelBuilder.ApplyConfiguration(new TransformationConfiguration());
         modelBuilder.ApplyConfiguration(new KeyDiversificationStrategyConfiguration());
         modelBuilder.ApplyConfiguration(new KeyGroupConfiguration());
-        modelBuilder.ApplyConfiguration(new EncodingBatchConfiguration());
-        modelBuilder.ApplyConfiguration(new EncodingRunConfiguration());
+        modelBuilder.ApplyConfiguration(new BadgeBatchConfiguration());
+        modelBuilder.ApplyConfiguration(new BadgeJobConfiguration());
         modelBuilder.ApplyConfiguration(new DesfireDeviceLeaseConfiguration());
         modelBuilder.ApplyConfiguration(new DesfireVariableSequenceConfiguration());
         modelBuilder.ApplyConfiguration(new DesfireSystemProviderConfiguration());

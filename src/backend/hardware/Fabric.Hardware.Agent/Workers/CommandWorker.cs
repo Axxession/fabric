@@ -291,6 +291,12 @@ public sealed class CommandWorker(
                 return await ExchangeEncoderApduAsync(command.Payload, encoder, linkedCancellation.Token);
             }
 
+            if (string.Equals(command.Capability, HardwareCapabilities.CardPrint, StringComparison.OrdinalIgnoreCase))
+            {
+                execution.SetPhase("card print");
+                return await PrintEncoderCardAsync(command.Payload, encoder, linkedCancellation.Token);
+            }
+
             if (string.Equals(command.Capability, HardwareCapabilities.CardEject, StringComparison.OrdinalIgnoreCase))
             {
                 execution.SetPhase("waiting for card removal");
@@ -327,6 +333,16 @@ public sealed class CommandWorker(
 
         byte[] response = await encoder.ExchangeApduAsync(Convert.FromHexString(request!.CommandHex), cancellationToken);
         var result = new JsonObject { ["responseHex"] = Convert.ToHexString(response) };
+        return new PostHardwareCommandResultRequest(HardwareOperationStatus.Succeeded, result, null, timeProvider.GetUtcNow());
+    }
+
+    private async Task<PostHardwareCommandResultRequest> PrintEncoderCardAsync(JsonObject? payload, IEncoderDevice encoder, CancellationToken cancellationToken)
+    {
+        if (!TryReadCardPrintRequest(payload, out string? frontImageBase64, out PostHardwareCommandResultRequest? invalidPayload))
+            return invalidPayload!;
+
+        await encoder.PrintAsync(Convert.FromBase64String(frontImageBase64!), cancellationToken);
+        var result = new JsonObject { ["printed"] = true };
         return new PostHardwareCommandResultRequest(HardwareOperationStatus.Succeeded, result, null, timeProvider.GetUtcNow());
     }
 
@@ -700,6 +716,36 @@ public sealed class CommandWorker(
         catch (InvalidOperationException)
         {
             error = Failure(HardwareOperationStatus.Failed, "invalid_payload", "placeInCollectorStack must be a boolean value.");
+            return false;
+        }
+    }
+
+    private bool TryReadCardPrintRequest(JsonObject? payload, out string? frontImageBase64, out PostHardwareCommandResultRequest? error)
+    {
+        frontImageBase64 = null;
+        error = null;
+
+        if (payload is null)
+        {
+            error = Failure(HardwareOperationStatus.Failed, "invalid_payload", "frontImageBase64 is required.");
+            return false;
+        }
+
+        try
+        {
+            frontImageBase64 = payload["frontImageBase64"]?.GetValue<string>();
+            if (string.IsNullOrWhiteSpace(frontImageBase64))
+            {
+                error = Failure(HardwareOperationStatus.Failed, "invalid_payload", "frontImageBase64 is required.");
+                return false;
+            }
+
+            Convert.FromBase64String(frontImageBase64);
+            return true;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or FormatException)
+        {
+            error = Failure(HardwareOperationStatus.Failed, "invalid_payload", "frontImageBase64 must be valid base64.");
             return false;
         }
     }

@@ -27,7 +27,10 @@ public sealed class EncodeCardActivity : Activity<EncodeCardResult>
     public Input<int> SlotNumber { get; set; } = default!;
 
     [Input(DisplayName = "Transformation", UIHandler = typeof(EncodingTransformationProvider), UIHint = InputUIHints.DropDown)]
-    public Input<Guid> TransformationId { get; set; } = default!;
+    public Input<Guid?> TransformationId { get; set; } = default!;
+
+    [Input(DisplayName = "Print design", UIHandler = typeof(CardPrintDesignProvider), UIHint = InputUIHints.DropDown)]
+    public Input<Guid?> PrintDesignId { get; set; } = default!;
 
     [Input(DisplayName = "Variables", Description = "JSON object passed as encoding variables.")]
     public Input<JsonElement> Variables { get; set; } = default!;
@@ -80,12 +83,14 @@ public sealed class EncodeCardActivity : Activity<EncodeCardResult>
         if (variables.ValueKind == JsonValueKind.Undefined)
             variables = JsonSerializer.SerializeToElement(new Dictionary<string, string>(), DesfireJson.Options);
 
-        CreateAdHocEncodingRequest request = new(
-            context.Get(TransformationId),
-            resolution.Device.AgentId,
-            resolution.Device.DeviceId,
-            variables,
-            AdHocEncodingMode.Queued,
+        CreateBadgeJobRequest request = new(
+            EncoderId: null,
+            TransformationId: context.Get(TransformationId),
+            PrintDesignId: context.Get(PrintDesignId),
+            AgentId: resolution.Device.AgentId,
+            DeviceId: resolution.Device.DeviceId,
+            Input: variables,
+            Mode: BadgeJobMode.Queued,
             Priority: 0,
             Source: DesfireEncodingSources.Kiosk,
             KioskSessionId: session.Id);
@@ -101,9 +106,9 @@ public sealed class EncodeCardActivity : Activity<EncodeCardResult>
             onPhaseChanged: async (phase, cancellationToken) => await ShowPhaseMessageAsync(instructionService, session.Id, phase, cancellationToken),
             context.CancellationToken);
 
-        EncodingRun run = executed.Run ?? created.Run;
+        BadgeJob run = executed.Run ?? created.Run;
         context.Set(Result, new EncodeCardResult(
-            executed.Failure is null && run.Status == EncodingRunStatus.Succeeded,
+            executed.Failure is null && run.Status == BadgeJobStatus.Succeeded,
             run.Id,
             run.CardUid,
             run.Status,
@@ -135,12 +140,12 @@ public sealed class EncodeCardActivity : Activity<EncodeCardResult>
         }
     }
 
-    private static string GetOutcome(EncodingRunStatus status) => status switch
+    private static string GetOutcome(BadgeJobStatus status) => status switch
     {
-        EncodingRunStatus.Succeeded => SucceededOutcome,
-        EncodingRunStatus.DeviceUnavailable or EncodingRunStatus.Timeout => EncoderUnavailableOutcome,
+        BadgeJobStatus.Succeeded => SucceededOutcome,
+        BadgeJobStatus.DeviceUnavailable or BadgeJobStatus.Timeout => EncoderUnavailableOutcome,
         _ => EncodingFailedOutcome
     };
 }
 
-public sealed record EncodeCardResult(bool Success, Guid RunId, string? CardUid, EncodingRunStatus Status, string? ErrorMessage);
+public sealed record EncodeCardResult(bool Success, Guid RunId, string? CardUid, BadgeJobStatus Status, string? ErrorMessage);

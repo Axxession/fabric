@@ -1,6 +1,6 @@
 namespace Fabric.Server.Desfire.Domain;
 
-public enum EncodingRunKind
+public enum BadgeJobKind
 {
     Single,
     Batch
@@ -9,10 +9,10 @@ public enum EncodingRunKind
 public static class DesfireEncodingSources
 {
     public const string Kiosk = "kiosk";
-    public const string PrintBatch = "print-batch";
+    public const string BadgeBatch = "badge-batch";
 }
 
-public enum EncodingRunStatus
+public enum BadgeJobStatus
 {
     Pending,
     Claimed,
@@ -24,7 +24,7 @@ public enum EncodingRunStatus
     DeviceUnavailable
 }
 
-public enum AdHocEncodingMode
+public enum BadgeJobMode
 {
     Sync,
     Queued
@@ -60,7 +60,7 @@ public enum WiegandFieldSourceKind
     Sequence
 }
 
-public enum EncodingBatchStatus
+public enum BadgeBatchStatus
 {
     Pending,
     Running,

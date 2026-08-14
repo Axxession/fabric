@@ -20,7 +20,7 @@ public abstract class PcscEncoderDeviceBase(string reader, PcscEncoderImplementa
 
     protected string Reader => reader;
 
-    public Task<byte[]> ExchangeApduAsync(byte[] command, CancellationToken cancellationToken)
+    public virtual Task<byte[]> ExchangeApduAsync(byte[] command, CancellationToken cancellationToken)
     {
         try
         {
@@ -35,6 +35,9 @@ public abstract class PcscEncoderDeviceBase(string reader, PcscEncoderImplementa
             throw new InvalidOperationException("Configured PCSC reader is not available.", ex);
         }
     }
+
+    public virtual Task PrintAsync(byte[] image, CancellationToken cancellationToken) =>
+        throw new InvalidOperationException("Configured encoder does not support card printing.");
 
     public virtual void Dispose()
     {

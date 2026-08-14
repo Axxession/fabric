@@ -115,7 +115,7 @@ app.UseCors("ApiCors");
 if (File.Exists(frontendIndexPath))
 {
     app.UseDefaultFiles();
-    app.UseStaticFiles();
+    app.MapStaticAssets().AllowAnonymous();
 }
 
 app.UseMiddleware<TenantContextMiddleware>();
