@@ -7,6 +7,7 @@ using Fabric.Server.AccessControl.Endpoints;
 using Fabric.Server.Automation;
 using Fabric.Server.CredentialManagement;
 using Fabric.Server.CredentialManagement.Endpoints;
+using Fabric.Server.Contractors;
 using Fabric.Server.Desfire;
 using Fabric.Server.Desfire.Endpoints;
 using Fabric.Server.Employees;
@@ -74,6 +75,7 @@ builder.Services
     .SetupActors(builder.Configuration)
     .SetupTenants(builder.Configuration)
     .SetupIdentities(builder.Configuration)
+    .SetupContractors(builder.Configuration)
     .SetupEmployees(builder.Configuration)
     .SetupCredentialManagement(builder.Configuration)
     .SetupAccessControl(builder.Configuration)
@@ -125,6 +127,7 @@ app.UseAuthorization();
 app.MapTenantEndpoints();
 app.MapActorEndpoints();
 app.MapIdentityEndpoints();
+app.MapContractorModuleEndpoints();
 app.MapEmployeeEndpoints();
 app.MapCredentialManagementEndpoints();
 app.MapAccessControlEndpoints();

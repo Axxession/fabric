@@ -130,6 +130,36 @@ public class IdentityService(IdentitiesDbContext db, TimeProvider timeProvider)
             .Select(affiliation => (Guid?)affiliation.IdentityId)
             .SingleOrDefaultAsync(cancellationToken);
 
+    public async Task<Result<Identity, IdentityErrors>> LinkContractorAsync(
+        Guid identityId,
+        Guid contractorId,
+        CancellationToken cancellationToken = default)
+    {
+        DateTimeOffset now = timeProvider.GetUtcNow();
+
+        Identity? identity = await db.Identities
+            .Include(item => item.ContractorAffiliations)
+            .SingleOrDefaultAsync(item => item.Id == identityId, cancellationToken);
+        if (identity is null)
+            return Result.Failure<Identity, IdentityErrors>(IdentityErrors.IdentityNotFound);
+
+        ContractorAffiliation? existingAffiliation = await db.ContractorAffiliations
+            .SingleOrDefaultAsync(affiliation => affiliation.ContractorId == contractorId, cancellationToken);
+
+        if (existingAffiliation is not null && existingAffiliation.IdentityId != identityId)
+            return Result.Failure<Identity, IdentityErrors>(IdentityErrors.ContractorAlreadyLinkedToDifferentIdentity);
+
+        if (existingAffiliation is null)
+        {
+            Result<ContractorAffiliation, IdentityErrors> addAffiliation = identity.AddContractorAffiliation(contractorId, now, null, now);
+            if (addAffiliation.IsFailure(out IdentityErrors error))
+                return Result.Failure<Identity, IdentityErrors>(error);
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return Result.Success<Identity, IdentityErrors>(identity);
+    }
+
     public async Task<IPaged<Identity>> SearchIdentitiesAsync(
         ListIdentitiesRequest request,
         CancellationToken cancellationToken = default)
