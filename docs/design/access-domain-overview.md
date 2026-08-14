@@ -1,6 +1,6 @@
 # Access Domain Overview
 
-This design set summarizes the bounded-context split for locations, PACS access control, access catalog packages, automation/sagas, and credential management.
+This design set summarizes the bounded-context split for locations, contractors, PACS access control, access catalog packages, automation/sagas, and credential management.
 
 Updated ubiquitous language:
 
@@ -15,6 +15,7 @@ The core separation is:
 - `Locations` owns where things are.
 - `AccessControl` owns PACS infrastructure, access items, native PACS mappings, and technical PACS assignments.
 - `AccessCatalog` owns catalogs, packages, requests, grants, approvals, and approval groups.
+- `Contractors` owns contractor companies, contractors, contractor job types, contractor jobs, and contractor job assignments.
 - `Employees` owns employee records, organization units, manager hierarchy, and calculated employee lifecycle.
 - `CredentialManagement` owns credential types, numbers, issued credentials, and credential PACS assignments.
 - Automation/saga contexts own cross-boundary rules such as OU-to-package or visitor-location-to-package.
@@ -24,6 +25,7 @@ Design files:
 - `locations.md`
 - `access-control.md`
 - `access-catalog.md`
+- `contractors.md`
 - `employees.md`
 - `actors.md`
 - `automation-sagas.md`
@@ -36,6 +38,8 @@ Dependency direction summary:
 AccessControl -> Locations by LocationId
 AccessCatalog -> Locations by LocationId
 AccessCatalog -> AccessControl by AccessItemId
+Contractors -> Locations by LocationId
+Requirements -> Contractors by contractor planning facts and JobTypeId policy references
 CredentialManagement -> AccessControl by CredentialTypeTarget and location-based provisioning resolution
 Automation/Sagas -> Employees, Visitors, AccessCatalog, CredentialManagement by application-service calls
 ```
@@ -45,5 +49,6 @@ Avoid cross-context ownership:
 - Locations does not own PACS coverage.
 - Access Control does not own approvals or package requests.
 - Access Catalog does not own native PACS objects or PACS assignments.
+- Contractors does not own identity linkage, enforcement zones, or compliance policy.
 - Credential Management does not own access items or packages.
 - Employees and Visitors do not own automatic access package grant rules.
