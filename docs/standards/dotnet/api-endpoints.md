@@ -42,7 +42,13 @@ Always use explicit binding attributes:
 
 ## Validation
 
-Use **FluentValidation** for all inbound `Request` type validation. Validators are discovered automatically by convention.
+Use **FluentValidation** for inbound `Request` type validation once the service has validation infrastructure wired.
+
+Current repository note:
+
+- Fabric does not yet have global FluentValidation registration or validation middleware wired.
+- Until that infrastructure exists, features may validate request shape inline or defer validators by explicit scope decision.
+- If a feature introduces FluentValidation for the first time, it must also add the shared registration and invocation path rather than only adding validator classes.
 
 ### Where validators live
 
@@ -55,7 +61,7 @@ server/Validators/
 └── Policies/CreateAccessRuleRequestValidator.cs
 ```
 
-**Rule**: Never inject `IValidator<T>` directly into handlers. Validators are registered globally via `AddValidatorsFromAssemblyContaining<Program>()` and invoked automatically by validation middleware.
+**Rule**: Never inject `IValidator<T>` directly into handlers. Once validation infrastructure exists, validators should be registered globally and invoked automatically by validation middleware.
 
 ### Shape and required-field validation
 
