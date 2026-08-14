@@ -29,6 +29,7 @@ using Fabric.Server.Printing;
 using Fabric.Server.Printing.Endpoints;
 using Fabric.Server.Reception;
 using Fabric.Server.Reception.Endpoints;
+using Fabric.Server.Requirements;
 using Fabric.Server.Sagas;
 using Fabric.Server.Sagas.EmployeeLifecycle;
 using Fabric.Server.Sagas.VisitorPreOnboarding;
@@ -87,6 +88,7 @@ builder.Services
     .SetupHardware(builder.Configuration)
     .SetupKiosk(builder.Configuration)
     .SetupLocations(builder.Configuration)
+    .SetupRequirements(builder.Configuration)
     .SetupReception(builder.Configuration)
     .SetupNotifications(builder.Configuration);
 
@@ -140,6 +142,7 @@ app.MapApprovalInboxEndpoints();
 app.MapPackageRequestEndpoints();
 app.MapApprovalRequirementEndpoints();
 app.MapLocationEndpoints();
+app.MapRequirementsEndpoints();
 app.MapReceptionEndpoints();
 app.MapReceptionKioskEndpoints();
 app.MapReceptionDeskWorkstationEndpoints();
