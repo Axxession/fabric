@@ -4,6 +4,7 @@ using Fabric.Server.Contractors.Domain;
 using Fabric.Server.Contractors.Persistence;
 using Fabric.Server.Core;
 using Fabric.Server.Identities.Persistence;
+using Fabric.Server.Infrastructure.Authentication;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,30 +18,36 @@ public static class ContractorEndpoints
 
         contractors.MapGet("", ListContractors)
             .WithSummary("List contractors")
+            .RequireAuthorization(FabricRoleDefaults.ContractorEnrollmentOrPlanningPolicy)
             .Produces<Page<ContractorResponse>>();
         contractors.MapGet("/{id:guid}", GetContractor)
             .WithSummary("Get contractor")
+            .RequireAuthorization(FabricRoleDefaults.ContractorEnrollmentOrPlanningPolicy)
             .Produces<ContractorResponse>()
             .Produces(StatusCodes.Status404NotFound);
         contractors.MapPost("", CreateContractor)
             .WithSummary("Create contractor")
+            .RequireAuthorization(FabricRoleDefaults.ContractorEnrollmentPolicy)
             .Produces<ContractorResponse>(StatusCodes.Status201Created)
             .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound)
             .Produces<ProblemDetails>(StatusCodes.Status409Conflict);
         contractors.MapPut("/{id:guid}", UpdateContractor)
             .WithSummary("Update contractor")
+            .RequireAuthorization(FabricRoleDefaults.ContractorEnrollmentPolicy)
             .Produces<ContractorResponse>()
             .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound)
             .Produces<ProblemDetails>(StatusCodes.Status409Conflict);
         contractors.MapPost("/{id:guid}/archive", ArchiveContractor)
             .WithSummary("Archive contractor")
+            .RequireAuthorization(FabricRoleDefaults.ContractorEnrollmentPolicy)
             .Produces<ContractorResponse>()
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound)
             .Produces<ProblemDetails>(StatusCodes.Status409Conflict);
         contractors.MapPost("/{id:guid}/unarchive", UnarchiveContractor)
             .WithSummary("Unarchive contractor")
+            .RequireAuthorization(FabricRoleDefaults.ContractorEnrollmentPolicy)
             .Produces<ContractorResponse>()
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound)
             .Produces<ProblemDetails>(StatusCodes.Status409Conflict);

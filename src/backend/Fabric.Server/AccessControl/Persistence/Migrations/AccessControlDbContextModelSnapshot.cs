@@ -121,6 +121,12 @@ namespace Fabric.Server.AccessControl.Persistence.Migrations
                         .HasColumnType("character varying(2000)")
                         .HasColumnName("description");
 
+                    b.Property<bool>("IsComplianceRequired")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_compliance_required");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)

@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useCurrentActor } from '@/shared/actors/current-actor';
+import { getGrantApprovalLabel, getGrantApprovalVariant, getGrantBusinessSummary, getGrantComplianceLabel, getGrantComplianceUntilLabel, getGrantComplianceVariant, getGrantStatusVariant } from '@/shared/access-grants/grant-status';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { VisitStatusBadge } from '@/shared/components/visit-status-badge';
@@ -292,8 +293,8 @@ function EmployeeOverviewPage() {
 
   const credentials = credentialsQuery.data ?? [];
   const credentialTypesById = credentialTypesQuery.data ?? new Map<string, CredentialTypeResponse>();
-  const activeGrants = (grantsQuery.data ?? []).filter((item: AccessGrantResponse) => item.status === 'Active');
-  const assignedPackages = Array.from(new Map(activeGrants.map((item: AccessGrantResponse) => [item.packageId, item])).values())
+  const activeGrants = (grantsQuery.data ?? []).filter((item) => item.status === 'Active');
+  const assignedPackages = Array.from(new Map(activeGrants.map((item) => [item.packageId, item])).values())
     .sort((left, right) => {
       const leftName = packagesQuery.data?.get(left.packageId)?.name ?? left.packageId;
       const rightName = packagesQuery.data?.get(right.packageId)?.name ?? right.packageId;
@@ -367,8 +368,8 @@ function EmployeeOverviewPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Assigned Packages</CardTitle>
-            <CardDescription>Current access packages from active grants.</CardDescription>
+              <CardTitle>Assigned Packages</CardTitle>
+              <CardDescription>Current access packages from active grants, including withheld compliance states.</CardDescription>
           </CardHeader>
           <CardContent>
             {grantsQuery.isError || packagesQuery.isError ? <ErrorText message="Could not load assigned packages." /> : null}
@@ -386,7 +387,11 @@ function EmployeeOverviewPage() {
                           <p className="font-medium text-foreground">{pkg?.name ?? grant.packageId}</p>
                           <p className="mt-1 text-[13px] text-muted-foreground">{pkg?.description ?? 'Current package assignment.'}</p>
                         </div>
-                        <Badge variant="success">Active</Badge>
+                        <Badge variant={getGrantStatusVariant(grant.status)}>{grant.status}</Badge>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Badge variant={getGrantApprovalVariant(grant.approvalStatus)}>{getGrantApprovalLabel(grant.approvalStatus)}</Badge>
+                        <Badge variant={getGrantComplianceVariant(grant.complianceStatus)}>{getGrantComplianceLabel(grant.complianceStatus)}</Badge>
                       </div>
                       <dl className="mt-4 grid gap-2 text-[13px] text-muted-foreground sm:grid-cols-2">
                         <div className="flex items-center justify-between gap-3 sm:block">
@@ -397,6 +402,16 @@ function EmployeeOverviewPage() {
                           <dt>Valid until</dt>
                           <dd className="text-right text-foreground sm:mt-1 sm:text-left">{grant.validUntil ? formatDateTimeLabel(grant.validUntil) : 'No end date'}</dd>
                         </div>
+                        <div className="flex items-center justify-between gap-3 sm:block">
+                          <dt>State</dt>
+                          <dd className="text-right text-foreground sm:mt-1 sm:text-left">{getGrantBusinessSummary(grant)}</dd>
+                        </div>
+                        {getGrantComplianceUntilLabel(grant) ? (
+                          <div className="flex items-center justify-between gap-3 sm:block">
+                            <dt>Compliant until</dt>
+                            <dd className="text-right text-foreground sm:mt-1 sm:text-left">{formatDateTimeLabel(getGrantComplianceUntilLabel(grant)!)}</dd>
+                          </div>
+                        ) : null}
                       </dl>
                     </div>
                   );

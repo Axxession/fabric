@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Fabric.Server.AccessCatalog.Contracts;
 using Fabric.Server.AccessCatalog.Domain;
 using Fabric.Server.Core;
+using Fabric.Server.Requirements.Domain;
 using Fabric.Server.Sagas.AccessGrantProvisioning;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,6 +19,8 @@ namespace Fabric.Server.AccessCatalog;
 [JsonSerializable(typeof(ApprovalInboxItemResponse))]
 [JsonSerializable(typeof(ApprovalGroupResponse))]
 [JsonSerializable(typeof(ApprovalRequirementsPreviewAccessItemResponse[]))]
+[JsonSerializable(typeof(CompliancePreviewLocationResponse[]))]
+[JsonSerializable(typeof(PackageRequestPreviewResponse))]
 [JsonSerializable(typeof(ApprovalGroupStatus))]
 [JsonSerializable(typeof(ApprovalGroupStatus?))]
 [JsonSerializable(typeof(ApprovalRequirementResponse))]
@@ -33,6 +36,12 @@ namespace Fabric.Server.AccessCatalog;
 [JsonSerializable(typeof(AccessGrantMaterializationOutcomeStatus?))]
 [JsonSerializable(typeof(AccessGrantStatus))]
 [JsonSerializable(typeof(AccessGrantStatus?))]
+[JsonSerializable(typeof(GrantProvisioningStatus))]
+[JsonSerializable(typeof(GrantProvisioningStatus?))]
+[JsonSerializable(typeof(GrantApprovalStatus))]
+[JsonSerializable(typeof(GrantApprovalStatus?))]
+[JsonSerializable(typeof(GrantComplianceStatus))]
+[JsonSerializable(typeof(GrantComplianceStatus?))]
 [JsonSerializable(typeof(AddPackageAccessItemRequest))]
 [JsonSerializable(typeof(AssignmentChannel))]
 [JsonSerializable(typeof(AssignmentChannel?))]
@@ -47,6 +56,7 @@ namespace Fabric.Server.AccessCatalog;
 [JsonSerializable(typeof(CreateApprovalGroupMemberRequest))]
 [JsonSerializable(typeof(CreateApprovalGroupRequest))]
 [JsonSerializable(typeof(CreateAccessGrantRequest))]
+[JsonSerializable(typeof(CreateAccessGrantResponse))]
 [JsonSerializable(typeof(CreateCatalogRequest))]
 [JsonSerializable(typeof(CreatePackageRequest))]
 [JsonSerializable(typeof(CreatePackageRequestRequest))]
@@ -56,6 +66,9 @@ namespace Fabric.Server.AccessCatalog;
 [JsonSerializable(typeof(ListApprovalInboxRequest))]
 [JsonSerializable(typeof(ListApprovalRequirementsRequest))]
 [JsonSerializable(typeof(PackageAccessItemResponse))]
+[JsonSerializable(typeof(GrantRequirementResponse[]))]
+[JsonSerializable(typeof(GrantRequirementResultResponse[]))]
+[JsonSerializable(typeof(RecalculateGrantRequirementsResponse))]
 [JsonSerializable(typeof(PackageRequestDetailDecisionResponse[]))]
 [JsonSerializable(typeof(PackageRequestDetailResponse))]
 [JsonSerializable(typeof(PackageRequestDetailFlowResponse[]))]

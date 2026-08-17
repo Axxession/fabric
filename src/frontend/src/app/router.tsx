@@ -81,6 +81,8 @@ const KioskPage = lazy(() => import('@/features/kiosk/kiosk-page'));
 const KioskSetupPage = lazy(() => import('@/features/kiosk/kiosk-setup-page'));
 const PackageCreatePage = lazy(() => import('@/features/administration/package-create-page'));
 const PackageEditPage = lazy(() => import('@/features/administration/package-edit-page'));
+const RequirementCreatePage = lazy(() => import('@/features/administration/requirement-create-page'));
+const RequirementEditPage = lazy(() => import('@/features/administration/requirement-edit-page'));
 const PersonaCreatePage = lazy(() => import('@/features/administration/persona-create-page'));
 const PersonaEditPage = lazy(() => import('@/features/administration/persona-edit-page'));
 const ReceptionDeskArrivalsPage = lazy(() => import('@/features/reception-desk/reception-desk-arrivals-page'));
@@ -430,6 +432,18 @@ const administrationPackageEditRoute = createRoute({
   getParentRoute: () => administrationRoute,
   path: '/access-model/packages/$packageId/edit',
   component: () => <LazyRoute component={<PackageEditPage />} />,
+});
+
+const administrationRequirementCreateRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/access-model/compliancy/new',
+  component: () => <LazyRoute component={<RequirementCreatePage />} />,
+});
+
+const administrationRequirementEditRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/access-model/compliancy/$requirementId/edit',
+  component: () => <LazyRoute component={<RequirementEditPage />} />,
 });
 
 const administrationCatalogueCreateRoute = createRoute({
@@ -820,9 +834,11 @@ const routeTree = rootRoute.addChildren([
       administrationAccessControlTargetEditRoute,
       administrationAccessControlSystemCreateRoute,
       administrationAccessControlSystemEditRoute,
-      administrationPackageCreateRoute,
-      administrationPackageEditRoute,
-      administrationCatalogueCreateRoute,
+    administrationPackageCreateRoute,
+    administrationPackageEditRoute,
+    administrationRequirementCreateRoute,
+    administrationRequirementEditRoute,
+    administrationCatalogueCreateRoute,
       administrationCatalogueEditRoute,
       administrationApprovalGroupCreateRoute,
       administrationApprovalGroupEditRoute,

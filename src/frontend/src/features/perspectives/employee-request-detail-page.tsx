@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { useCurrentActor } from '@/shared/actors/current-actor';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
+import { getGrantApprovalLabel, getGrantApprovalVariant, getGrantBusinessSummary, getGrantComplianceLabel, getGrantComplianceUntilLabel, getGrantComplianceVariant, getGrantStatusVariant } from '@/shared/access-grants/grant-status';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button, buttonVariants } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
@@ -148,8 +149,8 @@ export default function EmployeeRequestDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Granted Access</CardTitle>
-          <CardDescription>Provisioned scopes tied to this request.</CardDescription>
+          <CardTitle>Access Grants</CardTitle>
+          <CardDescription>Grant records tied to this request, including approval and compliance state.</CardDescription>
         </CardHeader>
         <CardContent>
           {detail.grants.length === 0 ? <p className="text-[14px] text-muted-foreground">No granted access yet.</p> : <GrantList grants={detail.grants} />}
@@ -262,15 +263,20 @@ function GrantList({ grants }: { readonly grants: PackageRequestDetailGrantRespo
 }
 
 function GrantRow({ grant }: { readonly grant: PackageRequestDetailGrantResponse }) {
+  const complianceUntil = getGrantComplianceUntilLabel(grant);
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-interactive border border-border bg-background p-3 text-[14px]">
       <div>
         <p className="font-medium text-foreground">{grant.accessItemName}</p>
         <p className="mt-1 text-[13px] text-muted-foreground">{grant.locationLabel}</p>
+        <p className="mt-1 text-[13px] text-muted-foreground">{getGrantBusinessSummary(grant)}</p>
+        {complianceUntil ? <p className="mt-1 text-[13px] text-muted-foreground">Compliant until {formatDateTimeLabel(complianceUntil)}</p> : null}
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-end gap-2">
         <span className="text-[13px] text-muted-foreground">{formatDateTimeLabel(grant.validFrom)}</span>
-        <Badge variant={grant.status === 'Active' ? 'success' : 'secondary'}>{grant.status}</Badge>
+        <Badge variant={getGrantStatusVariant(grant.status)}>{grant.status}</Badge>
+        <Badge variant={getGrantApprovalVariant(grant.approvalStatus)}>{getGrantApprovalLabel(grant.approvalStatus)}</Badge>
+        <Badge variant={getGrantComplianceVariant(grant.complianceStatus)}>{getGrantComplianceLabel(grant.complianceStatus)}</Badge>
       </div>
     </div>
   );

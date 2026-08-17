@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from '@tanstack/react-router';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Pencil, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -14,7 +14,7 @@ import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, Pagi
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { fetchVisitorPreOnboardingConfig, updateVisitorPreOnboardingConfig, visitorPreOnboardingConfigQueryKey } from '@/features/settings/visitor-pre-onboarding-config';
 
-type AccessModelTab = 'packages' | 'catalogues' | 'approval-groups' | 'hr-policies' | 'visitor-policies';
+type AccessModelTab = 'packages' | 'catalogues' | 'approval-groups' | 'hr-policies' | 'visitor-policies' | 'compliancy';
 type PackageResponse = components['schemas']['PackageResponse'];
 type CatalogResponse = components['schemas']['CatalogResponse'];
 type ApprovalGroupResponse = components['schemas']['ApprovalGroupResponse'];
@@ -29,6 +29,7 @@ type PersonaPackageRuleResponse = components['schemas']['PersonaPackageRuleRespo
 type SetRuleEnabledRequest = components['schemas']['SetRuleEnabledRequest'];
 type OrganizationUnitResponse = components['schemas']['OrganizationUnitResponse'];
 type PersonaResponse = components['schemas']['PersonaResponse'];
+type RequirementDefinitionResponse = components['schemas']['RequirementDefinitionResponse'];
 type UpdateEmployeeLifecycleAutomationSettingsRequest = components['schemas']['UpdateEmployeeLifecycleAutomationSettingsRequest'];
 type ReceptionAccessPolicyTrigger = components['schemas']['ReceptionAccessPolicyTrigger'];
 type RuleOption = { readonly value: string; readonly label: string };
@@ -73,6 +74,8 @@ export default function AccessModelPage() {
 
   const [approvalGroupsPage, setApprovalGroupsPage] = useState(0);
   const [approvalGroupsName, setApprovalGroupsName] = useState('');
+  const [requirementsPage, setRequirementsPage] = useState(0);
+  const [requirementsQueryText, setRequirementsQueryText] = useState('');
 
   const packagesQuery = useQuery({
     queryKey: ['administration', 'access-model', 'packages', packagesPage, packagesName],
@@ -103,6 +106,17 @@ export default function AccessModelPage() {
         params: { query: { Name: approvalGroupsName || undefined, ids: [], Page: approvalGroupsPage, PageSize: pageSize } as never },
       });
       if (error) throw new Error(t('accessModel.approvalGroups.couldNotLoad'));
+      return data;
+    },
+  });
+
+  const requirementsQuery = useQuery({
+    queryKey: ['administration', 'access-model', 'compliancy', 'requirements', requirementsPage, requirementsQueryText],
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/requirements/definitions', {
+        params: { query: { Query: requirementsQueryText || undefined, IsActive: undefined, Page: requirementsPage, PageSize: pageSize } as never },
+      });
+      if (error) throw new Error('Could not load requirements.');
       return data;
     },
   });
@@ -213,6 +227,7 @@ export default function AccessModelPage() {
           <TabsTrigger value="packages">{t('accessModel.tabs.packages')}</TabsTrigger>
           <TabsTrigger value="catalogues">{t('accessModel.tabs.catalogs')}</TabsTrigger>
           <TabsTrigger value="approval-groups">{t('accessModel.tabs.approvalGroups')}</TabsTrigger>
+          <TabsTrigger value="compliancy">Compliancy</TabsTrigger>
           <TabsTrigger value="hr-policies">{t('accessModel.tabs.hrPolicies')}</TabsTrigger>
           <TabsTrigger value="visitor-policies">{t('accessModel.tabs.visitorPolicies')}</TabsTrigger>
         </TabsList>
@@ -229,6 +244,10 @@ export default function AccessModelPage() {
           <ApprovalGroupsPanel name={approvalGroupsName} onNameChange={(value) => { setApprovalGroupsName(value); setApprovalGroupsPage(0); }} onOpenApprovalGroup={(approvalGroupId) => void navigate({ to: '/administration/access-model/approval-groups/$approvalGroupId/edit', params: { approvalGroupId } })} response={approvalGroupsQuery.data} isLoading={approvalGroupsQuery.isLoading} isError={approvalGroupsQuery.isError} page={approvalGroupsPage} setPage={setApprovalGroupsPage} />
         </TabsContent>
 
+        <TabsContent value="compliancy">
+          <RequirementsPanel name={requirementsQueryText} onNameChange={(value) => { setRequirementsQueryText(value); setRequirementsPage(0); }} onOpenRequirement={(requirementId) => void navigate({ to: '/administration/access-model/compliancy/$requirementId/edit', params: { requirementId } })} response={requirementsQuery.data} isLoading={requirementsQuery.isLoading} isError={requirementsQuery.isError} page={requirementsPage} setPage={setRequirementsPage} />
+        </TabsContent>
+
         <TabsContent value="hr-policies">
           <HrPoliciesPanel settings={employeeLifecycleSettingsQuery.data} ouRules={ouRulesQuery.data?.items ?? []} personaRules={personaRulesQuery.data?.items ?? []} organizationUnits={organizationUnitsQuery.data ?? []} personas={personasQuery.data ?? []} packages={packagesOptionsQuery.data ?? []} isLoading={employeeLifecycleSettingsQuery.isLoading || ouRulesQuery.isLoading || personaRulesQuery.isLoading || organizationUnitsQuery.isLoading || personasQuery.isLoading || packagesOptionsQuery.isLoading} isError={employeeLifecycleSettingsQuery.isError || ouRulesQuery.isError || personaRulesQuery.isError || organizationUnitsQuery.isError || personasQuery.isError || packagesOptionsQuery.isError} />
         </TabsContent>
@@ -238,6 +257,122 @@ export default function AccessModelPage() {
         </TabsContent>
       </Tabs>
     </section>
+  );
+}
+
+function RequirementsPanel({ name, onNameChange, onOpenRequirement, response, isLoading, isError, page, setPage }: { readonly name: string; readonly onNameChange: (value: string) => void; readonly onOpenRequirement: (requirementId: string) => void; readonly response: components['schemas']['PageOfRequirementDefinitionResponse'] | undefined; readonly isLoading: boolean; readonly isError: boolean; readonly page: number; readonly setPage: (page: number) => void; }) {
+  const queryClient = useQueryClient();
+  const items = response?.items ?? [];
+  const pagination = getPaginationState(response, items.length, page, pageSize);
+
+  const deleteRequirement = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await api.DELETE('/api/requirements/definitions/{id}', { params: { path: { id } } });
+      if (error) throw new Error('Could not delete requirement.');
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['administration', 'access-model', 'compliancy', 'requirements'] });
+      toast.success('Requirement deleted.');
+    },
+    onError: () => toast.error('Could not delete requirement. It may still be in use.'),
+  });
+
+  return (
+    <ListSection
+      title="Compliancy"
+      description="Review, add, edit, and delete requirement definitions."
+      isLoading={isLoading}
+      isError={isError}
+      errorMessage="Could not load requirements."
+      emptyTitle="No requirements found"
+      emptyDescription="Try a different search."
+      totalItems={pagination.totalItems}
+      firstItem={pagination.firstItem}
+      lastItem={pagination.lastItem}
+      currentPage={pagination.currentPage}
+      totalPages={pagination.totalPages}
+      visiblePages={pagination.visiblePages}
+      setPage={setPage}
+      actions={
+        <Link to="/administration/access-model/compliancy/new" className={buttonVariants()}>
+          Add requirement
+        </Link>
+      }
+      filters={
+        <FilterInput
+          label="Search requirements"
+          value={name}
+          onChange={onNameChange}
+          placeholder="Search by code or name"
+        />
+      }
+      table={
+        <table className="w-full min-w-[64rem] border-collapse text-left text-[14px]">
+          <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
+            <tr>
+              <th className="px-4 py-3 font-semibold">Name</th>
+              <th className="px-4 py-3 font-semibold">Code</th>
+              <th className="px-4 py-3 font-semibold">Evaluator</th>
+              <th className="px-4 py-3 font-semibold">Sensitive</th>
+              <th className="px-4 py-3 font-semibold">Status</th>
+              <th className="px-4 py-3 text-right font-semibold">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {items.map((item) => (
+              <tr key={item.id} className="transition hover:bg-hover-blue">
+                <td className="px-4 py-4 font-medium text-foreground">{item.name}</td>
+                <td className="px-4 py-4 text-muted-foreground">{item.code}</td>
+                <td className="px-4 py-4 text-muted-foreground">{item.evaluatorKind}</td>
+                <td className="px-4 py-4 text-muted-foreground">{item.isSensitive ? 'Yes' : 'No'}</td>
+                <td className="px-4 py-4"><StatusBadge status={item.isActive ? 'Active' : 'Inactive'} /></td>
+                <td className="px-4 py-4">
+                  <div className="flex justify-end gap-2">
+                    <button type="button" className="inline-flex size-9 items-center justify-center rounded-interactive border border-border text-muted-foreground transition hover:bg-hover-blue hover:text-foreground" aria-label={`Edit ${item.name}`} onClick={() => onOpenRequirement(item.id)}>
+                      <Pencil className="size-4" aria-hidden="true" />
+                    </button>
+                    <Button type="button" variant="outline" size="sm" disabled={deleteRequirement.isPending} onClick={() => deleteRequirement.mutate(item.id)}>
+                      <Trash2 className="size-4" aria-hidden="true" />
+                      Delete
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      }
+      mobileList={
+        <div className="grid gap-3 md:hidden">
+          {items.map((item) => (
+            <article key={item.id} className="rounded-structural border border-border p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-[15px] font-semibold text-foreground">{item.name}</h3>
+                  <p className="mt-1 text-[13px] text-muted-foreground">{item.code}</p>
+                </div>
+                <StatusBadge status={item.isActive ? 'Active' : 'Inactive'} />
+              </div>
+              <dl className="mt-3 grid gap-2 text-[14px] text-muted-foreground">
+                <div><dt className="font-medium text-foreground">Evaluator</dt><dd>{item.evaluatorKind}</dd></div>
+                <div><dt className="font-medium text-foreground">Sensitive</dt><dd>{item.isSensitive ? 'Yes' : 'No'}</dd></div>
+              </dl>
+              <div className="mt-4 flex gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => onOpenRequirement(item.id)}>
+                  <Pencil className="size-4" aria-hidden="true" />
+                  Edit
+                </Button>
+                <Button type="button" variant="outline" size="sm" disabled={deleteRequirement.isPending} onClick={() => deleteRequirement.mutate(item.id)}>
+                  <Trash2 className="size-4" aria-hidden="true" />
+                  Delete
+                </Button>
+              </div>
+            </article>
+          ))}
+        </div>
+      }
+      hasItems={items.length > 0}
+    />
   );
 }
 
@@ -1090,7 +1225,7 @@ function getActiveTab(searchStr: string): AccessModelTab {
 }
 
 function isAccessModelTab(value: string | null | undefined): value is AccessModelTab {
-  return value === 'packages' || value === 'catalogues' || value === 'approval-groups' || value === 'hr-policies' || value === 'visitor-policies';
+  return value === 'packages' || value === 'catalogues' || value === 'approval-groups' || value === 'compliancy' || value === 'hr-policies' || value === 'visitor-policies';
 }
 
 function getPaginationState(page: { currentPage?: number | string; totalPages?: null | number | string; totalItems?: null | number | string } | undefined, itemCount: number, requestedPage: number, resolvedPageSize: number): PaginationState {

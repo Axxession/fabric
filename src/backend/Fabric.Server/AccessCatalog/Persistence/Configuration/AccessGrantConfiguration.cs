@@ -20,10 +20,16 @@ public sealed class AccessGrantConfiguration : IEntityTypeConfiguration<AccessGr
         builder.Property(item => item.SourceId).HasColumnName("source_id").IsRequired();
         builder.Property(item => item.ApprovalFlowId).HasColumnName("approval_flow_id");
         builder.Property(item => item.RequestScopeId).HasColumnName("request_scope_id");
+        builder.Property(item => item.LocationId).HasColumnName("location_id").IsRequired();
         builder.Property(item => item.DurationKind).HasColumnName("duration_kind").HasConversion<string>().HasMaxLength(50).IsRequired();
         builder.Property(item => item.ValidFrom).HasColumnName("valid_from").IsRequired();
         builder.Property(item => item.ValidUntil).HasColumnName("valid_until");
         builder.Property(item => item.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(50).IsRequired();
+        builder.Property(item => item.ReplacedById).HasColumnName("replaced_by_id");
+        builder.Property(item => item.ApprovalStatus).HasColumnName("approval_status").HasConversion<string>().HasMaxLength(50).IsRequired();
+        builder.Property(item => item.ComplianceStatus).HasColumnName("compliance_status").HasConversion<string>().HasMaxLength(50).IsRequired();
+        builder.Property(item => item.CompliantUntil).HasColumnName("compliant_until");
+        builder.Property(item => item.LastComplianceEvaluatedAt).HasColumnName("last_compliance_evaluated_at");
         builder.Property(item => item.ReasonText).HasColumnName("reason_text").HasMaxLength(2_000).IsRequired();
         builder.Property(item => item.RevokedBy).HasColumnName("revoked_by").HasMaxLength(250);
         builder.Property(item => item.RevokeCause).HasColumnName("revoke_cause").HasConversion<string>().HasMaxLength(100);

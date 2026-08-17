@@ -49,7 +49,7 @@ VisitorAccessAutomationRule
 - IsEnabled
 ```
 
-The rule should usually not point to a PACS or native access level. It grants a package. The arrival or visit location determines which PACS and access-level target are relevant.
+The rule should usually not point to a PACS or native access level. It grants a package. The arrival or visit location determines which PACS and access-level target are relevant once the grant is compliant and provisionable.
 
 Example global rule:
 
@@ -64,7 +64,7 @@ Arrival.LocationId = Site Antwerp
 Package Visitors -> AccessItem Visitor Access
 Site Antwerp -> nearest PACS link -> PACS BE
 AccessItem Visitor Access + PACS BE -> AccessLevelTarget Visitor Antwerp
-Access Control creates PACSAssignment
+If the grant is compliant, Access Control creates PACSAssignment
 ```
 
 `LocationId` on the automation rule is optional:
@@ -123,7 +123,7 @@ Boundary rules:
 
 - Employees owns employee lifecycle and organizational units, not access consequences.
 - Visitors owns visitor and visit lifecycle, not access consequences.
-- Access Catalog owns the grant command and package assignment lifecycle.
+- Access Catalog owns the grant command, grant compliance state, and package assignment lifecycle.
 - Automation/sagas own the cross-context policy that decides when to call Access Catalog.
 
 ## Employee Lifecycle PACS Subject State
@@ -295,7 +295,7 @@ Desired grants =
   x enabled persona package rules
 
 Reconciliation:
-- missing desired grant -> create access grant
+- missing desired grant -> create access grant and derive grant requirements
 - existing automatic grant no longer desired -> revoke access grant
 - desired grant already exists -> leave unchanged
 ```

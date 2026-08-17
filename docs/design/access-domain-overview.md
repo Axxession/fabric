@@ -14,7 +14,7 @@ The core separation is:
 
 - `Locations` owns where things are.
 - `AccessControl` owns PACS infrastructure, access items, native PACS mappings, and technical PACS assignments.
-- `AccessCatalog` owns catalogs, packages, requests, grants, approvals, and approval groups.
+- `AccessCatalog` owns catalogs, packages, requests, grants, approvals, approval groups, grant-attached requirements, and grant compliance state.
 - `Contractors` owns contractor companies, contractors, contractor job types, contractor jobs, and contractor job assignments.
 - `Employees` owns employee records, organization units, manager hierarchy, and calculated employee lifecycle.
 - `CredentialManagement` owns credential types, numbers, issued credentials, and credential PACS assignments.
@@ -37,7 +37,8 @@ Dependency direction summary:
 ```text
 AccessControl -> Locations by LocationId
 AccessCatalog -> Locations by LocationId
-AccessCatalog -> AccessControl by AccessItemId
+AccessCatalog -> AccessControl by AccessItemId and provisionable grant output
+AccessCatalog -> Requirements by requirement derivation and grant compliance evaluation
 Contractors -> Locations by LocationId
 Requirements -> Contractors by contractor planning facts and JobTypeId policy references
 CredentialManagement -> AccessControl by CredentialTypeTarget and location-based provisioning resolution
@@ -49,6 +50,7 @@ Avoid cross-context ownership:
 - Locations does not own PACS coverage.
 - Access Control does not own approvals or package requests.
 - Access Catalog does not own native PACS objects or PACS assignments.
+- Access Catalog does not own requirement policy or evidence.
 - Contractors does not own identity linkage, enforcement zones, or compliance policy.
 - Credential Management does not own access items or packages.
 - Employees and Visitors do not own automatic access package grant rules.

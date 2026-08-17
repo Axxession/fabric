@@ -3,6 +3,7 @@ using Fabric.Server.Contractors.Contracts;
 using Fabric.Server.Contractors.Domain;
 using Fabric.Server.Contractors.Persistence;
 using Fabric.Server.Core;
+using Fabric.Server.Infrastructure.Authentication;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,29 +17,35 @@ public static class JobTypeEndpoints
 
         jobTypes.MapGet("", ListJobTypes)
             .WithSummary("List contractor job types")
+            .RequireAuthorization(FabricRoleDefaults.ContractorEnrollmentOrPlanningPolicy)
             .Produces<Page<JobTypeResponse>>();
         jobTypes.MapGet("/{id:guid}", GetJobType)
             .WithSummary("Get contractor job type")
+            .RequireAuthorization(FabricRoleDefaults.ContractorEnrollmentOrPlanningPolicy)
             .Produces<JobTypeResponse>()
             .Produces(StatusCodes.Status404NotFound);
         jobTypes.MapPost("", CreateJobType)
             .WithSummary("Create contractor job type")
+            .RequireAuthorization(FabricRoleDefaults.ContractorEnrollmentPolicy)
             .Produces<JobTypeResponse>(StatusCodes.Status201Created)
             .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
             .Produces<ProblemDetails>(StatusCodes.Status409Conflict);
         jobTypes.MapPut("/{id:guid}", UpdateJobType)
             .WithSummary("Update contractor job type")
+            .RequireAuthorization(FabricRoleDefaults.ContractorEnrollmentPolicy)
             .Produces<JobTypeResponse>()
             .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound)
             .Produces<ProblemDetails>(StatusCodes.Status409Conflict);
         jobTypes.MapPost("/{id:guid}/activate", ActivateJobType)
             .WithSummary("Activate contractor job type")
+            .RequireAuthorization(FabricRoleDefaults.ContractorEnrollmentPolicy)
             .Produces<JobTypeResponse>()
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound)
             .Produces<ProblemDetails>(StatusCodes.Status409Conflict);
         jobTypes.MapPost("/{id:guid}/deactivate", DeactivateJobType)
             .WithSummary("Deactivate contractor job type")
+            .RequireAuthorization(FabricRoleDefaults.ContractorEnrollmentPolicy)
             .Produces<JobTypeResponse>()
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound)
             .Produces<ProblemDetails>(StatusCodes.Status409Conflict);

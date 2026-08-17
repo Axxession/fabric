@@ -164,6 +164,10 @@ namespace Fabric.Server.Contractors.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<Guid>("CreatedByIdentityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_identity_id");
+
                     b.Property<string>("Description")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)")
@@ -219,6 +223,9 @@ namespace Fabric.Server.Contractors.Persistence.Migrations
 
                     b.HasIndex("TenantId", "CompanyId")
                         .HasDatabaseName("ix_contractor_jobs_tenant_id_company_id");
+
+                    b.HasIndex("TenantId", "CreatedByIdentityId")
+                        .HasDatabaseName("ix_contractor_jobs_tenant_id_created_by_identity_id");
 
                     b.HasIndex("TenantId", "JobTypeId")
                         .HasDatabaseName("ix_contractor_jobs_tenant_id_job_type_id");

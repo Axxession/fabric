@@ -3,6 +3,7 @@ using Fabric.Server.Contractors.Contracts;
 using Fabric.Server.Contractors.Domain;
 using Fabric.Server.Contractors.Persistence;
 using Fabric.Server.Core;
+using Fabric.Server.Infrastructure.Authentication;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,29 +17,35 @@ public static class CompanyEndpoints
 
         companies.MapGet("", ListCompanies)
             .WithSummary("List contractor companies")
+            .RequireAuthorization(FabricRoleDefaults.ContractorEnrollmentOrPlanningPolicy)
             .Produces<Page<CompanyResponse>>();
         companies.MapGet("/{id:guid}", GetCompany)
             .WithSummary("Get contractor company")
+            .RequireAuthorization(FabricRoleDefaults.ContractorEnrollmentOrPlanningPolicy)
             .Produces<CompanyResponse>()
             .Produces(StatusCodes.Status404NotFound);
         companies.MapPost("", CreateCompany)
             .WithSummary("Create contractor company")
+            .RequireAuthorization(FabricRoleDefaults.ContractorEnrollmentPolicy)
             .Produces<CompanyResponse>(StatusCodes.Status201Created)
             .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
             .Produces<ProblemDetails>(StatusCodes.Status409Conflict);
         companies.MapPut("/{id:guid}", UpdateCompany)
             .WithSummary("Update contractor company")
+            .RequireAuthorization(FabricRoleDefaults.ContractorEnrollmentPolicy)
             .Produces<CompanyResponse>()
             .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound)
             .Produces<ProblemDetails>(StatusCodes.Status409Conflict);
         companies.MapPost("/{id:guid}/activate", ActivateCompany)
             .WithSummary("Activate contractor company")
+            .RequireAuthorization(FabricRoleDefaults.ContractorEnrollmentPolicy)
             .Produces<CompanyResponse>()
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound)
             .Produces<ProblemDetails>(StatusCodes.Status409Conflict);
         companies.MapPost("/{id:guid}/deactivate", DeactivateCompany)
             .WithSummary("Deactivate contractor company")
+            .RequireAuthorization(FabricRoleDefaults.ContractorEnrollmentPolicy)
             .Produces<CompanyResponse>()
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound)
             .Produces<ProblemDetails>(StatusCodes.Status409Conflict);

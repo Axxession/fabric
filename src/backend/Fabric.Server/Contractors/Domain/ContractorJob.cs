@@ -12,6 +12,7 @@ public sealed class ContractorJob
     public Guid CompanyId { get; private set; }
     public Guid JobTypeId { get; private set; }
     public Guid LocationId { get; private set; }
+    public Guid CreatedByIdentityId { get; private set; }
     public string Name { get; private set; } = null!;
     public string? Description { get; private set; }
     public DateTimeOffset PlannedStart { get; private set; }
@@ -25,6 +26,7 @@ public sealed class ContractorJob
         Guid companyId,
         Guid jobTypeId,
         Guid locationId,
+        Guid createdByIdentityId,
         string name,
         string? description,
         DateTimeOffset plannedStart,
@@ -41,6 +43,7 @@ public sealed class ContractorJob
             CompanyId = companyId,
             JobTypeId = jobTypeId,
             LocationId = locationId,
+            CreatedByIdentityId = createdByIdentityId,
             Name = name.Trim(),
             Description = NormalizeOptional(description),
             PlannedStart = plannedStart,

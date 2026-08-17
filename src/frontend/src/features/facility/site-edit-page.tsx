@@ -9,6 +9,7 @@ import type { components } from '@/shared/api/generated/schema';
 import { Button } from '@/shared/components/ui/button';
 import { Card } from '@/shared/components/ui/card';
 
+import { LocationRequirementsCard } from './location-requirements-card';
 import { SiteForm, type SiteFormValues } from './site-form';
 
 type Building = components['schemas']['BuildingResponse'];
@@ -278,6 +279,8 @@ export default function SiteEditPage() {
           <SiteForm initialValues={initialValues} isSubmitting={updateSite.isPending} submitLabel="Save" onSubmit={handleSubmit} />
         ) : null}
       </Card>
+
+      <LocationRequirementsCard locationId={siteId} />
 
       <Card className="p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

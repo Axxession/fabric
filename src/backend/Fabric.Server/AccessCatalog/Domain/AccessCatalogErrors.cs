@@ -17,6 +17,8 @@ public enum AccessCatalogErrors
     PackageMustContainAccessItems,
     LocationRequired,
     AccessGrantAlreadyRevoked,
+    AccessGrantAlreadyReplaced,
+    AccessGrantNotActive,
     AccessProvisioningFailed,
     PackageRequestNotFound,
     ApprovalGroupNotFound,

@@ -1,115 +1,81 @@
 # Requirements
 
-This document describes the `Requirements` bounded context.
+This document describes the `Requirements` bounded context after moving grant-attached compliance state into `AccessCatalog`.
 
-`Requirements` owns requirement definitions, enforcement zones, requirement policies, evidence used to fulfill requirements, and the computed current compliance state per identity and enforcement zone.
+## Core Separation
 
-Core separation:
-
-- `Requirements` owns what must be true for a person to enter or remain inside an enforcement zone.
-- `Requirements` also owns basic certificate-like evidence such as uploaded VCA or site training proof.
+- `Requirements` owns requirement definitions, location-scoped requirement policy, evaluator behavior, and evidence.
+- `Requirements` answers which requirements apply for a given grant context and whether attached grant requirements are currently satisfied.
+- `AccessCatalog` owns packages, grants, approvals, grant-attached requirements, and grant compliance status.
 - `Locations` owns the physical location hierarchy.
-- `Contractors` owns contractor companies, contractors, jobs, and job assignments.
-- `AccessCatalog` owns package/grant policy, not requirement compliance.
-- `AccessControl` owns PACS mappings and technical enforcement, not requirement policy.
-- `ReceptionDesk` owns expected arrivals and their expected end time plus grace.
-- automation/application services coordinate reevaluation and projection of compliance into access state.
+- `Contractors` owns contractor companies, contractors, jobs, assignments, and job types.
+- `ReceptionDesk` owns expected arrivals, onboarding state, and expected end plus grace.
+- `AccessControl` owns PACS mappings and technical provisioning.
+- automation/application services coordinate grant creation, compliance reevaluation, and provisioning.
+
+`Requirements` no longer owns a long-lived computed compliance record per identity and perimeter. Instead it provides the policy and evaluation model used by `AccessCatalog` grants.
 
 ## Purpose
 
-The `Requirements` bounded context exists to answer:
+The context exists to answer two questions:
 
 ```text
-Is this identity currently compliant for this enforcement zone, and until when?
+1. Which requirements apply for this grant context right now?
+2. For this already-attached grant requirement set, which requirements are currently satisfied and until when?
 ```
 
 The context must support:
 
-- zone-wide requirements for employees
-- zone-wide requirements for visitors
-- zone-wide requirements for contractors
-- extra contractor requirements based on one or more active job types
-- multiple evidence mechanisms, not only uploaded certificates
-- pre-arrival compliance so PACS access can be provisioned before arrival
-- optional continuous compliance for sensitive scenarios
+- requirements attached to a location and inherited by descendants
+- employee, visitor, and contractor requirement variants
+- extra contractor requirements driven by active job type
+- multiple evidence mechanisms, not only uploaded documents
+- pre-arrival evaluation so future grants can be provisioned when they become compliant
+- short-lived and continuous requirements such as escort presence
 
 ## Core Domain Rules
 
-- `EnforcementZone` is first-class.
-- enforcement zones can be cumulative through the location ancestor path.
-- one person can be compliant for multiple enforcement zones at the same time.
-- employees and visitors are evaluated only against zone-level requirements.
-- contractors are evaluated against zone-level requirements plus extra job-type requirements.
-- contractor jobs stay location-based; `Requirements` resolves job locations into enforcement zones.
-- if a contractor has multiple active job types for the same zone, effective requirements are the union of all matched job-type requirements.
-- requirement compliance drives whether access for the zone should exist, but the PACS mapping itself remains in `AccessControl`.
-- compliance is stored as computed current state because access control needs the answer before access is pushed.
+- requirement policy is location-based
+- a requirement attached to a location applies to that location and every descendant location
+- effective requirements for a target location are the union of the target location plus all ancestors
+- employees and visitors use only location requirement policy
+- contractors use location requirement policy plus extra job-type requirements
+- requirement derivation for a grant happens once at grant creation time
+- later policy changes do not automatically change existing grants
+- grant compliance is recalculated against the grant's attached requirements, not against live policy
+- policy changes may still be applied later through an explicit grant-recalculation operation in `AccessCatalog`
 
-## Enforcement Zone
+## Location Requirement Policy
 
-`EnforcementZone` is the business boundary where compliance matters.
-
-Typical meaning:
-
-- a company perimeter
-- a protected site area
-- a fenced contractor area
+The physical location hierarchy is the policy scope.
 
 Recommended shape:
 
 ```text
-EnforcementZone
+LocationRequirementPolicy
 - Id
-- Code
-- Name
-- Description
-- RequiresContinuousCompliance
-- IsActive
-```
-
-Property meaning:
-
-- `Code`: stable machine-readable key.
-- `RequiresContinuousCompliance`: whether compliance only matters before entry or also while inside the zone.
-- `IsActive`: administrative enablement flag.
-
-`EnforcementZone` answers:
-
-```text
-Inside which business perimeter do these requirements apply?
-```
-
-## Enforcement Zone Location Mapping
-
-`EnforcementZone` should stay separate from `Location`.
-
-`Location` remains the shared physical reference used by employees, visitors, contractor jobs, and reception.
-
-`Requirements` owns the mapping from physical location scope to compliance perimeter.
-
-Recommended shape:
-
-```text
-EnforcementZoneLocation
-- Id
-- EnforcementZoneId
 - LocationId
+- RequirementDefinitionId
+- SubjectKind
+- IsBlocking
+- IsEnabled
 ```
+
+Subject examples:
+
+- `Employee`
+- `Visitor`
+- `Contractor`
+- `Any`
 
 Resolution rules:
 
-- a location can have zero or one directly attached enforcement zone
-- an enforcement zone can cover one or more locations through hierarchy
-- applicable enforcement zones for a target location are cumulative across the ancestor path
-- sibling or cross-branch overlap is not allowed
-- contractor jobs, visits, and other location-based contexts resolve applicable zones through this mapping
+- start from the grant target `LocationId`
+- walk up the ancestor path
+- collect all enabled `LocationRequirementPolicy` rows whose `SubjectKind` matches the evaluated subject or `Any`
+- if no policy is found on the path, the grant has no attached requirements and is compliant by default
 
-This keeps responsibilities clean:
-
-- `Locations` owns physical hierarchy
-- `Requirements` owns compliance perimeter policy
-
-Ancestor-path example:
+Example:
 
 ```text
 Location tree:
@@ -117,19 +83,41 @@ Location tree:
   - Building A
     - IT Server Room
 
-Zone mappings:
-- Site BNP -> EF1 Company Perimeter
-- IT Server Room -> EF2 IT Server Room
+Policies:
+- Site BNP -> site_safety_training for Any
+- IT Server Room -> escort_required for Visitor
 
-Applicable zones for IT Server Room:
-- EF1 Company Perimeter
-- EF2 IT Server Room
+Effective requirements for Visitor at IT Server Room:
+- site_safety_training
+- escort_required
 ```
 
-Meaning:
+## Contractor Job Requirement Policy
 
-- access to `IT Server Room` requires compliance for both `EF1` and `EF2`
-- if no enforcement zone is linked on the target location or any ancestor, no requirement policy applies
+Contractors may have extra requirements based on active job type at the grant location context.
+
+Recommended shape:
+
+```text
+LocationJobRequirementPolicy
+- Id
+- LocationId
+- JobTypeId
+- RequirementDefinitionId
+- IsBlocking
+- IsEnabled
+```
+
+Resolution rules:
+
+- use the same target location ancestor path resolution as location requirement policy
+- collect active contractor `JobTypeId` values relevant to the grant context
+- union all matching enabled `LocationJobRequirementPolicy` rows
+
+Examples:
+
+- Site Antwerp + `Welding` -> `hot_work_training`
+- Building A + `Electrical` -> `electrical_safety_certificate`
 
 ## Requirement Definition
 
@@ -142,7 +130,6 @@ Examples:
 - `not_ocad_blacklisted`
 - `escort_required`
 - `max_hours_per_day`
-- `max_consecutive_days_on_site`
 
 Recommended shape:
 
@@ -157,12 +144,6 @@ RequirementDefinition
 - IsActive
 ```
 
-Property meaning:
-
-- `EvaluatorKind`: code-level evaluator used to interpret evidence and compute requirement compliance.
-- `IsSensitive`: marks requirements whose evidence or failures need extra care.
-- `IsActive`: administrative enablement flag.
-
 Evaluator examples:
 
 - `UploadedDocument`
@@ -170,103 +151,17 @@ Evaluator examples:
 - `Escort`
 - `Computed`
 
-`RequirementDefinition` answers:
-
-```text
-What does this requirement mean, and which evaluator decides compliance?
-```
-
-It does not answer where it applies.
-
-## Zone Requirement Policy
-
-`ZoneRequirementPolicy` applies a requirement directly to an enforcement zone for a subject kind.
-
-This is the only requirement policy used for employees and visitors.
-
-It can also apply to contractors when the requirement is zone-wide and not tied to a job type.
-
-Recommended shape:
-
-```text
-ZoneRequirementPolicy
-- Id
-- EnforcementZoneId
-- RequirementDefinitionId
-- SubjectKind
-- IsBlocking
-- IsEnabled
-```
-
-Subject examples:
-
-- `Employee`
-- `Visitor`
-- `Contractor`
-- `Any`
-
-Examples:
-
-- Antwerp zone requires `site_safety_training` for `Any`
-- Antwerp zone requires `not_ocad_blacklisted` for `Contractor`
-- Antwerp zone requires `escort_required` for `Visitor`
-
-## Contractor Job Requirement Policy
-
-`ContractorJobRequirementPolicy` adds extra requirements for contractors based on job type inside a zone.
-
-Recommended shape:
-
-```text
-ContractorJobRequirementPolicy
-- Id
-- EnforcementZoneId
-- JobTypeId
-- RequirementDefinitionId
-- IsBlocking
-- IsEnabled
-```
-
-Examples:
-
-- Antwerp zone + `Welding` job type requires `hot_work_training`
-- Antwerp zone + `Electrical` job type requires `electrical_safety_certificate`
-
-This model keeps the common perimeter policy separate from extra contractor work-risk policy.
-
-## Enforcement Projection
-
-Requirement compliance must still map to something concrete in `AccessControl`.
-
-`Requirements` should therefore own a zone-to-business-access mapping concept, while native PACS mapping stays in `AccessControl`.
-
-Recommended shape:
-
-```text
-EnforcementZoneAccessPolicy
-- Id
-- EnforcementZoneId
-- AccessItemId
-- IsEnabled
-```
-
-Meaning:
-
-- if the identity is compliant for the zone, automation/application services ensure the linked `AccessItem` is granted or remains granted
-- `AccessControl` then resolves that `AccessItem` into PACS targets
-
-This keeps requirement policy and physical PACS implementation cleanly separated.
-
 ## Requirement Evidence
 
-`RequirementEvidence` is the umbrella evidence model used to fulfill requirements.
+`RequirementEvidence` is the factual evidence model used by evaluators.
 
 It covers:
 
-- uploaded certificates or documents such as VCA
-- imported or manually attested proof such as site training completion
-- dynamic external check results such as OCAD
+- uploaded certificates and documents
+- imported or manually attested proof
+- dynamic external check results
 - computed evidence outcomes
+- escort-presence-backed evidence
 
 Recommended shape:
 
@@ -285,25 +180,13 @@ RequirementEvidence
 - VerifiedAt
 ```
 
-Property meaning:
-
-- `EvidenceKind`: uploaded document, external check, manual attestation, computed, escort presence reference.
-- `Status`: factual evidence status such as `Valid`, `Invalid`, `Expired`, or `Pending`.
-- `ValidFrom` / `ValidUntil`: evidence validity interval if present.
-- `SourceReference`: external correlation id, document id, or source key.
-- `Summary`: safe short description.
-- `VerifiedAt`: when Fabric accepted or confirmed the evidence.
-
 Important rule:
 
-- uploaded certificates are not a separate bounded context
-- they are one evidence type inside `Requirements`
+- uploaded certificates stay inside `Requirements`; they are not a separate bounded context
 
 ## Requirement Evidence Check
 
-`RequirementEvidenceCheck` stores the operational work state for dynamic evaluators that may need to call external systems.
-
-This is mainly for evidence such as OCAD.
+`RequirementEvidenceCheck` stores operational work state for dynamic evaluators.
 
 Recommended shape:
 
@@ -320,19 +203,14 @@ RequirementEvidenceCheck
 - ResultEvidenceId
 ```
 
-Property meaning:
-
-- `Status`: operational state such as `Pending`, `InProgress`, `Succeeded`, `FailedRetryable`, `FailedTerminal`
-- `ResultEvidenceId`: resulting `RequirementEvidence` row if the check completed
-
 Important rule:
 
 - `RequirementEvidenceCheck` stores operational work state
-- `RequirementEvidence` stores the factual result used by compliance
+- `RequirementEvidence` stores the factual result used for grant compliance evaluation
 
 ## Escort Use Case
 
-Escort is modeled as a normal requirement definition with a special evaluator kind.
+Escort remains a normal requirement definition with a special evaluator.
 
 Recommended setup:
 
@@ -342,26 +220,12 @@ RequirementDefinition
 - EvaluatorKind: Escort
 ```
 
-Zone policy example:
-
-```text
-ZoneRequirementPolicy
-- EnforcementZone: Antwerp HQ
-- SubjectKind: Visitor
-- RequirementDefinition: escort_required
-```
-
-Important rule:
-
-- the escort requirement is attached only to `Visitor`
-- employees and contractors do not match that policy unless explicitly configured
-
-Recommended evidence model:
+Recommended operational model:
 
 ```text
 EscortPresence
 - Id
-- EnforcementZoneId
+- LocationId
 - EscortIdentityId
 - EscortedIdentityId
 - Status
@@ -370,515 +234,157 @@ EscortPresence
 - EndedAt
 ```
 
-Behavior examples:
+Behavior:
 
-- PACS-assisted escort flow can create `EscortPresence` for a short zone-entry window
-- continuous mode can end the presence early if the escort leaves first
+- entry-only escort can produce short `ValidUntil`
+- continuous escort can keep `ValidUntil` aligned to the active presence
+- when escort evidence expires, grants attached to `escort_required` become `TemporarilyCompliant` or `NonCompliant` depending on grant duration
 
-If `escort_required` is only an entry condition:
+## Grant Requirement Derivation
 
-- a short validity window is enough
+When a grant is created, `AccessCatalog` derives and attaches its effective requirement set using `Requirements` policy.
 
-If `escort_required` must remain true while inside:
+Derivation inputs:
 
-- zone should set `RequiresContinuousCompliance = true`
-- escort presence should remain active while both identities remain inside
+- `IdentityId`
+- `SubjectKind`
+- target `LocationId`
+- grant validity window
+- grant source context
+- active contractor job types when subject is contractor
 
-## Effective Requirement Resolution
+Derivation outputs:
 
-Employee or visitor in zone:
+- the effective requirement set for that grant at creation time
+- metadata describing which policy rows caused each attached requirement
 
-```text
-effective requirements =
-  all enabled ZoneRequirementPolicy
-  where EnforcementZoneId matches
-  and SubjectKind matches employee/visitor or Any
-```
+Important rules:
 
-Contractor in zone:
+- derivation happens once when the grant is created
+- policy changes do not automatically mutate attached grant requirements
+- later manual operations may explicitly recalculate future grants if policy changed
 
-```text
-effective requirements =
-  all enabled ZoneRequirementPolicy
-  where EnforcementZoneId matches
-  and SubjectKind matches Contractor or Any
-  union
-  all enabled ContractorJobRequirementPolicy
-  where EnforcementZoneId matches
-  and JobTypeId matches any active contractor job type in this zone/context
-```
+## Grant Compliance Evaluation
 
-Multiple contractor job types:
+`Requirements` evaluators compute compliance for the requirement set attached to a grant.
 
-```text
-Welding + Electrical
--> union of welding requirements and electrical requirements
-```
+Evaluation outputs consumed by `AccessCatalog`:
 
-This is intentionally conservative and easy to explain.
+- per-grant requirement result status
+- earliest expiry across currently satisfied requirements
+- business compliance state for the grant
 
-Contractor source facts:
-
-```text
-- active contractor jobs stay in `Contractors`
-- contractor jobs reference LocationId
-- Requirements resolves job LocationId -> applicable EnforcementZone set on the ancestor path
-- active JobTypeId values for that zone drive ContractorJobRequirementPolicy matching
-```
-
-Target-location rule:
-
-```text
-For a contractor job at a target location:
-- collect all applicable enforcement zones from the target location ancestor path
-- compute compliance separately for each applicable zone
-- grant access only when the contractor is compliant for every required zone on that path
-```
-
-## Zone Compliance
-
-`ZoneCompliance` is the computed current-state answer for one identity in one enforcement zone.
-
-This is the primary output of the bounded context because `AccessControl` needs this answer before zone access is pushed.
-
-Important rule:
-
-- compliance is per `(IdentityId, EnforcementZoneId)`
-- nested zones therefore produce multiple compliance states for the same person
-
-Recommended shape:
-
-```text
-ZoneCompliance
-- Id
-- EnforcementZoneId
-- IdentityId
-- SubjectKind
-- Status
-- ValidFrom
-- ValidUntil
-- LastEvaluatedAt
-- ReasonSummary
-```
-
-Status examples:
+Recommended grant-side statuses:
 
 - `Compliant`
+- `TemporarilyCompliant`
 - `NonCompliant`
-- `Pending`
 
-Per-requirement result shape:
-
-```text
-ZoneComplianceRequirementResult
-- Id
-- ZoneComplianceId
-- RequirementDefinitionId
-- Status
-- EvidenceKind
-- EvidenceReference
-- Reason
-- ValidUntil
-```
-
-Important rule:
-
-- `ZoneCompliance` stores the current effective answer
-- `ZoneComplianceRequirementResult` stores why each matched requirement currently passes or fails
-
-## Validity Rules
-
-Employees:
+Recommended meaning:
 
 ```text
-ZoneCompliance.ValidUntil =
-  earliest fulfilled requirement expiry
-  or null if all fulfilled requirements are non-expiring
+Compliant
+- all attached requirements are satisfied for the full remaining grant duration
+
+TemporarilyCompliant
+- all attached requirements are satisfied now
+- but the earliest requirement expiry is before grant end
+
+NonCompliant
+- one or more attached blocking requirements are currently unsatisfied
 ```
 
-Visitors:
+Recommended date output:
 
 ```text
-ZoneCompliance.ValidUntil =
-  min(
-    expected arrival end from ReceptionDesk + grace,
-    earliest fulfilled requirement expiry
-  )
+CompliantUntil
+- null when the grant is compliant for its full duration
+- the earliest fulfilled attached requirement expiry otherwise
 ```
 
-Contractors:
+## Recalculation Triggers
 
-```text
-ZoneCompliance.ValidUntil =
-  min(
-    expected arrival end from ReceptionDesk + grace,
-    earliest active contractor assignment end in the zone context,
-    earliest fulfilled requirement expiry
-  )
-```
-
-Meaning:
-
-- if a visitor or contractor has expected presence until end of week, zone access can last until end of week plus grace
-- contractor access must still stop when the active assignment ends, even if the ReceptionDesk window is longer
-- unless one fulfilled requirement expires sooner, such as VCA, OCAD freshness, or escort window
-
-If a blocking requirement is missing or failed:
-
-- `ZoneCompliance.Status = NonCompliant`
-- no usable zone access should exist
-
-## Reevaluation Model
-
-Compliance should be recalculated whenever relevant evidence or context changes.
+Attached grant requirements are not re-derived automatically, but their compliance result is recalculated when relevant facts change.
 
 Primary triggers:
 
-- uploaded evidence created, approved, rejected, or expired
-- external check result arrived
-- escort presence started, ended, or expired
-- active contractor job or contractor assignment changed
-- expected arrival end or grace changed in `ReceptionDesk`
-- enforcement zone location mapping changed
-- zone requirement policy changed
-- time reached an existing compliance or evidence expiry boundary
+- evidence added for a requirement attached to the grant
+- evidence removed, revoked, rejected, or expired for a requirement attached to the grant
+- external check result arrived for a requirement attached to the grant
+- escort presence started, ended, or expired for a requirement attached to the grant
+- automated grant validity changed and one or more attached evaluators depend on grant timing
 
-Evaluator behavior is code-driven.
-
-Examples:
-
-- `UploadedDocument` evaluator decides whether uploaded VCA evidence fulfills the requirement and until when
-- `ExternalCheck` evaluator decides when OCAD must be rechecked and how long the result remains fresh
-- `Escort` evaluator decides whether active escort presence exists for the zone
-- `Computed` evaluator decides compliance for legal/meta requirements such as max hours or max consecutive days
-
-Recommended high-level flow:
-
-```text
-1. Determine target location from current enforcement context.
-2. Resolve all applicable enforcement zones from the target location ancestor path.
-3. For each applicable enforcement zone, resolve effective requirements for identity, subject kind, and active contractor job types.
-4. For each requirement, run the evaluator:
-   - read current evidence
-   - trigger external check if needed
-   - compute compliance if needed
-   - inspect escort presence if needed
-5. Compute current ZoneCompliance and ZoneComplianceRequirementResult rows for each applicable zone.
-6. If compliant, ensure EnforcementZoneAccessPolicy access exists through AccessControl integration.
-7. If non-compliant or expired for any required zone, revoke or withhold that zone access.
-```
+Policy changes do not automatically trigger re-derivation.
 
 ## Boundary Rules
 
-- `Requirements` owns requirement definitions, enforcement zones, requirement policies, evidence, and computed compliance state.
-- `Requirements` owns enforcement-zone-to-location mapping.
-- `Requirements` references `IdentityId` for the evaluated subject.
-- `Requirements` references `AccessItemId` only as business access to project compliance into enforcement.
-- `Requirements` consumes contractor job and assignment facts from `Contractors` to determine active job types per zone.
-- `Requirements` does not own package requests, approvals, or grants.
-- `Requirements` does not own PACS-native objects, PACS targets, or cardholder provisioning.
-- `ReceptionDesk` owns expected arrivals and expected end plus grace.
-- `Requirements` consumes that timing input when calculating visitor and contractor compliance validity.
+- `Requirements` owns requirement definitions, location-based requirement policy, evidence, and evaluator behavior.
+- `Requirements` consumes contractor planning facts from `Contractors` to resolve active job types for derivation.
+- `Requirements` consumes arrival/onboarding timing from `ReceptionDesk` when required by evaluators.
+- `Requirements` does not own packages, grants, approvals, or grant replacement.
+- `Requirements` does not own PACS-native provisioning.
+- `AccessCatalog` owns grant-attached requirements and grant compliance status derived from `Requirements` evaluation.
 
-## Mermaid Model
-
-```mermaid
-classDiagram
-    class EnforcementZone {
-        Guid Id
-        string Code
-        string Name
-        string Description
-        bool RequiresContinuousCompliance
-        bool IsActive
-    }
-
-    class EnforcementZoneLocation {
-        Guid Id
-        Guid EnforcementZoneId
-        Guid LocationId
-    }
-
-    class RequirementDefinition {
-        Guid Id
-        string Code
-        string Name
-        string Description
-        RequirementEvaluatorKind EvaluatorKind
-        bool IsSensitive
-        bool IsActive
-    }
-
-    class ZoneRequirementPolicy {
-        Guid Id
-        Guid EnforcementZoneId
-        Guid RequirementDefinitionId
-        RequirementSubjectKind SubjectKind
-        bool IsBlocking
-        bool IsEnabled
-    }
-
-    class ContractorJobRequirementPolicy {
-        Guid Id
-        Guid EnforcementZoneId
-        Guid JobTypeId
-        Guid RequirementDefinitionId
-        bool IsBlocking
-        bool IsEnabled
-    }
-
-    class EnforcementZoneAccessPolicy {
-        Guid Id
-        Guid EnforcementZoneId
-        Guid AccessItemId
-        bool IsEnabled
-    }
-
-    class RequirementEvidence {
-        Guid Id
-        Guid IdentityId
-        Guid RequirementDefinitionId
-        RequirementEvidenceKind EvidenceKind
-        RequirementEvidenceStatus Status
-        DateTimeOffset ValidFrom
-        DateTimeOffset ValidUntil
-        string SourceReference
-        string Summary
-        bool IsSensitive
-        DateTimeOffset VerifiedAt
-    }
-
-    class RequirementEvidenceCheck {
-        Guid Id
-        Guid IdentityId
-        Guid RequirementDefinitionId
-        RequirementEvidenceCheckStatus Status
-        DateTimeOffset RequestedAt
-        DateTimeOffset CompletedAt
-        int AttemptCount
-        string LastKnownError
-        Guid ResultEvidenceId
-    }
-
-    class EscortPresence {
-        Guid Id
-        Guid EnforcementZoneId
-        Guid EscortIdentityId
-        Guid EscortedIdentityId
-        EscortPresenceStatus Status
-        DateTimeOffset StartedAt
-        DateTimeOffset ValidUntil
-        DateTimeOffset EndedAt
-    }
-
-    class ZoneCompliance {
-        Guid Id
-        Guid EnforcementZoneId
-        Guid IdentityId
-        RequirementSubjectKind SubjectKind
-        ZoneComplianceStatus Status
-        DateTimeOffset ValidFrom
-        DateTimeOffset ValidUntil
-        DateTimeOffset LastEvaluatedAt
-        string ReasonSummary
-    }
-
-    class ZoneComplianceRequirementResult {
-        Guid Id
-        Guid ZoneComplianceId
-        Guid RequirementDefinitionId
-        RequirementResultStatus Status
-        string EvidenceKind
-        string EvidenceReference
-        string Reason
-        DateTimeOffset ValidUntil
-    }
-
-    EnforcementZone "1" --> "*" ZoneRequirementPolicy
-    EnforcementZone "1" --> "*" EnforcementZoneLocation
-    EnforcementZone "1" --> "*" ContractorJobRequirementPolicy
-    EnforcementZone "1" --> "*" EnforcementZoneAccessPolicy
-    EnforcementZone "1" --> "*" EscortPresence
-    EnforcementZone "1" --> "*" ZoneCompliance
-    RequirementDefinition "1" --> "*" ZoneRequirementPolicy
-    RequirementDefinition "1" --> "*" ContractorJobRequirementPolicy
-    RequirementDefinition "1" --> "*" RequirementEvidence
-    RequirementDefinition "1" --> "*" RequirementEvidenceCheck
-    RequirementDefinition "1" --> "*" ZoneComplianceRequirementResult
-    ZoneCompliance "1" --> "*" ZoneComplianceRequirementResult
-    RequirementEvidence "0..1" <-- "1" RequirementEvidenceCheck
-```
-
-## Example: Zone-Wide Requirements
-
-Setup:
+## Example: Employee Request
 
 ```text
-EnforcementZone:
-- Antwerp HQ
+Employee requests package for Building A.
+Grant is created after approval.
+Requirements are derived from Building A + ancestor locations.
+Attached requirements:
+- site_safety_training
+- badge_photo_uploaded
 
-RequirementDefinitions:
+Evidence exists for site_safety_training only.
+Grant compliance:
+- NonCompliant
+```
+
+If badge photo evidence is later added:
+
+```text
+Grant compliance recalculates.
+Result:
+- Compliant or TemporarilyCompliant depending on earliest expiry versus grant end
+```
+
+## Example: Contractor Automatic Grant
+
+```text
+Contractor job Mon-Fri at Site Antwerp, JobType Welding.
+Automation creates grant.
+Approval not required.
+Requirements are derived once from:
+- Site Antwerp location path
+- Contractor subject kind
+- Welding job type
+
+Attached requirements:
 - site_safety_training
 - not_ocad_blacklisted
-
-ZoneRequirementPolicy:
-- Antwerp HQ + Any -> site_safety_training
-- Antwerp HQ + Contractor -> not_ocad_blacklisted
-
-EnforcementZoneAccessPolicy:
-- Antwerp HQ -> AccessItem Antwerp HQ Entry
+- hot_work_training
 ```
 
-Behavior:
+If OCAD and training are valid until Thursday but the grant lasts until Friday:
 
 ```text
-Employee entering Antwerp HQ:
-- required: site_safety_training
-
-Visitor entering Antwerp HQ:
-- required: site_safety_training
-
-Contractor entering Antwerp HQ:
-- required: site_safety_training
-- required: not_ocad_blacklisted
+Compliance status: TemporarilyCompliant
+CompliantUntil: Thursday 18:00
 ```
 
-## Example: Contractor With Two Job Types
-
-Setup:
+## Example: Policy Change
 
 ```text
-EnforcementZone:
-- Antwerp HQ
+Policy at Site Antwerp adds chemical_training.
+Existing grants are unchanged.
+Future grants derive chemical_training automatically.
 
-Contractor job types:
-- Welding
-- Electrical
-
-ZoneRequirementPolicy:
-- Antwerp HQ + Any -> site_safety_training
-- Antwerp HQ + Contractor -> not_ocad_blacklisted
-
-ContractorJobRequirementPolicy:
-- Antwerp HQ + Welding -> hot_work_training
-- Antwerp HQ + Electrical -> electrical_safety_certificate
-```
-
-Contractor context:
-
-```text
-Identity: Contractor A
-Active job types in Antwerp HQ:
-- Welding
-- Electrical
-Active contractor assignments in Antwerp HQ:
-- Assignment 1 until Friday 18:00
-- Assignment 2 until Thursday 16:00
-Expected arrival end from ReceptionDesk:
-- Friday 20:00
-```
-
-Effective requirements:
-
-```text
-site_safety_training
-not_ocad_blacklisted
-hot_work_training
-electrical_safety_certificate
-```
-
-Validity example:
-
-```text
-Expected arrival end + grace: Friday 20:00
-Earliest active contractor assignment end: Thursday 16:00
-VCA evidence expiry: Thursday 12:00
-OCAD freshness expiry: Friday 09:00
-
-ZoneCompliance.ValidUntil = Thursday 12:00
-```
-
-## Example: Nested Enforcement Zones
-
-Setup:
-
-```text
-Location tree:
-- Site BNP
-  - Building A
-    - IT Server Room
-
-Enforcement zones:
-- EF1 Company Perimeter
-- EF2 IT Server Room
-
-Zone mappings:
-- Site BNP -> EF1 Company Perimeter
-- IT Server Room -> EF2 IT Server Room
-
-Contractor job:
-- LocationId = IT Server Room
-- JobType = Electrical
-```
-
-Resolved zones:
-
-```text
-Applicable zones for IT Server Room:
-- EF1 Company Perimeter
-- EF2 IT Server Room
-```
-
-Meaning:
-
-```text
-To access IT Server Room, contractor must be compliant for:
-- EF1
-- EF2
-```
-
-## Example: Escort Required Only For Visitors
-
-Setup:
-
-```text
-EnforcementZone:
-- R&D Lab
-- RequiresContinuousCompliance: false
-
-RequirementDefinition:
-- escort_required
-
-ZoneRequirementPolicy:
-- R&D Lab + Visitor -> escort_required
-```
-
-Behavior:
-
-```text
-Visitor entering R&D Lab:
-- must have active EscortPresence
-
-Employee entering R&D Lab:
-- escort_required does not apply
-
-Contractor entering R&D Lab:
-- escort_required does not apply unless separately configured
-```
-
-PACS entry example:
-
-```text
-1. Visitor is linked to an active EscortPresence for R&D Lab.
-2. Requirement evaluator marks escort_required as Fulfilled.
-3. ZoneCompliance becomes Compliant for the short escort window.
-4. Zone entry access can exist only for that compliance window.
+If operations want old future grants updated too:
+- run explicit grant requirement recalculation in AccessCatalog
 ```
 
 ## Open Decisions
 
-- Should `EnforcementZone` always map to exactly one `AccessItemId`, or can multiple access items protect the same zone?
-- Should a historical evaluation/audit model be added later, or is current-state compliance enough for v1?
-- Should legal constraints such as max hours/day and max consecutive days use only generic computed evidence, or also persist a specialized evidence model?
-- Should escort continuous compliance be supported in v1, or only short-lived entry windows?
-- Should exception approvals waive failed requirements, or stay outside the requirements model in v1?
+- Should `GrantRequirement` store only policy references, or also a derivation context snapshot for audit?
+- Should non-blocking requirements appear in grant compliance UX even though they do not block provisioning?
+- Should manual requirement recalculation support filtering by package, location subtree, or source kind in v1?

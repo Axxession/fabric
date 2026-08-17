@@ -64,6 +64,24 @@ public static class AuthenticationServiceCollectionExtensions
                 policy.RequireAuthenticatedUser();
                 policy.RequireRole(FabricRoleDefaults.AdminRole, FabricRoleDefaults.SecurityOfficerRole);
             })
+            .AddPolicy(FabricRoleDefaults.ContractorEnrollmentPolicy, policy =>
+            {
+                policy.AuthenticationSchemes.Add(TenantBearerAuthenticationDefaults.AuthenticationScheme);
+                policy.RequireAuthenticatedUser();
+                policy.RequireRole(FabricRoleDefaults.ContractorEnrollmentRole);
+            })
+            .AddPolicy(FabricRoleDefaults.ContractorPlanningPolicy, policy =>
+            {
+                policy.AuthenticationSchemes.Add(TenantBearerAuthenticationDefaults.AuthenticationScheme);
+                policy.RequireAuthenticatedUser();
+                policy.RequireRole(FabricRoleDefaults.ContractorPlanningRole);
+            })
+            .AddPolicy(FabricRoleDefaults.ContractorEnrollmentOrPlanningPolicy, policy =>
+            {
+                policy.AuthenticationSchemes.Add(TenantBearerAuthenticationDefaults.AuthenticationScheme);
+                policy.RequireAuthenticatedUser();
+                policy.RequireRole(FabricRoleDefaults.ContractorEnrollmentRole, FabricRoleDefaults.ContractorPlanningRole);
+            })
             .AddPolicy(ReceptionKioskAuthenticationDefaults.Policy, policy =>
             {
                 policy.AuthenticationSchemes.Add(ReceptionKioskAuthenticationDefaults.AuthenticationScheme);

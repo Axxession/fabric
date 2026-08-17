@@ -167,6 +167,7 @@ export default function AccessItemEditPage() {
       const request: UpdateAccessItemRequest = {
         name: values.name,
         description: values.description.trim() === '' ? null : values.description,
+        isComplianceRequired: values.isComplianceRequired,
         status: values.status,
       };
 
@@ -472,6 +473,7 @@ function toFormValues(accessItem: AccessItemResponse): AccessItemFormValues {
   return {
     name: accessItem.name,
     description: accessItem.description ?? '',
+    isComplianceRequired: accessItem.isComplianceRequired,
     status: accessItem.status,
   };
 }

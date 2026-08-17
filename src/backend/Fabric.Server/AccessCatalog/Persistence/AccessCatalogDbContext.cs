@@ -14,7 +14,8 @@ public class AccessCatalogDbContext : TenantDbContext
     public DbSet<Package> Packages { get; set; } = null!;
     public DbSet<PackageAccessItem> PackageAccessItems { get; set; } = null!;
     public DbSet<AccessGrant> AccessGrants { get; set; } = null!;
-    public DbSet<AccessGrantLocation> AccessGrantLocations { get; set; } = null!;
+    public DbSet<GrantRequirement> GrantRequirements { get; set; } = null!;
+    public DbSet<GrantRequirementResult> GrantRequirementResults { get; set; } = null!;
     public DbSet<PackageRequest> PackageRequests { get; set; } = null!;
     public DbSet<PackageRequestLocation> PackageRequestLocations { get; set; } = null!;
     public DbSet<PackageRequestScope> PackageRequestScopes { get; set; } = null!;
@@ -43,7 +44,8 @@ public class AccessCatalogDbContext : TenantDbContext
         modelBuilder.ApplyConfiguration(new PackageConfiguration());
         modelBuilder.ApplyConfiguration(new PackageAccessItemConfiguration());
         modelBuilder.ApplyConfiguration(new AccessGrantConfiguration());
-        modelBuilder.ApplyConfiguration(new AccessGrantLocationConfiguration());
+        modelBuilder.ApplyConfiguration(new GrantRequirementConfiguration());
+        modelBuilder.ApplyConfiguration(new GrantRequirementResultConfiguration());
         modelBuilder.ApplyConfiguration(new PackageRequestConfiguration());
         modelBuilder.ApplyConfiguration(new PackageRequestLocationConfiguration());
         modelBuilder.ApplyConfiguration(new PackageRequestScopeConfiguration());

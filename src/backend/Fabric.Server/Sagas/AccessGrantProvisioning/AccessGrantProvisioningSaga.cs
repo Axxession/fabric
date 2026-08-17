@@ -4,6 +4,7 @@ public enum AccessGrantProvisioningSagaState
 {
     PendingProvision,
     Provisioned,
+    Withheld,
     PendingRevocation,
     Revoked,
     Failed
