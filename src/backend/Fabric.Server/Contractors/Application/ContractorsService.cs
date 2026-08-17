@@ -5,6 +5,7 @@ using Fabric.Server.Core;
 using Fabric.Server.Identities.Application;
 using Fabric.Server.Identities.Domain;
 using Fabric.Server.Locations.Persistence;
+using Fabric.Server.Sagas.ContractorJobs;
 using Microsoft.EntityFrameworkCore;
 
 namespace Fabric.Server.Contractors.Application;
@@ -13,6 +14,8 @@ public sealed class ContractorsService(
     ContractorsDbContext db,
     LocationsDbContext locationsDb,
     IdentityService identityService,
+    ContractorJobOnboardingSagaService contractorJobOnboardingSagaService,
+    ContractorJobAccessAutomationService contractorJobAccessAutomationService,
     TimeProvider timeProvider)
 {
     public async Task<Result<Company, CompanyErrors>> CreateCompanyAsync(CreateCompanyRequest request, CancellationToken cancellationToken = default)
@@ -261,17 +264,18 @@ public sealed class ContractorsService(
             return Result.Failure<ContractorJob, ContractorJobErrors>(error);
 
         await db.SaveChangesAsync(cancellationToken);
+        await EnqueueAssignmentAutomationsAsync(job.Assignments.Select(item => item.Id), "JobUpdated", cancellationToken);
         return Result.Success<ContractorJob, ContractorJobErrors>(job);
     }
 
     public async Task<Result<ContractorJob, ContractorJobErrors>> ActivateContractorJobAsync(Guid id, CancellationToken cancellationToken = default) =>
-        await UpdateJobStateAsync(id, job => job.Activate(timeProvider.GetUtcNow()), cancellationToken);
+        await UpdateJobStateAsync(id, job => job.Activate(timeProvider.GetUtcNow()), "JobActivated", cancellationToken);
 
     public async Task<Result<ContractorJob, ContractorJobErrors>> CompleteContractorJobAsync(Guid id, CancellationToken cancellationToken = default) =>
-        await UpdateJobStateAsync(id, job => job.Complete(timeProvider.GetUtcNow()), cancellationToken);
+        await UpdateJobStateAsync(id, job => job.Complete(timeProvider.GetUtcNow()), "JobCompleted", cancellationToken);
 
     public async Task<Result<ContractorJob, ContractorJobErrors>> CancelContractorJobAsync(Guid id, CancellationToken cancellationToken = default) =>
-        await UpdateJobStateAsync(id, job => job.Cancel(timeProvider.GetUtcNow()), cancellationToken);
+        await UpdateJobStateAsync(id, job => job.Cancel(timeProvider.GetUtcNow()), "JobCancelled", cancellationToken);
 
     public async Task<Result<ContractorJobAssignment, ContractorJobErrors>> CreateAssignmentAsync(Guid contractorJobId, CreateContractorJobAssignmentRequest request, CancellationToken cancellationToken = default)
     {
@@ -294,7 +298,9 @@ public sealed class ContractorsService(
         if (result.IsFailure(out ContractorJobErrors error))
             return Result.Failure<ContractorJobAssignment, ContractorJobErrors>(error);
 
+        result.IsSuccess(out ContractorJobAssignment assignment);
         await db.SaveChangesAsync(cancellationToken);
+        await EnqueueAssignmentAutomationAsync(assignment.Id, "AssignmentCreated", cancellationToken);
         return result;
     }
 
@@ -310,17 +316,18 @@ public sealed class ContractorsService(
 
         ContractorJobAssignment assignment = job.Assignments.Single(item => item.Id == assignmentId);
         await db.SaveChangesAsync(cancellationToken);
+        await EnqueueAssignmentAutomationAsync(assignment.Id, "AssignmentUpdated", cancellationToken);
         return Result.Success<ContractorJobAssignment, ContractorJobErrors>(assignment);
     }
 
     public async Task<Result<ContractorJobAssignment, ContractorJobErrors>> ActivateAssignmentAsync(Guid contractorJobId, Guid assignmentId, CancellationToken cancellationToken = default) =>
-        await UpdateAssignmentStateAsync(contractorJobId, assignmentId, (job, id) => job.ActivateAssignment(id, timeProvider.GetUtcNow()), cancellationToken);
+        await UpdateAssignmentStateAsync(contractorJobId, assignmentId, (job, id) => job.ActivateAssignment(id, timeProvider.GetUtcNow()), "AssignmentActivated", cancellationToken);
 
     public async Task<Result<ContractorJobAssignment, ContractorJobErrors>> CompleteAssignmentAsync(Guid contractorJobId, Guid assignmentId, CancellationToken cancellationToken = default) =>
-        await UpdateAssignmentStateAsync(contractorJobId, assignmentId, (job, id) => job.CompleteAssignment(id, timeProvider.GetUtcNow()), cancellationToken);
+        await UpdateAssignmentStateAsync(contractorJobId, assignmentId, (job, id) => job.CompleteAssignment(id, timeProvider.GetUtcNow()), "AssignmentCompleted", cancellationToken);
 
     public async Task<Result<ContractorJobAssignment, ContractorJobErrors>> CancelAssignmentAsync(Guid contractorJobId, Guid assignmentId, CancellationToken cancellationToken = default) =>
-        await UpdateAssignmentStateAsync(contractorJobId, assignmentId, (job, id) => job.CancelAssignment(id, timeProvider.GetUtcNow()), cancellationToken);
+        await UpdateAssignmentStateAsync(contractorJobId, assignmentId, (job, id) => job.CancelAssignment(id, timeProvider.GetUtcNow()), "AssignmentCancelled", cancellationToken);
 
     private async Task<Result<ContractorJobErrors>> ValidateJobDependenciesAsync(Guid companyId, Guid jobTypeId, Guid locationId, CancellationToken cancellationToken)
     {
@@ -339,6 +346,7 @@ public sealed class ContractorsService(
     private async Task<Result<ContractorJob, ContractorJobErrors>> UpdateJobStateAsync(
         Guid id,
         Func<ContractorJob, Result<ContractorJobErrors>> action,
+        string reason,
         CancellationToken cancellationToken)
     {
         ContractorJob? job = await db.ContractorJobs.Include(item => item.Assignments).SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
@@ -350,6 +358,7 @@ public sealed class ContractorsService(
             return Result.Failure<ContractorJob, ContractorJobErrors>(error);
 
         await db.SaveChangesAsync(cancellationToken);
+        await EnqueueAssignmentAutomationsAsync(job.Assignments.Select(item => item.Id), reason, cancellationToken);
         return Result.Success<ContractorJob, ContractorJobErrors>(job);
     }
 
@@ -357,6 +366,7 @@ public sealed class ContractorsService(
         Guid contractorJobId,
         Guid assignmentId,
         Func<ContractorJob, Guid, Result<ContractorJobErrors>> action,
+        string reason,
         CancellationToken cancellationToken)
     {
         ContractorJob? job = await db.ContractorJobs.Include(item => item.Assignments).SingleOrDefaultAsync(item => item.Id == contractorJobId, cancellationToken);
@@ -369,6 +379,23 @@ public sealed class ContractorsService(
 
         ContractorJobAssignment assignment = job.Assignments.Single(item => item.Id == assignmentId);
         await db.SaveChangesAsync(cancellationToken);
+        await EnqueueAssignmentAutomationAsync(assignment.Id, reason, cancellationToken);
         return Result.Success<ContractorJobAssignment, ContractorJobErrors>(assignment);
+    }
+
+    private async Task EnqueueAssignmentAutomationAsync(Guid assignmentId, string reason, CancellationToken cancellationToken)
+    {
+        await contractorJobOnboardingSagaService.EnqueueAsync(assignmentId, reason, cancellationToken);
+        await contractorJobAccessAutomationService.EnqueueAsync(assignmentId, reason, cancellationToken);
+    }
+
+    private async Task EnqueueAssignmentAutomationsAsync(IEnumerable<Guid> assignmentIds, string reason, CancellationToken cancellationToken)
+    {
+        Guid[] distinctAssignmentIds = assignmentIds.Distinct().ToArray();
+        if (distinctAssignmentIds.Length == 0)
+            return;
+
+        await contractorJobOnboardingSagaService.EnqueueAssignmentsAsync(distinctAssignmentIds, reason, cancellationToken);
+        await contractorJobAccessAutomationService.EnqueueAssignmentsAsync(distinctAssignmentIds, reason, cancellationToken);
     }
 }

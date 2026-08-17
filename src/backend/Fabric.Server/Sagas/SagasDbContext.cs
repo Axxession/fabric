@@ -1,5 +1,6 @@
 using Fabric.Server.Infrastructure.Tenancy;
 using Fabric.Server.Sagas.AccessGrantProvisioning;
+using Fabric.Server.Sagas.ContractorJobs;
 using Fabric.Server.Sagas.EmployeeLifecycle;
 using Fabric.Server.Sagas.Kiosk;
 using Fabric.Server.Sagas.Persistence.Configuration;
@@ -20,6 +21,9 @@ public class SagasDbContext : TenantDbContext
     public DbSet<AccessGrantProvisioningSagaEvent> AccessGrantProvisioningSagaEvents { get; set; } = null!;
     public DbSet<OrganizationalUnitPackageRule> OrganizationalUnitPackageRules { get; set; } = null!;
     public DbSet<PersonaPackageRule> PersonaPackageRules { get; set; } = null!;
+    public DbSet<ContractorJobPackageRule> ContractorJobPackageRules { get; set; } = null!;
+    public DbSet<ContractorJobOnboardingReconciliation> ContractorJobOnboardingReconciliations { get; set; } = null!;
+    public DbSet<ContractorJobAccessAutomationReconciliation> ContractorJobAccessAutomationReconciliations { get; set; } = null!;
     public DbSet<EmployeeLifecycleAutomationSettings> EmployeeLifecycleAutomationSettings { get; set; } = null!;
     public DbSet<EmployeeAccessAutomationReconciliation> EmployeeAccessAutomationReconciliations { get; set; } = null!;
     public DbSet<KioskSaga> KioskSagas { get; set; } = null!;
@@ -47,6 +51,9 @@ public class SagasDbContext : TenantDbContext
         modelBuilder.ApplyConfiguration(new AccessGrantProvisioningSagaEventConfiguration());
         modelBuilder.ApplyConfiguration(new OrganizationalUnitPackageRuleConfiguration());
         modelBuilder.ApplyConfiguration(new PersonaPackageRuleConfiguration());
+        modelBuilder.ApplyConfiguration(new ContractorJobPackageRuleConfiguration());
+        modelBuilder.ApplyConfiguration(new ContractorJobOnboardingReconciliationConfiguration());
+        modelBuilder.ApplyConfiguration(new ContractorJobAccessAutomationReconciliationConfiguration());
         modelBuilder.ApplyConfiguration(new EmployeeLifecycleAutomationSettingsConfiguration());
         modelBuilder.ApplyConfiguration(new EmployeeAccessAutomationReconciliationConfiguration());
         modelBuilder.ApplyConfiguration(new KioskSagaConfiguration());

@@ -140,8 +140,8 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: {
-                    ids?: string[];
+                query: {
+                    ids: string[];
                 };
                 header?: never;
                 path?: never;
@@ -7716,6 +7716,8 @@ export interface paths {
                     IdentityId?: string;
                     PackageId?: string;
                     Status?: components["schemas"]["AccessGrantStatus"];
+                    SourceKind?: components["schemas"]["AssignmentSourceKind"];
+                    SourceId?: string;
                 };
                 header?: never;
                 path?: never;
@@ -7792,6 +7794,84 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["RecalculateGrantRequirementsResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/access-catalog/access-grants/compliance-summaries/by-source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AssignmentContextRequest"][];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssignmentComplianceSummaryResponse"][];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/access-catalog/access-grants/compliance-details/by-source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AssignmentContextRequest"][];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssignmentComplianceDetailResponse"][];
                     };
                 };
             };
@@ -16701,6 +16781,213 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sagas/contractor-jobs/onboarding/reconcile/{assignmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assignmentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sagas/contractor-jobs/access-package-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    Page: number | string;
+                    PageSize: number | string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PageOfContractorJobPackageRuleResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateContractorJobPackageRuleRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ContractorJobPackageRuleResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sagas/contractor-jobs/access-package-rules/{id}/enabled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetContractorJobPackageRuleEnabledRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ContractorJobPackageRuleResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sagas/contractor-jobs/access-package-rules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sagas/contractor-jobs/access/reconcile/{assignmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assignmentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -16806,7 +17093,7 @@ export interface components {
             materializationOutcomes: components["schemas"]["AccessGrantMaterializationOutcomeResponse"][];
         };
         /** @enum {unknown} */
-        AccessGrantRevokeCause: "Manual" | "VisitRescheduled" | "ArrivalRelocated" | "VisitCancelled" | "VisitOffboarded" | "EmployeeLifecycleAutomation" | null;
+        AccessGrantRevokeCause: "Manual" | "VisitRescheduled" | "ArrivalRelocated" | "VisitCancelled" | "VisitOffboarded" | "EmployeeLifecycleAutomation" | "ContractorJobAutomation" | null;
         /** @enum {unknown} */
         AccessGrantStatus: "Planned" | "Active" | "Revoked" | "Replaced" | "Expired";
         AccessItemResponse: {
@@ -17203,6 +17490,41 @@ export interface components {
         };
         /** @enum {unknown} */
         AssignmentChannel: "CatalogRequest" | "AutomaticConfiguration" | "Manual";
+        AssignmentComplianceDetailResponse: {
+            sourceKind: components["schemas"]["AssignmentSourceKind"];
+            /** Format: uuid */
+            sourceId: string;
+            complianceStatus: null | components["schemas"]["GrantComplianceStatus"];
+            /** Format: date-time */
+            compliantUntil: null | string;
+            requirements: components["schemas"]["AssignmentRequirementComplianceResponse"][];
+        };
+        AssignmentComplianceSummaryResponse: {
+            sourceKind: components["schemas"]["AssignmentSourceKind"];
+            /** Format: uuid */
+            sourceId: string;
+            complianceStatus: null | components["schemas"]["GrantComplianceStatus"];
+            /** Format: date-time */
+            compliantUntil: null | string;
+            /** Format: int32 */
+            grantCount: number | string;
+        };
+        AssignmentContextRequest: {
+            sourceKind: components["schemas"]["AssignmentSourceKind"];
+            /** Format: uuid */
+            sourceId: string;
+        };
+        AssignmentRequirementComplianceResponse: {
+            /** Format: uuid */
+            requirementDefinitionId: string;
+            code: string;
+            name: string;
+            isBlocking: boolean;
+            status: components["schemas"]["RequirementResultStatus"];
+            reason: string;
+            /** Format: date-time */
+            validUntil: null | string;
+        };
         /** @enum {unknown} */
         AssignmentSourceKind: "CatalogRequest" | "OrganizationalUnit" | "Persona" | "ReceptionArrival" | "VisitorLocation" | "ContractorJob" | "Manual";
         BadgeBatchResponse: {
@@ -17408,6 +17730,17 @@ export interface components {
         };
         /** @enum {unknown} */
         ContractorJobAssignmentStatus: "Planned" | "Active" | "Completed" | "Cancelled";
+        ContractorJobPackageRuleResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            jobTypeId: string;
+            /** Format: uuid */
+            packageId: string;
+            /** Format: uuid */
+            locationId: null | string;
+            isEnabled: boolean;
+        };
         ContractorJobResponse: {
             /** Format: uuid */
             id: string;
@@ -17576,6 +17909,14 @@ export interface components {
             /** Format: date-time */
             assignedUntil: string;
         };
+        CreateContractorJobPackageRuleRequest: {
+            /** Format: uuid */
+            jobTypeId: string;
+            /** Format: uuid */
+            packageId: string;
+            /** Format: uuid */
+            locationId: null | string;
+        };
         CreateContractorJobRequest: {
             /** Format: uuid */
             companyId: string;
@@ -17701,26 +18042,6 @@ export interface components {
             /** Format: uuid */
             requirementDefinitionId: string;
             isBlocking: boolean;
-        };
-        LocationJobAttachedRequirementResponse: {
-            /** Format: uuid */
-            policyId: string;
-            /** Format: uuid */
-            locationId: string;
-            /** Format: uuid */
-            jobTypeId: string;
-            /** Format: uuid */
-            requirementDefinitionId: string;
-            requirementCode: string;
-            requirementName: string;
-            evaluatorKind: components["schemas"]["RequirementEvaluatorKind"];
-            isSensitive: boolean;
-            isBlocking: boolean;
-            isEnabled: boolean;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
         };
         CreateLocationRequirementPolicyRequest: {
             /** Format: uuid */
@@ -18831,6 +19152,26 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
+        LocationJobAttachedRequirementResponse: {
+            /** Format: uuid */
+            policyId: string;
+            /** Format: uuid */
+            locationId: string;
+            /** Format: uuid */
+            jobTypeId: string;
+            /** Format: uuid */
+            requirementDefinitionId: string;
+            requirementCode: string;
+            requirementName: string;
+            evaluatorKind: components["schemas"]["RequirementEvaluatorKind"];
+            isSensitive: boolean;
+            isBlocking: boolean;
+            isEnabled: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         LocationJobRequirementPolicyResponse: {
             /** Format: uuid */
             id: string;
@@ -19448,6 +19789,18 @@ export interface components {
             /** Format: int32 */
             totalItems?: null | number | string;
             items?: components["schemas"]["ContractorJobAssignmentResponse"][];
+            isLastPage?: boolean;
+        };
+        PageOfContractorJobPackageRuleResponse: {
+            /** Format: int32 */
+            currentPage?: number | string;
+            /** Format: int32 */
+            totalPages?: null | number | string;
+            /** Format: int32 */
+            pageSize?: number | string;
+            /** Format: int32 */
+            totalItems?: null | number | string;
+            items?: components["schemas"]["ContractorJobPackageRuleResponse"][];
             isLastPage?: boolean;
         };
         PageOfContractorJobResponse: {
@@ -20283,6 +20636,9 @@ export interface components {
             disableEv1?: boolean;
             disableEv2Chaining?: boolean;
         };
+        SetContractorJobPackageRuleEnabledRequest: {
+            isEnabled: boolean;
+        };
         SetRuleEnabledRequest: {
             isEnabled: boolean;
         };
@@ -20618,6 +20974,9 @@ export interface components {
             /** @default false */
             showDetailedErrors: boolean;
         };
+        UpdateLocationJobRequirementPolicyRequest: {
+            isBlocking: boolean;
+        };
         UpdateOidcSettingsRequest: {
             metadataUrl: string;
             clientId: string;
@@ -20667,9 +21026,6 @@ export interface components {
             description: null | string;
             evaluatorKind: components["schemas"]["RequirementEvaluatorKind"];
             isSensitive: boolean;
-        };
-        UpdateLocationJobRequirementPolicyRequest: {
-            isBlocking: boolean;
         };
         UpdateRoomRequest: {
             name: string;

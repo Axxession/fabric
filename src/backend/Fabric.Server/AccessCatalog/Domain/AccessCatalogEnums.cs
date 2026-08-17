@@ -50,7 +50,8 @@ public enum AccessGrantRevokeCause
     ArrivalRelocated,
     VisitCancelled,
     VisitOffboarded,
-    EmployeeLifecycleAutomation
+    EmployeeLifecycleAutomation,
+    ContractorJobAutomation
 }
 
 public enum AccessDurationKind

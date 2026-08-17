@@ -4,6 +4,8 @@ using Fabric.Server.AccessCatalog.Domain;
 using Fabric.Server.AccessCatalog.Persistence;
 using Fabric.Server.AccessControl.Persistence;
 using Fabric.Server.Core;
+using Fabric.Server.Requirements.Domain;
+using Fabric.Server.Requirements.Persistence;
 using Fabric.Server.Sagas;
 using Fabric.Server.Sagas.AccessGrantProvisioning;
 using Microsoft.AspNetCore.Mvc;
@@ -21,6 +23,8 @@ public static class AccessGrantEndpoints
         grants.MapGet("", ListAccessGrants).Produces<Page<AccessGrantResponse>>();
         grants.MapPost("", CreateAccessGrant).Produces<CreateAccessGrantResponse>(StatusCodes.Status201Created);
         grants.MapPost("/recalculate-requirements", RecalculateGrantRequirements).Produces<RecalculateGrantRequirementsResponse>();
+        grants.MapPost("/compliance-summaries/by-source", ListAssignmentComplianceSummariesBySource).Produces<AssignmentComplianceSummaryResponse[]>();
+        grants.MapPost("/compliance-details/by-source", ListAssignmentComplianceDetailsBySource).Produces<AssignmentComplianceDetailResponse[]>();
         grants.MapGet("/{accessGrantId:guid}", GetAccessGrant).Produces<AccessGrantResponse>().Produces(StatusCodes.Status404NotFound);
         grants.MapPost("/{accessGrantId:guid}/reconcile", ReconcileAccessGrant).Produces(StatusCodes.Status202Accepted).Produces(StatusCodes.Status404NotFound);
         grants.MapPost("/{accessGrantId:guid}/revoke", RevokeAccessGrant).Produces<AccessGrantResponse>().Produces(StatusCodes.Status404NotFound);
@@ -37,6 +41,10 @@ public static class AccessGrantEndpoints
             query = query.Where(item => item.PackageId == request.PackageId.Value);
         if (request.Status.HasValue)
             query = query.Where(item => item.Status == request.Status.Value);
+        if (request.SourceKind.HasValue)
+            query = query.Where(item => item.SourceKind == request.SourceKind.Value);
+        if (request.SourceId.HasValue)
+            query = query.Where(item => item.SourceId == request.SourceId.Value);
 
         IPaged<AccessGrant> result = await query.OrderBy(item => item.ValidFrom).GetPageAsync(request.Page, request.PageSize, cancellationToken);
         AccessGrant[] items = result.Items.ToArray();
@@ -97,6 +105,61 @@ public static class AccessGrantEndpoints
     {
         int processed = await service.RecalculateRequirementsAsync(futureOnly, cancellationToken);
         return Results.Ok(new RecalculateGrantRequirementsResponse(processed, futureOnly));
+    }
+
+    private static async Task<IResult> ListAssignmentComplianceSummariesBySource(
+        [FromBody] AssignmentContextRequest[] request,
+        AccessCatalogDbContext db,
+        CancellationToken cancellationToken = default)
+    {
+        AssignmentContextRequest[] contexts = request
+            .DistinctBy(item => (item.SourceKind, item.SourceId))
+            .ToArray();
+        if (contexts.Length == 0)
+            return Results.Ok(Array.Empty<AssignmentComplianceSummaryResponse>());
+
+        AccessGrant[] grants = await LoadGrantsForContextsAsync(db, contexts, cancellationToken);
+        AssignmentComplianceSummaryResponse[] response = contexts
+            .Select(context => BuildComplianceSummary(context, grants.Where(grant => grant.SourceKind == context.SourceKind && grant.SourceId == context.SourceId).ToArray()))
+            .ToArray();
+        return Results.Ok(response);
+    }
+
+    private static async Task<IResult> ListAssignmentComplianceDetailsBySource(
+        [FromBody] AssignmentContextRequest[] request,
+        AccessCatalogDbContext db,
+        RequirementsDbContext requirementsDb,
+        CancellationToken cancellationToken = default)
+    {
+        AssignmentContextRequest[] contexts = request
+            .DistinctBy(item => (item.SourceKind, item.SourceId))
+            .ToArray();
+        if (contexts.Length == 0)
+            return Results.Ok(Array.Empty<AssignmentComplianceDetailResponse>());
+
+        AccessGrant[] grants = await LoadGrantsForContextsAsync(db, contexts, cancellationToken);
+        Guid[] grantIds = grants.Select(item => item.Id).Distinct().ToArray();
+        GrantRequirement[] requirements = grantIds.Length == 0
+            ? []
+            : await db.GrantRequirements.AsNoTracking().Where(item => grantIds.Contains(item.AccessGrantId)).ToArrayAsync(cancellationToken);
+        GrantRequirementResult[] requirementResults = grantIds.Length == 0
+            ? []
+            : await db.GrantRequirementResults.AsNoTracking().Where(item => grantIds.Contains(item.AccessGrantId)).ToArrayAsync(cancellationToken);
+        Guid[] requirementDefinitionIds = requirements.Select(item => item.RequirementDefinitionId).Distinct().ToArray();
+        Dictionary<Guid, RequirementDefinition> definitionsById = requirementDefinitionIds.Length == 0
+            ? []
+            : await requirementsDb.RequirementDefinitions.AsNoTracking().Where(item => requirementDefinitionIds.Contains(item.Id)).ToDictionaryAsync(item => item.Id, cancellationToken);
+
+        AssignmentComplianceDetailResponse[] response = contexts
+            .Select(context => BuildComplianceDetail(
+                context,
+                grants.Where(grant => grant.SourceKind == context.SourceKind && grant.SourceId == context.SourceId).ToArray(),
+                requirements,
+                requirementResults,
+                definitionsById))
+            .ToArray();
+
+        return Results.Ok(response);
     }
 
     private static async Task<IResult> RevokeAccessGrant(Guid accessGrantId, AccessGrantService service, AccessCatalogDbContext db, AccessControlDbContext accessControlDb, SagasDbContext sagasDb, TimeProvider timeProvider, HttpContext httpContext, CancellationToken cancellationToken = default)
@@ -188,6 +251,131 @@ public static class AccessGrantEndpoints
             .Where(item => accessGrantIds.Contains(item.AccessGrantId))
             .GroupBy(item => item.AccessGrantId)
             .ToDictionaryAsync(group => group.Key, group => group.Select(item => item.ToResponse()).ToArray(), cancellationToken);
+    }
+
+    private static async Task<AccessGrant[]> LoadGrantsForContextsAsync(
+        AccessCatalogDbContext db,
+        AssignmentContextRequest[] contexts,
+        CancellationToken cancellationToken)
+    {
+        Guid[] sourceIds = contexts.Select(item => item.SourceId).Distinct().ToArray();
+        AssignmentSourceKind[] sourceKinds = contexts.Select(item => item.SourceKind).Distinct().ToArray();
+
+        return await db.AccessGrants.AsNoTracking()
+            .Where(item => sourceIds.Contains(item.SourceId) && sourceKinds.Contains(item.SourceKind))
+            .ToArrayAsync(cancellationToken);
+    }
+
+    private static AssignmentComplianceSummaryResponse BuildComplianceSummary(
+        AssignmentContextRequest context,
+        AccessGrant[] grants)
+    {
+        if (grants.Length == 0)
+            return new(context.SourceKind, context.SourceId, null, null, 0);
+
+        (GrantComplianceStatus status, DateTimeOffset? compliantUntil) = AggregateCompliance(grants);
+        return new(context.SourceKind, context.SourceId, status, compliantUntil, grants.Length);
+    }
+
+    private static AssignmentComplianceDetailResponse BuildComplianceDetail(
+        AssignmentContextRequest context,
+        AccessGrant[] grants,
+        GrantRequirement[] requirements,
+        GrantRequirementResult[] requirementResults,
+        Dictionary<Guid, RequirementDefinition> definitionsById)
+    {
+        if (grants.Length == 0)
+            return new(context.SourceKind, context.SourceId, null, null, []);
+
+        HashSet<Guid> grantIds = grants.Select(item => item.Id).ToHashSet();
+        (GrantComplianceStatus status, DateTimeOffset? compliantUntil) = AggregateCompliance(grants);
+        AssignmentRequirementComplianceResponse[] requirementDetails = requirements
+            .Where(item => grantIds.Contains(item.AccessGrantId))
+            .GroupBy(item => item.RequirementDefinitionId)
+            .Select(group => BuildRequirementDetail(group.Key, group.ToArray(), requirementResults, definitionsById))
+            .OrderBy(item => item.Name)
+            .ToArray();
+
+        return new(context.SourceKind, context.SourceId, status, compliantUntil, requirementDetails);
+    }
+
+    private static AssignmentRequirementComplianceResponse BuildRequirementDetail(
+        Guid requirementDefinitionId,
+        GrantRequirement[] requirements,
+        GrantRequirementResult[] requirementResults,
+        Dictionary<Guid, RequirementDefinition> definitionsById)
+    {
+        RequirementDefinition? definition = definitionsById.GetValueOrDefault(requirementDefinitionId);
+        GrantRequirementResult[] matchingResults = requirementResults
+            .Where(item => requirements.Select(requirement => requirement.AccessGrantId).Contains(item.AccessGrantId) && item.RequirementDefinitionId == requirementDefinitionId)
+            .ToArray();
+
+        RequirementResultStatus status = AggregateRequirementStatus(matchingResults);
+        GrantRequirementResult? selectedResult = SelectRequirementResultForDisplay(matchingResults);
+        string reason = selectedResult?.Reason ?? "Requirement has not been evaluated.";
+        DateTimeOffset? validUntil = matchingResults
+            .Where(item => item.Status == RequirementResultStatus.Fulfilled && item.ValidUntil.HasValue)
+            .Select(item => item.ValidUntil)
+            .OrderBy(item => item)
+            .FirstOrDefault();
+
+        return new(
+            requirementDefinitionId,
+            definition?.Code ?? requirementDefinitionId.ToString(),
+            definition?.Name ?? requirementDefinitionId.ToString(),
+            requirements.Any(item => item.IsBlocking),
+            status,
+            reason,
+            validUntil);
+    }
+
+    private static GrantRequirementResult? SelectRequirementResultForDisplay(GrantRequirementResult[] results)
+    {
+        if (results.Length == 0)
+            return null;
+
+        return results
+            .OrderBy(item => GetRequirementStatusSortOrder(item.Status))
+            .ThenBy(item => item.ValidUntil ?? DateTimeOffset.MaxValue)
+            .First();
+    }
+
+    private static RequirementResultStatus AggregateRequirementStatus(GrantRequirementResult[] results)
+    {
+        if (results.Length == 0)
+            return RequirementResultStatus.Missing;
+        if (results.Any(item => item.Status == RequirementResultStatus.Missing))
+            return RequirementResultStatus.Missing;
+        if (results.Any(item => item.Status == RequirementResultStatus.Failed))
+            return RequirementResultStatus.Failed;
+        if (results.Any(item => item.Status == RequirementResultStatus.Expired))
+            return RequirementResultStatus.Expired;
+        return RequirementResultStatus.Fulfilled;
+    }
+
+    private static int GetRequirementStatusSortOrder(RequirementResultStatus status) =>
+        status switch
+        {
+            RequirementResultStatus.Missing => 0,
+            RequirementResultStatus.Failed => 1,
+            RequirementResultStatus.Expired => 2,
+            _ => 3
+        };
+
+    private static (GrantComplianceStatus status, DateTimeOffset? compliantUntil) AggregateCompliance(IReadOnlyList<AccessGrant> grants)
+    {
+        if (grants.Any(item => item.ComplianceStatus == GrantComplianceStatus.NonCompliant))
+            return (GrantComplianceStatus.NonCompliant, null);
+
+        DateTimeOffset? compliantUntil = grants
+            .Where(item => item.ComplianceStatus == GrantComplianceStatus.TemporarilyCompliant && item.CompliantUntil.HasValue)
+            .Select(item => item.CompliantUntil)
+            .OrderBy(item => item)
+            .FirstOrDefault();
+        if (grants.Any(item => item.ComplianceStatus == GrantComplianceStatus.TemporarilyCompliant))
+            return (GrantComplianceStatus.TemporarilyCompliant, compliantUntil);
+
+        return (GrantComplianceStatus.Compliant, null);
     }
 
     private static async Task<Dictionary<Guid, AccessGrantMaterializationOutcomeResponse[]>> LoadMaterializationOutcomes(SagasDbContext db, Guid[] accessGrantIds, CancellationToken cancellationToken)

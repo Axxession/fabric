@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Fabric.Server.Core;
 using Fabric.Server.Sagas.AccessGrantProvisioning;
+using Fabric.Server.Sagas.ContractorJobs;
 using Fabric.Server.Sagas.EmployeeLifecycle;
 using Fabric.Server.Sagas.Kiosk;
 using Fabric.Server.Sagas.VisitorPreOnboarding;
@@ -12,6 +13,7 @@ namespace Fabric.Server.Sagas;
 [JsonSerializable(typeof(List<AccessGrantProvisioningSaga>))]
 [JsonSerializable(typeof(List<OrganizationalUnitPackageRule>))]
 [JsonSerializable(typeof(List<PersonaPackageRule>))]
+[JsonSerializable(typeof(List<ContractorJobPackageRule>))]
 [JsonSerializable(typeof(List<VisitorPreOnboardingSaga>))]
 [JsonSerializable(typeof(List<KioskSaga>))]
 [JsonSerializable(typeof(ProblemDetails))]
@@ -19,12 +21,16 @@ namespace Fabric.Server.Sagas;
 [JsonSerializable(typeof(EmployeeLifecycleAutomationSettingsResponse))]
 [JsonSerializable(typeof(OrganizationalUnitPackageRuleResponse))]
 [JsonSerializable(typeof(PersonaPackageRuleResponse))]
+[JsonSerializable(typeof(ContractorJobPackageRuleResponse))]
 [JsonSerializable(typeof(UpdateEmployeeLifecycleAutomationSettingsRequest))]
 [JsonSerializable(typeof(CreateOrganizationalUnitPackageRuleRequest))]
 [JsonSerializable(typeof(CreatePersonaPackageRuleRequest))]
+[JsonSerializable(typeof(CreateContractorJobPackageRuleRequest))]
 [JsonSerializable(typeof(SetRuleEnabledRequest))]
+[JsonSerializable(typeof(SetContractorJobPackageRuleEnabledRequest))]
 [JsonSerializable(typeof(Page<OrganizationalUnitPackageRuleResponse>))]
 [JsonSerializable(typeof(Page<PersonaPackageRuleResponse>))]
+[JsonSerializable(typeof(Page<ContractorJobPackageRuleResponse>))]
 [JsonSerializable(typeof(VisitorPreOnboardingSaga))]
 [JsonSerializable(typeof(KioskSaga))]
 [JsonSerializable(typeof(VisitorPreOnboardingSagaConfig))]

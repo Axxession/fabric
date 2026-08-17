@@ -4,6 +4,7 @@ using Fabric.Server.Contractors.Domain;
 using Fabric.Server.Contractors.Persistence;
 using Fabric.Server.Core;
 using Fabric.Server.Identities.Application;
+using Fabric.Server.Identities.Domain;
 using Fabric.Server.Identities.Persistence;
 using Fabric.Server.Infrastructure.Tenancy;
 using Fabric.Server.Locations.Persistence;
@@ -20,7 +21,7 @@ public sealed class ContractorsServiceTests
         await using LocationsDbContext locationsDb = CreateLocationsDbContext();
         await using IdentitiesDbContext identitiesDb = CreateIdentitiesDbContext();
         IdentityService identityService = new(identitiesDb, TimeProvider.System);
-        ContractorsService service = new(contractorsDb, locationsDb, identityService, TimeProvider.System);
+        ContractorsService service = new(contractorsDb, locationsDb, identityService, null!, null!, TimeProvider.System);
 
         DateTimeOffset now = new(2026, 8, 14, 8, 0, 0, TimeSpan.Zero);
         Result<Company, CompanyErrors> companyAResult = Company.Create("ACME", "Acme", null, now);
@@ -41,6 +42,7 @@ public sealed class ContractorsServiceTests
             companyB.Id,
             jobType.Id,
             Guid.NewGuid(),
+            Guid.NewGuid(),
             "Server room repair",
             null,
             now,
@@ -59,13 +61,13 @@ public sealed class ContractorsServiceTests
     }
 
     [Fact]
-    public async Task CreateContractorAsync_WhenIdentityMissing_ReturnsFailureAndDoesNotPersist()
+    public async Task CreateContractorAsync_WhenCompanyExists_PersistsContractorAndIdentityLink()
     {
         await using ContractorsDbContext contractorsDb = CreateContractorsDbContext();
         await using LocationsDbContext locationsDb = CreateLocationsDbContext();
         await using IdentitiesDbContext identitiesDb = CreateIdentitiesDbContext();
         IdentityService identityService = new(identitiesDb, TimeProvider.System);
-        ContractorsService service = new(contractorsDb, locationsDb, identityService, TimeProvider.System);
+        ContractorsService service = new(contractorsDb, locationsDb, identityService, null!, null!, TimeProvider.System);
 
         Result<Company, CompanyErrors> companyResult = Company.Create("ACME", "Acme", null, DateTimeOffset.UtcNow);
         companyResult.IsSuccess(out Company company);
@@ -73,11 +75,17 @@ public sealed class ContractorsServiceTests
         await contractorsDb.SaveChangesAsync();
 
         Result<Contractor, ContractorErrors> result = await service.CreateContractorAsync(
-            new CreateContractorRequest("Ada", "Lovelace", "ada@example.com", company.Id, Guid.NewGuid()));
+            new CreateContractorRequest("Ada", "Lovelace", "ada@example.com", company.Id));
 
-        Assert.True(result.IsFailure(out ContractorErrors error));
-        Assert.Equal(ContractorErrors.IdentityNotFound, error);
-        Assert.Empty(await contractorsDb.Contractors.ToListAsync());
+        Assert.True(result.IsSuccess(out Contractor contractor));
+        Assert.Single(await contractorsDb.Contractors.ToListAsync());
+
+        Identity? identity = await identitiesDb.Identities
+            .Include(item => item.ContractorAffiliations)
+            .SingleOrDefaultAsync();
+        Assert.NotNull(identity);
+        Assert.Single(identity.ContractorAffiliations);
+        Assert.Equal(contractor.Id, identity.ContractorAffiliations[0].ContractorId);
     }
 
     private static ContractorsDbContext CreateContractorsDbContext()

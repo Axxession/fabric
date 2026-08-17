@@ -31,6 +31,7 @@ using Fabric.Server.Reception;
 using Fabric.Server.Reception.Endpoints;
 using Fabric.Server.Requirements;
 using Fabric.Server.Sagas;
+using Fabric.Server.Sagas.ContractorJobs;
 using Fabric.Server.Sagas.EmployeeLifecycle;
 using Fabric.Server.Sagas.VisitorPreOnboarding;
 using Fabric.Server.Tenants;
@@ -169,6 +170,7 @@ app.MapVisitorEndpoints();
 app.MapHostEndpoints();
 app.MapVisitorPreOnboardingSagaEndpoints();
 app.MapEmployeeLifecycleAutomationEndpoints();
+app.MapContractorJobAccessAutomationEndpoints();
 
 
 if (enableAutomation)

@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { useCurrentActor } from '@/shared/actors/current-actor';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
+import { IdentityEvidenceCard } from '@/features/requirements/identity-evidence-card';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
@@ -177,6 +178,14 @@ export default function EmployeeContractorDetailPage() {
           ) : null}
         </CardContent>
       </Card>
+
+      {contractor.identityId ? (
+        <IdentityEvidenceCard
+          identityId={contractor.identityId}
+          title="Requirement evidence"
+          description="Evidence attached to this contractor identity. Expired evidence is hidden by default and entries are grouped by requirement."
+        />
+      ) : null}
     </section>
   );
 }

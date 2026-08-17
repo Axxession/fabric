@@ -1236,6 +1236,26 @@ function getGroupedGrantProvisioningStatus(grants: readonly AccessGrantResponse[
   return { label: getGrantProvisioningLabel('Provisioning'), variant: getGrantProvisioningVariant('Provisioning') };
 }
 
+function getGroupedGrantStatus(grants: readonly AccessGrantResponse[]): AccessGrantResponse['status'] {
+  if (grants.some((grant) => grant.status === 'Active')) {
+    return 'Active';
+  }
+
+  if (grants.some((grant) => grant.status === 'Planned')) {
+    return 'Planned';
+  }
+
+  if (grants.some((grant) => grant.status === 'Revoked')) {
+    return 'Revoked';
+  }
+
+  if (grants.some((grant) => grant.status === 'Replaced')) {
+    return 'Replaced';
+  }
+
+  return 'Expired';
+}
+
 function getRequestStatusVariant(status: PackageRequestStatus, subStatus: PackageRequestResponse['subStatus']) {
   if (status === 'InProgress') {
     return 'secondary';
@@ -1554,28 +1574,40 @@ function groupAutomaticViews(
   packageAccessItemsByPackageId: Map<string, AccessItemResponse[]>,
   targetsById: Map<string, AccessLevelTargetResponse>,
 ) {
-  return views.map((view): AutomatedPackageAssignmentGroupView => {
-    const packageId = view.grant.packageId;
-    const sourceId = view.grant.sourceId;
+  const groups = new Map<string, GrantView[]>();
+
+  views.forEach((view) => {
+    const key = [view.grant.sourceKind, view.grant.sourceId, view.grant.packageId, view.grant.locationId].join(':');
+    const current = groups.get(key) ?? [];
+    current.push(view);
+    groups.set(key, current);
+  });
+
+  return Array.from(groups.values()).map((groupViews): AutomatedPackageAssignmentGroupView => {
+    const firstView = groupViews[0]!;
+    const packageId = firstView.grant.packageId;
+    const sourceId = firstView.grant.sourceId;
+    const grants = groupViews.map((view) => view.grant);
+    const provisionings = groupViews.flatMap((view) => view.grantProvisionings);
 
     return {
       packageId,
       sourceId,
       sourceType: 'Automated',
-      grantIds: [view.grant.id],
-      status: view.grant.status,
-      packageName: view.packageName,
-      sourceLabel: formatSourceLabel(view.grant.sourceKind),
-      sourceReason: getAutomaticReason(view),
-      validityLabel: getValidityLabel([view]),
-      locationSummary: getLocationSummary([view]),
-      accessItems: groupAutomaticAccessItems([view], packageAccessItemsByPackageId.get(packageId) ?? [], targetsById),
-      provisioningSummary: getProvisioningSummary(view.grantProvisionings),
-      provisioningCount: view.grantProvisionings.length,
-      approvalSummary: getApprovalSummary([], [], view.grant.sourceKind),
-      shouldExpand: view.shouldExpand,
-      revokedBy: view.grant.revokedBy,
-      revokeCause: view.grant.revokeCause ?? null,
+      grantIds: grants.map((grant) => grant.id),
+      status: getGroupedGrantStatus(grants),
+      packageName: firstView.packageName,
+      sourceLabel: formatSourceLabel(firstView.grant.sourceKind),
+      sourceReason: getAutomaticReason(firstView),
+      validityLabel: getValidityLabel(groupViews),
+      locationSummary: getLocationSummary(groupViews),
+      accessItems: groupAutomaticAccessItems(groupViews, packageAccessItemsByPackageId.get(packageId) ?? [], targetsById),
+      provisioningSummary: getProvisioningSummary(provisionings),
+      provisioningCount: provisionings.length,
+      approvalSummary: getApprovalSummary([], [], firstView.grant.sourceKind),
+      shouldExpand: groupViews.some((view) => view.shouldExpand),
+      revokedBy: grants.find((grant) => grant.revokedBy)?.revokedBy ?? null,
+      revokeCause: grants.find((grant) => grant.revokeCause)?.revokeCause ?? null,
     };
   });
 }
@@ -1791,6 +1823,8 @@ function formatSourceLabel(sourceKind: AccessGrantResponse['sourceKind']) {
     case 'OrganizationalUnit':
     case 'Persona':
       return 'HR Policy';
+    case 'ContractorJob':
+      return 'Contractor Policy';
     case 'ReceptionArrival':
     case 'VisitorLocation':
       return 'Visitor Policy';

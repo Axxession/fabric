@@ -48,6 +48,7 @@ public sealed class ExpectedArrivalConfiguration : IEntityTypeConfiguration<Expe
         builder.HasIndex(a => a.IdentityId).HasDatabaseName("ix_expected_arrivals_identity_id");
         builder.HasIndex(a => a.VisitorId).HasDatabaseName("ix_expected_arrivals_visitor_id");
         builder.HasIndex(a => a.ContractorId).HasDatabaseName("ix_expected_arrivals_contractor_id");
+        builder.HasIndex("TenantId", nameof(ExpectedArrival.JobAssignmentId)).IsUnique().HasDatabaseName("ix_expected_arrivals_tenant_id_job_assignment_id");
         builder.HasIndex(a => a.LocationId).HasDatabaseName("ix_expected_arrivals_location_id");
     }
 

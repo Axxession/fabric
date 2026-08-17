@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
+import { getGrantComplianceLabel, getGrantComplianceVariant } from '@/shared/access-grants/grant-status';
 import { getLocationLabel, LocationSelector, type LocationResponse } from '@/shared/components/location-selector';
 import { Badge } from '@/shared/components/ui/badge';
 import { buttonVariants, Button } from '@/shared/components/ui/button';
@@ -17,6 +18,7 @@ import { Textarea } from '@/shared/components/ui/textarea';
 import { DetailRow, EmptyText, ErrorText, formatDateTimeLabel, getAssignmentStatusVariant, getContractorJobFormState, getContractorJobStatusVariant, invalidateContractorJobQueries, MutedText, toApiDateTimeValue, type ContractorJobFormState } from './employee-contractor-job-shared';
 
 type CompanyResponse = components['schemas']['CompanyResponse'];
+type AssignmentComplianceSummaryResponse = components['schemas']['AssignmentComplianceSummaryResponse'];
 type ContractorJobAssignmentResponse = components['schemas']['ContractorJobAssignmentResponse'];
 type ContractorResponse = components['schemas']['ContractorResponse'];
 type JobTypeResponse = components['schemas']['JobTypeResponse'];
@@ -101,6 +103,23 @@ export default function EmployeeContractorJobDetailPage() {
   });
 
   const contractorIds = Array.from(new Set((assignmentsQuery.data ?? []).map((assignment) => assignment.contractorId)));
+  const assignments = assignmentsQuery.data ?? [];
+  const assignmentComplianceQuery = useQuery({
+    queryKey: ['employee', 'contractors', 'jobs', jobId, 'assignments', 'compliance', assignments.map((assignment) => assignment.id).join(',')],
+    enabled: assignments.length > 0,
+    queryFn: async () => {
+      const { data, error } = await api.POST('/api/access-catalog/access-grants/compliance-summaries/by-source', {
+        body: assignments.map((assignment) => ({ sourceKind: 'ContractorJob', sourceId: assignment.id })),
+      });
+
+      if (error) {
+        throw new Error('Could not load assignment compliance.');
+      }
+
+      return new Map((data ?? []).map((item: AssignmentComplianceSummaryResponse) => [item.sourceId, item]));
+    },
+  });
+
   const contractorsQuery = useQuery({
     queryKey: ['employee', 'contractors', 'jobs', jobId, 'contractors', contractorIds.join(',')],
     enabled: contractorIds.length > 0,
@@ -169,10 +188,9 @@ export default function EmployeeContractorJobDetailPage() {
     },
   });
 
-  const isLoading = jobQuery.isLoading || assignmentsQuery.isLoading || companiesQuery.isLoading || jobTypesQuery.isLoading || locationQuery.isLoading || contractorsQuery.isLoading;
-  const isError = jobQuery.isError || assignmentsQuery.isError || companiesQuery.isError || jobTypesQuery.isError || locationQuery.isError || contractorsQuery.isError;
+  const isLoading = jobQuery.isLoading || assignmentsQuery.isLoading || assignmentComplianceQuery.isLoading || companiesQuery.isLoading || jobTypesQuery.isLoading || locationQuery.isLoading || contractorsQuery.isLoading;
+  const isError = jobQuery.isError || assignmentsQuery.isError || assignmentComplianceQuery.isError || companiesQuery.isError || jobTypesQuery.isError || locationQuery.isError || contractorsQuery.isError;
   const job = jobQuery.data;
-  const assignments = assignmentsQuery.data ?? [];
 
   useEffect(() => {
     if (!job) {
@@ -347,6 +365,7 @@ export default function EmployeeContractorJobDetailPage() {
                           <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.detail.assignmentsColumns.email')}</th>
                           <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.detail.assignmentsColumns.assignedFrom')}</th>
                           <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.detail.assignmentsColumns.assignedUntil')}</th>
+                          <th className="px-4 py-3 font-semibold">Compliance</th>
                           <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.detail.assignmentsColumns.status')}</th>
                           <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.assignments.actions')}</th>
                         </tr>
@@ -354,6 +373,7 @@ export default function EmployeeContractorJobDetailPage() {
                       <tbody>
                         {assignments.map((assignment) => {
                           const contractor = contractorsQuery.data?.get(assignment.contractorId);
+                          const compliance = assignmentComplianceQuery.data?.get(assignment.id);
 
                           return (
                             <tr key={assignment.id} className="border-t border-border">
@@ -361,6 +381,7 @@ export default function EmployeeContractorJobDetailPage() {
                               <td className="px-4 py-4 text-muted-foreground">{contractor?.email || t('perspectives.employee.contractors.detail.noEmail')}</td>
                               <td className="px-4 py-4 text-muted-foreground">{formatDateTimeLabel(assignment.assignedFrom)}</td>
                               <td className="px-4 py-4 text-muted-foreground">{formatDateTimeLabel(assignment.assignedUntil)}</td>
+                              <td className="px-4 py-4">{renderComplianceBadge(compliance)}</td>
                               <td className="px-4 py-4"><Badge variant={getAssignmentStatusVariant(assignment.status)}>{assignment.status}</Badge></td>
                               <td className="px-4 py-4"><Link to="/employee/contractors/jobs/$jobId/assignments/$assignmentId" params={{ jobId, assignmentId: assignment.id }} className={buttonVariants({ variant: 'outline' })}>{t('perspectives.employee.contractors.assignments.open')}</Link></td>
                             </tr>
@@ -373,6 +394,7 @@ export default function EmployeeContractorJobDetailPage() {
                   <div className="grid gap-3 lg:hidden">
                     {assignments.map((assignment) => {
                       const contractor = contractorsQuery.data?.get(assignment.contractorId);
+                      const compliance = assignmentComplianceQuery.data?.get(assignment.id);
 
                       return (
                         <div key={assignment.id} className="rounded-structural border border-border p-4">
@@ -386,6 +408,7 @@ export default function EmployeeContractorJobDetailPage() {
                           <dl className="mt-4 grid gap-2 text-[13px] text-muted-foreground">
                             <DetailRow label={t('perspectives.employee.contractors.detail.assignmentsColumns.assignedFrom')} value={formatDateTimeLabel(assignment.assignedFrom)} />
                             <DetailRow label={t('perspectives.employee.contractors.detail.assignmentsColumns.assignedUntil')} value={formatDateTimeLabel(assignment.assignedUntil)} />
+                            <div className="flex items-center justify-between gap-3"><dt>Compliance</dt><dd className="text-right">{renderComplianceBadge(compliance)}</dd></div>
                           </dl>
                           <div className="mt-4 flex flex-wrap gap-2">
                             <Link to="/employee/contractors/jobs/$jobId/assignments/$assignmentId" params={{ jobId, assignmentId: assignment.id }} className={buttonVariants({ variant: 'outline' })}>{t('perspectives.employee.contractors.assignments.open')}</Link>
@@ -410,6 +433,14 @@ function formatContractorName(contractor: ContractorResponse | undefined, assign
   }
 
   return `${contractor.firstName} ${contractor.lastName}`;
+}
+
+function renderComplianceBadge(compliance: AssignmentComplianceSummaryResponse | undefined) {
+  if (!compliance?.complianceStatus) {
+    return <span className="text-[13px] text-muted-foreground">-</span>;
+  }
+
+  return <Badge variant={getGrantComplianceVariant(compliance.complianceStatus)}>{getGrantComplianceLabel(compliance.complianceStatus)}</Badge>;
 }
 
 function getContractorJobFormStatePlaceholder(): ContractorJobFormState {

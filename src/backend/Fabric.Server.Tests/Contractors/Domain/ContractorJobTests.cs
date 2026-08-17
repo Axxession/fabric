@@ -13,6 +13,7 @@ public sealed class ContractorJobTests
             Guid.NewGuid(),
             Guid.NewGuid(),
             Guid.NewGuid(),
+            Guid.NewGuid(),
             "Boiler repair",
             null,
             now,
@@ -35,6 +36,7 @@ public sealed class ContractorJobTests
     {
         DateTimeOffset now = new(2026, 8, 14, 8, 0, 0, TimeSpan.Zero);
         Result<ContractorJob, ContractorJobErrors> create = ContractorJob.Create(
+            Guid.NewGuid(),
             Guid.NewGuid(),
             Guid.NewGuid(),
             Guid.NewGuid(),

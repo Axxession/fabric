@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
+import { getLocationLabel, LocationSelector, type LocationResponse } from '@/shared/components/location-selector';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button, buttonVariants } from '@/shared/components/ui/button';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/shared/components/ui/empty';
@@ -14,18 +15,22 @@ import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, Pagi
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { fetchVisitorPreOnboardingConfig, updateVisitorPreOnboardingConfig, visitorPreOnboardingConfigQueryKey } from '@/features/settings/visitor-pre-onboarding-config';
 
-type AccessModelTab = 'packages' | 'catalogues' | 'approval-groups' | 'hr-policies' | 'visitor-policies' | 'compliancy';
+type AccessModelTab = 'packages' | 'catalogues' | 'approval-groups' | 'hr-policies' | 'contractor-policies' | 'visitor-policies' | 'compliancy';
 type PackageResponse = components['schemas']['PackageResponse'];
 type CatalogResponse = components['schemas']['CatalogResponse'];
 type ApprovalGroupResponse = components['schemas']['ApprovalGroupResponse'];
 type AccessRuleAssignmentResponse = components['schemas']['AccessRuleAssignmentResponse'];
 type CredentialTypeResponse = components['schemas']['CredentialTypeResponse'];
 type CreateAccessRuleAssignmentRequest = components['schemas']['CreateAccessRuleAssignmentRequest'];
+type CreateContractorJobPackageRuleRequest = components['schemas']['CreateContractorJobPackageRuleRequest'];
 type EmployeeLifecycleAutomationSettingsResponse = components['schemas']['EmployeeLifecycleAutomationSettingsResponse'];
 type CreateOrganizationalUnitPackageRuleRequest = components['schemas']['CreateOrganizationalUnitPackageRuleRequest'];
 type CreatePersonaPackageRuleRequest = components['schemas']['CreatePersonaPackageRuleRequest'];
+type ContractorJobPackageRuleResponse = components['schemas']['ContractorJobPackageRuleResponse'];
+type JobTypeResponse = components['schemas']['JobTypeResponse'];
 type OrganizationalUnitPackageRuleResponse = components['schemas']['OrganizationalUnitPackageRuleResponse'];
 type PersonaPackageRuleResponse = components['schemas']['PersonaPackageRuleResponse'];
+type SetContractorJobPackageRuleEnabledRequest = components['schemas']['SetContractorJobPackageRuleEnabledRequest'];
 type SetRuleEnabledRequest = components['schemas']['SetRuleEnabledRequest'];
 type OrganizationUnitResponse = components['schemas']['OrganizationUnitResponse'];
 type PersonaResponse = components['schemas']['PersonaResponse'];
@@ -41,6 +46,7 @@ type RuleWithPackageName = {
   readonly id: string;
   readonly packageName: string;
   readonly isEnabled: boolean;
+  readonly detail?: string;
 };
 
 type PaginationState = {
@@ -152,6 +158,43 @@ export default function AccessModelPage() {
     },
   });
 
+  const contractorRulesQuery = useQuery({
+    queryKey: ['administration', 'access-model', 'contractor-policies', 'rules'],
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/sagas/contractor-jobs/access-package-rules', {
+        params: { query: { Page: 0, PageSize: 200 } },
+      });
+      if (error) throw new Error('Could not load contractor package rules.');
+      return data;
+    },
+  });
+
+  const contractorJobTypesQuery = useQuery({
+    queryKey: ['administration', 'access-model', 'contractor-policies', 'job-types'],
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/contractors/job-types', {
+        params: { query: { Code: undefined, Name: undefined, IsActive: undefined, Page: 0, PageSize: 200 } as never },
+      });
+      if (error) throw new Error('Could not load contractor job types.');
+      return data?.items ?? [];
+    },
+  });
+
+  const contractorRuleLocationsQuery = useQuery({
+    queryKey: ['administration', 'access-model', 'contractor-policies', 'locations', (contractorRulesQuery.data?.items ?? []).map((item) => item.locationId).filter(Boolean).sort().join(',')],
+    queryFn: async () => {
+      const locationIds = (contractorRulesQuery.data?.items ?? []).flatMap((item) => item.locationId ? [item.locationId] : []);
+      if (locationIds.length === 0) {
+        return [] as LocationResponse[];
+      }
+
+      const { data, error } = await api.GET('/api/locations/locations', { params: { query: { ids: locationIds } } });
+      if (error) throw new Error('Could not load contractor rule locations.');
+      return data ?? [];
+    },
+    enabled: (contractorRulesQuery.data?.items ?? []).some((item) => !!item.locationId),
+  });
+
   const organizationUnitsQuery = useQuery({
     queryKey: ['administration', 'access-model', 'hr-policies', 'organization-units'],
     queryFn: async () => {
@@ -229,6 +272,7 @@ export default function AccessModelPage() {
           <TabsTrigger value="approval-groups">{t('accessModel.tabs.approvalGroups')}</TabsTrigger>
           <TabsTrigger value="compliancy">Compliancy</TabsTrigger>
           <TabsTrigger value="hr-policies">{t('accessModel.tabs.hrPolicies')}</TabsTrigger>
+          <TabsTrigger value="contractor-policies">{t('accessModel.tabs.contractorPolicies')}</TabsTrigger>
           <TabsTrigger value="visitor-policies">{t('accessModel.tabs.visitorPolicies')}</TabsTrigger>
         </TabsList>
 
@@ -250,6 +294,10 @@ export default function AccessModelPage() {
 
         <TabsContent value="hr-policies">
           <HrPoliciesPanel settings={employeeLifecycleSettingsQuery.data} ouRules={ouRulesQuery.data?.items ?? []} personaRules={personaRulesQuery.data?.items ?? []} organizationUnits={organizationUnitsQuery.data ?? []} personas={personasQuery.data ?? []} packages={packagesOptionsQuery.data ?? []} isLoading={employeeLifecycleSettingsQuery.isLoading || ouRulesQuery.isLoading || personaRulesQuery.isLoading || organizationUnitsQuery.isLoading || personasQuery.isLoading || packagesOptionsQuery.isLoading} isError={employeeLifecycleSettingsQuery.isError || ouRulesQuery.isError || personaRulesQuery.isError || organizationUnitsQuery.isError || personasQuery.isError || packagesOptionsQuery.isError} />
+        </TabsContent>
+
+        <TabsContent value="contractor-policies">
+          <ContractorPoliciesPanel rules={contractorRulesQuery.data?.items ?? []} jobTypes={contractorJobTypesQuery.data ?? []} packages={packagesOptionsQuery.data ?? []} locations={contractorRuleLocationsQuery.data ?? []} isLoading={contractorRulesQuery.isLoading || contractorJobTypesQuery.isLoading || packagesOptionsQuery.isLoading || contractorRuleLocationsQuery.isLoading} isError={contractorRulesQuery.isError || contractorJobTypesQuery.isError || packagesOptionsQuery.isError || contractorRuleLocationsQuery.isError} />
         </TabsContent>
 
         <TabsContent value="visitor-policies">
@@ -876,6 +924,128 @@ function HrPoliciesPanel({ settings, ouRules, personaRules, organizationUnits, p
   );
 }
 
+function ContractorPoliciesPanel({ rules, jobTypes, packages, locations, isLoading, isError }: { readonly rules: ContractorJobPackageRuleResponse[]; readonly jobTypes: JobTypeResponse[]; readonly packages: PackageResponse[]; readonly locations: LocationResponse[]; readonly isLoading: boolean; readonly isError: boolean; }) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const packageById = new Map(packages.map((item) => [item.id, item]));
+  const locationById = new Map(locations.map((item) => [item.id, item]));
+  const packageOptions = packages.map((item) => ({ value: item.id, label: item.name }));
+  const [isAddRuleOpen, setIsAddRuleOpen] = useState(false);
+  const [selectedJobTypeId, setSelectedJobTypeId] = useState('');
+  const [selectedPackageId, setSelectedPackageId] = useState('');
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+
+  const addRule = useMutation({
+    mutationFn: async (request: CreateContractorJobPackageRuleRequest) => {
+      const { error } = await api.POST('/api/sagas/contractor-jobs/access-package-rules', { body: request });
+      if (error) throw new Error(t('accessModel.contractorPolicies.couldNotAddRule'));
+    },
+    onSuccess: async () => {
+      setSelectedJobTypeId('');
+      setSelectedPackageId('');
+      setSelectedLocationId(null);
+      setIsAddRuleOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ['administration', 'access-model', 'contractor-policies', 'rules'] });
+      toast.success(t('accessModel.contractorPolicies.ruleAdded'));
+    },
+    onError: () => toast.error(t('accessModel.contractorPolicies.couldNotAddRule')),
+  });
+
+  const toggleRule = useMutation({
+    mutationFn: async ({ id, isEnabled }: { id: string; isEnabled: boolean }) => {
+      const request: SetContractorJobPackageRuleEnabledRequest = { isEnabled };
+      const { error } = await api.PUT('/api/sagas/contractor-jobs/access-package-rules/{id}/enabled', { params: { path: { id } }, body: request });
+      if (error) throw new Error(t('accessModel.contractorPolicies.couldNotUpdateRule'));
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['administration', 'access-model', 'contractor-policies', 'rules'] });
+      toast.success(t('accessModel.contractorPolicies.ruleUpdated'));
+    },
+    onError: () => toast.error(t('accessModel.contractorPolicies.couldNotUpdateRule')),
+  });
+
+  const removeRule = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await api.DELETE('/api/sagas/contractor-jobs/access-package-rules/{id}', { params: { path: { id } } });
+      if (error) throw new Error(t('accessModel.contractorPolicies.couldNotRemoveRule'));
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['administration', 'access-model', 'contractor-policies', 'rules'] });
+      toast.success(t('accessModel.contractorPolicies.ruleRemoved'));
+    },
+    onError: () => toast.error(t('accessModel.contractorPolicies.couldNotRemoveRule')),
+  });
+
+  const availablePackages = getAvailableContractorPackageOptions(packageOptions, rules, selectedJobTypeId, selectedLocationId);
+  const groups = groupContractorRules(jobTypes, rules, packageById, locationById, t('accessModel.contractorPolicies.globalScope'));
+
+  function handleAddRule() {
+    if (!selectedJobTypeId || !selectedPackageId) {
+      toast.error(t('accessModel.contractorPolicies.completeJobTypeAndPackage'));
+      return;
+    }
+
+    addRule.mutate({
+      jobTypeId: selectedJobTypeId,
+      packageId: selectedPackageId,
+      locationId: selectedLocationId,
+    });
+  }
+
+  return (
+    <div className="grid gap-6 pt-4">
+      <div>
+        <h2 className="text-[20px] font-semibold tracking-tight">{t('accessModel.contractorPolicies.title')}</h2>
+        <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">{t('accessModel.contractorPolicies.description')}</p>
+      </div>
+
+      {isError ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">{t('accessModel.contractorPolicies.couldNotLoad')}</p> : null}
+      {isLoading ? <p className="rounded-structural border border-border p-4 text-[14px] text-muted-foreground">{t('accessModel.contractorPolicies.loading')}</p> : null}
+
+      {!isLoading && !isError ? (
+        <RuleListCard
+          title={t('accessModel.contractorPolicies.jobTypeAutomation')}
+          description={t('accessModel.contractorPolicies.jobTypeAutomationDescription')}
+          empty={t('accessModel.contractorPolicies.noRules')}
+          action={<Button type="button" variant="outline" size="sm" disabled={addRule.isPending || jobTypes.length === 0 || packageOptions.length === 0} onClick={() => setIsAddRuleOpen((current) => !current)}>{isAddRuleOpen ? t('accessModel.common.cancel') : t('accessModel.contractorPolicies.addAutomation')}</Button>}
+        >
+          {isAddRuleOpen ? (
+            <div className="grid gap-4 rounded-structural border border-border p-4">
+              <label className="grid gap-2 text-[14px] font-medium">
+                <span>{t('accessModel.contractorPolicies.jobType')}</span>
+                <select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={selectedJobTypeId} onChange={(event) => {
+                  setSelectedJobTypeId(event.target.value);
+                  setSelectedPackageId('');
+                }}>
+                  <option value="">{t('accessModel.common.selectPrefix', { label: t('accessModel.contractorPolicies.jobType').toLowerCase() })}</option>
+                  {jobTypes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-2 text-[14px] font-medium">
+                <span>{t('accessModel.contractorPolicies.package')}</span>
+                <select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={selectedPackageId} onChange={(event) => setSelectedPackageId(event.target.value)} disabled={!selectedJobTypeId || availablePackages.length === 0}>
+                  <option value="">{t('accessModel.common.selectPrefix', { label: t('accessModel.contractorPolicies.package').toLowerCase() })}</option>
+                  {availablePackages.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </label>
+              <div className="grid gap-2 text-[14px] font-medium">
+                <span>{t('accessModel.contractorPolicies.location')}</span>
+                <LocationSelector value={selectedLocationId} onChange={setSelectedLocationId} level="Room" disabled={addRule.isPending} />
+                <p className="text-[13px] text-muted-foreground">{t('accessModel.contractorPolicies.locationHint')}</p>
+              </div>
+              {selectedJobTypeId && availablePackages.length === 0 ? <p className="text-[13px] text-muted-foreground">{t('accessModel.contractorPolicies.allPackagesAddedForScope')}</p> : null}
+              <div className="flex justify-end">
+                <Button type="button" disabled={addRule.isPending || !selectedJobTypeId || !selectedPackageId} onClick={handleAddRule}>{t('accessModel.contractorPolicies.addRule')}</Button>
+              </div>
+            </div>
+          ) : null}
+          {groups.map((group) => <RuleGroupCard key={group.source.id} name={group.source.name} rules={group.rules} onToggle={(rule) => toggleRule.mutate({ id: rule.id, isEnabled: !rule.isEnabled })} onRemove={(rule) => removeRule.mutate(rule.id)} busy={toggleRule.isPending || removeRule.isPending} />)}
+        </RuleListCard>
+      ) : null}
+    </div>
+  );
+}
+
 function VisitorPoliciesPanel({ assignments, packages, qrCredentialTypes, visitorConfig, isLoading, isError }: { readonly assignments: AccessRuleAssignmentResponse[]; readonly packages: PackageResponse[]; readonly qrCredentialTypes: CredentialTypeResponse[]; readonly visitorConfig: components['schemas']['VisitorPreOnboardingSagaConfigRequest'] | undefined; readonly isLoading: boolean; readonly isError: boolean; }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -1155,13 +1325,13 @@ function RuleListCard({ title, description, empty, action, children }: { readonl
 }
 
 function RuleGroupCard({ name, rules, onToggle, onRemove, busy }: { readonly name: string; readonly rules: readonly RuleWithPackageName[]; readonly onToggle: (rule: RuleWithPackageName) => void; readonly onRemove: (rule: RuleWithPackageName) => void; readonly busy: boolean; }) {
-  return <div className="rounded-structural border border-border p-4"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="font-medium text-foreground">{name}</p><p className="mt-1 text-[14px] text-muted-foreground">{rules.length} package{rules.length === 1 ? '' : 's'} configured</p></div><Badge variant="secondary">{rules.length}</Badge></div><div className="mt-4 grid gap-3">{rules.map((rule) => <RulePackageRow key={rule.id} packageName={rule.packageName} isEnabled={rule.isEnabled} onToggle={() => onToggle(rule)} onRemove={() => onRemove(rule)} busy={busy} />)}</div></div>;
+  return <div className="rounded-structural border border-border p-4"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="font-medium text-foreground">{name}</p><p className="mt-1 text-[14px] text-muted-foreground">{rules.length} package{rules.length === 1 ? '' : 's'} configured</p></div><Badge variant="secondary">{rules.length}</Badge></div><div className="mt-4 grid gap-3">{rules.map((rule) => <RulePackageRow key={rule.id} packageName={rule.packageName} detail={rule.detail} isEnabled={rule.isEnabled} onToggle={() => onToggle(rule)} onRemove={() => onRemove(rule)} busy={busy} />)}</div></div>;
 }
 
-function RulePackageRow({ packageName, isEnabled, onToggle, onRemove, busy }: { readonly packageName: string; readonly isEnabled: boolean; readonly onToggle: () => void; readonly onRemove: () => void; readonly busy: boolean; }) {
+function RulePackageRow({ packageName, detail, isEnabled, onToggle, onRemove, busy }: { readonly packageName: string; readonly detail?: string; readonly isEnabled: boolean; readonly onToggle: () => void; readonly onRemove: () => void; readonly busy: boolean; }) {
   const { t } = useTranslation();
 
-  return <div className="flex items-center justify-between gap-4 rounded-structural border border-border bg-background p-3"><div className="min-w-0"><p className="font-medium text-foreground">{packageName}</p><p className="mt-1 text-[14px] text-muted-foreground">{t('accessModel.common.packageAutomation')}</p></div><div className="flex items-center gap-2"><Badge variant={isEnabled ? 'success' : 'secondary'}>{isEnabled ? t('accessModel.common.enabled') : t('accessModel.common.disabled')}</Badge><Button type="button" variant="outline" size="sm" disabled={busy} onClick={onToggle}>{isEnabled ? t('accessModel.common.disable') : t('accessModel.common.enable')}</Button><Button type="button" variant="outline" size="sm" disabled={busy} onClick={onRemove}>{t('accessModel.common.remove')}</Button></div></div>;
+  return <div className="flex items-center justify-between gap-4 rounded-structural border border-border bg-background p-3"><div className="min-w-0"><p className="font-medium text-foreground">{packageName}</p><p className="mt-1 text-[14px] text-muted-foreground">{detail ?? t('accessModel.common.packageAutomation')}</p></div><div className="flex items-center gap-2"><Badge variant={isEnabled ? 'success' : 'secondary'}>{isEnabled ? t('accessModel.common.enabled') : t('accessModel.common.disabled')}</Badge><Button type="button" variant="outline" size="sm" disabled={busy} onClick={onToggle}>{isEnabled ? t('accessModel.common.disable') : t('accessModel.common.enable')}</Button><Button type="button" variant="outline" size="sm" disabled={busy} onClick={onRemove}>{t('accessModel.common.remove')}</Button></div></div>;
 }
 
 function RuleAddForm({ labelA, valueA, onChangeA, optionsA, labelB, valueB, onChangeB, optionsB, submitLabel, disabled, onSubmit, emptyStateMessage }: { readonly labelA: string; readonly valueA: string; readonly onChangeA: (value: string) => void; readonly optionsA: readonly RuleOption[]; readonly labelB: string; readonly valueB: string; readonly onChangeB: (value: string) => void; readonly optionsB: readonly RuleOption[]; readonly submitLabel: string; readonly disabled: boolean; readonly onSubmit: () => void; readonly emptyStateMessage?: string; }) {
@@ -1180,6 +1350,29 @@ function groupOuRules(organizationUnits: readonly OrganizationUnitResponse[], ru
 
 function groupPersonaRules(personas: readonly PersonaResponse[], rules: readonly PersonaPackageRuleResponse[], packageById: ReadonlyMap<string, PackageResponse>) {
   return groupRulesBySource(personas, rules, (rule) => rule.personaId, (rule) => ({ id: rule.id, packageName: packageById.get(rule.packageId)?.name ?? rule.packageId, isEnabled: rule.isEnabled }));
+}
+
+function groupContractorRules(jobTypes: readonly JobTypeResponse[], rules: readonly ContractorJobPackageRuleResponse[], packageById: ReadonlyMap<string, PackageResponse>, locationById: ReadonlyMap<string, LocationResponse>, globalScopeLabel: string) {
+  return groupRulesBySource(jobTypes, rules, (rule) => rule.jobTypeId, (rule) => ({
+    id: rule.id,
+    packageName: packageById.get(rule.packageId)?.name ?? rule.packageId,
+    isEnabled: rule.isEnabled,
+    detail: rule.locationId ? getLocationLabel(locationById.get(rule.locationId)) : globalScopeLabel,
+  }));
+}
+
+function getAvailableContractorPackageOptions(options: readonly RuleOption[], rules: readonly ContractorJobPackageRuleResponse[], jobTypeId: string, locationId: string | null) {
+  if (!jobTypeId) {
+    return [];
+  }
+
+  const usedPackageIds = new Set(
+    rules
+      .filter((rule) => rule.jobTypeId === jobTypeId && rule.locationId === locationId)
+      .map((rule) => rule.packageId),
+  );
+
+  return options.filter((option) => !usedPackageIds.has(option.value));
 }
 
 function groupRulesBySource<TSource extends { id: string; name: string }, TRule>(sources: readonly TSource[], rules: readonly TRule[], getSourceId: (rule: TRule) => string, toRule: (rule: TRule) => RuleWithPackageName): RuleGroup<TSource>[] {
@@ -1225,7 +1418,7 @@ function getActiveTab(searchStr: string): AccessModelTab {
 }
 
 function isAccessModelTab(value: string | null | undefined): value is AccessModelTab {
-  return value === 'packages' || value === 'catalogues' || value === 'approval-groups' || value === 'compliancy' || value === 'hr-policies' || value === 'visitor-policies';
+  return value === 'packages' || value === 'catalogues' || value === 'approval-groups' || value === 'compliancy' || value === 'hr-policies' || value === 'contractor-policies' || value === 'visitor-policies';
 }
 
 function getPaginationState(page: { currentPage?: number | string; totalPages?: null | number | string; totalItems?: null | number | string } | undefined, itemCount: number, requestedPage: number, resolvedPageSize: number): PaginationState {

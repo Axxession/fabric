@@ -25,7 +25,34 @@ public sealed record ListAccessGrantsRequest : BaseListRequest
     public Guid? IdentityId { get; set; }
     public Guid? PackageId { get; set; }
     public AccessGrantStatus? Status { get; set; }
+    public AssignmentSourceKind? SourceKind { get; set; }
+    public Guid? SourceId { get; set; }
 }
+
+public sealed record AssignmentContextRequest(AssignmentSourceKind SourceKind, Guid SourceId);
+
+public sealed record AssignmentComplianceSummaryResponse(
+    AssignmentSourceKind SourceKind,
+    Guid SourceId,
+    GrantComplianceStatus? ComplianceStatus,
+    DateTimeOffset? CompliantUntil,
+    int GrantCount);
+
+public sealed record AssignmentRequirementComplianceResponse(
+    Guid RequirementDefinitionId,
+    string Code,
+    string Name,
+    bool IsBlocking,
+    RequirementResultStatus Status,
+    string Reason,
+    DateTimeOffset? ValidUntil);
+
+public sealed record AssignmentComplianceDetailResponse(
+    AssignmentSourceKind SourceKind,
+    Guid SourceId,
+    GrantComplianceStatus? ComplianceStatus,
+    DateTimeOffset? CompliantUntil,
+    AssignmentRequirementComplianceResponse[] Requirements);
 
 public sealed record ListPackageRequestsRequest : BaseListRequest
 {
