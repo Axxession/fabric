@@ -1,5 +1,6 @@
 using Fabric.Server.AccessCatalog.Domain;
 using Fabric.Server.AccessCatalog.Persistence;
+using Fabric.Server.AccessControl.Persistence;
 using Fabric.Server.Core;
 using Fabric.Server.Employees.Domain;
 using Fabric.Server.Employees.Persistence;
@@ -14,6 +15,7 @@ namespace Fabric.Server.AccessCatalog.Application;
 
 public sealed class PackageRequestService(
     AccessCatalogDbContext db,
+    AccessControlDbContext accessControlDb,
     AccessGrantService accessGrantService,
     EmployeesDbContext employeesDb,
     IdentitiesDbContext identitiesDb,
@@ -47,7 +49,6 @@ public sealed class PackageRequestService(
             return Result.Failure<PackageRequest, AccessCatalogErrors>(error);
 
         input.IsSuccess(out ValidatedPackageRequestInputs value);
-
         DateTimeOffset now = timeProvider.GetUtcNow();
         Result<PackageRequest, AccessCatalogErrors> create = PackageRequest.Create(
             packageId,
@@ -106,7 +107,9 @@ public sealed class PackageRequestService(
             return Result.Failure<PackageRequestPreviewModel, AccessCatalogErrors>(error);
 
         input.IsSuccess(out ValidatedPackageRequestInputs value);
-
+        Dictionary<Guid, bool> complianceRequiredByAccessItemId = await accessControlDb.AccessItems
+            .Where(item => value.AccessItemIds.Contains(item.Id))
+            .ToDictionaryAsync(item => item.Id, item => item.IsComplianceRequired, cancellationToken);
         DateTimeOffset now = timeProvider.GetUtcNow();
         PackageRequest previewRequest = PackageRequest.Create(
             packageId,
@@ -179,9 +182,13 @@ public sealed class PackageRequestService(
                 requirementPreviews));
         }
 
+        ILookup<Guid, ApprovalRequirement> requirementsByAccessItemId = requirements.ToLookup(item => item.AccessItemId);
         return Result.Success<PackageRequestPreviewModel, AccessCatalogErrors>(
             new PackageRequestPreviewModel(
-                requirements.Where(item => item.Status == ApprovalStatus.Pending).ToArray(),
+                value.AccessItemIds.Select(accessItemId => new ApprovalRequirementsPreviewItem(
+                    accessItemId,
+                    complianceRequiredByAccessItemId.GetValueOrDefault(accessItemId, true),
+                    requirementsByAccessItemId[accessItemId].Where(item => item.Status == ApprovalStatus.Pending).ToArray())).ToArray(),
                 compliance.ToArray()));
     }
 
@@ -446,4 +453,5 @@ public sealed class PackageRequestService(
 
 public sealed record ComplianceRequirementPreviewModel(Guid RequirementDefinitionId, string Code, string Name, bool IsBlocking, RequirementResultStatus Status, string Reason, DateTimeOffset? ValidUntil);
 public sealed record CompliancePreviewModel(Guid LocationId, GrantComplianceStatus Status, DateTimeOffset? CompliantUntil, ComplianceRequirementPreviewModel[] Requirements);
-public sealed record PackageRequestPreviewModel(IReadOnlyList<ApprovalRequirement> ApprovalRequirements, IReadOnlyList<CompliancePreviewModel> Compliance);
+public sealed record ApprovalRequirementsPreviewItem(Guid AccessItemId, bool IsComplianceRequired, IReadOnlyList<ApprovalRequirement> Requirements);
+public sealed record PackageRequestPreviewModel(IReadOnlyList<ApprovalRequirementsPreviewItem> ApprovalItems, IReadOnlyList<CompliancePreviewModel> Compliance);

@@ -523,7 +523,12 @@ export default function EmployeeRequestAccessPage() {
                                 <p className="font-medium text-foreground">{item.name}</p>
                                 <p className="mt-1 text-[14px] text-muted-foreground">{item.description ?? 'Access item in selected package.'}</p>
                               </div>
-                              <Badge variant={item.requirements.length === 0 ? 'success' : 'secondary'}>{item.requirements.length === 0 ? 'Autoapproved' : `${item.requirements.length} approval${item.requirements.length === 1 ? '' : 's'}`}</Badge>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant={item.isComplianceRequired ? 'secondary' : 'success'}>
+                                  {item.isComplianceRequired ? 'Requires compliance' : 'Compliance not required'}
+                                </Badge>
+                                <Badge variant={item.requirements.length === 0 ? 'success' : 'secondary'}>{item.requirements.length === 0 ? 'Autoapproved' : `${item.requirements.length} approval${item.requirements.length === 1 ? '' : 's'}`}</Badge>
+                              </div>
                             </div>
 
                             {item.requirements.length === 0 ? null : (
@@ -614,7 +619,7 @@ export default function EmployeeRequestAccessPage() {
                     <div className="rounded-structural border border-border p-4">
                       <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Approval summary</p>
                       <div className="mt-3 grid gap-2">
-                        {approvalPreview.length === 0 ? <p className="text-[14px] text-foreground">Autoapproved</p> : approvalPreview.map((item) => <p key={item.accessItemId} className="text-[14px] text-foreground">{item.name}: {item.requirements.length === 0 ? 'Autoapproved' : `${item.requirements.length} approval${item.requirements.length === 1 ? '' : 's'} required`}</p>)}
+                        {approvalPreview.length === 0 ? <p className="text-[14px] text-foreground">Autoapproved</p> : approvalPreview.map((item) => <p key={item.accessItemId} className="text-[14px] text-foreground">{item.name}: {item.requirements.length === 0 ? 'Autoapproved' : `${item.requirements.length} approval${item.requirements.length === 1 ? '' : 's'} required`}{item.isComplianceRequired ? '' : ' • compliance not required'}</p>)}
                       </div>
                     </div>
 

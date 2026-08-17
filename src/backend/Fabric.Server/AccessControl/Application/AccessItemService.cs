@@ -10,13 +10,14 @@ public sealed class AccessItemService(AccessControlDbContext db)
     public async Task<Result<AccessItem, AccessControlErrors>> CreateAsync(
         string name,
         string? description,
+        bool isComplianceRequired,
         CancellationToken cancellationToken = default)
     {
         bool exists = await db.AccessItems.AnyAsync(item => item.Name == name, cancellationToken);
         if (exists)
             return Result.Failure<AccessItem, AccessControlErrors>(AccessControlErrors.AccessItemNameAlreadyExists);
 
-        AccessItem item = AccessItem.Create(name, description);
+        AccessItem item = AccessItem.Create(name, description, isComplianceRequired);
         db.AccessItems.Add(item);
         await db.SaveChangesAsync(cancellationToken);
         return Result.Success<AccessItem, AccessControlErrors>(item);
@@ -26,6 +27,7 @@ public sealed class AccessItemService(AccessControlDbContext db)
         Guid itemId,
         string name,
         string? description,
+        bool isComplianceRequired,
         AccessItemStatus status,
         CancellationToken cancellationToken = default)
     {
@@ -37,7 +39,7 @@ public sealed class AccessItemService(AccessControlDbContext db)
         if (exists)
             return Result.Failure<AccessItem, AccessControlErrors>(AccessControlErrors.AccessItemNameAlreadyExists);
 
-        item.Update(name, description);
+        item.Update(name, description, isComplianceRequired);
         item.SetStatus(status);
         await db.SaveChangesAsync(cancellationToken);
         return Result.Success<AccessItem, AccessControlErrors>(item);

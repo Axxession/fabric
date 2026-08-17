@@ -2,6 +2,7 @@ using Fabric.Server.AccessCatalog.Application;
 using Fabric.Server.AccessCatalog.Contracts;
 using Fabric.Server.AccessCatalog.Domain;
 using Fabric.Server.AccessCatalog.Persistence;
+using Fabric.Server.AccessControl.Persistence;
 using Fabric.Server.Core;
 using Fabric.Server.Sagas;
 using Fabric.Server.Sagas.AccessGrantProvisioning;
@@ -18,7 +19,7 @@ public static class AccessGrantEndpoints
         RouteGroupBuilder grants = app.MapGroup("/api/access-catalog/access-grants");
 
         grants.MapGet("", ListAccessGrants).Produces<Page<AccessGrantResponse>>();
-        grants.MapPost("", CreateAccessGrant).Produces<AccessGrantResponse>(StatusCodes.Status201Created);
+        grants.MapPost("", CreateAccessGrant).Produces<CreateAccessGrantResponse>(StatusCodes.Status201Created);
         grants.MapPost("/recalculate-requirements", RecalculateGrantRequirements).Produces<RecalculateGrantRequirementsResponse>();
         grants.MapGet("/{accessGrantId:guid}", GetAccessGrant).Produces<AccessGrantResponse>().Produces(StatusCodes.Status404NotFound);
         grants.MapPost("/{accessGrantId:guid}/reconcile", ReconcileAccessGrant).Produces(StatusCodes.Status202Accepted).Produces(StatusCodes.Status404NotFound);
@@ -27,7 +28,7 @@ public static class AccessGrantEndpoints
         return app;
     }
 
-    private static async Task<IResult> ListAccessGrants([AsParameters] ListAccessGrantsRequest request, AccessCatalogDbContext db, SagasDbContext sagasDb, CancellationToken cancellationToken = default)
+    private static async Task<IResult> ListAccessGrants([AsParameters] ListAccessGrantsRequest request, AccessCatalogDbContext db, AccessControlDbContext accessControlDb, SagasDbContext sagasDb, TimeProvider timeProvider, CancellationToken cancellationToken = default)
     {
         IQueryable<AccessGrant> query = db.AccessGrants.AsNoTracking();
         if (request.IdentityId.HasValue)
@@ -43,12 +44,24 @@ public static class AccessGrantEndpoints
         Dictionary<Guid, GrantRequirementResponse[]> requirements = await LoadRequirements(db, grantIds, cancellationToken);
         Dictionary<Guid, GrantRequirementResultResponse[]> requirementResults = await LoadRequirementResults(db, grantIds, cancellationToken);
         Dictionary<Guid, AccessGrantMaterializationOutcomeResponse[]> outcomes = await LoadMaterializationOutcomes(sagasDb, grantIds, cancellationToken);
-        return Results.Ok(result.Map(item => item.ToResponse(requirements.GetValueOrDefault(item.Id, []), requirementResults.GetValueOrDefault(item.Id, []), outcomes.GetValueOrDefault(item.Id, []))));
+        Dictionary<Guid, bool> complianceRequiredByAccessItemId = await LoadComplianceRequiredByAccessItemIdAsync(accessControlDb, items, cancellationToken);
+        Dictionary<Guid, AccessGrantProvisioningSagaState> sagaStates = await LoadSagaStatesAsync(sagasDb, grantIds, cancellationToken);
+        DateTimeOffset now = timeProvider.GetUtcNow();
+        return Results.Ok(result.Map(item => item.ToResponse(
+            GrantProvisioningStatusResolver.Resolve(
+                item,
+                complianceRequiredByAccessItemId.GetValueOrDefault(item.AccessItemId ?? Guid.Empty, true),
+                sagaStates.GetValueOrDefault(item.Id),
+                outcomes.GetValueOrDefault(item.Id, []).Select(response => response.ToDomain(item.Id)).ToArray(),
+                now),
+            requirements.GetValueOrDefault(item.Id, []),
+            requirementResults.GetValueOrDefault(item.Id, []),
+            outcomes.GetValueOrDefault(item.Id, []))));
     }
 
-    private static async Task<IResult> CreateAccessGrant([FromBody] CreateAccessGrantRequest request, AccessGrantService service, AccessCatalogDbContext db, SagasDbContext sagasDb, CancellationToken cancellationToken = default)
+    private static async Task<IResult> CreateAccessGrant([FromBody] CreateAccessGrantRequest request, AccessGrantService service, AccessCatalogDbContext db, AccessControlDbContext accessControlDb, SagasDbContext sagasDb, TimeProvider timeProvider, CancellationToken cancellationToken = default)
     {
-        Result<AccessGrant, AccessCatalogErrors> result = await service.CreateAsync(
+        Result<IReadOnlyList<AccessGrant>, AccessCatalogErrors> result = await service.CreateAsync(
             request.PackageId,
             request.IdentityId,
             request.LocationId,
@@ -62,26 +75,22 @@ public static class AccessGrantEndpoints
             cancellationToken);
 
         return await result.Match<Task<IResult>>(
-            async item =>
+            async grants =>
             {
-                Dictionary<Guid, GrantRequirementResponse[]> requirements = await LoadRequirements(db, [item.Id], cancellationToken);
-                Dictionary<Guid, GrantRequirementResultResponse[]> requirementResults = await LoadRequirementResults(db, [item.Id], cancellationToken);
-                Dictionary<Guid, AccessGrantMaterializationOutcomeResponse[]> outcomes = await LoadMaterializationOutcomes(sagasDb, [item.Id], cancellationToken);
-                return Results.Created($"/api/access-catalog/access-grants/{item.Id}", item.ToResponse(requirements.GetValueOrDefault(item.Id, []), requirementResults.GetValueOrDefault(item.Id, []), outcomes.GetValueOrDefault(item.Id, [])));
+                AccessGrantResponse[] responses = await BuildGrantResponsesAsync(grants, db, accessControlDb, sagasDb, timeProvider, cancellationToken);
+                return Results.Created($"/api/access-catalog/access-grants", new CreateAccessGrantResponse(responses));
             },
             error => Task.FromResult(MapError(error).ToResult()));
     }
 
-    private static async Task<IResult> GetAccessGrant(Guid accessGrantId, AccessCatalogDbContext db, SagasDbContext sagasDb, CancellationToken cancellationToken = default)
+    private static async Task<IResult> GetAccessGrant(Guid accessGrantId, AccessCatalogDbContext db, AccessControlDbContext accessControlDb, SagasDbContext sagasDb, TimeProvider timeProvider, CancellationToken cancellationToken = default)
     {
         AccessGrant? grant = await db.AccessGrants.AsNoTracking().SingleOrDefaultAsync(item => item.Id == accessGrantId, cancellationToken);
         if (grant is null)
             return Results.NotFound();
 
-        Dictionary<Guid, GrantRequirementResponse[]> requirements = await LoadRequirements(db, [grant.Id], cancellationToken);
-        Dictionary<Guid, GrantRequirementResultResponse[]> requirementResults = await LoadRequirementResults(db, [grant.Id], cancellationToken);
-        Dictionary<Guid, AccessGrantMaterializationOutcomeResponse[]> outcomes = await LoadMaterializationOutcomes(sagasDb, [accessGrantId], cancellationToken);
-        return Results.Ok(grant.ToResponse(requirements.GetValueOrDefault(grant.Id, []), requirementResults.GetValueOrDefault(grant.Id, []), outcomes.GetValueOrDefault(accessGrantId, [])));
+        AccessGrantResponse[] responses = await BuildGrantResponsesAsync([grant], db, accessControlDb, sagasDb, timeProvider, cancellationToken);
+        return Results.Ok(responses.Single());
     }
 
     private static async Task<IResult> RecalculateGrantRequirements([FromQuery] bool futureOnly, AccessGrantService service, CancellationToken cancellationToken = default)
@@ -90,19 +99,65 @@ public static class AccessGrantEndpoints
         return Results.Ok(new RecalculateGrantRequirementsResponse(processed, futureOnly));
     }
 
-    private static async Task<IResult> RevokeAccessGrant(Guid accessGrantId, AccessGrantService service, AccessCatalogDbContext db, SagasDbContext sagasDb, HttpContext httpContext, CancellationToken cancellationToken = default)
+    private static async Task<IResult> RevokeAccessGrant(Guid accessGrantId, AccessGrantService service, AccessCatalogDbContext db, AccessControlDbContext accessControlDb, SagasDbContext sagasDb, TimeProvider timeProvider, HttpContext httpContext, CancellationToken cancellationToken = default)
     {
         Result<AccessGrant, AccessCatalogErrors> result = await service.RevokeAsync(accessGrantId, AccessGrantRevokeCause.Manual, GetRevokedBy(httpContext.User), cancellationToken);
 
         return await result.Match<Task<IResult>>(
             async item =>
             {
-                Dictionary<Guid, GrantRequirementResponse[]> requirements = await LoadRequirements(db, [item.Id], cancellationToken);
-                Dictionary<Guid, GrantRequirementResultResponse[]> requirementResults = await LoadRequirementResults(db, [item.Id], cancellationToken);
-                Dictionary<Guid, AccessGrantMaterializationOutcomeResponse[]> outcomes = await LoadMaterializationOutcomes(sagasDb, [item.Id], cancellationToken);
-                return Results.Ok(item.ToResponse(requirements.GetValueOrDefault(item.Id, []), requirementResults.GetValueOrDefault(item.Id, []), outcomes.GetValueOrDefault(item.Id, [])));
+                AccessGrantResponse[] responses = await BuildGrantResponsesAsync([item], db, accessControlDb, sagasDb, timeProvider, cancellationToken);
+                return Results.Ok(responses.Single());
             },
             error => Task.FromResult(MapError(error).ToResult()));
+    }
+
+    private static async Task<AccessGrantResponse[]> BuildGrantResponsesAsync(
+        IReadOnlyList<AccessGrant> grants,
+        AccessCatalogDbContext db,
+        AccessControlDbContext accessControlDb,
+        SagasDbContext sagasDb,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        Guid[] grantIds = grants.Select(item => item.Id).ToArray();
+        Dictionary<Guid, GrantRequirementResponse[]> requirements = await LoadRequirements(db, grantIds, cancellationToken);
+        Dictionary<Guid, GrantRequirementResultResponse[]> requirementResults = await LoadRequirementResults(db, grantIds, cancellationToken);
+        Dictionary<Guid, AccessGrantMaterializationOutcomeResponse[]> outcomes = await LoadMaterializationOutcomes(sagasDb, grantIds, cancellationToken);
+        Dictionary<Guid, bool> complianceRequiredByAccessItemId = await LoadComplianceRequiredByAccessItemIdAsync(accessControlDb, grants, cancellationToken);
+        Dictionary<Guid, AccessGrantProvisioningSagaState> sagaStates = await LoadSagaStatesAsync(sagasDb, grantIds, cancellationToken);
+        DateTimeOffset now = timeProvider.GetUtcNow();
+
+        return grants
+            .Select(grant => grant.ToResponse(
+                GrantProvisioningStatusResolver.Resolve(
+                    grant,
+                    complianceRequiredByAccessItemId.GetValueOrDefault(grant.AccessItemId ?? Guid.Empty, true),
+                    sagaStates.GetValueOrDefault(grant.Id),
+                    outcomes.GetValueOrDefault(grant.Id, []).Select(response => response.ToDomain(grant.Id)).ToArray(),
+                    now),
+                requirements.GetValueOrDefault(grant.Id, []),
+                requirementResults.GetValueOrDefault(grant.Id, []),
+                outcomes.GetValueOrDefault(grant.Id, [])))
+            .ToArray();
+    }
+
+    private static async Task<Dictionary<Guid, bool>> LoadComplianceRequiredByAccessItemIdAsync(AccessControlDbContext accessControlDb, IReadOnlyList<AccessGrant> grants, CancellationToken cancellationToken)
+    {
+        Guid[] accessItemIds = grants.Where(item => item.AccessItemId.HasValue).Select(item => item.AccessItemId!.Value).Distinct().ToArray();
+        if (accessItemIds.Length == 0)
+            return [];
+
+        return await accessControlDb.AccessItems.AsNoTracking()
+            .Where(item => accessItemIds.Contains(item.Id))
+            .ToDictionaryAsync(item => item.Id, item => item.IsComplianceRequired, cancellationToken);
+    }
+
+    private static async Task<Dictionary<Guid, AccessGrantProvisioningSagaState>> LoadSagaStatesAsync(SagasDbContext db, Guid[] accessGrantIds, CancellationToken cancellationToken)
+    {
+        return await db.AccessGrantProvisioningSagas.AsNoTracking()
+            .Where(item => accessGrantIds.Contains(item.AccessGrantId))
+            .ToDictionaryAsync(item => item.AccessGrantId, item => item.State, cancellationToken);
     }
 
     private static async Task<IResult> ReconcileAccessGrant(
@@ -142,6 +197,17 @@ public static class AccessGrantEndpoints
             .GroupBy(item => item.AccessGrantId)
             .ToDictionaryAsync(group => group.Key, group => group.Select(item => item.ToResponse()).ToArray(), cancellationToken);
     }
+
+    private static AccessGrantMaterializationOutcome ToDomain(this AccessGrantMaterializationOutcomeResponse outcome, Guid accessGrantId) =>
+        new()
+        {
+            Id = outcome.Id,
+            AccessGrantId = accessGrantId,
+            AccessItemId = outcome.AccessItemId,
+            LocationId = outcome.LocationId,
+            Status = outcome.Status,
+            FailureReason = outcome.FailureReason
+        };
 
     private static string? GetRevokedBy(ClaimsPrincipal user)
     {

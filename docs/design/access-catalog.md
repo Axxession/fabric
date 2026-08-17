@@ -1,6 +1,6 @@
 # Access Catalog
 
-`AccessCatalog` owns catalogs, packages, package requests, access grants, approvals, grant-attached requirements, and grant compliance state.
+`AccessCatalog` owns catalogs, packages, package requests, access grants, approvals, grant-attached requirements, grant compliance state, and the derived grant provisioning status exposed to read models.
 
 It owns:
 
@@ -13,6 +13,7 @@ It owns:
 - approval requirements and decisions
 - grant-attached requirements derived at grant creation time
 - grant compliance status consumed by provisioning
+- derived grant provisioning status for read models and UI
 
 `AccessCatalog` does not own requirement policy or evidence. It consumes those from `Requirements` when grants are created or reevaluated.
 
@@ -28,13 +29,21 @@ It owns:
 
 `PackageRequestScope` is the request scope for one access item at one originally requested descendant location. Multiple request scopes can point to the same approval flow when they normalize to the same site.
 
-`AccessGrant` is the business grant unit for one identity, one package/access-item basis, and one grant location context.
+`AccessGrant` is the business grant unit for one identity, one access item, and one grant location context.
+
+Grant grain rules:
+
+- one `AccessGrant` per `AccessItem`
+- one `AccessGrant` per grant location context
+- packages are composition and request input only, not grant granularity
 
 Important distinction:
 
 - approval answers whether the grant is authorized
-- compliance answers whether the grant is currently provisionable
+- compliance answers whether requirements are currently satisfied
 - provisioning answers whether technical access should exist in PACS right now
+
+`AccessGrant` persists compliance truth, while provisioning status is a derived projection for UI and read models.
 
 `AccessDurationKind` distinguishes permanent from temporary business access:
 
@@ -55,7 +64,7 @@ Recommended shape:
 AccessGrant
 - Id
 - PackageId
-- AccessItemId?
+- AccessItemId
 - IdentityId
 - AssignmentChannel
 - SourceKind
@@ -103,6 +112,11 @@ GrantComplianceStatus
 - Compliant
 - TemporarilyCompliant
 - NonCompliant
+
+GrantProvisioningStatus
+- NonProvisionable
+- Provisioning
+- Provisioned
 ```
 
 ## Grant Requirement Attachment
@@ -178,13 +192,16 @@ Permanent grants may still be `TemporarilyCompliant`.
 
 ## Provisioning Rule
 
-Provisioning is allowed only when approval and compliance both allow it.
+Provisioning is allowed only when approval, validity, and access-item compliance policy allow it.
 
 ```text
 Provisionable(now) =
   grant is active for now
   and ApprovalStatus in {Approved, NotRequired}
-  and ComplianceStatus in {Compliant, TemporarilyCompliant}
+  and (
+    AccessItem.IsComplianceRequired = false
+    or ComplianceStatus in {Compliant, TemporarilyCompliant}
+  )
 ```
 
 Provisioning end:
@@ -192,13 +209,29 @@ Provisioning end:
 ```text
 Compliant -> grant.ValidUntil
 TemporarilyCompliant -> min(grant.ValidUntil, grant.CompliantUntil)
-NonCompliant -> no provisioning
+NonCompliant + IsComplianceRequired=true -> no provisioning
+NonCompliant + IsComplianceRequired=false -> grant.ValidUntil
 ```
 
 If `grant.ValidUntil` is null on a permanent grant:
 
 - `Compliant` means open-ended from the grant side
 - `TemporarilyCompliant` means provisioning ends at `CompliantUntil`
+
+Derived provisioning projection:
+
+```text
+NonProvisionable
+- approval/validity/compliance-required gate fails
+
+Provisioning
+- business gate passes
+- desired PACS state does not yet match actual state
+
+Provisioned
+- business gate passes
+- desired PACS state matches actual state
+```
 
 ## Approval Rules
 
@@ -213,7 +246,9 @@ If `grant.ValidUntil` is null on a permanent grant:
 - If no approval group member exists for the normalized site, the destination requirement is system-approved for that site.
 - Organizational approval resolves through the requester's manager chain.
 - When an approval flow reaches `Approved` or `SystemApproved`, Fabric creates the corresponding grant.
-- That grant may still be non-compliant and therefore not yet provisioned.
+- Compliance preview for package requests is location-scoped because requirement context depends on the requested location, not on the access item.
+- Each access item separately declares whether that shared compliance result blocks provisioning through `AccessItem.IsComplianceRequired`.
+- An approved grant may therefore be `NonCompliant` while still progressing toward provisioning when its access item does not require compliance.
 
 ## Automatic Grants
 
@@ -240,7 +275,7 @@ Important rules:
 - automatic grants bypass approval
 - automatic grants still derive attached requirements at creation time
 - automatic grants may be created even when initially non-compliant
-- provisioning is withheld until they become compliant
+- provisioning is withheld until they become compliant only when the access item requires compliance
 - sagas decide whether later source changes update validity or replace the grant
 
 ## Replacement And Validity Updates
@@ -497,14 +532,14 @@ If badge photo is still missing:
 
 ```text
 ComplianceStatus = NonCompliant
-ProvisioningStatus = Withheld at the saga/projection layer
+GrantProvisioningStatus = NonProvisionable
 ```
 
 If badge photo arrives later:
 
 ```text
 ComplianceStatus recalculates to Compliant or TemporarilyCompliant
-Provisioning becomes allowed
+GrantProvisioningStatus moves to Provisioning or Provisioned depending on PACS convergence
 ```
 
 ## Example: Contractor Automatic Grant
@@ -516,7 +551,7 @@ Grant requirements are attached at creation.
 
 Initial state may be:
 - ComplianceStatus = NonCompliant
-- no provisioning yet
+- GrantProvisioningStatus = NonProvisionable when the access item requires compliance
 ```
 
 When evidence later satisfies all attached requirements until Thursday:
@@ -524,7 +559,7 @@ When evidence later satisfies all attached requirements until Thursday:
 ```text
 ComplianceStatus = TemporarilyCompliant
 CompliantUntil = Thursday 18:00
-Provision until Thursday 18:00
+GrantProvisioningStatus = Provisioning or Provisioned until Thursday 18:00
 ```
 
 ## Boundary Rules

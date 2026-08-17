@@ -19,7 +19,7 @@ public sealed class AccessGrantService(
     AccessGrantProvisioningSagaService provisioningSagaService,
     TimeProvider timeProvider)
 {
-    public async Task<Result<AccessGrant, AccessCatalogErrors>> CreateAsync(
+    public async Task<Result<IReadOnlyList<AccessGrant>, AccessCatalogErrors>> CreateAsync(
         Guid packageId,
         Guid identityId,
         Guid locationId,
@@ -32,22 +32,51 @@ public sealed class AccessGrantService(
         string reasonText,
         CancellationToken cancellationToken = default)
     {
-        return await CreateInternalAsync(
-            packageId,
-            null,
-            identityId,
-            locationId,
-            assignmentChannel,
-            sourceKind,
-            sourceId,
-            null,
-            null,
-            durationKind,
-            validFrom,
-            validUntil,
-            assignmentChannel == AssignmentChannel.CatalogRequest ? GrantApprovalStatus.Approved : GrantApprovalStatus.NotRequired,
-            reasonText,
-            cancellationToken);
+        if (!await db.Packages.AnyAsync(item => item.Id == packageId, cancellationToken))
+            return Result.Failure<IReadOnlyList<AccessGrant>, AccessCatalogErrors>(AccessCatalogErrors.PackageNotFound);
+
+        Guid[] accessItemIds = await db.PackageAccessItems
+            .Where(item => item.PackageId == packageId)
+            .Select(item => item.AccessItemId)
+            .ToArrayAsync(cancellationToken);
+        if (accessItemIds.Length == 0)
+            return Result.Failure<IReadOnlyList<AccessGrant>, AccessCatalogErrors>(AccessCatalogErrors.PackageMustContainAccessItems);
+
+        if (!await locationsDb.LocationLookups.AnyAsync(item => item.Id == locationId, cancellationToken))
+            return Result.Failure<IReadOnlyList<AccessGrant>, AccessCatalogErrors>(AccessCatalogErrors.LocationRequired);
+
+        List<AccessGrant> grants = [];
+        GrantApprovalStatus approvalStatus = assignmentChannel == AssignmentChannel.CatalogRequest
+            ? GrantApprovalStatus.Approved
+            : GrantApprovalStatus.NotRequired;
+
+        foreach (Guid accessItemId in accessItemIds)
+        {
+            Result<AccessGrant, AccessCatalogErrors> create = await CreateInternalAsync(
+                packageId,
+                accessItemId,
+                identityId,
+                locationId,
+                assignmentChannel,
+                sourceKind,
+                sourceId,
+                null,
+                null,
+                durationKind,
+                validFrom,
+                validUntil,
+                approvalStatus,
+                reasonText,
+                cancellationToken);
+
+            if (create.IsFailure(out AccessCatalogErrors error))
+                return Result.Failure<IReadOnlyList<AccessGrant>, AccessCatalogErrors>(error);
+
+            create.IsSuccess(out AccessGrant grant);
+            grants.Add(grant);
+        }
+
+        return Result.Success<IReadOnlyList<AccessGrant>, AccessCatalogErrors>(grants);
     }
 
     public async Task<Result<AccessGrant, AccessCatalogErrors>> CreateForRequestScopeAsync(
@@ -178,7 +207,7 @@ public sealed class AccessGrantService(
 
     private async Task<Result<AccessGrant, AccessCatalogErrors>> CreateInternalAsync(
         Guid packageId,
-        Guid? accessItemId,
+        Guid accessItemId,
         Guid identityId,
         Guid locationId,
         AssignmentChannel assignmentChannel,
@@ -193,16 +222,6 @@ public sealed class AccessGrantService(
         string reasonText,
         CancellationToken cancellationToken)
     {
-        Package? package = await db.Packages.SingleOrDefaultAsync(item => item.Id == packageId, cancellationToken);
-        if (package is null)
-            return Result.Failure<AccessGrant, AccessCatalogErrors>(AccessCatalogErrors.PackageNotFound);
-
-        Guid[] accessItemIds = accessItemId.HasValue
-            ? [accessItemId.Value]
-            : await db.PackageAccessItems.Where(item => item.PackageId == packageId).Select(item => item.AccessItemId).ToArrayAsync(cancellationToken);
-        if (accessItemIds.Length == 0)
-            return Result.Failure<AccessGrant, AccessCatalogErrors>(AccessCatalogErrors.PackageMustContainAccessItems);
-
         if (!await locationsDb.LocationLookups.AnyAsync(item => item.Id == locationId, cancellationToken))
             return Result.Failure<AccessGrant, AccessCatalogErrors>(AccessCatalogErrors.LocationRequired);
 

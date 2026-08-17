@@ -205,6 +205,13 @@ const resources = {
           receptionKiosk: 'Reception kiosk',
           receptionDeskWorkstations: 'Reception desk workstations',
         },
+        accessItems: {
+          form: {
+            compliance: 'Compliance',
+            requiresCompliance: 'Requires compliance',
+            requiresComplianceHelp: 'If disabled, this access item may still be provisioned when the holder is non-compliant.',
+          },
+        },
         locations: {
           title: 'Sites',
           description: 'Manage sites available for organization, facility, and visitor workflows.',

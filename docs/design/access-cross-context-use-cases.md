@@ -54,6 +54,56 @@ PACS FR / Warehouse Lille is not involved.
 Kris is not asked to approve unless organizational approval requires L+2.
 ```
 
+## Shared Location Compliance, Different Access-Item Provisioning Policy
+
+Setup:
+
+```text
+Locations:
+- Site Antwerp
+
+Access Control:
+- PACS BE linked to Site Antwerp
+- AccessItem Site Access
+  - IsComplianceRequired = true
+- AccessItem Parking Access
+  - IsComplianceRequired = false
+- AccessLevelTarget in PACS BE: Site Access Antwerp
+- AccessLevelTarget in PACS BE: Parking Antwerp
+
+Requirements:
+- Site Antwerp requires site safety training
+
+Access Catalog:
+- Package Contractor Arrival contains:
+  - Site Access
+  - Parking Access
+```
+
+Flow:
+
+```text
+Contractor requests or receives Package Contractor Arrival for Site Antwerp.
+Grant requirements are derived from the Site Antwerp context.
+Compliance evaluation runs once for that location context.
+Training is missing.
+```
+
+Result:
+
+```text
+Grant for Site Access:
+- ComplianceStatus = NonCompliant
+- GrantProvisioningStatus = NonProvisionable
+
+Grant for Parking Access:
+- ComplianceStatus = NonCompliant
+- GrantProvisioningStatus = Provisioning or Provisioned depending on PACS convergence
+
+Same location-based compliance truth.
+Different provisioning outcome because AccessItem policy differs.
+```
+
 ## One PACS With Building-Specific Targets
 
 Setup:
@@ -127,7 +177,7 @@ EmployeeLifecycleSaga grants Warehouse package with AssignmentChannel AutomaticC
 Approvals are bypassed.
 Grant requirements are attached at grant creation time.
 If the grant is compliant, Access Control resolves Site Antwerp to the nearest PACS link: PACS BE and creates a PACSAssignment for PACS BE / Warehouse Antwerp.
-If not compliant, the grant exists but provisioning is withheld.
+If not compliant, the grant exists but provisioning is withheld only when the access item requires compliance.
 ```
 
 ## Employee Lifecycle Change
@@ -181,7 +231,7 @@ VisitorAccessAutomation grants Visitors package with AssignmentChannel Automatic
 Approvals are bypassed.
 Grant requirements are attached at grant creation time.
 If the grant is compliant, Access Control resolves Site Antwerp to the nearest PACS link: PACS BE and assigns the visitor access targets.
-If not compliant, the grant remains withheld until compliance is satisfied.
+If not compliant, the grant remains withheld until compliance is satisfied only when the access item requires compliance.
 ```
 
 ## Dependency Direction

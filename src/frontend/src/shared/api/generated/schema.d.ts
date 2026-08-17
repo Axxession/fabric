@@ -7713,7 +7713,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["AccessGrantResponse"];
+                        "application/json": components["schemas"]["CreateAccessGrantResponse"];
                     };
                 };
             };
@@ -16533,7 +16533,7 @@ export interface components {
             /** Format: uuid */
             packageId: string;
             /** Format: uuid */
-            accessItemId: null | string;
+            accessItemId: string;
             /** Format: uuid */
             identityId: string;
             assignmentChannel: components["schemas"]["AssignmentChannel"];
@@ -16556,6 +16556,7 @@ export interface components {
             replacedById: null | string;
             approvalStatus: components["schemas"]["GrantApprovalStatus"];
             complianceStatus: components["schemas"]["GrantComplianceStatus"];
+            provisioningStatus: components["schemas"]["GrantProvisioningStatus"];
             /** Format: date-time */
             compliantUntil: null | string;
             /** Format: date-time */
@@ -16576,6 +16577,7 @@ export interface components {
             id: string;
             name: string;
             description: null | string;
+            isComplianceRequired: boolean;
             status: components["schemas"]["AccessItemStatus"];
         };
         /** @enum {unknown} */
@@ -16904,6 +16906,7 @@ export interface components {
             accessItemId: string;
             name: string;
             description: null | string;
+            isComplianceRequired: boolean;
             requirements: components["schemas"]["ApprovalRequirementPreviewResponse"][];
         };
         /** @enum {unknown} */
@@ -17234,9 +17237,14 @@ export interface components {
             validUntil: null | string;
             reasonText: string;
         };
+        CreateAccessGrantResponse: {
+            grants: components["schemas"]["AccessGrantResponse"][];
+        };
         CreateAccessItemRequest: {
             name: string;
             description: null | string;
+            /** @default true */
+            isComplianceRequired: boolean;
         };
         CreateAccessRuleAssignmentRequest: {
             /** Format: uuid */
@@ -17928,6 +17936,8 @@ export interface components {
         GrantApprovalStatus: "NotRequired" | "Pending" | "Approved" | "Rejected";
         /** @enum {unknown} */
         GrantComplianceStatus: "Compliant" | "TemporarilyCompliant" | "NonCompliant";
+        /** @enum {unknown} */
+        GrantProvisioningStatus: "NonProvisionable" | "Provisioning" | "Provisioned";
         GrantRequirementResponse: {
             /** Format: uuid */
             id: string;
@@ -18743,6 +18753,7 @@ export interface components {
             status: components["schemas"]["AccessGrantStatus"];
             approvalStatus: components["schemas"]["GrantApprovalStatus"];
             complianceStatus: components["schemas"]["GrantComplianceStatus"];
+            provisioningStatus: components["schemas"]["GrantProvisioningStatus"];
             /** Format: date-time */
             compliantUntil: null | string;
             /** Format: date-time */
@@ -20175,6 +20186,7 @@ export interface components {
         UpdateAccessItemRequest: {
             name: string;
             description: null | string;
+            isComplianceRequired: boolean;
             status: components["schemas"]["AccessItemStatus"];
         };
         UpdateAccessRuleAssignmentRequest: {

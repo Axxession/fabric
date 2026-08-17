@@ -1,4 +1,5 @@
 using Fabric.Server.AccessCatalog.Domain;
+using Fabric.Server.AccessControl.Persistence;
 using Fabric.Server.AccessCatalog.Persistence;
 using Fabric.Server.Requirements.Application;
 using Fabric.Server.Requirements.Domain;
@@ -9,6 +10,7 @@ namespace Fabric.Server.AccessCatalog.Application;
 
 public sealed class AccessGrantComplianceService(
     AccessCatalogDbContext db,
+    AccessControlDbContext accessControlDb,
     GrantRequirementsService grantRequirementsService,
     AccessGrantProvisioningSagaService provisioningSagaService,
     TimeProvider timeProvider)
@@ -108,7 +110,8 @@ public sealed class AccessGrantComplianceService(
 
     private async Task ReconcileProvisioningAsync(AccessGrant grant, CancellationToken cancellationToken)
     {
-        if (IsProvisionable(grant, timeProvider.GetUtcNow()))
+        bool isComplianceRequired = await IsComplianceRequiredAsync(grant, cancellationToken);
+        if (IsProvisionable(grant, isComplianceRequired, timeProvider.GetUtcNow()))
         {
             await provisioningSagaService.EnqueueAccessGrantCreatedAsync(grant.Id, cancellationToken);
             return;
@@ -117,12 +120,16 @@ public sealed class AccessGrantComplianceService(
         await provisioningSagaService.EnqueueAccessGrantRevokedAsync(grant.Id, cancellationToken);
     }
 
-    public static bool IsProvisionable(AccessGrant grant, DateTimeOffset now) =>
+    public static bool IsComplianceSatisfied(AccessGrant grant, bool isComplianceRequired) =>
+        !isComplianceRequired
+        || grant.ComplianceStatus == GrantComplianceStatus.Compliant
+        || (grant.ComplianceStatus == GrantComplianceStatus.TemporarilyCompliant && grant.CompliantUntil.HasValue && grant.CompliantUntil.Value > grant.ValidFrom);
+
+    public static bool IsProvisionable(AccessGrant grant, bool isComplianceRequired, DateTimeOffset now) =>
         grant.Status == AccessGrantStatus.Active
         && (!grant.ValidUntil.HasValue || grant.ValidUntil.Value > now)
         && (grant.ApprovalStatus == GrantApprovalStatus.Approved || grant.ApprovalStatus == GrantApprovalStatus.NotRequired)
-        && (grant.ComplianceStatus == GrantComplianceStatus.Compliant
-            || (grant.ComplianceStatus == GrantComplianceStatus.TemporarilyCompliant && grant.CompliantUntil.HasValue && grant.CompliantUntil.Value > grant.ValidFrom));
+        && IsComplianceSatisfied(grant, isComplianceRequired);
 
     public static DateTimeOffset? GetProvisionedUntil(AccessGrant grant)
     {
@@ -139,5 +146,18 @@ public sealed class AccessGrantComplianceService(
         if (!right.HasValue)
             return left;
         return left.Value <= right.Value ? left : right;
+    }
+
+    private async Task<bool> IsComplianceRequiredAsync(AccessGrant grant, CancellationToken cancellationToken)
+    {
+        if (!grant.AccessItemId.HasValue)
+            return true;
+
+        bool? isComplianceRequired = await accessControlDb.AccessItems
+            .Where(item => item.Id == grant.AccessItemId.Value)
+            .Select(item => (bool?)item.IsComplianceRequired)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return isComplianceRequired ?? true;
     }
 }

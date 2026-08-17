@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
-import { getGrantComplianceLabel, getGrantComplianceUntilLabel, getGrantStatusVariant, isGrantBusinessReady } from '@/shared/access-grants/grant-status';
+import { getGrantComplianceLabel, getGrantComplianceUntilLabel, getGrantProvisioningLabel, getGrantProvisioningVariant, getGrantStatusVariant } from '@/shared/access-grants/grant-status';
 import { getLocationLabel, type LocationResponse } from '@/shared/components/location-selector';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
@@ -479,6 +479,7 @@ function CatalogAssignmentGroupsTable({ groups }: { readonly groups: readonly Pa
         const detailsId = `assignment-group-details-${groupKey}`;
         const provisionStatus = getCatalogAssignmentGroupProvisionStatus(group);
         const grantStatus = getCatalogAssignmentGroupStatus(group);
+        const complianceStatus = getCatalogAssignmentGroupComplianceBadge(group);
 
         return (
           <Fragment key={groupKey}>
@@ -488,6 +489,7 @@ function CatalogAssignmentGroupsTable({ groups }: { readonly groups: readonly Pa
               <td className="px-3 py-3 text-muted-foreground">{group.sourceReason}</td>
               <td className="px-3 py-3 text-muted-foreground">{group.validityLabel}</td>
               <td className="px-3 py-3"><Badge variant={getGrantStatusVariant(grantStatus)}>{grantStatus}</Badge></td>
+              <td className="px-3 py-3"><Badge variant={complianceStatus.variant}>{complianceStatus.label}</Badge></td>
               <td className="px-3 py-3"><Badge variant={provisionStatus.variant}>{provisionStatus.label}</Badge></td>
               <td className="px-3 py-3 text-right">
                 <button
@@ -504,11 +506,12 @@ function CatalogAssignmentGroupsTable({ groups }: { readonly groups: readonly Pa
             </tr>
             {isExpanded ? (
               <tr id={detailsId} className="bg-background">
-                      <td colSpan={7} className="px-3 py-3">
+                      <td colSpan={8} className="px-3 py-3">
                   <div className="grid gap-3">
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                       <Info label="Grant status" value={grantStatus} />
                       <Info label="Compliance state" value={getCatalogAssignmentGroupComplianceSummary(group)} />
+                      <Info label="Provisioning state" value={provisionStatus.label} />
                       <Info label="Request status" value={group.requestStatus ? formatRequestStatus(group.requestStatus, group.requestSubStatus ?? null) : '-'} />
                       <Info label="Approved by" value={group.approvalSummary} />
                       <Info label={t('identities.detail.provisionings')} value={String(group.provisioningCount)} />
@@ -538,6 +541,7 @@ function AutomatedAssignmentGroupsTable({ identityId, groups }: { readonly ident
         const isExpanded = expandedGroupKeys.includes(groupKey);
         const detailsId = `assignment-group-details-${groupKey}`;
         const provisionStatus = getAutomatedAssignmentGroupProvisionStatus(group);
+        const complianceStatus = getAutomaticAssignmentGroupComplianceBadge(group);
 
         return (
           <Fragment key={groupKey}>
@@ -547,6 +551,7 @@ function AutomatedAssignmentGroupsTable({ identityId, groups }: { readonly ident
               <td className="px-3 py-3 text-muted-foreground">{group.sourceReason}</td>
               <td className="px-3 py-3 text-muted-foreground">{group.validityLabel}</td>
               <td className="px-3 py-3"><Badge variant={getGrantStatusVariant(group.status)}>{group.status}</Badge></td>
+              <td className="px-3 py-3"><Badge variant={complianceStatus.variant}>{complianceStatus.label}</Badge></td>
               <td className="px-3 py-3"><Badge variant={provisionStatus.variant}>{provisionStatus.label}</Badge></td>
               <td className="px-3 py-3 text-right">
                 <button
@@ -563,7 +568,7 @@ function AutomatedAssignmentGroupsTable({ identityId, groups }: { readonly ident
             </tr>
             {isExpanded ? (
               <tr id={detailsId} className="bg-background">
-                <td colSpan={7} className="px-3 py-3">
+                <td colSpan={8} className="px-3 py-3">
                   <div className="grid gap-3">
                     <div className="flex justify-end pb-1">
                       <AutomatedGrantReconcileButton identityId={identityId} group={group} />
@@ -571,6 +576,7 @@ function AutomatedAssignmentGroupsTable({ identityId, groups }: { readonly ident
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                       <Info label="Grant status" value={group.status} />
                       <Info label="Compliance state" value={getAutomaticAssignmentGroupComplianceSummary(group)} />
+                      <Info label="Provisioning state" value={provisionStatus.label} />
                       <Info label="Approved by" value={group.approvalSummary} />
                       <Info label="Provisionings" value={String(group.provisioningCount)} />
                       <Info label="Locations" value={group.locationSummary || '-'} />
@@ -608,6 +614,7 @@ function AssignmentGroupTableSection({ title, description, children }: { readonl
                 <th className="px-3 py-3 font-semibold">Reason</th>
                 <th className="px-3 py-3 font-semibold">Validity</th>
                 <th className="px-3 py-3 font-semibold">Status</th>
+                <th className="px-3 py-3 font-semibold">Compliance</th>
                 <th className="px-3 py-3 font-semibold">Provision Status</th>
                 <th className="px-3 py-3 text-right font-semibold">Details</th>
               </tr>
@@ -685,6 +692,8 @@ function AccessItemGroup({ group }: { readonly group: AccessItemGroupView }) {
   const { t } = useTranslation();
   const hasSkippedOutcome = group.materializationOutcomes.some((item) => item.status === 'SkippedNoTarget');
   const hasFailedOutcome = group.materializationOutcomes.some((item) => item.status === 'Failed');
+  const complianceStatus = getGroupedGrantComplianceBadge(group.leafViews.map((view) => view.grant));
+  const provisioningStatus = getGroupedGrantProvisioningStatus(group.leafViews.map((view) => view.grant));
 
   return (
     <details className="rounded-interactive border border-border bg-background">
@@ -693,7 +702,8 @@ function AccessItemGroup({ group }: { readonly group: AccessItemGroupView }) {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-[16px] font-semibold text-foreground">{group.accessItemName}</h3>
-              <Badge variant={getProvisioningSummaryVariant(group.provisioningSummary.variant)}>{group.provisioningSummary.label}</Badge>
+              <Badge variant={complianceStatus.variant}>{complianceStatus.label}</Badge>
+              <Badge variant={provisioningStatus.variant}>{provisioningStatus.label}</Badge>
               {hasSkippedOutcome ? <Badge variant="error">{t('identities.detail.noConfiguredTarget')}</Badge> : null}
               {hasFailedOutcome ? <Badge variant="error">{t('identities.detail.assignmentCreationFailed')}</Badge> : null}
             </div>
@@ -752,6 +762,8 @@ function AutomatedAccessItemGroup({ group }: { readonly group: AutomatedAccessIt
   const { t } = useTranslation();
   const hasSkippedOutcome = group.materializationOutcomes.some((item) => item.status === 'SkippedNoTarget');
   const hasFailedOutcome = group.materializationOutcomes.some((item) => item.status === 'Failed');
+  const complianceStatus = getGroupedGrantComplianceBadge([group.view.grant]);
+  const provisioningStatus = getGroupedGrantProvisioningStatus([group.view.grant]);
 
   return (
     <details className="rounded-interactive border border-border bg-background">
@@ -760,7 +772,8 @@ function AutomatedAccessItemGroup({ group }: { readonly group: AutomatedAccessIt
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-[16px] font-semibold text-foreground">{group.accessItemName}</h3>
-              <Badge variant={getProvisioningSummaryVariant(group.provisioningSummary.variant)}>{group.provisioningSummary.label}</Badge>
+              <Badge variant={complianceStatus.variant}>{complianceStatus.label}</Badge>
+              <Badge variant={provisioningStatus.variant}>{provisioningStatus.label}</Badge>
               {hasSkippedOutcome || !group.hasTargets ? <Badge variant="error">{t('identities.detail.noConfiguredTarget')}</Badge> : null}
               {hasFailedOutcome ? <Badge variant="error">{t('identities.detail.assignmentCreationFailed')}</Badge> : null}
             </div>
@@ -1198,12 +1211,8 @@ function getCredentialProvisionStatus(
 }
 
 function getCatalogAssignmentGroupProvisionStatus(group: PackageAssignmentGroupView) {
-  const hasIssues = group.accessItems.some((item) => {
-    const hasMaterializationIssue = item.materializationOutcomes.some((outcome) => outcome.status === 'SkippedNoTarget' || outcome.status === 'Failed');
-    return hasMaterializationIssue || item.provisioningSummary.variant !== 'success' || item.leafViews.some((view) => !isGrantBusinessReady(view.grant));
-  });
-
-  return hasIssues ? { label: i18n.t('identities.detail.no'), variant: 'error' as const } : { label: i18n.t('identities.detail.yes'), variant: 'success' as const };
+  const grants = group.accessItems.flatMap((item) => item.leafViews.map((view) => view.grant));
+  return getGroupedGrantProvisioningStatus(grants);
 }
 
 function getCatalogAssignmentGroupStatus(group: PackageAssignmentGroupView): AccessGrantResponse['status'] {
@@ -1211,12 +1220,20 @@ function getCatalogAssignmentGroupStatus(group: PackageAssignmentGroupView): Acc
 }
 
 function getAutomatedAssignmentGroupProvisionStatus(group: AutomatedPackageAssignmentGroupView) {
-  const hasIssues = group.accessItems.some((item) => {
-    const hasMaterializationIssue = item.materializationOutcomes.some((outcome) => outcome.status === 'SkippedNoTarget' || outcome.status === 'Failed');
-    return hasMaterializationIssue || !item.hasTargets || item.provisioningSummary.variant !== 'success' || !isGrantBusinessReady(item.view.grant);
-  });
+  const grants = group.accessItems.map((item) => item.view.grant);
+  return getGroupedGrantProvisioningStatus(grants);
+}
 
-  return hasIssues ? { label: i18n.t('identities.detail.no'), variant: 'error' as const } : { label: i18n.t('identities.detail.yes'), variant: 'success' as const };
+function getGroupedGrantProvisioningStatus(grants: readonly AccessGrantResponse[]) {
+  if (grants.some((grant) => grant.provisioningStatus === 'NonProvisionable')) {
+    return { label: getGrantProvisioningLabel('NonProvisionable'), variant: getGrantProvisioningVariant('NonProvisionable') };
+  }
+
+  if (grants.length > 0 && grants.every((grant) => grant.provisioningStatus === 'Provisioned')) {
+    return { label: getGrantProvisioningLabel('Provisioned'), variant: getGrantProvisioningVariant('Provisioned') };
+  }
+
+  return { label: getGrantProvisioningLabel('Provisioning'), variant: getGrantProvisioningVariant('Provisioning') };
 }
 
 function getRequestStatusVariant(status: PackageRequestStatus, subStatus: PackageRequestResponse['subStatus']) {
@@ -1649,7 +1666,7 @@ function getLocationSummary(views: readonly GrantView[]) {
 function getCatalogAssignmentGroupComplianceSummary(group: PackageAssignmentGroupView) {
   const grants = group.accessItems.flatMap((item) => item.leafViews.map((view) => view.grant));
   if (grants.some((grant) => grant.complianceStatus === 'NonCompliant')) {
-    return 'Withheld pending compliance';
+    return 'Non-compliant';
   }
 
   if (grants.some((grant) => grant.complianceStatus === 'TemporarilyCompliant')) {
@@ -1660,6 +1677,11 @@ function getCatalogAssignmentGroupComplianceSummary(group: PackageAssignmentGrou
   }
 
   return 'Compliant';
+}
+
+function getCatalogAssignmentGroupComplianceBadge(group: PackageAssignmentGroupView) {
+  const grants = group.accessItems.flatMap((item) => item.leafViews.map((view) => view.grant));
+  return getGroupedGrantComplianceBadge(grants);
 }
 
 function getAutomaticAssignmentGroupComplianceSummary(group: AutomatedPackageAssignmentGroupView) {
@@ -1673,6 +1695,22 @@ function getAutomaticAssignmentGroupComplianceSummary(group: AutomatedPackageAss
   }
 
   return getGrantComplianceLabel(grant.complianceStatus);
+}
+
+function getAutomaticAssignmentGroupComplianceBadge(group: AutomatedPackageAssignmentGroupView) {
+  return getGroupedGrantComplianceBadge(group.accessItems.map((item) => item.view.grant));
+}
+
+function getGroupedGrantComplianceBadge(grants: readonly AccessGrantResponse[]) {
+  if (grants.some((grant) => grant.complianceStatus === 'NonCompliant')) {
+    return { label: getGrantComplianceLabel('NonCompliant'), variant: 'error' as const };
+  }
+
+  if (grants.some((grant) => grant.complianceStatus === 'TemporarilyCompliant')) {
+    return { label: getGrantComplianceLabel('TemporarilyCompliant'), variant: 'secondary' as const };
+  }
+
+  return { label: getGrantComplianceLabel('Compliant'), variant: 'success' as const };
 }
 
 function getValidityLabel(views: readonly GrantView[]) {

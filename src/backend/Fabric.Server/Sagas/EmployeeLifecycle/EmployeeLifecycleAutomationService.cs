@@ -227,7 +227,7 @@ public sealed class EmployeeLifecycleAutomationService(
             if (match is not null)
                 continue;
 
-            Result<AccessGrant, AccessCatalogErrors> result = await accessGrantService.CreateAsync(
+            Result<IReadOnlyList<AccessGrant>, AccessCatalogErrors> result = await accessGrantService.CreateAsync(
                 desiredGrant.PackageId,
                 employee.IdentityId,
                 desiredGrant.LocationId,

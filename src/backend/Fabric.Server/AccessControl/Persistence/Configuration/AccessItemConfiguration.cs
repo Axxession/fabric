@@ -16,6 +16,7 @@ public sealed class AccessItemConfiguration : IEntityTypeConfiguration<AccessIte
         builder.Property(item => item.Id).HasColumnName("id").ValueGeneratedNever();
         builder.Property(item => item.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
         builder.Property(item => item.Description).HasColumnName("description").HasMaxLength(2_000);
+        builder.Property(item => item.IsComplianceRequired).HasColumnName("is_compliance_required").HasDefaultValue(true).IsRequired();
         builder.Property(item => item.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(50).IsRequired();
 
         TenantDbContext.ConfigureTenantProperty(builder);

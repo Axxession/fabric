@@ -83,7 +83,7 @@ public sealed class ReceptionTriggeredPackageAssignmentService(
         DateTimeOffset validFrom = arrival.ExpectedArrivalTime.AddMinutes(-assignment.GracePeriodMinutes);
         DateTimeOffset validUntil = arrival.ExpectedOffboardTime.AddMinutes(assignment.GracePeriodMinutes);
 
-        Result<AccessGrant, AccessCatalogErrors> create = await accessGrantService.CreateAsync(
+        Result<IReadOnlyList<AccessGrant>, AccessCatalogErrors> create = await accessGrantService.CreateAsync(
             assignment.PackageId,
             identityId.Value,
             arrival.LocationId.Value,
@@ -99,8 +99,9 @@ public sealed class ReceptionTriggeredPackageAssignmentService(
         if (create.IsFailure(out AccessCatalogErrors error))
             throw new InvalidOperationException($"Failed to create reception access grant for arrival {arrival.Id}: {error}.");
 
-        create.IsSuccess(out AccessGrant accessGrant);
-        db.AssignedAccessPolicies.Add(ReceptionAssignedAccessPolicy.Create(arrival.Id, assignment.Id, accessGrant.Id, assignment.PackageId));
+        create.IsSuccess(out IReadOnlyList<AccessGrant> accessGrants);
+        foreach (AccessGrant accessGrant in accessGrants)
+            db.AssignedAccessPolicies.Add(ReceptionAssignedAccessPolicy.Create(arrival.Id, assignment.Id, accessGrant.Id, assignment.PackageId));
     }
 
     private async Task<Guid?> ResolveIdentityIdAsync(ExpectedArrival arrival, CancellationToken cancellationToken)

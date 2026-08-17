@@ -16,6 +16,11 @@ Resolution rules:
 
 `AccessItem` is a global business access concept, such as `Warehouse Access`.
 
+`AccessItem.IsComplianceRequired` is a business-level provisioning gate:
+
+- `true`: grant compliance blocks provisioning for that access item.
+- `false`: grant compliance is still evaluated and shown, but non-compliance does not block provisioning for that access item.
+
 `AccessLevelTarget` maps an access item to one or more native PACS access objects. For Unipass, a target maps to an access rule and site. It also defines technical provisioning timing such as eager provisioning or provisioning at valid-from.
 
 `AccessLevelTarget.LocationId` is optional target-selection scope inside a PACS:
@@ -52,6 +57,7 @@ classDiagram
         Guid Id
         string Name
         string Description
+        bool IsComplianceRequired
         AccessItemStatus Status
     }
 
@@ -218,6 +224,7 @@ Effective provisioning rules:
 - Provisioning failures are retry metadata on the current row, not separate terminal status values. Failed create keeps the row `Pending`. Failed revoke keeps the row `PendingRevocation`.
 - When PACS delete succeeds, the `PACSProvisioning` row and its source links are removed.
 - For Unipass permanent provisioning, no start time or end time is written. Temporary provisioning writes start and end times.
+- Provisioning eligibility comes from `AccessCatalog` per grant. Compliance truth remains location-context-driven, but `AccessItem.IsComplianceRequired` decides whether a non-compliant grant is blocked or still allowed to provision.
 
 Conformity audit rules:
 

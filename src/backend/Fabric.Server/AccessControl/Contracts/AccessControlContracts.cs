@@ -34,9 +34,9 @@ public sealed record UpdateUnipassAccessControlSystemRequest(
 
 public sealed record LinkAccessControlSystemLocationRequest(Guid LocationId);
 
-public sealed record CreateAccessItemRequest(string Name, string? Description);
+public sealed record CreateAccessItemRequest(string Name, string? Description, bool IsComplianceRequired = true);
 
-public sealed record UpdateAccessItemRequest(string Name, string? Description, AccessItemStatus Status);
+public sealed record UpdateAccessItemRequest(string Name, string? Description, bool IsComplianceRequired, AccessItemStatus Status);
 
 public sealed record CreateUnipassAccessLevelTargetRequest
 {
@@ -271,6 +271,7 @@ public sealed record AccessItemResponse(
     Guid Id,
     string Name,
     string? Description,
+    bool IsComplianceRequired,
     AccessItemStatus Status);
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
@@ -324,7 +325,7 @@ public static class AccessControlMapper
         new(link.Id, link.AccessControlSystemId, link.LocationId);
 
     public static AccessItemResponse ToResponse(this AccessItem item) =>
-        new(item.Id, item.Name, item.Description, item.Status);
+        new(item.Id, item.Name, item.Description, item.IsComplianceRequired, item.Status);
 
     public static AccessLevelTargetResponse ToResponse(this AccessLevelTarget target) =>
         target switch

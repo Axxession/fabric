@@ -7,6 +7,8 @@ using Fabric.Server.Core;
 using Fabric.Server.Identities.Persistence;
 using Fabric.Server.Locations.Application;
 using Fabric.Server.Locations.Contracts;
+using Fabric.Server.Sagas;
+using Fabric.Server.Sagas.AccessGrantProvisioning;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -95,7 +97,9 @@ public static class PackageRequestEndpoints
         AccessCatalogDbContext db,
         AccessControlDbContext accessControlDb,
         IdentitiesDbContext identitiesDb,
+        SagasDbContext sagasDb,
         LocationService locationService,
+        TimeProvider timeProvider,
         CancellationToken cancellationToken = default)
     {
         PackageRequest? request = await db.PackageRequests.AsNoTracking().SingleOrDefaultAsync(item => item.Id == requestId, cancellationToken);
@@ -154,7 +158,7 @@ public static class PackageRequestEndpoints
 
         Dictionary<Guid, AccessItemPreview> accessItemsById = await accessControlDb.AccessItems.AsNoTracking()
             .Where(item => accessItemIds.Contains(item.Id))
-            .ToDictionaryAsync(item => item.Id, item => new AccessItemPreview(item.Id, item.Name, item.Description), cancellationToken);
+            .ToDictionaryAsync(item => item.Id, item => new AccessItemPreview(item.Id, item.Name, item.Description, item.IsComplianceRequired), cancellationToken);
         Dictionary<Guid, string> approvalGroupNames = approvalGroupIds.Length == 0
             ? []
             : await db.ApprovalGroups.AsNoTracking()
@@ -174,6 +178,8 @@ public static class PackageRequestEndpoints
             .ToArray();
 
         Dictionary<Guid, PackageRequestDetailLocationResponse> locationsById = await BuildLocationResponsesAsync(allLocationIds, locationService, cancellationToken);
+        Dictionary<Guid, AccessGrantProvisioningSagaState> sagaStates = await LoadSagaStatesAsync(sagasDb, grants.Select(item => item.Id).ToArray(), cancellationToken);
+        Dictionary<Guid, AccessGrantMaterializationOutcome[]> materializationOutcomes = await LoadMaterializationOutcomesAsync(sagasDb, grants.Select(item => item.Id).ToArray(), cancellationToken);
 
         ILookup<Guid, PackageRequestScope> scopesByFlow = scopes.ToLookup(item => item.ApprovalFlowId);
         ILookup<Guid, ApprovalRequirement> requirementsByFlow = requirements.ToLookup(item => item.ApprovalFlowId);
@@ -216,7 +222,7 @@ public static class PackageRequestEndpoints
                     .ToArray();
 
                 PackageRequestDetailGrantResponse[] flowGrants = grantsByFlow[flow.Id]
-                    .Select(grant => ToGrantDetailResponse(grant, locationsById, accessItemsById))
+                    .Select(grant => ToGrantDetailResponse(grant, locationsById, accessItemsById, sagaStates, materializationOutcomes, timeProvider.GetUtcNow()))
                     .OrderBy(item => item.LocationLabel)
                     .ToArray();
 
@@ -241,7 +247,7 @@ public static class PackageRequestEndpoints
             .ToArray();
 
         PackageRequestDetailGrantResponse[] grantResponses = grants
-            .Select(grant => ToGrantDetailResponse(grant, locationsById, accessItemsById))
+            .Select(grant => ToGrantDetailResponse(grant, locationsById, accessItemsById, sagaStates, materializationOutcomes, timeProvider.GetUtcNow()))
             .OrderBy(item => item.AccessItemName)
             .ThenBy(item => item.LocationLabel)
             .ToArray();
@@ -291,11 +297,20 @@ public static class PackageRequestEndpoints
     private static PackageRequestDetailGrantResponse ToGrantDetailResponse(
         AccessGrant grant,
         IReadOnlyDictionary<Guid, PackageRequestDetailLocationResponse> locationsById,
-        IReadOnlyDictionary<Guid, AccessItemPreview> accessItemsById)
+        IReadOnlyDictionary<Guid, AccessItemPreview> accessItemsById,
+        IReadOnlyDictionary<Guid, AccessGrantProvisioningSagaState> sagaStates,
+        IReadOnlyDictionary<Guid, AccessGrantMaterializationOutcome[]> materializationOutcomesByGrantId,
+        DateTimeOffset now)
     {
         Guid accessItemId = grant.AccessItemId ?? Guid.Empty;
         AccessItemPreview? accessItem = grant.AccessItemId.HasValue ? accessItemsById.GetValueOrDefault(grant.AccessItemId.Value) : null;
         PackageRequestDetailLocationResponse location = locationsById[grant.LocationId];
+        GrantProvisioningStatus provisioningStatus = GrantProvisioningStatusResolver.Resolve(
+            grant,
+            accessItem?.IsComplianceRequired ?? true,
+            sagaStates.GetValueOrDefault(grant.Id),
+            materializationOutcomesByGrantId.GetValueOrDefault(grant.Id, []),
+            now);
 
         return new PackageRequestDetailGrantResponse(
             grant.Id,
@@ -306,6 +321,7 @@ public static class PackageRequestEndpoints
             grant.Status,
             grant.ApprovalStatus,
             grant.ComplianceStatus,
+            provisioningStatus,
             grant.CompliantUntil,
             grant.ValidFrom,
             grant.ValidUntil);
@@ -323,15 +339,13 @@ public static class PackageRequestEndpoints
         LocationService locationService,
         CancellationToken cancellationToken)
     {
-        IReadOnlyList<ApprovalRequirement> requirements = preview.ApprovalRequirements;
-        Guid[] accessItemIds = await db.PackageAccessItems.AsNoTracking()
-            .Where(item => item.PackageId == packageId)
-            .Select(item => item.AccessItemId)
-            .ToArrayAsync(cancellationToken);
+        IReadOnlyList<ApprovalRequirementsPreviewItem> approvalItems = preview.ApprovalItems;
+        IReadOnlyList<ApprovalRequirement> requirements = approvalItems.SelectMany(item => item.Requirements).ToArray();
+        Guid[] accessItemIds = approvalItems.Select(item => item.AccessItemId).Distinct().ToArray();
 
         AccessItemPreview[] accessItems = await accessControlDb.AccessItems.AsNoTracking()
             .Where(item => accessItemIds.Contains(item.Id))
-            .Select(item => new AccessItemPreview(item.Id, item.Name, item.Description))
+            .Select(item => new AccessItemPreview(item.Id, item.Name, item.Description, item.IsComplianceRequired))
             .ToArrayAsync(cancellationToken);
 
         Guid[] approvalGroupIds = requirements
@@ -361,25 +375,26 @@ public static class PackageRequestEndpoints
                 cancellationToken);
 
         Dictionary<Guid, AccessItemPreview> accessItemsById = accessItems.ToDictionary(item => item.Id);
-        ILookup<Guid, ApprovalRequirement> requirementsByAccessItemId = requirements.ToLookup(item => item.AccessItemId);
+        Dictionary<Guid, ApprovalRequirementsPreviewItem> approvalItemsByAccessItemId = approvalItems.ToDictionary(item => item.AccessItemId);
 
         ApprovalRequirementsPreviewAccessItemResponse[] approvals = accessItemIds
             .Select(accessItemId =>
             {
                 AccessItemPreview? accessItem = accessItemsById.GetValueOrDefault(accessItemId);
-                ApprovalRequirementPreviewResponse[] itemRequirements = requirementsByAccessItemId[accessItemId]
+                ApprovalRequirementPreviewResponse[] itemRequirements = approvalItemsByAccessItemId.GetValueOrDefault(accessItemId)?.Requirements
                     .Select(item => new ApprovalRequirementPreviewResponse(
                         item.LocationId,
                         item.Type,
                         item.Role,
                         item.ApprovalGroupId.HasValue ? approvalGroups.GetValueOrDefault(item.ApprovalGroupId.Value) : null,
                         item.RequiredApproverIdentityId.HasValue ? approverIdentities.GetValueOrDefault(item.RequiredApproverIdentityId.Value) : null))
-                    .ToArray();
+                    .ToArray() ?? [];
 
                 return new ApprovalRequirementsPreviewAccessItemResponse(
                     accessItemId,
                     accessItem?.Name ?? string.Empty,
                     accessItem?.Description,
+                    approvalItemsByAccessItemId.GetValueOrDefault(accessItemId)?.IsComplianceRequired ?? true,
                     itemRequirements);
             })
             .OrderBy(item => item.Name)
@@ -412,7 +427,28 @@ public static class PackageRequestEndpoints
         return new PackageRequestPreviewResponse(approvals, compliance);
     }
 
-    private sealed record AccessItemPreview(Guid Id, string Name, string? Description);
+    private static async Task<Dictionary<Guid, AccessGrantProvisioningSagaState>> LoadSagaStatesAsync(SagasDbContext db, Guid[] accessGrantIds, CancellationToken cancellationToken)
+    {
+        if (accessGrantIds.Length == 0)
+            return [];
+
+        return await db.AccessGrantProvisioningSagas.AsNoTracking()
+            .Where(item => accessGrantIds.Contains(item.AccessGrantId))
+            .ToDictionaryAsync(item => item.AccessGrantId, item => item.State, cancellationToken);
+    }
+
+    private static async Task<Dictionary<Guid, AccessGrantMaterializationOutcome[]>> LoadMaterializationOutcomesAsync(SagasDbContext db, Guid[] accessGrantIds, CancellationToken cancellationToken)
+    {
+        if (accessGrantIds.Length == 0)
+            return [];
+
+        return await db.AccessGrantMaterializationOutcomes.AsNoTracking()
+            .Where(item => accessGrantIds.Contains(item.AccessGrantId))
+            .GroupBy(item => item.AccessGrantId)
+            .ToDictionaryAsync(group => group.Key, group => group.ToArray(), cancellationToken);
+    }
+
+    private sealed record AccessItemPreview(Guid Id, string Name, string? Description, bool IsComplianceRequired);
 
     private static (int statusCode, ProblemDetails? problemDetails) MapError(AccessCatalogErrors error) => error switch
     {

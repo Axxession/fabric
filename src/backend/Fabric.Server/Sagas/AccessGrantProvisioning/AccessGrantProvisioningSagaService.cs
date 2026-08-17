@@ -2,6 +2,7 @@ using Fabric.Server.AccessCatalog.Domain;
 using Fabric.Server.AccessCatalog.Persistence;
 using Fabric.Server.AccessControl.Application;
 using Fabric.Server.AccessControl.Domain;
+using Fabric.Server.AccessControl.Persistence;
 using Fabric.Server.Core;
 using Fabric.Server.Infrastructure.Tenancy;
 using Fabric.Server.AccessCatalog.Application;
@@ -12,6 +13,7 @@ namespace Fabric.Server.Sagas.AccessGrantProvisioning;
 public sealed class AccessGrantProvisioningSagaService(
     SagasDbContext db,
     AccessCatalogDbContext accessCatalogDb,
+    AccessControlDbContext accessControlDb,
     PACSAssignmentService pacsAssignmentService,
     AccessGrantProvisioningSagaTrigger trigger,
     TimeProvider timeProvider)
@@ -155,7 +157,13 @@ public sealed class AccessGrantProvisioningSagaService(
             return;
         }
 
-        if (!AccessGrantComplianceService.IsProvisionable(grant, timeProvider.GetUtcNow()))
+        bool isComplianceRequired = await accessControlDb.AccessItems
+            .Where(item => item.Id == grant.AccessItemId)
+            .Select(item => (bool?)item.IsComplianceRequired)
+            .SingleOrDefaultAsync(cancellationToken)
+            ?? true;
+
+        if (!AccessGrantComplianceService.IsProvisionable(grant, isComplianceRequired, timeProvider.GetUtcNow()))
         {
             _ = await pacsAssignmentService.RevokeBySourceAssignmentIdAsync(grant.Id, cancellationToken);
             saga.State = AccessGrantProvisioningSagaState.Withheld;

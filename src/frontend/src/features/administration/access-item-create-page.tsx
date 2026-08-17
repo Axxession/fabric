@@ -17,6 +17,7 @@ const accessItemsQueryKey = ['administration', 'access-control', 'items'] as con
 const emptyFormValues: AccessItemFormValues = {
   name: '',
   description: '',
+  isComplianceRequired: true,
   status: 'Active',
 };
 
@@ -46,6 +47,7 @@ export default function AccessItemCreatePage() {
     createAccessItem.mutate({
       name: values.name,
       description: values.description.trim() === '' ? null : values.description,
+      isComplianceRequired: values.isComplianceRequired,
     });
   }
 

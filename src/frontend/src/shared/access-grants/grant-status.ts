@@ -3,7 +3,7 @@ import type { components } from '@/shared/api/generated/schema';
 type AccessGrantResponse = components['schemas']['AccessGrantResponse'];
 type PackageRequestDetailGrantResponse = components['schemas']['PackageRequestDetailGrantResponse'];
 
-type GrantLike = Pick<AccessGrantResponse, 'status' | 'approvalStatus' | 'complianceStatus' | 'compliantUntil'>;
+type GrantLike = Pick<AccessGrantResponse, 'status' | 'approvalStatus' | 'complianceStatus' | 'compliantUntil' | 'provisioningStatus'>;
 
 export function getGrantStatusVariant(status: AccessGrantResponse['status']): 'success' | 'secondary' | 'error' {
   switch (status) {
@@ -55,10 +55,30 @@ export function getGrantComplianceLabel(status: AccessGrantResponse['complianceS
   }
 }
 
+export function getGrantProvisioningVariant(status: AccessGrantResponse['provisioningStatus']): 'success' | 'secondary' | 'error' {
+  switch (status) {
+    case 'Provisioned':
+      return 'success';
+    case 'NonProvisionable':
+      return 'error';
+    default:
+      return 'secondary';
+  }
+}
+
+export function getGrantProvisioningLabel(status: AccessGrantResponse['provisioningStatus']) {
+  switch (status) {
+    case 'NonProvisionable':
+      return 'Non-provisionable';
+    case 'Provisioned':
+      return 'Provisioned';
+    default:
+      return 'Provisioning';
+  }
+}
+
 export function isGrantBusinessReady(grant: GrantLike) {
-  return grant.status === 'Active'
-    && (grant.approvalStatus === 'Approved' || grant.approvalStatus === 'NotRequired')
-    && (grant.complianceStatus === 'Compliant' || grant.complianceStatus === 'TemporarilyCompliant');
+  return grant.status === 'Active' && grant.provisioningStatus !== 'NonProvisionable';
 }
 
 export function getGrantBusinessSummary(grant: GrantLike) {
@@ -74,15 +94,15 @@ export function getGrantBusinessSummary(grant: GrantLike) {
     return 'Pending approval';
   }
 
-  if (grant.complianceStatus === 'NonCompliant') {
-    return 'Withheld pending compliance';
+  if (grant.provisioningStatus === 'NonProvisionable') {
+    return 'Non-provisionable';
   }
 
-  if (grant.complianceStatus === 'TemporarilyCompliant') {
-    return 'Active until compliance expires';
+  if (grant.provisioningStatus === 'Provisioning') {
+    return 'Provisioning';
   }
 
-  return 'Active';
+  return 'Provisioned';
 }
 
 export function getGrantComplianceUntilLabel(grant: Pick<GrantLike, 'complianceStatus' | 'compliantUntil'>) {

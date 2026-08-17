@@ -36,6 +36,13 @@ public enum GrantComplianceStatus
     NonCompliant
 }
 
+public enum GrantProvisioningStatus
+{
+    NonProvisionable,
+    Provisioning,
+    Provisioned
+}
+
 public enum AccessGrantRevokeCause
 {
     Manual,

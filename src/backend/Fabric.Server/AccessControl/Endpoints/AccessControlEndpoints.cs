@@ -300,7 +300,7 @@ public static class AccessControlEndpoints
         AccessItemService service,
         CancellationToken cancellationToken = default)
     {
-        Result<AccessItem, AccessControlErrors> result = await service.CreateAsync(request.Name, request.Description, cancellationToken);
+        Result<AccessItem, AccessControlErrors> result = await service.CreateAsync(request.Name, request.Description, request.IsComplianceRequired, cancellationToken);
 
         return result.Match<IResult>(
             item => Results.Created($"/api/access-control/items/{item.Id}", item.ToResponse()),
@@ -322,7 +322,7 @@ public static class AccessControlEndpoints
         AccessItemService service,
         CancellationToken cancellationToken = default)
     {
-        Result<AccessItem, AccessControlErrors> result = await service.UpdateAsync(itemId, request.Name, request.Description, request.Status, cancellationToken);
+        Result<AccessItem, AccessControlErrors> result = await service.UpdateAsync(itemId, request.Name, request.Description, request.IsComplianceRequired, request.Status, cancellationToken);
         return result.Map(item => item.ToResponse()).AsResponse(MapError);
     }
 
