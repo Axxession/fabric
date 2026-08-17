@@ -201,24 +201,19 @@ public sealed class EmployeeLifecycleAutomationService(
         OrganizationalUnitPackageRule[] ouRules = await db.OrganizationalUnitPackageRules
             .Where(item => item.OrganizationUnitId == employee.OrganizationUnitId && item.IsEnabled)
             .ToArrayAsync(cancellationToken);
-        desired.AddRange(ouRules.Select(rule => new DesiredGrant(rule.PackageId, AssignmentSourceKind.OrganizationalUnit, rule.OrganizationUnitId, locationIds)));
+        desired.AddRange(ouRules.SelectMany(rule => locationIds.Select(locationId => new DesiredGrant(rule.PackageId, AssignmentSourceKind.OrganizationalUnit, rule.OrganizationUnitId, locationId))));
 
         Guid[] personaIds = employee.Personas.Select(item => item.PersonaId).ToArray();
         PersonaPackageRule[] personaRules = await db.PersonaPackageRules
             .Where(item => personaIds.Contains(item.PersonaId) && item.IsEnabled)
             .ToArrayAsync(cancellationToken);
-        desired.AddRange(personaRules.Select(rule => new DesiredGrant(rule.PackageId, AssignmentSourceKind.Persona, rule.PersonaId, locationIds)));
+        desired.AddRange(personaRules.SelectMany(rule => locationIds.Select(locationId => new DesiredGrant(rule.PackageId, AssignmentSourceKind.Persona, rule.PersonaId, locationId))));
 
         AccessGrant[] existing = await accessCatalogDb.AccessGrants
             .Where(item => item.IdentityId == employee.IdentityId)
             .Where(item => item.AssignmentChannel == AssignmentChannel.AutomaticConfiguration)
             .Where(item => item.SourceKind == AssignmentSourceKind.OrganizationalUnit || item.SourceKind == AssignmentSourceKind.Persona)
             .ToArrayAsync(cancellationToken);
-
-        Dictionary<Guid, Guid[]> existingLocations = await accessCatalogDb.AccessGrantLocations
-            .Where(item => existing.Select(x => x.Id).Contains(item.AccessGrantId))
-            .GroupBy(item => item.AccessGrantId)
-            .ToDictionaryAsync(group => group.Key, group => group.Select(item => item.LocationId).Order().ToArray(), cancellationToken);
 
         foreach (DesiredGrant desiredGrant in desired)
         {
@@ -227,8 +222,7 @@ public sealed class EmployeeLifecycleAutomationService(
                 item.SourceKind == desiredGrant.SourceKind &&
                 item.SourceId == desiredGrant.SourceId &&
                 item.Status == AccessGrantStatus.Active &&
-                existingLocations.TryGetValue(item.Id, out Guid[]? locations) &&
-                locations.SequenceEqual(desiredGrant.LocationIds.Order().ToArray()));
+                item.LocationId == desiredGrant.LocationId);
 
             if (match is not null)
                 continue;
@@ -236,7 +230,7 @@ public sealed class EmployeeLifecycleAutomationService(
             Result<AccessGrant, AccessCatalogErrors> result = await accessGrantService.CreateAsync(
                 desiredGrant.PackageId,
                 employee.IdentityId,
-                desiredGrant.LocationIds,
+                desiredGrant.LocationId,
                 AssignmentChannel.AutomaticConfiguration,
                 desiredGrant.SourceKind,
                 desiredGrant.SourceId,
@@ -256,7 +250,7 @@ public sealed class EmployeeLifecycleAutomationService(
                 desiredGrant.PackageId == grant.PackageId &&
                 desiredGrant.SourceKind == grant.SourceKind &&
                 desiredGrant.SourceId == grant.SourceId &&
-                existingLocations.GetValueOrDefault(grant.Id, []).SequenceEqual(desiredGrant.LocationIds.Order().ToArray()));
+                desiredGrant.LocationId == grant.LocationId);
 
             if (stillDesired)
                 continue;
@@ -330,5 +324,5 @@ public sealed class EmployeeLifecycleAutomationService(
         return now.Add(delay);
     }
 
-    private sealed record DesiredGrant(Guid PackageId, AssignmentSourceKind SourceKind, Guid SourceId, Guid[] LocationIds);
+    private sealed record DesiredGrant(Guid PackageId, AssignmentSourceKind SourceKind, Guid SourceId, Guid LocationId);
 }

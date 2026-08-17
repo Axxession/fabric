@@ -10,6 +10,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Card } from '@/shared/components/ui/card';
 
 import { BuildingForm, type BuildingFormValues } from './building-form';
+import { LocationRequirementsCard } from './location-requirements-card';
 
 type Room = components['schemas']['RoomResponse'];
 
@@ -172,6 +173,8 @@ export default function BuildingEditPage() {
           <BuildingForm initialValues={initialValues} isSubmitting={updateBuilding.isPending} submitLabel="Save" onSubmit={handleSubmit} />
         ) : null}
       </Card>
+
+      <LocationRequirementsCard locationId={buildingId} />
 
       <Card className="p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

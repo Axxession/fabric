@@ -1,5 +1,6 @@
 using Fabric.Server.AccessCatalog.Domain;
 using Fabric.Server.Core;
+using Fabric.Server.Requirements.Domain;
 using Fabric.Server.Sagas.AccessGrantProvisioning;
 
 namespace Fabric.Server.AccessCatalog.Contracts;
@@ -55,14 +56,14 @@ public sealed record UpdatePackageRequest(string Name, string? Description, Pack
 public sealed record AddPackageAccessItemRequest(Guid AccessItemId);
 public sealed record CreateApprovalDefinitionRequest(Guid AccessItemId, Guid? DestinationApprovalGroupId, OrganizationalApprovalMode OrganizationalApprovalMode, int OrganizationalApprovalLevels);
 public sealed record UpdateApprovalDefinitionRequest(Guid? DestinationApprovalGroupId, OrganizationalApprovalMode OrganizationalApprovalMode, int OrganizationalApprovalLevels);
-public sealed record PreviewPackageRequestApprovalsRequest(Guid PackageId, Guid BeneficiaryIdentityId, Guid[] LocationIds);
+public sealed record PreviewPackageRequestApprovalsRequest(Guid PackageId, Guid BeneficiaryIdentityId, Guid[] LocationIds, AccessDurationKind DurationKind, DateTimeOffset ValidFrom, DateTimeOffset? ValidUntil);
 public sealed record CreatePackageRequestRequest(Guid PackageId, Guid RequesterIdentityId, Guid BeneficiaryIdentityId, Guid[] LocationIds, string RequestReason, AccessDurationKind DurationKind, DateTimeOffset ValidFrom, DateTimeOffset? ValidUntil);
 public sealed record CreateApprovalDecisionRequest(Guid ApproverIdentityId, ApprovalDecisionKind DecisionKind, string? Note);
 
 public sealed record CreateAccessGrantRequest(
     Guid PackageId,
     Guid IdentityId,
-    Guid[] LocationIds,
+    Guid LocationId,
     AssignmentChannel AssignmentChannel,
     AssignmentSourceKind SourceKind,
     Guid SourceId,
@@ -83,15 +84,21 @@ public sealed record ApprovalRequirementPreviewApprovalGroupResponse(Guid Id, st
 public sealed record ApprovalRequirementPreviewApproverIdentityResponse(Guid Id, string DisplayName, string? Email);
 public sealed record ApprovalRequirementPreviewResponse(Guid LocationId, ApprovalRequirementType Type, ApprovalDecisionRole Role, ApprovalRequirementPreviewApprovalGroupResponse? ApprovalGroup, ApprovalRequirementPreviewApproverIdentityResponse? ApproverIdentity);
 public sealed record ApprovalRequirementsPreviewAccessItemResponse(Guid AccessItemId, string Name, string? Description, ApprovalRequirementPreviewResponse[] Requirements);
+public sealed record ComplianceRequirementPreviewResponse(Guid RequirementDefinitionId, string Code, string Name, bool IsBlocking, RequirementResultStatus Status, string Reason, DateTimeOffset? ValidUntil);
+public sealed record CompliancePreviewLocationResponse(Guid LocationId, string LocationLabel, GrantComplianceStatus Status, DateTimeOffset? CompliantUntil, ComplianceRequirementPreviewResponse[] Requirements);
+public sealed record PackageRequestPreviewResponse(ApprovalRequirementsPreviewAccessItemResponse[] Approvals, CompliancePreviewLocationResponse[] Compliance);
 public sealed record ApprovalDecisionResponse(Guid Id, Guid RequestId, Guid ApprovalRequirementId, Guid ApproverIdentityId, ApprovalDecisionRole Role, ApprovalDecisionKind DecisionKind, string? Note, DateTimeOffset DecidedAt);
 public sealed record PackageRequestResponse(Guid Id, Guid PackageId, Guid RequesterIdentityId, Guid BeneficiaryIdentityId, string RequestReason, PackageRequestStatus Status, PackageRequestSubStatus? SubStatus, AccessDurationKind DurationKind, DateTimeOffset ValidFrom, DateTimeOffset? ValidUntil, DateTimeOffset CreatedAt, DateTimeOffset ExpiresAt, DateTimeOffset? DecidedAt, Guid[] LocationIds);
 public sealed record PackageRequestDetailLocationResponse(Guid Id, string Label, Guid SiteId, string SiteName);
 public sealed record ApprovalInboxItemResponse(Guid ApprovalRequirementId, Guid ApprovalFlowId, Guid RequestId, Guid PackageId, string PackageName, Guid BeneficiaryIdentityId, string BeneficiaryDisplayName, Guid RequesterIdentityId, string RequesterDisplayName, Guid AccessItemId, string AccessItemName, Guid SiteId, string SiteName, string[] RequestedLocationLabels, ApprovalRequirementType Type, ApprovalDecisionRole Role, string? ApprovalGroupName, DateTimeOffset CreatedAt, DateTimeOffset ExpiresAt, ApprovalStatus Status);
-public sealed record PackageRequestDetailGrantResponse(Guid Id, Guid AccessItemId, string AccessItemName, Guid LocationId, string LocationLabel, AccessGrantStatus Status, DateTimeOffset ValidFrom, DateTimeOffset? ValidUntil);
+public sealed record PackageRequestDetailGrantResponse(Guid Id, Guid AccessItemId, string AccessItemName, Guid LocationId, string LocationLabel, AccessGrantStatus Status, GrantApprovalStatus ApprovalStatus, GrantComplianceStatus ComplianceStatus, DateTimeOffset? CompliantUntil, DateTimeOffset ValidFrom, DateTimeOffset? ValidUntil);
 public sealed record PackageRequestDetailDecisionResponse(Guid Id, string ApproverDisplayName, ApprovalDecisionRole Role, ApprovalDecisionKind DecisionKind, string? Note, DateTimeOffset DecidedAt);
 public sealed record PackageRequestDetailRequirementResponse(Guid Id, ApprovalRequirementType Type, ApprovalDecisionRole Role, Guid? ApprovalGroupId, string? ApprovalGroupName, Guid? RequiredApproverIdentityId, string? RequiredApproverDisplayName, ApprovalStatus Status, string? SystemApprovalReason, DateTimeOffset CreatedAt, DateTimeOffset? CompletedAt, PackageRequestDetailDecisionResponse[] Decisions);
 public sealed record PackageRequestDetailFlowResponse(Guid ApprovalFlowId, Guid AccessItemId, string AccessItemName, string? AccessItemDescription, Guid SiteId, string SiteName, ApprovalFlowStatus Status, DateTimeOffset CreatedAt, DateTimeOffset? CompletedAt, PackageRequestDetailLocationResponse[] RequestedLocations, PackageRequestDetailRequirementResponse[] Requirements, PackageRequestDetailGrantResponse[] Grants);
 public sealed record PackageRequestDetailResponse(PackageRequestResponse Request, PackageResponse Package, PackageRequestDetailLocationResponse[] RequestedLocations, PackageRequestDetailFlowResponse[] Flows, PackageRequestDetailGrantResponse[] Grants);
+public sealed record GrantRequirementResponse(Guid Id, Guid RequirementDefinitionId, string SourcePolicyKind, Guid SourcePolicyId, bool IsBlocking, DateTimeOffset DerivedAt);
+public sealed record GrantRequirementResultResponse(Guid Id, Guid RequirementDefinitionId, RequirementResultStatus Status, RequirementEvidenceKind? EvidenceKind, string? EvidenceReference, string Reason, DateTimeOffset? ValidUntil, DateTimeOffset LastEvaluatedAt);
+public sealed record RecalculateGrantRequirementsResponse(int GrantsProcessed, bool FutureOnly);
 public sealed record AccessGrantMaterializationOutcomeResponse(
     Guid Id,
     Guid AccessItemId,
@@ -109,14 +116,21 @@ public sealed record AccessGrantResponse(
     Guid SourceId,
     Guid? ApprovalFlowId,
     Guid? RequestScopeId,
+    Guid LocationId,
     AccessDurationKind DurationKind,
     DateTimeOffset ValidFrom,
     DateTimeOffset? ValidUntil,
     AccessGrantStatus Status,
+    Guid? ReplacedById,
+    GrantApprovalStatus ApprovalStatus,
+    GrantComplianceStatus ComplianceStatus,
+    DateTimeOffset? CompliantUntil,
+    DateTimeOffset? LastComplianceEvaluatedAt,
     string ReasonText,
     string? RevokedBy,
     AccessGrantRevokeCause? RevokeCause,
-    Guid[] LocationIds,
+    GrantRequirementResponse[] Requirements,
+    GrantRequirementResultResponse[] RequirementResults,
     AccessGrantMaterializationOutcomeResponse[] MaterializationOutcomes);
 
 public static class AccessCatalogMapper
@@ -159,7 +173,13 @@ public static class AccessCatalogMapper
             outcome.Status,
             outcome.FailureReason);
 
-    public static AccessGrantResponse ToResponse(this AccessGrant grant, Guid[] locationIds, AccessGrantMaterializationOutcomeResponse[] materializationOutcomes) =>
+    public static GrantRequirementResponse ToResponse(this GrantRequirement requirement) =>
+        new(requirement.Id, requirement.RequirementDefinitionId, requirement.SourcePolicyKind, requirement.SourcePolicyId, requirement.IsBlocking, requirement.DerivedAt);
+
+    public static GrantRequirementResultResponse ToResponse(this GrantRequirementResult result) =>
+        new(result.Id, result.RequirementDefinitionId, result.Status, result.EvidenceKind, result.EvidenceReference, result.Reason, result.ValidUntil, result.LastEvaluatedAt);
+
+    public static AccessGrantResponse ToResponse(this AccessGrant grant, GrantRequirementResponse[] requirements, GrantRequirementResultResponse[] requirementResults, AccessGrantMaterializationOutcomeResponse[] materializationOutcomes) =>
         new(
             grant.Id,
             grant.PackageId,
@@ -170,13 +190,20 @@ public static class AccessCatalogMapper
             grant.SourceId,
             grant.ApprovalFlowId,
             grant.RequestScopeId,
+            grant.LocationId,
             grant.DurationKind,
             grant.ValidFrom,
             grant.ValidUntil,
             grant.Status,
+            grant.ReplacedById,
+            grant.ApprovalStatus,
+            grant.ComplianceStatus,
+            grant.CompliantUntil,
+            grant.LastComplianceEvaluatedAt,
             grant.ReasonText,
             grant.RevokedBy,
             grant.RevokeCause,
-            locationIds,
+            requirements,
+            requirementResults,
             materializationOutcomes);
 }

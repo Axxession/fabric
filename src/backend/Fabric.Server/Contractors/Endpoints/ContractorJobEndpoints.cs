@@ -1,8 +1,10 @@
 using Fabric.Server.Contractors.Application;
+using Fabric.Server.Actors.Application;
 using Fabric.Server.Contractors.Contracts;
 using Fabric.Server.Contractors.Domain;
 using Fabric.Server.Contractors.Persistence;
 using Fabric.Server.Core;
+using Fabric.Server.Infrastructure.Authentication;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,7 +14,8 @@ public static class ContractorJobEndpoints
 {
     public static IEndpointRouteBuilder MapContractorJobEndpoints(this IEndpointRouteBuilder app)
     {
-        RouteGroupBuilder jobs = app.MapGroup("/api/contractors/jobs");
+        RouteGroupBuilder jobs = app.MapGroup("/api/contractors/jobs")
+            .RequireAuthorization(FabricRoleDefaults.ContractorPlanningPolicy);
 
         jobs.MapGet("", ListContractorJobs)
             .WithSummary("List contractor jobs")
@@ -56,9 +59,17 @@ public static class ContractorJobEndpoints
         [AsParameters] ListContractorJobsRequest request,
         [FromQuery] Guid[]? ids,
         ContractorsDbContext db,
+        CurrentActorService currentActorService,
+        HttpContext httpContext,
         CancellationToken cancellationToken = default)
     {
+        Result<Guid, IResult> actorIdentity = await ContractorAuthorization.GetCurrentIdentityIdAsync(httpContext, currentActorService, cancellationToken);
+        if (actorIdentity.IsFailure(out IResult errorResult))
+            return errorResult;
+
+        actorIdentity.IsSuccess(out Guid currentIdentityId);
         IQueryable<ContractorJob> query = db.ContractorJobs.AsNoTracking().Include(item => item.Assignments);
+        query = query.Where(item => item.CreatedByIdentityId == currentIdentityId);
 
         if (ids is { Length: > 0 })
             query = query.Where(item => ids.Contains(item.Id));
@@ -93,40 +104,82 @@ public static class ContractorJobEndpoints
         return Results.Ok(result.Map(item => item.ToResponse()));
     }
 
-    private static async Task<IResult> GetContractorJob(Guid id, ContractorsDbContext db, CancellationToken cancellationToken = default)
+    private static async Task<IResult> GetContractorJob(Guid id, ContractorsDbContext db, CurrentActorService currentActorService, HttpContext httpContext, CancellationToken cancellationToken = default)
     {
-        ContractorJob? job = await db.ContractorJobs.AsNoTracking().Include(item => item.Assignments).SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
+        Result<Guid, IResult> actorIdentity = await ContractorAuthorization.GetCurrentIdentityIdAsync(httpContext, currentActorService, cancellationToken);
+        if (actorIdentity.IsFailure(out IResult errorResult))
+            return errorResult;
+
+        actorIdentity.IsSuccess(out Guid currentIdentityId);
+        ContractorJob? job = await db.ContractorJobs.AsNoTracking().Include(item => item.Assignments).SingleOrDefaultAsync(item => item.Id == id && item.CreatedByIdentityId == currentIdentityId, cancellationToken);
         return job is null ? Results.NotFound() : Results.Ok(job.ToResponse());
     }
 
-    private static async Task<IResult> CreateContractorJob([FromBody] CreateContractorJobRequest request, ContractorsService service, CancellationToken cancellationToken = default)
+    private static async Task<IResult> CreateContractorJob([FromBody] CreateContractorJobRequest request, ContractorsService service, CurrentActorService currentActorService, HttpContext httpContext, CancellationToken cancellationToken = default)
     {
-        Result<ContractorJob, ContractorJobErrors> result = await service.CreateContractorJobAsync(request, cancellationToken);
+        Result<Guid, IResult> actorIdentity = await ContractorAuthorization.GetCurrentIdentityIdAsync(httpContext, currentActorService, cancellationToken);
+        if (actorIdentity.IsFailure(out IResult errorResult))
+            return errorResult;
+
+        actorIdentity.IsSuccess(out Guid currentIdentityId);
+        Result<ContractorJob, ContractorJobErrors> result = await service.CreateContractorJobAsync(request, currentIdentityId, cancellationToken);
         return result.Match<IResult>(
             job => Results.Created($"/api/contractors/jobs/{job.Id}", job.ToResponse()),
             _ => result.Map(item => item.ToResponse()).AsResponse(MapError));
     }
 
-    private static async Task<IResult> UpdateContractorJob(Guid id, [FromBody] UpdateContractorJobRequest request, ContractorsService service, CancellationToken cancellationToken = default)
+    private static async Task<IResult> UpdateContractorJob(Guid id, [FromBody] UpdateContractorJobRequest request, ContractorsService service, ContractorsDbContext db, CurrentActorService currentActorService, HttpContext httpContext, CancellationToken cancellationToken = default)
     {
+        Result<Guid, IResult> actorIdentity = await ContractorAuthorization.GetCurrentIdentityIdAsync(httpContext, currentActorService, cancellationToken);
+        if (actorIdentity.IsFailure(out IResult errorResult))
+            return errorResult;
+
+        actorIdentity.IsSuccess(out Guid currentIdentityId);
+        if (!await ContractorAuthorization.OwnsJobAsync(db, id, currentIdentityId, cancellationToken))
+            return Results.NotFound();
+
         Result<ContractorJob, ContractorJobErrors> result = await service.UpdateContractorJobAsync(id, request, cancellationToken);
         return result.Map(item => item.ToResponse()).AsResponse(MapError);
     }
 
-    private static async Task<IResult> ActivateContractorJob(Guid id, ContractorsService service, CancellationToken cancellationToken = default)
+    private static async Task<IResult> ActivateContractorJob(Guid id, ContractorsService service, ContractorsDbContext db, CurrentActorService currentActorService, HttpContext httpContext, CancellationToken cancellationToken = default)
     {
+        Result<Guid, IResult> actorIdentity = await ContractorAuthorization.GetCurrentIdentityIdAsync(httpContext, currentActorService, cancellationToken);
+        if (actorIdentity.IsFailure(out IResult errorResult))
+            return errorResult;
+
+        actorIdentity.IsSuccess(out Guid currentIdentityId);
+        if (!await ContractorAuthorization.OwnsJobAsync(db, id, currentIdentityId, cancellationToken))
+            return Results.NotFound();
+
         Result<ContractorJob, ContractorJobErrors> result = await service.ActivateContractorJobAsync(id, cancellationToken);
         return result.Map(item => item.ToResponse()).AsResponse(MapError);
     }
 
-    private static async Task<IResult> CompleteContractorJob(Guid id, ContractorsService service, CancellationToken cancellationToken = default)
+    private static async Task<IResult> CompleteContractorJob(Guid id, ContractorsService service, ContractorsDbContext db, CurrentActorService currentActorService, HttpContext httpContext, CancellationToken cancellationToken = default)
     {
+        Result<Guid, IResult> actorIdentity = await ContractorAuthorization.GetCurrentIdentityIdAsync(httpContext, currentActorService, cancellationToken);
+        if (actorIdentity.IsFailure(out IResult errorResult))
+            return errorResult;
+
+        actorIdentity.IsSuccess(out Guid currentIdentityId);
+        if (!await ContractorAuthorization.OwnsJobAsync(db, id, currentIdentityId, cancellationToken))
+            return Results.NotFound();
+
         Result<ContractorJob, ContractorJobErrors> result = await service.CompleteContractorJobAsync(id, cancellationToken);
         return result.Map(item => item.ToResponse()).AsResponse(MapError);
     }
 
-    private static async Task<IResult> CancelContractorJob(Guid id, ContractorsService service, CancellationToken cancellationToken = default)
+    private static async Task<IResult> CancelContractorJob(Guid id, ContractorsService service, ContractorsDbContext db, CurrentActorService currentActorService, HttpContext httpContext, CancellationToken cancellationToken = default)
     {
+        Result<Guid, IResult> actorIdentity = await ContractorAuthorization.GetCurrentIdentityIdAsync(httpContext, currentActorService, cancellationToken);
+        if (actorIdentity.IsFailure(out IResult errorResult))
+            return errorResult;
+
+        actorIdentity.IsSuccess(out Guid currentIdentityId);
+        if (!await ContractorAuthorization.OwnsJobAsync(db, id, currentIdentityId, cancellationToken))
+            return Results.NotFound();
+
         Result<ContractorJob, ContractorJobErrors> result = await service.CancelContractorJobAsync(id, cancellationToken);
         return result.Map(item => item.ToResponse()).AsResponse(MapError);
     }

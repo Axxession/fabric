@@ -9,6 +9,7 @@ import type { components } from '@/shared/api/generated/schema';
 import { Button } from '@/shared/components/ui/button';
 import { Card } from '@/shared/components/ui/card';
 import { getLocationLabel, LocationSelector, type LocationResponse } from '@/shared/components/location-selector';
+import { IdentityEvidenceCard } from '@/features/requirements/identity-evidence-card';
 
 import { EmployeeForm, type EmployeeFormValues } from './employee-form';
 
@@ -385,6 +386,8 @@ export default function EmployeeEditPage() {
           </div>
         ) : null}
       </Card>
+
+      {employee?.identityId ? <IdentityEvidenceCard identityId={employee.identityId} title="Requirement evidence" description="Evidence attached to this employee identity. Expired evidence is hidden by default and entries are grouped by requirement." /> : null}
     </div>
   );
 }

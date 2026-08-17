@@ -86,7 +86,7 @@ public sealed class ReceptionTriggeredPackageAssignmentService(
         Result<AccessGrant, AccessCatalogErrors> create = await accessGrantService.CreateAsync(
             assignment.PackageId,
             identityId.Value,
-            [arrival.LocationId.Value],
+            arrival.LocationId.Value,
             AssignmentChannel.AutomaticConfiguration,
             AssignmentSourceKind.ReceptionArrival,
             arrival.Id,

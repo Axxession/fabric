@@ -17,7 +17,7 @@ public static class RequirementsServiceCollectionExtensions
         collection.ConfigureHttpJsonOptions(options =>
             options.SerializerOptions.TypeInfoResolverChain.Add(RequirementsJsonSerializerContext.Default));
 
-        collection.AddScoped<RequirementsLocationResolver>();
+        collection.AddScoped<GrantRequirementsService>();
         collection.AddScoped<RequirementsService>();
         return collection;
     }

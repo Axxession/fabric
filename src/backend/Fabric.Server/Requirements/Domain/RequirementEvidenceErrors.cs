@@ -4,5 +4,6 @@ public enum RequirementEvidenceErrors
 {
     RequirementEvidenceNotFound,
     SummaryRequired,
-    ValidUntilMustBeAfterValidFrom
+    ValidUntilMustBeAfterValidFrom,
+    FileTooLarge
 }

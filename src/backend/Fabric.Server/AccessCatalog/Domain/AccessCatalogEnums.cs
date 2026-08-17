@@ -14,8 +14,26 @@ public enum PackageStatus
 
 public enum AccessGrantStatus
 {
+    Planned,
     Active,
-    Revoked
+    Revoked,
+    Replaced,
+    Expired
+}
+
+public enum GrantApprovalStatus
+{
+    NotRequired,
+    Pending,
+    Approved,
+    Rejected
+}
+
+public enum GrantComplianceStatus
+{
+    Compliant,
+    TemporarilyCompliant,
+    NonCompliant
 }
 
 public enum AccessGrantRevokeCause
@@ -48,6 +66,7 @@ public enum AssignmentSourceKind
     Persona,
     ReceptionArrival,
     VisitorLocation,
+    ContractorJob,
     Manual
 }
 

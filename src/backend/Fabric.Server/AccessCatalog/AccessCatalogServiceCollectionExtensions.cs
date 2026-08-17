@@ -19,6 +19,7 @@ public static class AccessCatalogServiceCollectionExtensions
 
         collection.AddScoped<CatalogService>();
         collection.AddScoped<PackageService>();
+        collection.AddScoped<AccessGrantComplianceService>();
         collection.AddScoped<AccessGrantService>();
         collection.AddScoped<ApprovalConfigurationService>();
         collection.AddScoped<PackageRequestService>();

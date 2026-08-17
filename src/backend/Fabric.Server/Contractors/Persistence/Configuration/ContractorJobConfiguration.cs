@@ -17,6 +17,7 @@ public sealed class ContractorJobConfiguration : IEntityTypeConfiguration<Contra
         builder.Property(job => job.CompanyId).HasColumnName("company_id").IsRequired();
         builder.Property(job => job.JobTypeId).HasColumnName("job_type_id").IsRequired();
         builder.Property(job => job.LocationId).HasColumnName("location_id").IsRequired();
+        builder.Property(job => job.CreatedByIdentityId).HasColumnName("created_by_identity_id").IsRequired();
         builder.Property(job => job.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
         builder.Property(job => job.Description).HasColumnName("description").HasMaxLength(2000);
         builder.Property(job => job.PlannedStart).HasColumnName("planned_start").IsRequired();
@@ -45,6 +46,8 @@ public sealed class ContractorJobConfiguration : IEntityTypeConfiguration<Contra
             .HasDatabaseName("ix_contractor_jobs_tenant_id_job_type_id");
         builder.HasIndex(TenantDbContext.TenantIdPropertyName, nameof(ContractorJob.LocationId))
             .HasDatabaseName("ix_contractor_jobs_tenant_id_location_id");
+        builder.HasIndex(TenantDbContext.TenantIdPropertyName, nameof(ContractorJob.CreatedByIdentityId))
+            .HasDatabaseName("ix_contractor_jobs_tenant_id_created_by_identity_id");
         builder.HasIndex(TenantDbContext.TenantIdPropertyName, nameof(ContractorJob.Status))
             .HasDatabaseName("ix_contractor_jobs_tenant_id_status");
         builder.HasIndex(TenantDbContext.TenantIdPropertyName, nameof(ContractorJob.PlannedStart))

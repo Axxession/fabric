@@ -195,7 +195,7 @@ public sealed class ContractorsService(
         return Result.Success<Contractor, ContractorErrors>(contractor);
     }
 
-    public async Task<Result<ContractorJob, ContractorJobErrors>> CreateContractorJobAsync(CreateContractorJobRequest request, CancellationToken cancellationToken = default)
+    public async Task<Result<ContractorJob, ContractorJobErrors>> CreateContractorJobAsync(CreateContractorJobRequest request, Guid createdByIdentityId, CancellationToken cancellationToken = default)
     {
         Result<ContractorJobErrors> dependencies = await ValidateJobDependenciesAsync(request.CompanyId, request.JobTypeId, request.LocationId, cancellationToken);
         if (dependencies.IsFailure(out ContractorJobErrors dependencyError))
@@ -205,6 +205,7 @@ public sealed class ContractorsService(
             request.CompanyId,
             request.JobTypeId,
             request.LocationId,
+            createdByIdentityId,
             request.Name,
             request.Description,
             request.PlannedStart,

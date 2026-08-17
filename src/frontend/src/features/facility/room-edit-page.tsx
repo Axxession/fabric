@@ -7,6 +7,7 @@ import { api } from '@/shared/api/client';
 import { Button } from '@/shared/components/ui/button';
 import { Card } from '@/shared/components/ui/card';
 
+import { LocationRequirementsCard } from './location-requirements-card';
 import { RoomForm, type RoomFormValues } from './room-form';
 
 const locationsQueryKey = ['facility', 'locations'] as const;
@@ -93,6 +94,8 @@ export default function RoomEditPage() {
           <RoomForm initialValues={initialValues} isSubmitting={updateRoom.isPending} submitLabel="Save" onSubmit={handleSubmit} />
         ) : null}
       </Card>
+
+      <LocationRequirementsCard locationId={roomId} />
     </div>
   );
 }

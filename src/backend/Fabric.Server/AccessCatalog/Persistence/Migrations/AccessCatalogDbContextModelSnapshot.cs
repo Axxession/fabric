@@ -37,11 +37,27 @@ namespace Fabric.Server.AccessCatalog.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("approval_flow_id");
 
+                    b.Property<string>("ApprovalStatus")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("approval_status");
+
                     b.Property<string>("AssignmentChannel")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("assignment_channel");
+
+                    b.Property<string>("ComplianceStatus")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("compliance_status");
+
+                    b.Property<DateTimeOffset?>("CompliantUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("compliant_until");
 
                     b.Property<string>("DurationKind")
                         .IsRequired()
@@ -53,6 +69,14 @@ namespace Fabric.Server.AccessCatalog.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("identity_id");
 
+                    b.Property<DateTimeOffset?>("LastComplianceEvaluatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_compliance_evaluated_at");
+
+                    b.Property<Guid>("LocationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("location_id");
+
                     b.Property<Guid>("PackageId")
                         .HasColumnType("uuid")
                         .HasColumnName("package_id");
@@ -62,6 +86,10 @@ namespace Fabric.Server.AccessCatalog.Persistence.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)")
                         .HasColumnName("reason_text");
+
+                    b.Property<Guid?>("ReplacedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("replaced_by_id");
 
                     b.Property<Guid?>("RequestScopeId")
                         .HasColumnType("uuid")
@@ -123,35 +151,6 @@ namespace Fabric.Server.AccessCatalog.Persistence.Migrations
                         .HasDatabaseName("ix_access_grants_tenant_id_identity_id_status");
 
                     b.ToTable("access_grants", "access_catalog");
-                });
-
-            modelBuilder.Entity("Fabric.Server.AccessCatalog.Domain.AccessGrantLocation", b =>
-                {
-                    b.Property<Guid>("AccessGrantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("access_grant_id");
-
-                    b.Property<Guid>("LocationId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("location_id");
-
-                    b.Property<string>("TenantId")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("tenant_id");
-
-                    b.HasKey("AccessGrantId", "LocationId")
-                        .HasName("pk_access_grant_locations");
-
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_access_grant_locations_tenant_id");
-
-                    b.HasIndex("TenantId", "AccessGrantId", "LocationId")
-                        .IsUnique()
-                        .HasDatabaseName("ix_access_grant_locations_tenant_id_access_grant_id_location_id");
-
-                    b.ToTable("access_grant_locations", "access_catalog");
                 });
 
             modelBuilder.Entity("Fabric.Server.AccessCatalog.Domain.ApprovalDecision", b =>
@@ -568,6 +567,122 @@ namespace Fabric.Server.AccessCatalog.Persistence.Migrations
                     b.ToTable("catalog_packages", "access_catalog");
                 });
 
+            modelBuilder.Entity("Fabric.Server.AccessCatalog.Domain.GrantRequirement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccessGrantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("access_grant_id");
+
+                    b.Property<DateTimeOffset>("DerivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("derived_at");
+
+                    b.Property<bool>("IsBlocking")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_blocking");
+
+                    b.Property<Guid>("RequirementDefinitionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requirement_definition_id");
+
+                    b.Property<Guid>("SourcePolicyId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_policy_id");
+
+                    b.Property<string>("SourcePolicyKind")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("source_policy_kind");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_grant_requirements");
+
+                    b.HasIndex("AccessGrantId");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_grant_requirements_tenant_id");
+
+                    b.HasIndex("TenantId", "AccessGrantId")
+                        .HasDatabaseName("ix_grant_requirements_tenant_id_access_grant_id");
+
+                    b.ToTable("grant_requirements", "access_catalog");
+                });
+
+            modelBuilder.Entity("Fabric.Server.AccessCatalog.Domain.GrantRequirementResult", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccessGrantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("access_grant_id");
+
+                    b.Property<string>("EvidenceKind")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("evidence_kind");
+
+                    b.Property<string>("EvidenceReference")
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)")
+                        .HasColumnName("evidence_reference");
+
+                    b.Property<DateTimeOffset>("LastEvaluatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_evaluated_at");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("RequirementDefinitionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requirement_definition_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("ValidUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("valid_until");
+
+                    b.HasKey("Id")
+                        .HasName("pk_grant_requirement_results");
+
+                    b.HasIndex("AccessGrantId");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_grant_requirement_results_tenant_id");
+
+                    b.HasIndex("TenantId", "AccessGrantId", "RequirementDefinitionId")
+                        .HasDatabaseName("ix_grant_requirement_results_tenant_id_access_grant_id_requirement_definition_id");
+
+                    b.ToTable("grant_requirement_results", "access_catalog");
+                });
+
             modelBuilder.Entity("Fabric.Server.AccessCatalog.Domain.Package", b =>
                 {
                     b.Property<Guid>("Id")
@@ -821,16 +936,6 @@ namespace Fabric.Server.AccessCatalog.Persistence.Migrations
                         .HasConstraintName("fk_access_grants_package_request_scopes_request_scope_id");
                 });
 
-            modelBuilder.Entity("Fabric.Server.AccessCatalog.Domain.AccessGrantLocation", b =>
-                {
-                    b.HasOne("Fabric.Server.AccessCatalog.Domain.AccessGrant", null)
-                        .WithMany()
-                        .HasForeignKey("AccessGrantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_access_grant_locations_access_grants_access_grant_id");
-                });
-
             modelBuilder.Entity("Fabric.Server.AccessCatalog.Domain.ApprovalDecision", b =>
                 {
                     b.HasOne("Fabric.Server.AccessCatalog.Domain.ApprovalRequirement", null)
@@ -922,6 +1027,26 @@ namespace Fabric.Server.AccessCatalog.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_catalog_packages_packages_package_id");
+                });
+
+            modelBuilder.Entity("Fabric.Server.AccessCatalog.Domain.GrantRequirement", b =>
+                {
+                    b.HasOne("Fabric.Server.AccessCatalog.Domain.AccessGrant", null)
+                        .WithMany()
+                        .HasForeignKey("AccessGrantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_grant_requirements_access_grants_access_grant_id");
+                });
+
+            modelBuilder.Entity("Fabric.Server.AccessCatalog.Domain.GrantRequirementResult", b =>
+                {
+                    b.HasOne("Fabric.Server.AccessCatalog.Domain.AccessGrant", null)
+                        .WithMany()
+                        .HasForeignKey("AccessGrantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_grant_requirement_results_access_grants_access_grant_id");
                 });
 
             modelBuilder.Entity("Fabric.Server.AccessCatalog.Domain.PackageAccessItem", b =>

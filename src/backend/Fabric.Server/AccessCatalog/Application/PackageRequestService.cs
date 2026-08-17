@@ -5,6 +5,9 @@ using Fabric.Server.Employees.Domain;
 using Fabric.Server.Employees.Persistence;
 using Fabric.Server.Identities.Persistence;
 using Fabric.Server.Locations.Persistence;
+using Fabric.Server.Requirements.Application;
+using Fabric.Server.Requirements.Domain;
+using Fabric.Server.Requirements.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Fabric.Server.AccessCatalog.Application;
@@ -15,6 +18,8 @@ public sealed class PackageRequestService(
     EmployeesDbContext employeesDb,
     IdentitiesDbContext identitiesDb,
     LocationsDbContext locationsDb,
+    RequirementsDbContext requirementsDb,
+    GrantRequirementsService grantRequirementsService,
     TimeProvider timeProvider)
 {
     private static readonly TimeSpan ApprovalWindow = TimeSpan.FromDays(7);
@@ -83,10 +88,13 @@ public sealed class PackageRequestService(
         return Result.Success<PackageRequest, AccessCatalogErrors>(request);
     }
 
-    public async Task<Result<IReadOnlyList<ApprovalRequirement>, AccessCatalogErrors>> PreviewRequirementsAsync(
+    public async Task<Result<PackageRequestPreviewModel, AccessCatalogErrors>> PreviewAsync(
         Guid packageId,
         Guid beneficiaryIdentityId,
         Guid[] locationIds,
+        AccessDurationKind durationKind,
+        DateTimeOffset validFrom,
+        DateTimeOffset? validUntil,
         CancellationToken cancellationToken = default)
     {
         Result<ValidatedPackageRequestInputs, AccessCatalogErrors> input = await ValidateRequirementInputsAsync(
@@ -95,7 +103,7 @@ public sealed class PackageRequestService(
             locationIds,
             cancellationToken);
         if (input.IsFailure(out AccessCatalogErrors error))
-            return Result.Failure<IReadOnlyList<ApprovalRequirement>, AccessCatalogErrors>(error);
+            return Result.Failure<PackageRequestPreviewModel, AccessCatalogErrors>(error);
 
         input.IsSuccess(out ValidatedPackageRequestInputs value);
 
@@ -116,8 +124,65 @@ public sealed class PackageRequestService(
         List<ApprovalFlow> flows = CreateFlows(previewRequest, value.AccessItemIds, value.NormalizedSiteIds, now);
         List<ApprovalRequirement> requirements = await BuildRequirementsAsync(flows, beneficiaryIdentityId, cancellationToken);
 
-        return Result.Success<IReadOnlyList<ApprovalRequirement>, AccessCatalogErrors>(
-            requirements.Where(item => item.Status == ApprovalStatus.Pending).ToArray());
+        RequirementSubjectKind subjectKind = await ResolveSubjectKindAsync(beneficiaryIdentityId, cancellationToken);
+        List<CompliancePreviewModel> compliance = [];
+        foreach (Guid locationId in value.RequestedLocationIds)
+        {
+            Result<IReadOnlyList<DerivedGrantRequirement>, RequirementsEvaluationErrors> derivation = await grantRequirementsService.DeriveForGrantAsync(
+                beneficiaryIdentityId,
+                subjectKind,
+                locationId,
+                cancellationToken);
+            if (derivation.IsFailure(out _))
+                continue;
+
+            derivation.IsSuccess(out IReadOnlyList<DerivedGrantRequirement> derivedRequirements);
+            Guid[] requirementDefinitionIds = derivedRequirements.Select(item => item.RequirementDefinitionId).Distinct().ToArray();
+            IReadOnlyList<EvaluatedGrantRequirement> evaluations = requirementDefinitionIds.Length == 0
+                ? []
+                : await grantRequirementsService.EvaluateGrantRequirementsAsync(beneficiaryIdentityId, requirementDefinitionIds, cancellationToken);
+            Dictionary<Guid, RequirementDefinition> definitionsById = await requirementsDb.RequirementDefinitions
+                .Where(item => requirementDefinitionIds.Contains(item.Id))
+                .ToDictionaryAsync(item => item.Id, cancellationToken);
+
+            ComplianceRequirementPreviewModel[] requirementPreviews = derivedRequirements
+                .Join(evaluations, requirement => requirement.RequirementDefinitionId, evaluation => evaluation.RequirementDefinitionId, (requirement, evaluation) => new { requirement, evaluation })
+                .Where(item => definitionsById.ContainsKey(item.requirement.RequirementDefinitionId))
+                .Select(item => new ComplianceRequirementPreviewModel(
+                    item.requirement.RequirementDefinitionId,
+                    definitionsById[item.requirement.RequirementDefinitionId].Code,
+                    definitionsById[item.requirement.RequirementDefinitionId].Name,
+                    item.requirement.IsBlocking,
+                    item.evaluation.Status,
+                    item.evaluation.Reason,
+                    item.evaluation.ValidUntil))
+                .ToArray();
+
+            bool anyBlockingFailure = requirementPreviews.Any(item => item.IsBlocking && item.Status != RequirementResultStatus.Fulfilled);
+            DateTimeOffset? compliantUntil = requirementPreviews
+                .Where(item => item.Status == RequirementResultStatus.Fulfilled)
+                .Select(item => item.ValidUntil)
+                .Where(item => item.HasValue)
+                .OrderBy(item => item)
+                .FirstOrDefault();
+            bool temporary = compliantUntil.HasValue && (!validUntil.HasValue || compliantUntil.Value < validUntil.Value);
+            GrantComplianceStatus status = anyBlockingFailure
+                ? GrantComplianceStatus.NonCompliant
+                : temporary
+                    ? GrantComplianceStatus.TemporarilyCompliant
+                    : GrantComplianceStatus.Compliant;
+
+            compliance.Add(new CompliancePreviewModel(
+                locationId,
+                status,
+                temporary ? compliantUntil : null,
+                requirementPreviews));
+        }
+
+        return Result.Success<PackageRequestPreviewModel, AccessCatalogErrors>(
+            new PackageRequestPreviewModel(
+                requirements.Where(item => item.Status == ApprovalStatus.Pending).ToArray(),
+                compliance.ToArray()));
     }
 
     public async Task<IReadOnlyList<Guid>> GetExpirableRequestIdsAsync(CancellationToken cancellationToken = default)
@@ -368,4 +433,17 @@ public sealed class PackageRequestService(
         Guid[] RequestedLocationIds,
         Dictionary<Guid, LocationLookup> LocationLookups,
         Guid[] NormalizedSiteIds);
+
+    private async Task<RequirementSubjectKind> ResolveSubjectKindAsync(Guid identityId, CancellationToken cancellationToken)
+    {
+        if (await identitiesDb.ContractorAffiliations.AnyAsync(item => item.IdentityId == identityId, cancellationToken))
+            return RequirementSubjectKind.Contractor;
+        if (await identitiesDb.VisitorAffiliations.AnyAsync(item => item.IdentityId == identityId, cancellationToken))
+            return RequirementSubjectKind.Visitor;
+        return RequirementSubjectKind.Employee;
+    }
 }
+
+public sealed record ComplianceRequirementPreviewModel(Guid RequirementDefinitionId, string Code, string Name, bool IsBlocking, RequirementResultStatus Status, string Reason, DateTimeOffset? ValidUntil);
+public sealed record CompliancePreviewModel(Guid LocationId, GrantComplianceStatus Status, DateTimeOffset? CompliantUntil, ComplianceRequirementPreviewModel[] Requirements);
+public sealed record PackageRequestPreviewModel(IReadOnlyList<ApprovalRequirement> ApprovalRequirements, IReadOnlyList<CompliancePreviewModel> Compliance);

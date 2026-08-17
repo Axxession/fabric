@@ -18,12 +18,22 @@ public static class RequirementDefinitionEndpoints
         definitions.MapGet("/{id:guid}", GetRequirementDefinition).Produces<RequirementDefinitionResponse>().Produces(StatusCodes.Status404NotFound);
         definitions.MapPost("", CreateRequirementDefinition).Produces<RequirementDefinitionResponse>(StatusCodes.Status201Created).Produces<ProblemDetails>(StatusCodes.Status400BadRequest);
         definitions.MapPut("/{id:guid}", UpdateRequirementDefinition).Produces<RequirementDefinitionResponse>().Produces<ProblemDetails>(StatusCodes.Status400BadRequest).Produces<ProblemDetails>(StatusCodes.Status404NotFound);
+        definitions.MapDelete("/{id:guid}", DeleteRequirementDefinition).Produces<RequirementDefinitionResponse>().Produces<ProblemDetails>(StatusCodes.Status404NotFound).Produces<ProblemDetails>(StatusCodes.Status409Conflict);
         return app;
     }
 
     private static async Task<IResult> ListRequirementDefinitions([AsParameters] ListRequirementsRequest request, RequirementsDbContext db, CancellationToken cancellationToken = default)
     {
         IQueryable<RequirementDefinition> query = db.RequirementDefinitions.AsNoTracking();
+        if (request.LocationId.HasValue)
+        {
+            Guid[] definitionIds = await db.LocationRequirementPolicies.AsNoTracking()
+                .Where(item => item.LocationId == request.LocationId.Value)
+                .Select(item => item.RequirementDefinitionId)
+                .Distinct()
+                .ToArrayAsync(cancellationToken);
+            query = query.Where(item => definitionIds.Contains(item.Id));
+        }
         if (request.IsActive.HasValue)
             query = query.Where(item => item.IsActive == request.IsActive.Value);
         if (!string.IsNullOrWhiteSpace(request.Query))
@@ -54,9 +64,16 @@ public static class RequirementDefinitionEndpoints
         return result.Map(item => item.ToResponse()).AsResponse(MapError);
     }
 
+    private static async Task<IResult> DeleteRequirementDefinition(Guid id, RequirementsService service, CancellationToken cancellationToken = default)
+    {
+        Result<RequirementDefinition, RequirementDefinitionErrors> result = await service.DeleteRequirementDefinitionAsync(id, cancellationToken);
+        return result.Map(item => item.ToResponse()).AsResponse(MapError);
+    }
+
     private static (int statusCode, ProblemDetails? problemDetails) MapError(RequirementDefinitionErrors error) => error switch
     {
         RequirementDefinitionErrors.RequirementDefinitionNotFound => Problem(StatusCodes.Status404NotFound, "Requirement definition not found."),
+        RequirementDefinitionErrors.RequirementDefinitionInUse => Problem(StatusCodes.Status409Conflict, "Requirement definition is in use and cannot be deleted."),
         RequirementDefinitionErrors.CodeRequired => Problem(StatusCodes.Status400BadRequest, "Requirement definition code is required."),
         RequirementDefinitionErrors.NameRequired => Problem(StatusCodes.Status400BadRequest, "Requirement definition name is required."),
         _ => Problem(StatusCodes.Status400BadRequest, "Requirement definition request is invalid.")

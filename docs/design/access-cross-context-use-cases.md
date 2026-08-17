@@ -47,7 +47,9 @@ Result:
 
 ```text
 Sverre approves.
-After approval, Access Control creates a PACSAssignment for PACS BE / Warehouse Antwerp.
+After approval, Fabric creates the access grant.
+If the grant is compliant, Access Control creates a PACSAssignment for PACS BE / Warehouse Antwerp.
+If the grant is not yet compliant, provisioning is withheld until compliance is satisfied.
 PACS FR / Warehouse Lille is not involved.
 Kris is not asked to approve unless organizational approval requires L+2.
 ```
@@ -123,8 +125,9 @@ Flow:
 Employee joins Warehouse Operators.
 EmployeeLifecycleSaga grants Warehouse package with AssignmentChannel AutomaticConfiguration.
 Approvals are bypassed.
-Access Control resolves Site Antwerp to the nearest PACS link: PACS BE.
-Access Control creates a PACSAssignment for PACS BE / Warehouse Antwerp.
+Grant requirements are attached at grant creation time.
+If the grant is compliant, Access Control resolves Site Antwerp to the nearest PACS link: PACS BE and creates a PACSAssignment for PACS BE / Warehouse Antwerp.
+If not compliant, the grant exists but provisioning is withheld.
 ```
 
 ## Employee Lifecycle Change
@@ -176,8 +179,9 @@ Visit is created for Site Antwerp.
 VisitorAccessAutomation requests a visitor credential from Credential Management.
 VisitorAccessAutomation grants Visitors package with AssignmentChannel AutomaticConfiguration.
 Approvals are bypassed.
-Access Control resolves Site Antwerp to the nearest PACS link: PACS BE.
-Visitor access targets for PACS BE are assigned.
+Grant requirements are attached at grant creation time.
+If the grant is compliant, Access Control resolves Site Antwerp to the nearest PACS link: PACS BE and assigns the visitor access targets.
+If not compliant, the grant remains withheld until compliance is satisfied.
 ```
 
 ## Dependency Direction

@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
+import { getGrantComplianceLabel, getGrantComplianceUntilLabel, getGrantStatusVariant, isGrantBusinessReady } from '@/shared/access-grants/grant-status';
 import { getLocationLabel, type LocationResponse } from '@/shared/components/location-selector';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
@@ -138,12 +139,12 @@ export default function IdentityDetailPage() {
         throw new Error('Could not load assignments.');
       }
 
-      const grants = grantsResult.data?.items ?? [];
+      const grants = (grantsResult.data?.items ?? []) as AccessGrantResponse[];
       const assignments = assignmentsResult.data?.items ?? [];
       const provisionings = provisioningsResult.data?.items ?? [];
 
-      const packageIds = Array.from(new Set(grants.map((item: AccessGrantResponse) => item.packageId)));
-      const locationIds = Array.from(new Set(grants.flatMap((item: AccessGrantResponse) => item.locationIds ?? [])));
+      const packageIds = Array.from(new Set(grants.map((item) => item.packageId)));
+      const locationIds = Array.from(new Set(grants.map((item) => item.locationId)));
 
       const packageAccessItems = await Promise.all(packageIds.map(async (packageId) => {
         const { data, error } = await api.GET('/api/access-catalog/packages/{packageId}/access-items', { params: { path: { packageId }, query: { Page: 0, PageSize: 200 } } });
@@ -155,7 +156,7 @@ export default function IdentityDetailPage() {
       }));
 
       const accessItemIds = Array.from(new Set([
-        ...grants.map((item: AccessGrantResponse) => item.accessItemId).filter((item): item is string => Boolean(item)),
+        ...grants.map((item) => item.accessItemId).filter((item): item is string => Boolean(item)),
         ...packageAccessItems.flat().map((item) => item.accessItemId),
       ]));
 
@@ -186,7 +187,7 @@ export default function IdentityDetailPage() {
         return (data?.items ?? []) as AccessLevelTargetResponse[];
       }));
 
-      const requestIds = Array.from(new Set(grants.filter((item: AccessGrantResponse) => item.sourceKind === 'CatalogRequest').map((item: AccessGrantResponse) => item.sourceId)));
+      const requestIds = Array.from(new Set(grants.filter((item) => item.sourceKind === 'CatalogRequest').map((item) => item.sourceId)));
       const requestDetails = await Promise.all(requestIds.map(async (requestId) => {
         const { data, error } = await api.GET('/api/access-catalog/package-requests/{requestId}/details', { params: { path: { requestId } } });
         if (error || !data) {
@@ -486,7 +487,7 @@ function CatalogAssignmentGroupsTable({ groups }: { readonly groups: readonly Pa
               <td className="px-3 py-3 text-muted-foreground">{group.sourceLabel}</td>
               <td className="px-3 py-3 text-muted-foreground">{group.sourceReason}</td>
               <td className="px-3 py-3 text-muted-foreground">{group.validityLabel}</td>
-              <td className="px-3 py-3"><Badge variant={getAccessGrantStatusVariant(grantStatus)}>{grantStatus}</Badge></td>
+              <td className="px-3 py-3"><Badge variant={getGrantStatusVariant(grantStatus)}>{grantStatus}</Badge></td>
               <td className="px-3 py-3"><Badge variant={provisionStatus.variant}>{provisionStatus.label}</Badge></td>
               <td className="px-3 py-3 text-right">
                 <button
@@ -507,6 +508,7 @@ function CatalogAssignmentGroupsTable({ groups }: { readonly groups: readonly Pa
                   <div className="grid gap-3">
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                       <Info label="Grant status" value={grantStatus} />
+                      <Info label="Compliance state" value={getCatalogAssignmentGroupComplianceSummary(group)} />
                       <Info label="Request status" value={group.requestStatus ? formatRequestStatus(group.requestStatus, group.requestSubStatus ?? null) : '-'} />
                       <Info label="Approved by" value={group.approvalSummary} />
                       <Info label={t('identities.detail.provisionings')} value={String(group.provisioningCount)} />
@@ -544,7 +546,7 @@ function AutomatedAssignmentGroupsTable({ identityId, groups }: { readonly ident
               <td className="px-3 py-3 text-muted-foreground">{group.sourceLabel}</td>
               <td className="px-3 py-3 text-muted-foreground">{group.sourceReason}</td>
               <td className="px-3 py-3 text-muted-foreground">{group.validityLabel}</td>
-              <td className="px-3 py-3"><Badge variant={getAccessGrantStatusVariant(group.status)}>{group.status}</Badge></td>
+              <td className="px-3 py-3"><Badge variant={getGrantStatusVariant(group.status)}>{group.status}</Badge></td>
               <td className="px-3 py-3"><Badge variant={provisionStatus.variant}>{provisionStatus.label}</Badge></td>
               <td className="px-3 py-3 text-right">
                 <button
@@ -568,6 +570,7 @@ function AutomatedAssignmentGroupsTable({ identityId, groups }: { readonly ident
                     </div>
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                       <Info label="Grant status" value={group.status} />
+                      <Info label="Compliance state" value={getAutomaticAssignmentGroupComplianceSummary(group)} />
                       <Info label="Approved by" value={group.approvalSummary} />
                       <Info label="Provisionings" value={String(group.provisioningCount)} />
                       <Info label="Locations" value={group.locationSummary || '-'} />
@@ -1166,10 +1169,6 @@ function getCredentialStatusVariant(status: CredentialResponse['status']) {
   }
 }
 
-function getAccessGrantStatusVariant(status: AccessGrantResponse['status']) {
-  return status === 'Active' ? 'success' : 'secondary';
-}
-
 function getCredentialProvisionStatus(
   credential: CredentialResponse,
   assignments: readonly CredentialPACSAssignmentResponse[],
@@ -1201,7 +1200,7 @@ function getCredentialProvisionStatus(
 function getCatalogAssignmentGroupProvisionStatus(group: PackageAssignmentGroupView) {
   const hasIssues = group.accessItems.some((item) => {
     const hasMaterializationIssue = item.materializationOutcomes.some((outcome) => outcome.status === 'SkippedNoTarget' || outcome.status === 'Failed');
-    return hasMaterializationIssue || item.provisioningSummary.variant !== 'success';
+    return hasMaterializationIssue || item.provisioningSummary.variant !== 'success' || item.leafViews.some((view) => !isGrantBusinessReady(view.grant));
   });
 
   return hasIssues ? { label: i18n.t('identities.detail.no'), variant: 'error' as const } : { label: i18n.t('identities.detail.yes'), variant: 'success' as const };
@@ -1214,7 +1213,7 @@ function getCatalogAssignmentGroupStatus(group: PackageAssignmentGroupView): Acc
 function getAutomatedAssignmentGroupProvisionStatus(group: AutomatedPackageAssignmentGroupView) {
   const hasIssues = group.accessItems.some((item) => {
     const hasMaterializationIssue = item.materializationOutcomes.some((outcome) => outcome.status === 'SkippedNoTarget' || outcome.status === 'Failed');
-    return hasMaterializationIssue || !item.hasTargets || item.provisioningSummary.variant !== 'success';
+    return hasMaterializationIssue || !item.hasTargets || item.provisioningSummary.variant !== 'success' || !isGrantBusinessReady(item.view.grant);
   });
 
   return hasIssues ? { label: i18n.t('identities.detail.no'), variant: 'error' as const } : { label: i18n.t('identities.detail.yes'), variant: 'success' as const };
@@ -1467,7 +1466,7 @@ function buildGrantView(
   const grantProvisionings = (data?.provisionings ?? []).filter((item) => item.sourceAssignmentIds.some((assignmentId) => grantAssignmentIds.has(assignmentId)));
   const packageName = data?.packagesById.get(grant.packageId)?.name ?? grant.packageId;
   const accessItemName = grant.accessItemId ? data?.accessItemsById.get(grant.accessItemId)?.name ?? grant.accessItemId : packageName;
-  const locationLabelsById = new Map((grant.locationIds ?? []).map((locationId) => [locationId, getLocationLabel(data?.locationsById.get(locationId))]));
+  const locationLabelsById = new Map([[grant.locationId, getLocationLabel(data?.locationsById.get(grant.locationId))]]);
   const locationLabels = Array.from(locationLabelsById.values()).join(', ');
   const provisioningSummary = getProvisioningSummary(grantProvisionings);
   const hasStatusMismatch = grantAssignments.some((assignment) => assignment.status === 'Pending') && grantProvisionings.some((provisioning) => provisioning.status === 'Provisioned');
@@ -1645,6 +1644,35 @@ function groupBy<T>(items: readonly T[], keySelector: (item: T) => string) {
 
 function getLocationSummary(views: readonly GrantView[]) {
   return Array.from(new Set(views.flatMap((item) => item.locationLabels.split(', ').filter(Boolean)))).join(', ');
+}
+
+function getCatalogAssignmentGroupComplianceSummary(group: PackageAssignmentGroupView) {
+  const grants = group.accessItems.flatMap((item) => item.leafViews.map((view) => view.grant));
+  if (grants.some((grant) => grant.complianceStatus === 'NonCompliant')) {
+    return 'Withheld pending compliance';
+  }
+
+  if (grants.some((grant) => grant.complianceStatus === 'TemporarilyCompliant')) {
+    const firstTemporary = grants.find((grant) => grant.complianceStatus === 'TemporarilyCompliant');
+    return firstTemporary && getGrantComplianceUntilLabel(firstTemporary)
+      ? `Temporarily compliant until ${formatDateTimeLabel(getGrantComplianceUntilLabel(firstTemporary)! )}`
+      : 'Temporarily compliant';
+  }
+
+  return 'Compliant';
+}
+
+function getAutomaticAssignmentGroupComplianceSummary(group: AutomatedPackageAssignmentGroupView) {
+  const grant = group.accessItems[0]?.view.grant;
+  if (!grant) {
+    return '-';
+  }
+
+  if (grant.complianceStatus === 'TemporarilyCompliant' && getGrantComplianceUntilLabel(grant)) {
+    return `Temporarily compliant until ${formatDateTimeLabel(getGrantComplianceUntilLabel(grant)! )}`;
+  }
+
+  return getGrantComplianceLabel(grant.complianceStatus);
 }
 
 function getValidityLabel(views: readonly GrantView[]) {

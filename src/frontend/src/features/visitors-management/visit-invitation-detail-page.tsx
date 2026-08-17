@@ -3,6 +3,7 @@ import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft, CalendarDays, Mail, MapPin, QrCode, UserRound } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { getGrantApprovalLabel, getGrantApprovalVariant, getGrantBusinessSummary, getGrantComplianceLabel, getGrantComplianceUntilLabel, getGrantComplianceVariant, getGrantStatusVariant } from '@/shared/access-grants/grant-status';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { Badge } from '@/shared/components/ui/badge';
@@ -75,9 +76,9 @@ export default function VisitInvitationDetailPage() {
       }
 
       const packageById = new Map((packageResults.data?.items ?? []).map((item) => [item.id, item]));
-      const assignedPackages = (grantsResult.data?.items ?? [])
-        .filter((grant: AccessGrantResponse) => grant.sourceKind === 'ReceptionArrival' && grant.sourceId === saga?.arrivalId)
-        .map((grant: AccessGrantResponse) => ({
+      const assignedPackages = ((grantsResult.data?.items ?? []) as AccessGrantResponse[])
+        .filter((grant) => grant.sourceKind === 'ReceptionArrival' && grant.sourceId === saga?.arrivalId)
+        .map((grant) => ({
           grant,
           packageName: packageById.get(grant.packageId)?.name ?? grant.packageId,
           isProvisioned: grant.materializationOutcomes.length > 0 && grant.materializationOutcomes.every((outcome) => outcome.status === 'Created'),
@@ -178,7 +179,13 @@ export default function VisitInvitationDetailPage() {
                         <div className="mt-1 text-muted-foreground">{formatValidityRange(item.grant.validFrom, item.grant.validUntil)}</div>
                       </td>
                       <td className="px-4 py-4">
-                        <Badge variant={getAccessGrantVariant(item.grant.status)}>{item.grant.status}</Badge>
+                        <Badge variant={getGrantStatusVariant(item.grant.status)}>{item.grant.status}</Badge>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <Badge variant={getGrantApprovalVariant(item.grant.approvalStatus)}>{getGrantApprovalLabel(item.grant.approvalStatus)}</Badge>
+                          <Badge variant={getGrantComplianceVariant(item.grant.complianceStatus)}>{getGrantComplianceLabel(item.grant.complianceStatus)}</Badge>
+                        </div>
+                        <div className="mt-2 text-[13px] text-muted-foreground">{getGrantBusinessSummary(item.grant)}</div>
+                        {getGrantComplianceUntilLabel(item.grant) ? <div className="mt-1 text-[13px] text-muted-foreground">Compliant until {formatDateTime(getGrantComplianceUntilLabel(item.grant)!)}</div> : null}
                         {item.grant.status === 'Revoked' && item.grant.revokeCause ? <div className="mt-2 text-[13px] text-muted-foreground">{formatAccessGrantRevokeCause(item.grant.revokeCause, t)}</div> : null}
                         {item.grant.status === 'Revoked' && item.grant.revokedBy ? <div className="mt-1 text-[13px] text-muted-foreground">{item.grant.revokedBy}</div> : null}
                       </td>
@@ -277,17 +284,6 @@ function getCredentialProvisioningStatus(credential: CredentialResponse | null, 
   }
 
   return t('visitorsManagement.invitationDetail.generated');
-}
-
-function getAccessGrantVariant(status: AccessGrantResponse['status']): 'success' | 'secondary' | 'error' {
-  switch (status) {
-    case 'Active':
-      return 'success';
-    case 'Revoked':
-      return 'error';
-    default:
-      return 'secondary';
-  }
 }
 
 function Detail({ icon, label, value, hint }: { readonly icon: React.ReactNode; readonly label: string; readonly value: string; readonly hint?: string }) {

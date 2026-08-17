@@ -6,6 +6,7 @@ import { useEffect, useId, useState } from 'react';
 import { toast } from 'sonner';
 
 import { useCurrentActor } from '@/shared/actors/current-actor';
+import { getGrantComplianceLabel, getGrantComplianceVariant } from '@/shared/access-grants/grant-status';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { getLocationLabel, LocationSelector, type LocationResponse } from '@/shared/components/location-selector';
@@ -27,6 +28,7 @@ type CreatePackageRequestRequest = components['schemas']['CreatePackageRequestRe
 type EmployeeWorkLocationResponse = components['schemas']['EmployeeWorkLocationResponse'];
 type PackageRequestResponse = components['schemas']['PackageRequestResponse'];
 type PackageResponse = components['schemas']['PackageResponse'];
+type PackageRequestPreviewResponse = components['schemas']['PackageRequestPreviewResponse'];
 type PreviewPackageRequestApprovalsRequest = components['schemas']['PreviewPackageRequestApprovalsRequest'];
 
 type EmployeeRequestTab = 'new-request' | 'my-requests';
@@ -160,6 +162,9 @@ export default function EmployeeRequestAccessPage() {
         packageId: selectedPackageId,
         beneficiaryIdentityId: identityId ?? '',
         locationIds: selectedLocationIds,
+        durationKind,
+        validFrom: new Date(validFrom).toISOString(),
+        validUntil: durationKind === 'Permanent' ? null : new Date(validUntil).toISOString(),
       };
 
       const { data, error } = await api.POST('/api/access-catalog/package-requests/approval-preview', { body: request });
@@ -227,7 +232,8 @@ export default function EmployeeRequestAccessPage() {
   const defaultLocationIds = new Set(workLocations.map((item: EmployeeWorkLocationResponse) => item.locationId));
   const primaryLocationIds = new Set(workLocations.filter((item: EmployeeWorkLocationResponse) => item.isPrimary).map((item: EmployeeWorkLocationResponse) => item.locationId));
   const selectedLocationDetails = selectedLocationDetailsQuery.data ?? new Map<string, LocationResponse>();
-  const approvalPreview = approvalPreviewQuery.data ?? [];
+  const approvalPreview = approvalPreviewQuery.data?.approvals ?? [];
+  const compliancePreview = approvalPreviewQuery.data?.compliance ?? [];
   const myRequests = myRequestsQuery.data ?? [];
   const myRequestPackages = requestPackageDetailsQuery.data ?? new Map<string, PackageResponse>();
   const hasActorContext = Boolean(identityId && employeeId);
@@ -501,8 +507,8 @@ export default function EmployeeRequestAccessPage() {
                 {step === 2 ? (
                   <div className="grid gap-6">
                     <div>
-                      <h2 className="text-[20px] font-semibold tracking-tight">Step 3. Approval chain</h2>
-                      <p className="mt-2 text-[14px] text-muted-foreground">Review approvals required for each access item in this request.</p>
+                      <h2 className="text-[20px] font-semibold tracking-tight">Step 3. Approval and compliance</h2>
+                      <p className="mt-2 text-[14px] text-muted-foreground">Review approvals and current compliance state for the selected request.</p>
                     </div>
 
                     {approvalPreviewQuery.isError ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load approval preview.</p> : null}
@@ -534,6 +540,46 @@ export default function EmployeeRequestAccessPage() {
                         ))}
 
                         {approvalPreview.length === 0 && !approvalPreviewQuery.isError ? <p className="rounded-structural border border-dashed border-border p-6 text-[14px] text-muted-foreground">No approval requirements returned. This request will autoapprove.</p> : null}
+
+                        <div className="mt-2 rounded-structural border border-border p-4">
+                          <div>
+                            <h3 className="text-[18px] font-semibold tracking-tight">Compliance check</h3>
+                            <p className="mt-2 text-[14px] text-muted-foreground">Requests can still be approved while compliance is pending. Provisioning waits until compliance is met.</p>
+                          </div>
+                          <div className="mt-4 grid gap-4">
+                            {compliancePreview.map((item) => (
+                              <div key={item.locationId} className="rounded-structural border border-border bg-hover-gray/30 p-4">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                  <div>
+                                    <p className="font-medium text-foreground">{item.locationLabel}</p>
+                                    {item.compliantUntil ? <p className="mt-1 text-[14px] text-muted-foreground">Compliant until {formatDateTimeLabel(item.compliantUntil)}</p> : null}
+                                  </div>
+                                  <Badge variant={getGrantComplianceVariant(item.status)}>{getGrantComplianceLabel(item.status)}</Badge>
+                                </div>
+                                {item.requirements.length === 0 ? (
+                                  <p className="mt-4 text-[14px] text-muted-foreground">No compliance requirements for this location.</p>
+                                ) : (
+                                  <div className="mt-4 grid gap-3">
+                                    {item.requirements.map((requirement) => (
+                                      <div key={requirement.requirementDefinitionId} className="rounded-structural border border-border bg-background p-3">
+                                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                          <div>
+                                            <p className="font-medium text-foreground">{requirement.name}</p>
+                                            <p className="mt-1 text-[14px] text-muted-foreground">{requirement.code}{requirement.isBlocking ? ' • blocking' : ''}</p>
+                                          </div>
+                                          <Badge variant={requirement.status === 'Fulfilled' ? 'success' : requirement.status === 'Missing' || requirement.status === 'Failed' || requirement.status === 'Expired' ? 'error' : 'secondary'}>{requirement.status}</Badge>
+                                        </div>
+                                        <p className="mt-3 text-[14px] text-muted-foreground">{requirement.reason}</p>
+                                        {requirement.validUntil ? <p className="mt-1 text-[13px] text-muted-foreground">Valid until {formatDateTimeLabel(requirement.validUntil)}</p> : null}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                            {compliancePreview.length === 0 && !approvalPreviewQuery.isError ? <p className="rounded-structural border border-dashed border-border p-6 text-[14px] text-muted-foreground">No compliance preview returned.</p> : null}
+                          </div>
+                        </div>
                       </div>
                     ) : null}
                   </div>
@@ -569,6 +615,13 @@ export default function EmployeeRequestAccessPage() {
                       <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Approval summary</p>
                       <div className="mt-3 grid gap-2">
                         {approvalPreview.length === 0 ? <p className="text-[14px] text-foreground">Autoapproved</p> : approvalPreview.map((item) => <p key={item.accessItemId} className="text-[14px] text-foreground">{item.name}: {item.requirements.length === 0 ? 'Autoapproved' : `${item.requirements.length} approval${item.requirements.length === 1 ? '' : 's'} required`}</p>)}
+                      </div>
+                    </div>
+
+                    <div className="rounded-structural border border-border p-4">
+                      <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Compliance summary</p>
+                      <div className="mt-3 grid gap-2">
+                        {compliancePreview.length === 0 ? <p className="text-[14px] text-foreground">No compliance preview.</p> : compliancePreview.map((item) => <p key={item.locationId} className="text-[14px] text-foreground">{item.locationLabel}: {getGrantComplianceLabel(item.status)}{item.compliantUntil ? ` until ${formatDateTimeLabel(item.compliantUntil)}` : ''}</p>)}
                       </div>
                     </div>
                   </div>

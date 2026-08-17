@@ -4,6 +4,7 @@ using Fabric.Server.AccessControl.Application;
 using Fabric.Server.AccessControl.Domain;
 using Fabric.Server.Core;
 using Fabric.Server.Infrastructure.Tenancy;
+using Fabric.Server.AccessCatalog.Application;
 using Microsoft.EntityFrameworkCore;
 
 namespace Fabric.Server.Sagas.AccessGrantProvisioning;
@@ -148,9 +149,16 @@ public sealed class AccessGrantProvisioningSagaService(
         if (grant is null)
             throw new InvalidOperationException("Access grant not found.");
 
-        if (grant.Status == AccessGrantStatus.Revoked)
+        if (grant.Status is AccessGrantStatus.Revoked or AccessGrantStatus.Replaced or AccessGrantStatus.Expired)
         {
             saga.State = AccessGrantProvisioningSagaState.Revoked;
+            return;
+        }
+
+        if (!AccessGrantComplianceService.IsProvisionable(grant, timeProvider.GetUtcNow()))
+        {
+            _ = await pacsAssignmentService.RevokeBySourceAssignmentIdAsync(grant.Id, cancellationToken);
+            saga.State = AccessGrantProvisioningSagaState.Withheld;
             return;
         }
 
@@ -161,11 +169,6 @@ public sealed class AccessGrantProvisioningSagaService(
                 .Select(item => item.AccessItemId)
                 .ToArrayAsync(cancellationToken);
 
-        Guid[] locationIds = await accessCatalogDb.AccessGrantLocations
-            .Where(item => item.AccessGrantId == grant.Id)
-            .Select(item => item.LocationId)
-            .ToArrayAsync(cancellationToken);
-
         AccessGrantMaterializationOutcome[] existingOutcomes = await db.AccessGrantMaterializationOutcomes
             .Where(item => item.AccessGrantId == grant.Id)
             .ToArrayAsync(cancellationToken);
@@ -174,39 +177,37 @@ public sealed class AccessGrantProvisioningSagaService(
         List<string> hardFailureReasons = [];
         DateTimeOffset now = timeProvider.GetUtcNow();
 
-        foreach (Guid locationId in locationIds)
+        DateTimeOffset? provisionedUntil = AccessGrantComplianceService.GetProvisionedUntil(grant);
+        foreach (Guid accessItemId in accessItemIds)
         {
-            foreach (Guid accessItemId in accessItemIds)
+            desiredKeys.Add((accessItemId, grant.LocationId));
+
+            Result<IReadOnlyList<AccessControl.Domain.PACSAssignment>, AccessControl.Domain.AccessControlErrors> result =
+                await pacsAssignmentService.CreateAssignmentsForGrantAsync(
+                    grant.Id,
+                    grant.IdentityId,
+                    accessItemId,
+                    grant.LocationId,
+                    ToDurationKind(grant.DurationKind, provisionedUntil),
+                    grant.ValidFrom,
+                    provisionedUntil,
+                    cancellationToken);
+
+            if (result.IsFailure(out AccessControl.Domain.AccessControlErrors error))
             {
-                desiredKeys.Add((accessItemId, locationId));
-
-                Result<IReadOnlyList<AccessControl.Domain.PACSAssignment>, AccessControl.Domain.AccessControlErrors> result =
-                    await pacsAssignmentService.CreateAssignmentsForGrantAsync(
-                        grant.Id,
-                        grant.IdentityId,
-                        accessItemId,
-                        locationId,
-                        ToDurationKind(grant.DurationKind),
-                        grant.ValidFrom,
-                        grant.ValidUntil,
-                        cancellationToken);
-
-                if (result.IsFailure(out AccessControl.Domain.AccessControlErrors error))
+                if (error == AccessControl.Domain.AccessControlErrors.NoAccessLevelTargetsResolved)
                 {
-                    if (error == AccessControl.Domain.AccessControlErrors.NoAccessLevelTargetsResolved)
-                    {
-                        UpsertOutcome(existingOutcomes, grant.Id, accessItemId, locationId, AccessGrantMaterializationOutcomeStatus.SkippedNoTarget, "No enabled access level target is configured for this access item.", now);
-                        continue;
-                    }
-
-                    string failureReason = $"Failed to create PACS assignments: {error}.";
-                    UpsertOutcome(existingOutcomes, grant.Id, accessItemId, locationId, AccessGrantMaterializationOutcomeStatus.Failed, failureReason, now);
-                    hardFailureReasons.Add(failureReason);
+                    UpsertOutcome(existingOutcomes, grant.Id, accessItemId, grant.LocationId, AccessGrantMaterializationOutcomeStatus.SkippedNoTarget, "No enabled access level target is configured for this access item.", now);
                     continue;
                 }
 
-                UpsertOutcome(existingOutcomes, grant.Id, accessItemId, locationId, AccessGrantMaterializationOutcomeStatus.Created, null, now);
+                string failureReason = $"Failed to create PACS assignments: {error}.";
+                UpsertOutcome(existingOutcomes, grant.Id, accessItemId, grant.LocationId, AccessGrantMaterializationOutcomeStatus.Failed, failureReason, now);
+                hardFailureReasons.Add(failureReason);
+                continue;
             }
+
+            UpsertOutcome(existingOutcomes, grant.Id, accessItemId, grant.LocationId, AccessGrantMaterializationOutcomeStatus.Created, null, now);
         }
 
         foreach (AccessGrantMaterializationOutcome obsoleteOutcome in existingOutcomes.Where(item => !desiredKeys.Contains((item.AccessItemId, item.LocationId))))
@@ -298,9 +299,10 @@ public sealed class AccessGrantProvisioningSagaService(
         return now.Add(delay);
     }
 
-    private static PACSAssignmentDurationKind ToDurationKind(AccessDurationKind durationKind) => durationKind switch
+    private static PACSAssignmentDurationKind ToDurationKind(AccessDurationKind durationKind, DateTimeOffset? validUntil) => durationKind switch
     {
-        AccessDurationKind.Permanent => PACSAssignmentDurationKind.Permanent,
+        AccessDurationKind.Permanent when !validUntil.HasValue => PACSAssignmentDurationKind.Permanent,
+        AccessDurationKind.Permanent => PACSAssignmentDurationKind.Temporary,
         _ => PACSAssignmentDurationKind.Temporary
     };
 }

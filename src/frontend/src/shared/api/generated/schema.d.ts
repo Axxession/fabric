@@ -7724,6 +7724,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/access-catalog/access-grants/recalculate-requirements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query: {
+                    futureOnly: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RecalculateGrantRequirementsResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/access-catalog/access-grants/{accessGrantId}": {
         parameters: {
             query?: never;
@@ -8359,7 +8396,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ApprovalRequirementsPreviewAccessItemResponse"][];
+                        "application/json": components["schemas"]["PackageRequestPreviewResponse"];
                     };
                 };
             };
@@ -9035,6 +9072,607 @@ export interface paths {
                     content: {
                         "application/json": components["schemas"]["ProblemDetails"];
                     };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/requirements/definitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    Query?: string;
+                    IsActive?: boolean;
+                    LocationId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PageOfRequirementDefinitionResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateRequirementDefinitionRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RequirementDefinitionResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/requirements/definitions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RequirementDefinitionResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateRequirementDefinitionRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RequirementDefinitionResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RequirementDefinitionResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/requirements/policies/location/{locationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    locationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LocationAttachedRequirementResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/requirements/policies/location": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateLocationRequirementPolicyRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LocationRequirementPolicyResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/requirements/policies/location/{policyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    policyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LocationRequirementPolicyResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/requirements/policies/location-job": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateLocationJobRequirementPolicyRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LocationJobRequirementPolicyResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/requirements/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    Query?: string;
+                    IsActive?: boolean;
+                    LocationId?: string;
+                    identityId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PageOfRequirementEvidenceResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        /** Format: uuid */
+                        identityId: string;
+                    } & {
+                        /** Format: uuid */
+                        requirementDefinitionId: string;
+                    } & {
+                        evidenceKind: components["schemas"]["RequirementEvidenceKind"];
+                    } & {
+                        status: components["schemas"]["RequirementEvidenceStatus"];
+                    } & {
+                        /** Format: date-time */
+                        validFrom?: string;
+                    } & {
+                        /** Format: date-time */
+                        validUntil?: string;
+                    } & string & {
+                        isSensitive: boolean;
+                    } & {
+                        /** Format: date-time */
+                        verifiedAt: string;
+                    } & {
+                        file?: components["schemas"]["IFormFile"];
+                    };
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RequirementEvidenceResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/requirements/evidence/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RequirementEvidenceResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        status: components["schemas"]["RequirementEvidenceStatus"];
+                    } & {
+                        /** Format: date-time */
+                        validFrom?: string;
+                    } & {
+                        /** Format: date-time */
+                        validUntil?: string;
+                    } & string & {
+                        isSensitive: boolean;
+                    } & {
+                        /** Format: date-time */
+                        verifiedAt: string;
+                    } & {
+                        file?: components["schemas"]["IFormFile"];
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RequirementEvidenceResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RequirementEvidenceResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
                 };
             };
         };
@@ -15906,22 +16544,33 @@ export interface components {
             approvalFlowId: null | string;
             /** Format: uuid */
             requestScopeId: null | string;
+            /** Format: uuid */
+            locationId: string;
             durationKind: components["schemas"]["AccessDurationKind"];
             /** Format: date-time */
             validFrom: string;
             /** Format: date-time */
             validUntil: null | string;
             status: components["schemas"]["AccessGrantStatus"];
+            /** Format: uuid */
+            replacedById: null | string;
+            approvalStatus: components["schemas"]["GrantApprovalStatus"];
+            complianceStatus: components["schemas"]["GrantComplianceStatus"];
+            /** Format: date-time */
+            compliantUntil: null | string;
+            /** Format: date-time */
+            lastComplianceEvaluatedAt: null | string;
             reasonText: string;
             revokedBy: null | string;
             revokeCause: null | components["schemas"]["AccessGrantRevokeCause"];
-            locationIds: string[];
+            requirements: components["schemas"]["GrantRequirementResponse"][];
+            requirementResults: components["schemas"]["GrantRequirementResultResponse"][];
             materializationOutcomes: components["schemas"]["AccessGrantMaterializationOutcomeResponse"][];
         };
         /** @enum {unknown} */
         AccessGrantRevokeCause: "Manual" | "VisitRescheduled" | "ArrivalRelocated" | "VisitCancelled" | "VisitOffboarded" | "EmployeeLifecycleAutomation" | null;
         /** @enum {unknown} */
-        AccessGrantStatus: "Active" | "Revoked";
+        AccessGrantStatus: "Planned" | "Active" | "Revoked" | "Replaced" | "Expired";
         AccessItemResponse: {
             /** Format: uuid */
             id: string;
@@ -16315,7 +16964,7 @@ export interface components {
         /** @enum {unknown} */
         AssignmentChannel: "CatalogRequest" | "AutomaticConfiguration" | "Manual";
         /** @enum {unknown} */
-        AssignmentSourceKind: "CatalogRequest" | "OrganizationalUnit" | "Persona" | "ReceptionArrival" | "VisitorLocation" | "Manual";
+        AssignmentSourceKind: "CatalogRequest" | "OrganizationalUnit" | "Persona" | "ReceptionArrival" | "VisitorLocation" | "ContractorJob" | "Manual";
         BadgeBatchResponse: {
             /** Format: uuid */
             id: string;
@@ -16476,6 +17125,26 @@ export interface components {
             methodName?: null | string;
             tag?: unknown;
         };
+        CompliancePreviewLocationResponse: {
+            /** Format: uuid */
+            locationId: string;
+            locationLabel: string;
+            status: components["schemas"]["GrantComplianceStatus"];
+            /** Format: date-time */
+            compliantUntil: null | string;
+            requirements: components["schemas"]["ComplianceRequirementPreviewResponse"][];
+        };
+        ComplianceRequirementPreviewResponse: {
+            /** Format: uuid */
+            requirementDefinitionId: string;
+            code: string;
+            name: string;
+            isBlocking: boolean;
+            status: components["schemas"]["RequirementResultStatus"];
+            reason: string;
+            /** Format: date-time */
+            validUntil: null | string;
+        };
         ConfirmInvitationRequest: {
             firstName: string;
             lastName: string;
@@ -16508,6 +17177,8 @@ export interface components {
             jobTypeId: string;
             /** Format: uuid */
             locationId: string;
+            /** Format: uuid */
+            createdByIdentityId: string;
             name: string;
             description: null | string;
             /** Format: date-time */
@@ -16550,7 +17221,8 @@ export interface components {
             packageId: string;
             /** Format: uuid */
             identityId: string;
-            locationIds: string[];
+            /** Format: uuid */
+            locationId: string;
             assignmentChannel: components["schemas"]["AssignmentChannel"];
             sourceKind: components["schemas"]["AssignmentSourceKind"];
             /** Format: uuid */
@@ -16778,6 +17450,23 @@ export interface components {
             /** @default false */
             showDetailedErrors: boolean;
         };
+        CreateLocationJobRequirementPolicyRequest: {
+            /** Format: uuid */
+            locationId: string;
+            /** Format: uuid */
+            jobTypeId: string;
+            /** Format: uuid */
+            requirementDefinitionId: string;
+            isBlocking: boolean;
+        };
+        CreateLocationRequirementPolicyRequest: {
+            /** Format: uuid */
+            locationId: string;
+            /** Format: uuid */
+            requirementDefinitionId: string;
+            subjectKind: components["schemas"]["RequirementSubjectKind"];
+            isBlocking: boolean;
+        };
         CreateOrganizationalUnitPackageRuleRequest: {
             /** Format: uuid */
             organizationUnitId: string;
@@ -16856,6 +17545,13 @@ export interface components {
             identityVerificationMethod: null | components["schemas"]["IdentityVerificationMethod"];
             /** Format: int32 */
             onboardingGracePeriodMinutes: number | string;
+        };
+        CreateRequirementDefinitionRequest: {
+            code: string;
+            name: string;
+            description: null | string;
+            evaluatorKind: components["schemas"]["RequirementEvaluatorKind"];
+            isSensitive: boolean;
         };
         CreateSiteRequest: {
             /** Format: uuid */
@@ -17227,6 +17923,36 @@ export interface components {
             versionOptions?: null | components["schemas"]["VersionOptions"];
             input?: null | string;
             variables?: null | string;
+        };
+        /** @enum {unknown} */
+        GrantApprovalStatus: "NotRequired" | "Pending" | "Approved" | "Rejected";
+        /** @enum {unknown} */
+        GrantComplianceStatus: "Compliant" | "TemporarilyCompliant" | "NonCompliant";
+        GrantRequirementResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            requirementDefinitionId: string;
+            sourcePolicyKind: string;
+            /** Format: uuid */
+            sourcePolicyId: string;
+            isBlocking: boolean;
+            /** Format: date-time */
+            derivedAt: string;
+        };
+        GrantRequirementResultResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            requirementDefinitionId: string;
+            status: components["schemas"]["RequirementResultStatus"];
+            evidenceKind: null | components["schemas"]["RequirementEvidenceKind"];
+            evidenceReference: null | string;
+            reason: string;
+            /** Format: date-time */
+            validUntil: null | string;
+            /** Format: date-time */
+            lastEvaluatedAt: string;
         };
         GraphEmailSettingsResponse: {
             fromEmail: string;
@@ -17821,6 +18547,56 @@ export interface components {
             /** Format: int64 */
             count?: number | string;
         };
+        LocationAttachedRequirementResponse: {
+            /** Format: uuid */
+            policyId: string;
+            /** Format: uuid */
+            locationId: string;
+            /** Format: uuid */
+            requirementDefinitionId: string;
+            requirementCode: string;
+            requirementName: string;
+            evaluatorKind: components["schemas"]["RequirementEvaluatorKind"];
+            isSensitive: boolean;
+            subjectKind: components["schemas"]["RequirementSubjectKind"];
+            isBlocking: boolean;
+            isEnabled: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        LocationJobRequirementPolicyResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            locationId: string;
+            /** Format: uuid */
+            jobTypeId: string;
+            /** Format: uuid */
+            requirementDefinitionId: string;
+            isBlocking: boolean;
+            isEnabled: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        LocationRequirementPolicyResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            locationId: string;
+            /** Format: uuid */
+            requirementDefinitionId: string;
+            subjectKind: components["schemas"]["RequirementSubjectKind"];
+            isBlocking: boolean;
+            isEnabled: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         LocationResponse: {
             /** Format: uuid */
             id: string;
@@ -17965,6 +18741,10 @@ export interface components {
             locationId: string;
             locationLabel: string;
             status: components["schemas"]["AccessGrantStatus"];
+            approvalStatus: components["schemas"]["GrantApprovalStatus"];
+            complianceStatus: components["schemas"]["GrantComplianceStatus"];
+            /** Format: date-time */
+            compliantUntil: null | string;
             /** Format: date-time */
             validFrom: string;
             /** Format: date-time */
@@ -18003,6 +18783,10 @@ export interface components {
             requestedLocations: components["schemas"]["PackageRequestDetailLocationResponse"][];
             flows: components["schemas"]["PackageRequestDetailFlowResponse"][];
             grants: components["schemas"]["PackageRequestDetailGrantResponse"][];
+        };
+        PackageRequestPreviewResponse: {
+            approvals: components["schemas"]["ApprovalRequirementsPreviewAccessItemResponse"][];
+            compliance: components["schemas"]["CompliancePreviewLocationResponse"][];
         };
         PackageRequestResponse: {
             /** Format: uuid */
@@ -18760,6 +19544,30 @@ export interface components {
             items?: components["schemas"]["ReceptionKioskResponse"][];
             isLastPage?: boolean;
         };
+        PageOfRequirementDefinitionResponse: {
+            /** Format: int32 */
+            currentPage?: number | string;
+            /** Format: int32 */
+            totalPages?: null | number | string;
+            /** Format: int32 */
+            pageSize?: number | string;
+            /** Format: int32 */
+            totalItems?: null | number | string;
+            items?: components["schemas"]["RequirementDefinitionResponse"][];
+            isLastPage?: boolean;
+        };
+        PageOfRequirementEvidenceResponse: {
+            /** Format: int32 */
+            currentPage?: number | string;
+            /** Format: int32 */
+            totalPages?: null | number | string;
+            /** Format: int32 */
+            pageSize?: number | string;
+            /** Format: int32 */
+            totalItems?: null | number | string;
+            items?: components["schemas"]["RequirementEvidenceResponse"][];
+            isLastPage?: boolean;
+        };
         PageOfSiteResponse: {
             /** Format: int32 */
             currentPage?: number | string;
@@ -18909,6 +19717,11 @@ export interface components {
             /** Format: uuid */
             beneficiaryIdentityId: string;
             locationIds: string[];
+            durationKind: components["schemas"]["AccessDurationKind"];
+            /** Format: date-time */
+            validFrom: string;
+            /** Format: date-time */
+            validUntil: null | string;
         };
         PreviewPrintDesignRequest: {
             data: {
@@ -18979,6 +19792,11 @@ export interface components {
             status: components["schemas"]["HardwareOperationStatus"];
             value: null | string;
             error: null | components["schemas"]["HardwareErrorResponse"];
+        };
+        RecalculateGrantRequirementsResponse: {
+            /** Format: int32 */
+            grantsProcessed: number | string;
+            futureOnly: boolean;
         };
         /** @enum {unknown} */
         ReceptionAccessPolicyTrigger: "ExpectedVisitorAdded" | "VisitorConfirmed" | "VisitorOnboarded" | "ContractorExpectedAdded" | "ContractorOnboarded";
@@ -19105,6 +19923,54 @@ export interface components {
         Request: {
             variables?: components["schemas"]["VariableUpdateValue"][];
         };
+        RequirementDefinitionResponse: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: string;
+            description: null | string;
+            evaluatorKind: components["schemas"]["RequirementEvaluatorKind"];
+            isSensitive: boolean;
+            isActive: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        /** @enum {unknown} */
+        RequirementEvaluatorKind: "UploadedDocument" | "ExternalCheck" | "Escort" | "Computed";
+        /** @enum {unknown} */
+        RequirementEvidenceKind: "UploadedDocument" | "ExternalCheck" | "Onboarded" | "Computed" | "Escort" | null;
+        RequirementEvidenceResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            identityId: string;
+            /** Format: uuid */
+            requirementDefinitionId: string;
+            evidenceKind: components["schemas"]["RequirementEvidenceKind"];
+            status: components["schemas"]["RequirementEvidenceStatus"];
+            /** Format: date-time */
+            validFrom: null | string;
+            /** Format: date-time */
+            validUntil: null | string;
+            sourceReference: null | string;
+            summary: string;
+            isSensitive: boolean;
+            /** Format: date-time */
+            verifiedAt: string;
+            fileName: null | string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        /** @enum {unknown} */
+        RequirementEvidenceStatus: "Valid" | "Invalid";
+        /** @enum {unknown} */
+        RequirementResultStatus: "Fulfilled" | "Missing" | "Failed" | "Expired";
+        /** @enum {unknown} */
+        RequirementSubjectKind: "Employee" | "Visitor" | "Contractor" | "Any";
         RescheduleVisitRequest: {
             /** Format: date-time */
             start: string;
@@ -19527,6 +20393,13 @@ export interface components {
             identityVerificationMethod: null | components["schemas"]["IdentityVerificationMethod"];
             /** Format: int32 */
             onboardingGracePeriodMinutes: number | string;
+        };
+        UpdateRequirementDefinitionRequest: {
+            code: string;
+            name: string;
+            description: null | string;
+            evaluatorKind: components["schemas"]["RequirementEvaluatorKind"];
+            isSensitive: boolean;
         };
         UpdateRoomRequest: {
             name: string;
