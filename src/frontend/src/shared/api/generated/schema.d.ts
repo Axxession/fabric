@@ -7804,6 +7804,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/access-catalog/access-grants/contractor-assignment-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ContractorAssignmentCompliancePreviewRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ContractorAssignmentCompliancePreviewResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/access-catalog/access-grants/compliance-summaries/by-source": {
         parameters: {
             query?: never;
@@ -17714,6 +17753,37 @@ export interface components {
             company: string;
             transport: components["schemas"]["ModeOfTransport"];
             licensePlate: null | string;
+        };
+        ContractorAssignmentCompliancePreviewPackageResponse: {
+            /** Format: uuid */
+            packageId: string;
+            packageName: string;
+            status: components["schemas"]["GrantComplianceStatus"];
+            /** Format: date-time */
+            compliantUntil: null | string;
+            requirements: components["schemas"]["AssignmentRequirementComplianceResponse"][];
+        };
+        ContractorAssignmentCompliancePreviewRequest: {
+            /** Format: uuid */
+            contractorId: string;
+            /** Format: uuid */
+            contractorJobId: string;
+            /** Format: date-time */
+            assignedFrom: string;
+            /** Format: date-time */
+            assignedUntil: string;
+        };
+        ContractorAssignmentCompliancePreviewResponse: {
+            /** Format: uuid */
+            contractorId: string;
+            /** Format: uuid */
+            contractorJobId: string;
+            /** Format: uuid */
+            locationId: string;
+            /** Format: uuid */
+            jobTypeId: string;
+            unavailableReason: null | string;
+            packages: components["schemas"]["ContractorAssignmentCompliancePreviewPackageResponse"][];
         };
         ContractorJobAssignmentResponse: {
             /** Format: uuid */

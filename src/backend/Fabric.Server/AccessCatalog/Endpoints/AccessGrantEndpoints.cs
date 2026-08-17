@@ -3,10 +3,16 @@ using Fabric.Server.AccessCatalog.Contracts;
 using Fabric.Server.AccessCatalog.Domain;
 using Fabric.Server.AccessCatalog.Persistence;
 using Fabric.Server.AccessControl.Persistence;
+using Fabric.Server.Contractors.Domain;
+using Fabric.Server.Contractors.Persistence;
 using Fabric.Server.Core;
+using Fabric.Server.Identities.Persistence;
+using Fabric.Server.Locations.Persistence;
 using Fabric.Server.Requirements.Domain;
+using Fabric.Server.Requirements.Application;
 using Fabric.Server.Requirements.Persistence;
 using Fabric.Server.Sagas;
+using Fabric.Server.Sagas.ContractorJobs;
 using Fabric.Server.Sagas.AccessGrantProvisioning;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -23,6 +29,7 @@ public static class AccessGrantEndpoints
         grants.MapGet("", ListAccessGrants).Produces<Page<AccessGrantResponse>>();
         grants.MapPost("", CreateAccessGrant).Produces<CreateAccessGrantResponse>(StatusCodes.Status201Created);
         grants.MapPost("/recalculate-requirements", RecalculateGrantRequirements).Produces<RecalculateGrantRequirementsResponse>();
+        grants.MapPost("/contractor-assignment-preview", PreviewContractorAssignmentCompliance).Produces<ContractorAssignmentCompliancePreviewResponse>();
         grants.MapPost("/compliance-summaries/by-source", ListAssignmentComplianceSummariesBySource).Produces<AssignmentComplianceSummaryResponse[]>();
         grants.MapPost("/compliance-details/by-source", ListAssignmentComplianceDetailsBySource).Produces<AssignmentComplianceDetailResponse[]>();
         grants.MapGet("/{accessGrantId:guid}", GetAccessGrant).Produces<AccessGrantResponse>().Produces(StatusCodes.Status404NotFound);
@@ -105,6 +112,112 @@ public static class AccessGrantEndpoints
     {
         int processed = await service.RecalculateRequirementsAsync(futureOnly, cancellationToken);
         return Results.Ok(new RecalculateGrantRequirementsResponse(processed, futureOnly));
+    }
+
+    private static async Task<IResult> PreviewContractorAssignmentCompliance(
+        [FromBody] ContractorAssignmentCompliancePreviewRequest request,
+        ContractorsDbContext contractorsDb,
+        IdentitiesDbContext identitiesDb,
+        RequirementsDbContext requirementsDb,
+        AccessCatalogDbContext accessCatalogDb,
+        SagasDbContext sagasDb,
+        LocationsDbContext locationsDb,
+        GrantRequirementsService grantRequirementsService,
+        CancellationToken cancellationToken = default)
+    {
+        ContractorJob? job = await contractorsDb.ContractorJobs.AsNoTracking().SingleOrDefaultAsync(item => item.Id == request.ContractorJobId, cancellationToken);
+        if (job is null)
+            return Results.NotFound();
+
+        Contractor? contractor = await contractorsDb.Contractors.AsNoTracking().SingleOrDefaultAsync(item => item.Id == request.ContractorId, cancellationToken);
+        if (contractor is null)
+            return Results.NotFound();
+
+        if (contractor.CompanyId != job.CompanyId)
+            return Results.Problem("Contractor does not belong to the same company as the job.", statusCode: StatusCodes.Status400BadRequest);
+
+        if (request.AssignedUntil <= request.AssignedFrom)
+            return Results.Problem("Assigned until must be after assigned from.", statusCode: StatusCodes.Status400BadRequest);
+
+        if (request.AssignedUntil > job.PlannedEnd)
+            return Results.Problem("Assignment must fit inside the job window.", statusCode: StatusCodes.Status400BadRequest);
+
+        Guid? identityId = await identitiesDb.ContractorAffiliations
+            .AsNoTracking()
+            .Where(item => item.ContractorId == request.ContractorId)
+            .Select(item => (Guid?)item.IdentityId)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        Guid[] packageIds = await ResolveContractorRulePackageIdsAsync(sagasDb, locationsDb, job.JobTypeId, job.LocationId, cancellationToken);
+        Dictionary<Guid, string> packageNamesById = packageIds.Length == 0
+            ? []
+            : await accessCatalogDb.Packages.AsNoTracking()
+                .Where(item => packageIds.Contains(item.Id))
+                .ToDictionaryAsync(item => item.Id, item => item.Name, cancellationToken);
+
+        if (!identityId.HasValue)
+        {
+            return Results.Ok(new ContractorAssignmentCompliancePreviewResponse(
+                request.ContractorId,
+                request.ContractorJobId,
+                job.LocationId,
+                job.JobTypeId,
+                "No compliance preview available because this contractor has no linked identity.",
+                []));
+        }
+
+        Result<IReadOnlyList<DerivedGrantRequirement>, RequirementsEvaluationErrors> derivation = await grantRequirementsService.DeriveForGrantAsync(
+            identityId.Value,
+            RequirementSubjectKind.Contractor,
+            job.LocationId,
+            [job.JobTypeId],
+            cancellationToken);
+
+        if (derivation.IsFailure(out RequirementsEvaluationErrors derivationError))
+            return Results.Problem($"Could not build contractor assignment compliance preview: {derivationError}.", statusCode: StatusCodes.Status400BadRequest);
+
+        derivation.IsSuccess(out IReadOnlyList<DerivedGrantRequirement> derivedRequirements);
+        Guid[] requirementDefinitionIds = derivedRequirements.Select(item => item.RequirementDefinitionId).Distinct().ToArray();
+        IReadOnlyList<EvaluatedGrantRequirement> evaluations = requirementDefinitionIds.Length == 0
+            ? []
+            : await grantRequirementsService.EvaluateGrantRequirementsAsync(identityId.Value, requirementDefinitionIds, cancellationToken);
+        Dictionary<Guid, RequirementDefinition> definitionsById = requirementDefinitionIds.Length == 0
+            ? []
+            : await requirementsDb.RequirementDefinitions.AsNoTracking()
+                .Where(item => requirementDefinitionIds.Contains(item.Id))
+                .ToDictionaryAsync(item => item.Id, cancellationToken);
+
+        AssignmentRequirementComplianceResponse[] requirements = derivedRequirements
+            .Join(evaluations, requirement => requirement.RequirementDefinitionId, evaluation => evaluation.RequirementDefinitionId, (requirement, evaluation) => new { requirement, evaluation })
+            .Where(item => definitionsById.ContainsKey(item.requirement.RequirementDefinitionId))
+            .Select(item => new AssignmentRequirementComplianceResponse(
+                item.requirement.RequirementDefinitionId,
+                definitionsById[item.requirement.RequirementDefinitionId].Code,
+                definitionsById[item.requirement.RequirementDefinitionId].Name,
+                item.requirement.IsBlocking,
+                item.evaluation.Status,
+                item.evaluation.Reason,
+                item.evaluation.ValidUntil))
+            .OrderBy(item => item.Name)
+            .ToArray();
+
+        (GrantComplianceStatus status, DateTimeOffset? compliantUntil) = AggregateCompliance(requirements, request.AssignedUntil);
+        ContractorAssignmentCompliancePreviewPackageResponse[] packages = packageIds
+            .Select(packageId => new ContractorAssignmentCompliancePreviewPackageResponse(
+                packageId,
+                packageNamesById.GetValueOrDefault(packageId, packageId.ToString()),
+                status,
+                compliantUntil,
+                requirements))
+            .ToArray();
+
+        return Results.Ok(new ContractorAssignmentCompliancePreviewResponse(
+            request.ContractorId,
+            request.ContractorJobId,
+            job.LocationId,
+            job.JobTypeId,
+            null,
+            packages));
     }
 
     private static async Task<IResult> ListAssignmentComplianceSummariesBySource(
@@ -329,6 +442,25 @@ public static class AccessGrantEndpoints
             validUntil);
     }
 
+    private static (GrantComplianceStatus status, DateTimeOffset? compliantUntil) AggregateCompliance(
+        IReadOnlyList<AssignmentRequirementComplianceResponse> requirements,
+        DateTimeOffset? validUntil)
+    {
+        bool anyBlockingFailure = requirements.Any(item => item.IsBlocking && item.Status != RequirementResultStatus.Fulfilled);
+        DateTimeOffset? compliantUntil = requirements
+            .Where(item => item.Status == RequirementResultStatus.Fulfilled)
+            .Select(item => item.ValidUntil)
+            .Where(item => item.HasValue)
+            .OrderBy(item => item)
+            .FirstOrDefault();
+        bool temporary = compliantUntil.HasValue && (!validUntil.HasValue || compliantUntil.Value < validUntil.Value);
+        return anyBlockingFailure
+            ? (GrantComplianceStatus.NonCompliant, null)
+            : temporary
+                ? (GrantComplianceStatus.TemporarilyCompliant, compliantUntil)
+                : (GrantComplianceStatus.Compliant, null);
+    }
+
     private static GrantRequirementResult? SelectRequirementResultForDisplay(GrantRequirementResult[] results)
     {
         if (results.Length == 0)
@@ -377,6 +509,42 @@ public static class AccessGrantEndpoints
 
         return (GrantComplianceStatus.Compliant, null);
     }
+
+    private static async Task<Guid[]> ResolveContractorRulePackageIdsAsync(
+        SagasDbContext sagasDb,
+        LocationsDbContext locationsDb,
+        Guid jobTypeId,
+        Guid locationId,
+        CancellationToken cancellationToken)
+    {
+        ContractorJobPackageRule[] rules = await sagasDb.ContractorJobPackageRules
+            .AsNoTracking()
+            .Where(item => item.JobTypeId == jobTypeId && item.IsEnabled)
+            .ToArrayAsync(cancellationToken);
+        if (rules.Length == 0)
+            return [];
+
+        LocationLookup jobLocation = await locationsDb.LocationLookups.AsNoTracking().SingleAsync(item => item.Id == locationId, cancellationToken);
+        Guid[] scopedLocationIds = rules.Where(item => item.LocationId.HasValue).Select(item => item.LocationId!.Value).Distinct().ToArray();
+        Dictionary<Guid, LocationLookup> scopedLocations = scopedLocationIds.Length == 0
+            ? []
+            : await locationsDb.LocationLookups.AsNoTracking().Where(item => scopedLocationIds.Contains(item.Id)).ToDictionaryAsync(item => item.Id, cancellationToken);
+
+        return rules
+            .Where(rule => !rule.LocationId.HasValue || (scopedLocations.TryGetValue(rule.LocationId.Value, out LocationLookup? scopedLocation) && IsInLocationScope(jobLocation, scopedLocation)))
+            .Select(rule => rule.PackageId)
+            .Distinct()
+            .ToArray();
+    }
+
+    private static bool IsInLocationScope(LocationLookup target, LocationLookup scope) =>
+        scope.Type switch
+        {
+            LocationType.Site => target.SiteId == scope.SiteId,
+            LocationType.Building when scope.BuildingId.HasValue => target.BuildingId == scope.BuildingId,
+            LocationType.Room when scope.RoomId.HasValue => target.RoomId == scope.RoomId,
+            _ => false
+        };
 
     private static async Task<Dictionary<Guid, AccessGrantMaterializationOutcomeResponse[]>> LoadMaterializationOutcomes(SagasDbContext db, Guid[] accessGrantIds, CancellationToken cancellationToken)
     {

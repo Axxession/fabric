@@ -7,6 +7,8 @@ import { toast } from 'sonner';
 
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
+import { getGrantComplianceLabel, getGrantComplianceVariant } from '@/shared/access-grants/grant-status';
+import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Input } from '@/shared/components/ui/input';
@@ -14,6 +16,9 @@ import { Input } from '@/shared/components/ui/input';
 import { ErrorText, formatDateTimeLabel, getEmptyContractorAssignmentFormState, invalidateContractorJobQueries, MutedText, toApiDateTimeValue } from './employee-contractor-job-shared';
 
 type ContractorResponse = components['schemas']['ContractorResponse'];
+type ContractorAssignmentCompliancePreviewResponse = components['schemas']['ContractorAssignmentCompliancePreviewResponse'];
+type ContractorAssignmentCompliancePreviewPackageResponse = components['schemas']['ContractorAssignmentCompliancePreviewPackageResponse'];
+type AssignmentRequirementComplianceResponse = components['schemas']['AssignmentRequirementComplianceResponse'];
 type CreateContractorJobAssignmentRequest = components['schemas']['CreateContractorJobAssignmentRequest'];
 type ContractorAssignmentFormState = components['schemas']['CreateContractorJobAssignmentRequest'] & { assignedFrom: string; assignedUntil: string };
 
@@ -73,6 +78,27 @@ export default function EmployeeContractorAssignmentCreatePage() {
   });
 
   const job = jobQuery.data;
+  const isPreviewReady = Boolean(job && form.contractorId && form.assignedFrom && form.assignedUntil && new Date(form.assignedFrom) <= new Date(form.assignedUntil) && new Date(form.assignedUntil) <= new Date(job.plannedEnd));
+  const previewQuery = useQuery({
+    queryKey: ['employee', 'contractors', 'jobs', jobId, 'assignment-preview', form.contractorId, form.assignedFrom, form.assignedUntil],
+    enabled: isPreviewReady,
+    queryFn: async () => {
+      const { data, error } = await api.POST('/api/access-catalog/access-grants/contractor-assignment-preview', {
+        body: {
+          contractorId: form.contractorId,
+          contractorJobId: jobId,
+          assignedFrom: toApiDateTimeValue(form.assignedFrom),
+          assignedUntil: toApiDateTimeValue(form.assignedUntil),
+        },
+      });
+
+      if (error || !data) {
+        throw new Error('Could not load compliance preview.');
+      }
+
+      return data;
+    },
+  });
 
   useEffect(() => {
     if (!job) {
@@ -160,6 +186,10 @@ export default function EmployeeContractorAssignmentCreatePage() {
             </label>
           </div>
 
+          {previewQuery.isError ? <ErrorText message="Could not load compliance preview." /> : null}
+          {previewQuery.isLoading ? <MutedText message="Loading compliance preview..." /> : null}
+          {previewQuery.data ? <CompliancePreviewCard preview={previewQuery.data} /> : null}
+
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => window.history.back()}>{t('perspectives.employee.contractors.assignments.cancelAction')}</Button>
             <Button type="button" onClick={submit} disabled={createAssignment.isPending}>{t('perspectives.employee.contractors.assignments.create')}</Button>
@@ -168,4 +198,77 @@ export default function EmployeeContractorAssignmentCreatePage() {
       </Card>
     </section>
   );
+}
+
+function CompliancePreviewCard({ preview }: { readonly preview: ContractorAssignmentCompliancePreviewResponse }) {
+  return (
+    <div className="rounded-structural border border-border p-4">
+      <div>
+        <h3 className="text-[18px] font-semibold tracking-tight">Compliance preview</h3>
+        <p className="mt-2 text-[14px] text-muted-foreground">Preview what access packages would be assigned and what is currently missing for compliance before you create the assignment.</p>
+      </div>
+
+      {preview.unavailableReason ? <p className="mt-4 rounded-interactive border border-border bg-background px-4 py-3 text-[14px] text-muted-foreground">{preview.unavailableReason}</p> : null}
+      {!preview.unavailableReason && preview.packages.length === 0 ? <p className="mt-4 rounded-structural border border-dashed border-border p-6 text-[14px] text-muted-foreground">No automatic access packages would be assigned for this assignment.</p> : null}
+
+      {preview.packages.length > 0 ? (
+        <div className="mt-4 grid gap-4">
+          {preview.packages.map((item) => (
+            <div key={item.packageId} className="rounded-structural border border-border bg-background p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="font-medium text-foreground">{item.packageName}</p>
+                  {item.compliantUntil ? <p className="mt-1 text-[14px] text-muted-foreground">Compliant until {formatDateTimeLabel(item.compliantUntil)}</p> : null}
+                </div>
+                <Badge variant={getGrantComplianceVariant(item.status)}>{getGrantComplianceLabel(item.status)}</Badge>
+              </div>
+              {item.requirements.length === 0 ? <p className="mt-4 text-[14px] text-muted-foreground">No compliance requirements for this package.</p> : <div className="mt-4 grid gap-3">{item.requirements.map((requirement) => <PreviewRequirementCard key={requirement.requirementDefinitionId} requirement={requirement} />)}</div>}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function PreviewRequirementCard({ requirement }: { readonly requirement: AssignmentRequirementComplianceResponse }) {
+  return (
+    <div className="rounded-structural border border-border p-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="font-medium text-foreground">{requirement.name}</p>
+          <p className="mt-1 text-[14px] text-muted-foreground">{requirement.code}{requirement.isBlocking ? ' • blocking' : ''}</p>
+        </div>
+        <Badge variant={getRequirementComplianceVariant(requirement.status)}>{formatRequirementComplianceStatus(requirement.status)}</Badge>
+      </div>
+      <p className="mt-3 text-[14px] text-muted-foreground">{requirement.reason}</p>
+      {requirement.validUntil ? <p className="mt-1 text-[13px] text-muted-foreground">Valid until {formatDateTimeLabel(requirement.validUntil)}</p> : null}
+    </div>
+  );
+}
+
+function formatRequirementComplianceStatus(status: AssignmentRequirementComplianceResponse['status']) {
+  switch (status) {
+    case 'Fulfilled':
+      return 'Compliant';
+    case 'Missing':
+      return 'Missing';
+    case 'Failed':
+      return 'Failed';
+    case 'Expired':
+      return 'Expired';
+    default:
+      return status;
+  }
+}
+
+function getRequirementComplianceVariant(status: AssignmentRequirementComplianceResponse['status']): 'success' | 'secondary' | 'error' {
+  switch (status) {
+    case 'Fulfilled':
+      return 'success';
+    case 'Expired':
+      return 'secondary';
+    default:
+      return 'error';
+  }
 }

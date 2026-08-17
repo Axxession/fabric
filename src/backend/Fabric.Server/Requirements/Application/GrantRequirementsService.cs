@@ -20,6 +20,7 @@ public sealed class GrantRequirementsService(
         Guid identityId,
         RequirementSubjectKind subjectKind,
         Guid locationId,
+        IReadOnlyCollection<Guid>? previewContractorJobTypeIds = null,
         CancellationToken cancellationToken = default)
     {
         if (!await locationsDb.LocationLookups.AnyAsync(item => item.Id == locationId, cancellationToken))
@@ -38,7 +39,7 @@ public sealed class GrantRequirementsService(
 
         if (subjectKind == RequirementSubjectKind.Contractor)
         {
-            Guid[] jobTypeIds = await ResolveContractorJobTypeIdsAsync(identityId, locationPath, cancellationToken);
+            Guid[] jobTypeIds = await ResolveContractorJobTypeIdsAsync(identityId, locationPath, previewContractorJobTypeIds, cancellationToken);
             if (jobTypeIds.Length > 0)
             {
                 List<DerivedGrantRequirement> contractorRequirements = await db.LocationJobRequirementPolicies
@@ -101,27 +102,38 @@ public sealed class GrantRequirementsService(
         };
     }
 
-    private async Task<Guid[]> ResolveContractorJobTypeIdsAsync(Guid identityId, Guid[] locationPath, CancellationToken cancellationToken)
+    private async Task<Guid[]> ResolveContractorJobTypeIdsAsync(Guid identityId, Guid[] locationPath, IReadOnlyCollection<Guid>? previewContractorJobTypeIds, CancellationToken cancellationToken)
     {
         Guid[] contractorIds = await identitiesDb.ContractorAffiliations
             .Where(item => item.IdentityId == identityId)
             .Select(item => item.ContractorId)
             .ToArrayAsync(cancellationToken);
-        if (contractorIds.Length == 0)
-            return [];
 
-        return await contractorsDb.ContractorJobAssignments
-            .Where(item => contractorIds.Contains(item.ContractorId))
-            .Where(item => item.Status == ContractorJobAssignmentStatus.Planned || item.Status == ContractorJobAssignmentStatus.Active)
-            .Where(item => item.AssignedUntil > timeProvider.GetUtcNow())
-            .Join(contractorsDb.ContractorJobs.Where(item => item.Status == ContractorJobStatus.Planned || item.Status == ContractorJobStatus.Active),
-                assignment => assignment.ContractorJobId,
-                job => job.Id,
-                (_, job) => job)
-            .Where(job => locationPath.Contains(job.LocationId))
-            .Select(job => job.JobTypeId)
+        Guid[] persistedJobTypeIds = contractorIds.Length == 0
+            ? []
+            : await contractorsDb.ContractorJobAssignments
+                .Where(item => contractorIds.Contains(item.ContractorId))
+                .Where(item => item.Status == ContractorJobAssignmentStatus.Planned || item.Status == ContractorJobAssignmentStatus.Active)
+                .Where(item => item.AssignedUntil > timeProvider.GetUtcNow())
+                .Join(contractorsDb.ContractorJobs.Where(item => item.Status == ContractorJobStatus.Planned || item.Status == ContractorJobStatus.Active),
+                    assignment => assignment.ContractorJobId,
+                    job => job.Id,
+                    (_, job) => job)
+                .Where(job => locationPath.Contains(job.LocationId))
+                .Select(job => job.JobTypeId)
+                .Distinct()
+                .ToArrayAsync(cancellationToken);
+
+        Guid[] previewJobTypeIds = previewContractorJobTypeIds?.Distinct().ToArray() ?? [];
+        if (persistedJobTypeIds.Length == 0)
+            return previewJobTypeIds;
+        if (previewJobTypeIds.Length == 0)
+            return persistedJobTypeIds;
+
+        return persistedJobTypeIds
+            .Concat(previewJobTypeIds)
             .Distinct()
-            .ToArrayAsync(cancellationToken);
+            .ToArray();
     }
 
     private async Task<RequirementEvaluation> EvaluateRequirementAsync(

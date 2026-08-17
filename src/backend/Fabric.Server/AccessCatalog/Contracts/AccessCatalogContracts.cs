@@ -54,6 +54,27 @@ public sealed record AssignmentComplianceDetailResponse(
     DateTimeOffset? CompliantUntil,
     AssignmentRequirementComplianceResponse[] Requirements);
 
+public sealed record ContractorAssignmentCompliancePreviewRequest(
+    Guid ContractorId,
+    Guid ContractorJobId,
+    DateTimeOffset AssignedFrom,
+    DateTimeOffset AssignedUntil);
+
+public sealed record ContractorAssignmentCompliancePreviewPackageResponse(
+    Guid PackageId,
+    string PackageName,
+    GrantComplianceStatus Status,
+    DateTimeOffset? CompliantUntil,
+    AssignmentRequirementComplianceResponse[] Requirements);
+
+public sealed record ContractorAssignmentCompliancePreviewResponse(
+    Guid ContractorId,
+    Guid ContractorJobId,
+    Guid LocationId,
+    Guid JobTypeId,
+    string? UnavailableReason,
+    ContractorAssignmentCompliancePreviewPackageResponse[] Packages);
+
 public sealed record ListPackageRequestsRequest : BaseListRequest
 {
     public Guid? RequesterIdentityId { get; set; }

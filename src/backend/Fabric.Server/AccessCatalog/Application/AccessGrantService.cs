@@ -177,7 +177,7 @@ public sealed class AccessGrantService(
         foreach (AccessGrant grant in grants)
         {
             RequirementSubjectKind subjectKind = await ResolveSubjectKindAsync(grant.IdentityId, cancellationToken);
-            Result<IReadOnlyList<DerivedGrantRequirement>, RequirementsEvaluationErrors> derivation = await grantRequirementsService.DeriveForGrantAsync(grant.IdentityId, subjectKind, grant.LocationId, cancellationToken);
+            Result<IReadOnlyList<DerivedGrantRequirement>, RequirementsEvaluationErrors> derivation = await grantRequirementsService.DeriveForGrantAsync(grant.IdentityId, subjectKind, grant.LocationId, cancellationToken: cancellationToken);
             if (derivation.IsFailure(out _))
                 continue;
 
@@ -252,7 +252,7 @@ public sealed class AccessGrantService(
             await db.SaveChangesAsync(cancellationToken);
 
             RequirementSubjectKind subjectKind = await ResolveSubjectKindAsync(identityId, cancellationToken);
-            Result<IReadOnlyList<DerivedGrantRequirement>, RequirementsEvaluationErrors> derivation = await grantRequirementsService.DeriveForGrantAsync(identityId, subjectKind, locationId, cancellationToken);
+            Result<IReadOnlyList<DerivedGrantRequirement>, RequirementsEvaluationErrors> derivation = await grantRequirementsService.DeriveForGrantAsync(identityId, subjectKind, locationId, cancellationToken: cancellationToken);
             if (derivation.IsSuccess(out IReadOnlyList<DerivedGrantRequirement> derivedRequirements))
             {
                 DateTimeOffset now = timeProvider.GetUtcNow();
