@@ -41,6 +41,7 @@ function getAppPerspectives(): readonly AppPerspective[] {
       menuItems: (actor) => [
         { label: i18n.t('perspectives.employee.menu.overview.label'), description: i18n.t('perspectives.employee.menu.overview.description'), to: '/employee' },
         { label: i18n.t('perspectives.employee.menu.requestAccess.label'), description: i18n.t('perspectives.employee.menu.requestAccess.description'), to: '/employee/request-access' },
+        ...(actor.roles.includes('contractor-planning') || actor.roles.includes('contractor-enrollment') ? [{ label: i18n.t('perspectives.employee.menu.contractors.label'), description: i18n.t('perspectives.employee.menu.contractors.description'), to: '/employee/contractors' }] : []),
         ...(actor.isHost ? [{ label: i18n.t('perspectives.employee.menu.visitors.label'), description: i18n.t('perspectives.employee.menu.visitors.description'), to: '/employee/visitors' }] : []),
       ],
       isAvailable: (actor) => actor.isEmployee,

@@ -1,6 +1,7 @@
 using Fabric.Server.AccessCatalog.Persistence;
 using Fabric.Server.AccessControl.Persistence;
 using Fabric.Server.CredentialManagement.Persistence;
+using Fabric.Server.Contractors.Persistence;
 using Fabric.Server.Desfire.Persistence;
 using Fabric.Server.Employees.Persistence;
 using Fabric.Server.Hardware.Persistence;
@@ -37,6 +38,7 @@ public sealed class MigrationsRunner(IServiceScopeFactory scopeFactory)
         await services.GetRequiredService<TenantSeeder>().SeedAsync(cancellationToken);
         await new MigrationRunner<LocationsDbContext>(services).RunMigrationsAsync(cancellationToken);
         await new MigrationRunner<IdentitiesDbContext>(services).RunMigrationsAsync(cancellationToken);
+        await new MigrationRunner<ContractorsDbContext>(services).RunMigrationsAsync(cancellationToken);
         await new MigrationRunner<EmployeesDbContext>(services).RunMigrationsAsync(cancellationToken);
         await new MigrationRunner<CredentialManagementDbContext>(services).RunMigrationsAsync(cancellationToken);
         await new MigrationRunner<AccessControlDbContext>(services).RunMigrationsAsync(cancellationToken);

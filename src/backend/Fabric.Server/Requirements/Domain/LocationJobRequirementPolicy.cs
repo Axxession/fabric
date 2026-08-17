@@ -42,4 +42,11 @@ public sealed class LocationJobRequirementPolicy
         UpdatedAt = now;
         return Result.Success<RequirementPolicyErrors>();
     }
+
+    public Result<RequirementPolicyErrors> Update(bool isBlocking, DateTimeOffset now)
+    {
+        IsBlocking = isBlocking;
+        UpdatedAt = now;
+        return Result.Success<RequirementPolicyErrors>();
+    }
 }

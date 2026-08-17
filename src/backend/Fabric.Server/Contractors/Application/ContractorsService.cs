@@ -124,13 +124,6 @@ public sealed class ContractorsService(
         if (!await db.Companies.AnyAsync(item => item.Id == request.CompanyId, cancellationToken))
             return Result.Failure<Contractor, ContractorErrors>(ContractorErrors.CompanyNotFound);
 
-        if (request.IdentityId.HasValue)
-        {
-            Identity? identity = await identityService.GetIdentityAsync(request.IdentityId.Value, cancellationToken);
-            if (identity is null)
-                return Result.Failure<Contractor, ContractorErrors>(ContractorErrors.IdentityNotFound);
-        }
-
         Result<Contractor, ContractorErrors> result = Contractor.Create(
             request.CompanyId,
             request.FirstName,
@@ -144,20 +137,21 @@ public sealed class ContractorsService(
         db.Contractors.Add(contractor);
         await db.SaveChangesAsync(cancellationToken);
 
-        if (request.IdentityId.HasValue)
-        {
-            Result<Identity, IdentityErrors> link = await identityService.LinkContractorAsync(request.IdentityId.Value, contractor.Id, cancellationToken);
-            if (link.IsFailure(out IdentityErrors identityError))
-            {
-                ContractorErrors mappedError = identityError switch
-                {
-                    IdentityErrors.IdentityNotFound => ContractorErrors.IdentityNotFound,
-                    IdentityErrors.ContractorAlreadyLinkedToDifferentIdentity => ContractorErrors.ContractorAlreadyLinkedToDifferentIdentity,
-                    _ => ContractorErrors.IdentityNotFound,
-                };
-                return Result.Failure<Contractor, ContractorErrors>(mappedError);
-            }
-        }
+        Result<Identity, IdentityErrors> createIdentity = await identityService.CreateIdentityAsync(
+            request.FirstName,
+            null,
+            request.LastName,
+            null,
+            request.Email,
+            null,
+            cancellationToken);
+        if (createIdentity.IsFailure(out IdentityErrors identityCreateError))
+            return Result.Failure<Contractor, ContractorErrors>(MapIdentityError(identityCreateError));
+
+        createIdentity.IsSuccess(out Identity identity);
+        Result<Identity, IdentityErrors> link = await identityService.LinkContractorAsync(identity.Id, contractor.Id, cancellationToken);
+        if (link.IsFailure(out IdentityErrors linkError))
+            return Result.Failure<Contractor, ContractorErrors>(MapIdentityError(linkError));
 
         return Result.Success<Contractor, ContractorErrors>(contractor);
     }
@@ -174,6 +168,22 @@ public sealed class ContractorsService(
         Result<ContractorErrors> update = contractor.Update(request.CompanyId, request.FirstName, request.LastName, request.Email, timeProvider.GetUtcNow());
         if (update.IsFailure(out ContractorErrors error))
             return Result.Failure<Contractor, ContractorErrors>(error);
+
+        Guid? identityId = await identityService.GetIdentityIdForContractorAsync(contractor.Id, cancellationToken);
+        if (identityId.HasValue)
+        {
+            Result<Identity, IdentityErrors> identityUpdate = await identityService.UpdateProfileAsync(
+                identityId.Value,
+                request.FirstName,
+                null,
+                request.LastName,
+                null,
+                request.Email,
+                null,
+                cancellationToken);
+            if (identityUpdate.IsFailure(out IdentityErrors identityError))
+                return Result.Failure<Contractor, ContractorErrors>(MapIdentityError(identityError));
+        }
 
         await db.SaveChangesAsync(cancellationToken);
         return Result.Success<Contractor, ContractorErrors>(contractor);
@@ -194,6 +204,14 @@ public sealed class ContractorsService(
         await db.SaveChangesAsync(cancellationToken);
         return Result.Success<Contractor, ContractorErrors>(contractor);
     }
+
+    private static ContractorErrors MapIdentityError(IdentityErrors error) =>
+        error switch
+        {
+            IdentityErrors.IdentityNotFound => ContractorErrors.IdentityNotFound,
+            IdentityErrors.ContractorAlreadyLinkedToDifferentIdentity => ContractorErrors.ContractorAlreadyLinkedToDifferentIdentity,
+            _ => ContractorErrors.IdentityNotFound,
+        };
 
     public async Task<Result<ContractorJob, ContractorJobErrors>> CreateContractorJobAsync(CreateContractorJobRequest request, Guid createdByIdentityId, CancellationToken cancellationToken = default)
     {

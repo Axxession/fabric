@@ -12,11 +12,12 @@ import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, Pagi
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 
 type Employee = components['schemas']['EmployeeResponse'];
+type JobType = components['schemas']['JobTypeResponse'];
 type OrganizationUnit = components['schemas']['OrganizationUnitResponse'];
 type Persona = components['schemas']['PersonaResponse'];
 type EmployeeStatus = components['schemas']['EmployeeStatus'];
 
-type OrganizationTab = 'employees' | 'organizational-units' | 'personas' | 'hosts';
+type OrganizationTab = 'employees' | 'organizational-units' | 'personas' | 'hosts' | 'contractor-job-types';
 type PaginationState = {
   readonly currentPage: number;
   readonly firstItem: number;
@@ -45,6 +46,10 @@ export default function MyOrganizationPage() {
   const [personaPage, setPersonaPage] = useState(0);
   const [personaQuery, setPersonaQuery] = useState('');
   const [personaState, setPersonaState] = useState<'all' | 'active' | 'inactive'>('all');
+
+  const [jobTypePage, setJobTypePage] = useState(0);
+  const [jobTypeQuery, setJobTypeQuery] = useState('');
+  const [jobTypeState, setJobTypeState] = useState<'all' | 'active' | 'inactive'>('all');
 
   const employeesQuery = useQuery({
     queryKey: ['administration', 'my-organization', 'employees', employeePage, employeeQuery, employeeStatus],
@@ -115,6 +120,28 @@ export default function MyOrganizationPage() {
     },
   });
 
+  const jobTypesQuery = useQuery({
+    queryKey: ['administration', 'my-organization', 'contractor-job-types', jobTypePage, jobTypeQuery, jobTypeState],
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/contractors/job-types', {
+        params: {
+          query: {
+            Query: jobTypeQuery || undefined,
+            IsActive: jobTypeState === 'all' ? undefined : jobTypeState === 'active',
+            Page: jobTypePage,
+            PageSize: pageSize,
+          } as never,
+        },
+      });
+
+      if (error) {
+        throw new Error('Could not load contractor job types.');
+      }
+
+      return data;
+    },
+  });
+
   function changeTab(nextTab: string) {
     if (!isOrganizationTab(nextTab)) {
       return;
@@ -130,6 +157,7 @@ export default function MyOrganizationPage() {
             <TabsTrigger value="employees">Employees</TabsTrigger>
             <TabsTrigger value="organizational-units">Organizational Units</TabsTrigger>
             <TabsTrigger value="personas">Personas</TabsTrigger>
+            <TabsTrigger value="contractor-job-types">Contractor Job Types</TabsTrigger>
             <TabsTrigger value="hosts">Hosts</TabsTrigger>
           </TabsList>
 
@@ -190,6 +218,26 @@ export default function MyOrganizationPage() {
               isError={personasQuery.isError}
               page={personaPage}
               setPage={setPersonaPage}
+            />
+          </TabsContent>
+
+          <TabsContent value="contractor-job-types">
+            <ContractorJobTypesPanel
+              query={jobTypeQuery}
+              onQueryChange={(value) => {
+                setJobTypeQuery(value);
+                setJobTypePage(0);
+              }}
+              state={jobTypeState}
+              onStateChange={(value) => {
+                setJobTypeState(value);
+                setJobTypePage(0);
+              }}
+              response={jobTypesQuery.data}
+              isLoading={jobTypesQuery.isLoading}
+              isError={jobTypesQuery.isError}
+              page={jobTypePage}
+              setPage={setJobTypePage}
             />
           </TabsContent>
 
@@ -507,6 +555,109 @@ function PersonasPanel({
   );
 }
 
+function ContractorJobTypesPanel({
+  query,
+  onQueryChange,
+  state,
+  onStateChange,
+  response,
+  isLoading,
+  isError,
+  page,
+  setPage,
+}: {
+  readonly query: string;
+  readonly onQueryChange: (value: string) => void;
+  readonly state: 'all' | 'active' | 'inactive';
+  readonly onStateChange: (value: 'all' | 'active' | 'inactive') => void;
+  readonly response: components['schemas']['PageOfJobTypeResponse'] | undefined;
+  readonly isLoading: boolean;
+  readonly isError: boolean;
+  readonly page: number;
+  readonly setPage: (page: number) => void;
+}) {
+  const jobTypes = response?.items ?? [];
+  const pagination = getPaginationState(response, jobTypes.length, page, pageSize);
+
+  return (
+    <ListSection
+      title="Contractor Job Types"
+      description="Paged list of contractor job types used by contractor planning and requirement derivation."
+      isLoading={isLoading}
+      isError={isError}
+      errorMessage="Could not load contractor job types."
+      emptyTitle="No contractor job types found"
+      emptyDescription="Try a different search or filter."
+      totalItems={pagination.totalItems}
+      firstItem={pagination.firstItem}
+      lastItem={pagination.lastItem}
+      currentPage={pagination.currentPage}
+      totalPages={pagination.totalPages}
+      visiblePages={pagination.visiblePages}
+      setPage={setPage}
+      actions={<Link to="/administration/my-organization/contractor-job-types/new" className={buttonVariants()}><Plus className="size-4" aria-hidden="true" />Add contractor job type</Link>}
+      filters={
+        <>
+          <FilterInput label="Search contractor job types" value={query} onChange={onQueryChange} placeholder="Search code, name, or description" />
+          <FilterSelect label="State" value={state} onChange={(value) => onStateChange(value as 'all' | 'active' | 'inactive')} options={[{ value: 'all', label: 'All job types' }, { value: 'active', label: 'Active only' }, { value: 'inactive', label: 'Inactive only' }]} />
+        </>
+      }
+      table={
+        <table className="w-full min-w-[60rem] border-collapse text-left text-[14px]">
+          <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
+            <tr>
+              <th className="px-4 py-3 font-semibold">Name</th>
+              <th className="px-4 py-3 font-semibold">Code</th>
+              <th className="px-4 py-3 font-semibold">Description</th>
+              <th className="px-4 py-3 font-semibold">State</th>
+              <th className="px-4 py-3 font-semibold">Created</th>
+              <th className="px-4 py-3 font-semibold">Updated</th>
+              <th className="px-4 py-3 text-right font-semibold">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {jobTypes.map((jobType) => (
+              <tr key={jobType.id}>
+                <td className="px-4 py-4 font-medium text-foreground">{jobType.name}</td>
+                <td className="px-4 py-4 text-muted-foreground">{jobType.code}</td>
+                <td className="px-4 py-4 text-muted-foreground">{jobType.description ?? '-'}</td>
+                <td className="px-4 py-4 text-muted-foreground">{jobType.isActive ? 'Active' : 'Inactive'}</td>
+                <td className="px-4 py-4 text-muted-foreground">{formatDateTime(jobType.createdAt)}</td>
+                <td className="px-4 py-4 text-muted-foreground">{formatDateTime(jobType.updatedAt)}</td>
+                <td className="px-4 py-4">
+                  <div className="flex justify-end">
+                    <Link to="/administration/my-organization/contractor-job-types/$jobTypeId/edit" params={{ jobTypeId: jobType.id }} className="inline-flex size-9 items-center justify-center rounded-interactive border border-border text-muted-foreground transition hover:bg-hover-blue hover:text-foreground" aria-label={`Edit ${jobType.name}`}>
+                      <Pencil className="size-4" aria-hidden="true" />
+                    </Link>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      }
+      mobileList={
+        <div className="grid gap-3 md:hidden">
+          {jobTypes.map((jobType) => (
+            <article key={jobType.id} className="rounded-structural border border-border p-4">
+              <h3 className="text-[15px] font-semibold text-foreground">{jobType.name}</h3>
+              <dl className="mt-3 grid gap-2 text-[14px] text-muted-foreground">
+                <div><dt className="font-medium text-foreground">Code</dt><dd>{jobType.code}</dd></div>
+                <div><dt className="font-medium text-foreground">Description</dt><dd>{jobType.description ?? '-'}</dd></div>
+                <div><dt className="font-medium text-foreground">State</dt><dd>{jobType.isActive ? 'Active' : 'Inactive'}</dd></div>
+                <div><dt className="font-medium text-foreground">Created</dt><dd>{formatDateTime(jobType.createdAt)}</dd></div>
+                <div><dt className="font-medium text-foreground">Updated</dt><dd>{formatDateTime(jobType.updatedAt)}</dd></div>
+                <div className="pt-2"><Link to="/administration/my-organization/contractor-job-types/$jobTypeId/edit" params={{ jobTypeId: jobType.id }} className="inline-flex size-10 items-center justify-center rounded-interactive border border-border text-muted-foreground transition hover:bg-hover-blue hover:text-foreground" aria-label={`Edit ${jobType.name}`}><Pencil className="size-4" aria-hidden="true" /></Link></div>
+              </dl>
+            </article>
+          ))}
+        </div>
+      }
+      hasItems={jobTypes.length > 0}
+    />
+  );
+}
+
 function ListSection({
   title,
   description,
@@ -640,7 +791,7 @@ function getActiveTab(searchStr: string): OrganizationTab {
 }
 
 function isOrganizationTab(value: string | null | undefined): value is OrganizationTab {
-  return value === 'employees' || value === 'organizational-units' || value === 'personas' || value === 'hosts';
+  return value === 'employees' || value === 'organizational-units' || value === 'personas' || value === 'hosts' || value === 'contractor-job-types';
 }
 
 function getPaginationState(page: { currentPage?: number | string; totalPages?: null | number | string; totalItems?: null | number | string } | undefined, itemCount: number, requestedPage: number, resolvedPageSize: number): PaginationState {

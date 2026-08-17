@@ -61,6 +61,46 @@ public class LocationService(LocationsDbContext db)
         };
     }
 
+    public async Task<IReadOnlyList<Location>> GetLocationsByIds(Guid[] locationIds, CancellationToken cancellationToken = default)
+    {
+        if (locationIds.Length == 0)
+            return [];
+
+        LocationLookup[] lookups = await db.LocationLookups
+            .AsNoTracking()
+            .Where(lookup => locationIds.Contains(lookup.Id))
+            .ToArrayAsync(cancellationToken);
+
+        if (lookups.Length == 0)
+            return [];
+
+        Dictionary<Guid, Site> sitesById = await db.Sites
+            .AsNoTracking()
+            .Include(site => site.Buildings)
+            .ThenInclude(building => building.Rooms)
+            .Where(site => lookups.Select(lookup => lookup.SiteId).Contains(site.Id))
+            .ToDictionaryAsync(site => site.Id, cancellationToken);
+
+        return lookups
+            .Select(lookup =>
+            {
+                if (!sitesById.TryGetValue(lookup.SiteId, out Site? site))
+                    return null;
+
+                return lookup.Type switch
+                {
+                    LocationType.Site => new Location.SiteLocation(site),
+                    LocationType.Building => GetBuildingLocation(site, lookup.BuildingId),
+                    LocationType.Room => GetRoomLocation(site, lookup.BuildingId, lookup.RoomId),
+                    _ => null
+                };
+            })
+            .Where(location => location is not null)
+            .Select(location => location!)
+            .OrderBy(location => Array.IndexOf(locationIds, location.Id))
+            .ToArray();
+    }
+
     public async Task<Result<Location, LocationErrors>> CreateSite(
         Guid id,
         string name,

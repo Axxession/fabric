@@ -14,7 +14,16 @@ public sealed record ListRequirementsRequest : BaseListRequest
 public sealed record CreateRequirementDefinitionRequest(string Code, string Name, string? Description, RequirementEvaluatorKind EvaluatorKind, bool IsSensitive);
 public sealed record UpdateRequirementDefinitionRequest(string Code, string Name, string? Description, RequirementEvaluatorKind EvaluatorKind, bool IsSensitive);
 public sealed record CreateLocationRequirementPolicyRequest(Guid LocationId, Guid RequirementDefinitionId, RequirementSubjectKind SubjectKind, bool IsBlocking);
+public sealed record ListLocationJobRequirementPoliciesRequest : BaseListRequest
+{
+    public Guid? LocationId { get; set; }
+    public Guid? JobTypeId { get; set; }
+    public Guid? RequirementDefinitionId { get; set; }
+    public bool? IsEnabled { get; set; }
+}
+
 public sealed record CreateLocationJobRequirementPolicyRequest(Guid LocationId, Guid JobTypeId, Guid RequirementDefinitionId, bool IsBlocking);
+public sealed record UpdateLocationJobRequirementPolicyRequest(bool IsBlocking);
 public sealed record CreateRequirementEvidenceRequest(
     Guid IdentityId,
     Guid RequirementDefinitionId,

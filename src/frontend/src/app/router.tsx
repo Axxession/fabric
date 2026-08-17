@@ -4,6 +4,7 @@ import { lazy, Suspense } from 'react';
 
 import { AppLayout } from '@/shared/layout/app-layout';
 import { ProtectedRoute } from '@/shared/auth/protected-route';
+import { EmployeeContractorPlannerRoute } from '@/features/perspectives/employee-contractor-planner-route';
 import { EmployeeHostRoute } from '@/features/perspectives/employee-host-route';
 import { PerspectiveHomePage } from '@/features/perspectives/perspective-home-page';
 import { DesfireStudioLayout } from '@/features/desfire-studio/desfire-studio-layout';
@@ -49,6 +50,8 @@ const CardManagementSystemProviderCreatePage = lazy(() => import('@/features/car
 const CardManagementTransformationCreatePage = lazy(() => import('@/features/card-management/transformation-create-page'));
 const CardManagementTransformationEditPageDesfireStudio = lazy(() => import('@/features/card-management/transformation-edit-page-desfire-studio'));
 const ClientsPage = lazy(() => import('@/features/administration/clients-page'));
+const ContractorJobTypeCreatePage = lazy(() => import('@/features/administration/contractor-job-type-create-page'));
+const ContractorJobTypeEditPage = lazy(() => import('@/features/administration/contractor-job-type-edit-page'));
 const CredentialTypesPage = lazy(() => import('@/features/administration/credential-types-page'));
 const CredentialTypeCreatePage = lazy(() => import('@/features/administration/credential-type-create-page'));
 const CredentialTypeEditPage = lazy(() => import('@/features/administration/credential-type-edit-page'));
@@ -70,6 +73,15 @@ const NotificationsPage = lazy(() => import('@/features/administration/notificat
 const OrganizationUnitCreatePage = lazy(() => import('@/features/administration/organization-unit-create-page'));
 const OrganizationUnitEditPage = lazy(() => import('@/features/administration/organization-unit-edit-page'));
 const EmployeeRequestAccessPage = lazy(() => import('@/features/perspectives/employee-request-access-page'));
+const EmployeeContractorAssignmentCreatePage = lazy(() => import('@/features/perspectives/employee-contractor-assignment-create-page'));
+const EmployeeContractorAssignmentDetailPage = lazy(() => import('@/features/perspectives/employee-contractor-assignment-detail-page'));
+const EmployeeContractorJobCreatePage = lazy(() => import('@/features/perspectives/employee-contractor-job-create-page'));
+const EmployeeContractorJobDetailPage = lazy(() => import('@/features/perspectives/employee-contractor-job-detail-page'));
+const EmployeeContractorCompanyCreatePage = lazy(() => import('@/features/perspectives/employee-contractor-company-create-page'));
+const EmployeeContractorCompanyDetailPage = lazy(() => import('@/features/perspectives/employee-contractor-company-detail-page'));
+const EmployeeContractorCreatePage = lazy(() => import('@/features/perspectives/employee-contractor-create-page'));
+const EmployeeContractorDetailPage = lazy(() => import('@/features/perspectives/employee-contractor-detail-page'));
+const EmployeeContractorsPage = lazy(() => import('@/features/perspectives/employee-contractors-page'));
 const EmployeeRequestDetailPage = lazy(() => import('@/features/perspectives/employee-request-detail-page'));
 const EmployeeVisitorsPage = lazy(() => import('@/features/perspectives/employee-visitors-page'));
 const EmployeeVisitEditPage = lazy(() => import('@/features/perspectives/employee-visit-edit-page'));
@@ -184,6 +196,60 @@ const employeeRequestDetailRoute = createRoute({
   getParentRoute: () => mainLayoutRoute,
   path: '/employee/request-access/$requestId',
   component: () => <ProtectedLazyRoute component={<EmployeeRequestDetailPage />} />,
+});
+
+const employeeContractorsRoute = createRoute({
+  getParentRoute: () => mainLayoutRoute,
+  path: '/employee/contractors',
+  component: () => <ProtectedRoute><EmployeeContractorPlannerRoute><LazyRoute component={<EmployeeContractorsPage />} /></EmployeeContractorPlannerRoute></ProtectedRoute>,
+});
+
+const employeeContractorCompanyCreateRoute = createRoute({
+  getParentRoute: () => mainLayoutRoute,
+  path: '/employee/contractors/companies/new',
+  component: () => <ProtectedRoute><EmployeeContractorPlannerRoute><LazyRoute component={<EmployeeContractorCompanyCreatePage />} /></EmployeeContractorPlannerRoute></ProtectedRoute>,
+});
+
+const employeeContractorCompanyDetailRoute = createRoute({
+  getParentRoute: () => mainLayoutRoute,
+  path: '/employee/contractors/companies/$companyId',
+  component: () => <ProtectedRoute><EmployeeContractorPlannerRoute><LazyRoute component={<EmployeeContractorCompanyDetailPage />} /></EmployeeContractorPlannerRoute></ProtectedRoute>,
+});
+
+const employeeContractorCreateRoute = createRoute({
+  getParentRoute: () => mainLayoutRoute,
+  path: '/employee/contractors/companies/$companyId/contractors/new',
+  component: () => <ProtectedRoute><EmployeeContractorPlannerRoute><LazyRoute component={<EmployeeContractorCreatePage />} /></EmployeeContractorPlannerRoute></ProtectedRoute>,
+});
+
+const employeeContractorDetailRoute = createRoute({
+  getParentRoute: () => mainLayoutRoute,
+  path: '/employee/contractors/companies/$companyId/contractors/$contractorId',
+  component: () => <ProtectedRoute><EmployeeContractorPlannerRoute><LazyRoute component={<EmployeeContractorDetailPage />} /></EmployeeContractorPlannerRoute></ProtectedRoute>,
+});
+
+const employeeContractorJobCreateRoute = createRoute({
+  getParentRoute: () => mainLayoutRoute,
+  path: '/employee/contractors/jobs/new',
+  component: () => <ProtectedRoute><EmployeeContractorPlannerRoute><LazyRoute component={<EmployeeContractorJobCreatePage />} /></EmployeeContractorPlannerRoute></ProtectedRoute>,
+});
+
+const employeeContractorJobDetailRoute = createRoute({
+  getParentRoute: () => mainLayoutRoute,
+  path: '/employee/contractors/jobs/$jobId',
+  component: () => <ProtectedRoute><EmployeeContractorPlannerRoute><LazyRoute component={<EmployeeContractorJobDetailPage />} /></EmployeeContractorPlannerRoute></ProtectedRoute>,
+});
+
+const employeeContractorAssignmentCreateRoute = createRoute({
+  getParentRoute: () => mainLayoutRoute,
+  path: '/employee/contractors/jobs/$jobId/assignments/new',
+  component: () => <ProtectedRoute><EmployeeContractorPlannerRoute><LazyRoute component={<EmployeeContractorAssignmentCreatePage />} /></EmployeeContractorPlannerRoute></ProtectedRoute>,
+});
+
+const employeeContractorAssignmentDetailRoute = createRoute({
+  getParentRoute: () => mainLayoutRoute,
+  path: '/employee/contractors/jobs/$jobId/assignments/$assignmentId',
+  component: () => <ProtectedRoute><EmployeeContractorPlannerRoute><LazyRoute component={<EmployeeContractorAssignmentDetailPage />} /></EmployeeContractorPlannerRoute></ProtectedRoute>,
 });
 
 const employeeVisitorsRoute = createRoute({
@@ -474,6 +540,18 @@ const administrationMyOrganizationRoute = createRoute({
   getParentRoute: () => administrationRoute,
   path: '/my-organization',
   component: () => <LazyRoute component={<MyOrganizationPage />} />,
+});
+
+const administrationContractorJobTypeCreateRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/my-organization/contractor-job-types/new',
+  component: () => <LazyRoute component={<ContractorJobTypeCreatePage />} />,
+});
+
+const administrationContractorJobTypeEditRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/my-organization/contractor-job-types/$jobTypeId/edit',
+  component: () => <LazyRoute component={<ContractorJobTypeEditPage />} />,
 });
 
 const administrationEmployeeCreateRoute = createRoute({
@@ -795,6 +873,15 @@ const routeTree = rootRoute.addChildren([
     employeeRoute,
     employeeRequestAccessRoute,
     employeeRequestDetailRoute,
+    employeeContractorsRoute,
+    employeeContractorCompanyCreateRoute,
+    employeeContractorCompanyDetailRoute,
+    employeeContractorCreateRoute,
+    employeeContractorDetailRoute,
+    employeeContractorJobCreateRoute,
+    employeeContractorJobDetailRoute,
+    employeeContractorAssignmentCreateRoute,
+    employeeContractorAssignmentDetailRoute,
     employeeVisitorsRoute,
     employeeVisitCreateRoute,
     employeeVisitEditRoute,
@@ -843,6 +930,8 @@ const routeTree = rootRoute.addChildren([
       administrationApprovalGroupCreateRoute,
       administrationApprovalGroupEditRoute,
       administrationMyOrganizationRoute,
+      administrationContractorJobTypeCreateRoute,
+      administrationContractorJobTypeEditRoute,
       administrationEmployeeCreateRoute,
       administrationEmployeeEditRoute,
       administrationOrganizationUnitCreateRoute,

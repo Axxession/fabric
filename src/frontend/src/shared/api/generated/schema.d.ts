@@ -127,6 +127,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/locations/locations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List locations
+         * @description Retrieve locations by ids
+         */
+        get: {
+            parameters: {
+                query?: {
+                    ids?: string[];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LocationResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/locations/locations/{id}": {
         parameters: {
             query?: never;
@@ -9415,7 +9456,31 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: {
+            parameters: {
+                query?: {
+                    LocationId?: string;
+                    JobTypeId?: string;
+                    RequirementDefinitionId?: string;
+                    IsEnabled?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LocationJobAttachedRequirementResponse"][];
+                    };
+                };
+            };
+        };
         put?: never;
         post: {
             parameters: {
@@ -9432,6 +9497,178 @@ export interface paths {
             responses: {
                 /** @description Created */
                 201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LocationJobRequirementPolicyResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/requirements/policies/location-job/{policyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    policyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateLocationJobRequirementPolicyRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LocationJobRequirementPolicyResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    policyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LocationJobRequirementPolicyResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/requirements/policies/location-job/{policyId}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    policyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LocationJobRequirementPolicyResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/requirements/policies/location-job/{policyId}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    policyId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -17359,8 +17596,6 @@ export interface components {
             email: null | string;
             /** Format: uuid */
             companyId: string;
-            /** Format: uuid */
-            identityId: null | string;
         };
         CreateCredentialRangeRequest: {
             /** Format: int64 */
@@ -17466,6 +17701,26 @@ export interface components {
             /** Format: uuid */
             requirementDefinitionId: string;
             isBlocking: boolean;
+        };
+        LocationJobAttachedRequirementResponse: {
+            /** Format: uuid */
+            policyId: string;
+            /** Format: uuid */
+            locationId: string;
+            /** Format: uuid */
+            jobTypeId: string;
+            /** Format: uuid */
+            requirementDefinitionId: string;
+            requirementCode: string;
+            requirementName: string;
+            evaluatorKind: components["schemas"]["RequirementEvaluatorKind"];
+            isSensitive: boolean;
+            isBlocking: boolean;
+            isEnabled: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
         };
         CreateLocationRequirementPolicyRequest: {
             /** Format: uuid */
@@ -20412,6 +20667,9 @@ export interface components {
             description: null | string;
             evaluatorKind: components["schemas"]["RequirementEvaluatorKind"];
             isSensitive: boolean;
+        };
+        UpdateLocationJobRequirementPolicyRequest: {
+            isBlocking: boolean;
         };
         UpdateRoomRequest: {
             name: string;

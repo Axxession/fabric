@@ -15,7 +15,7 @@ public static class ContractorJobAssignmentEndpoints
     public static IEndpointRouteBuilder MapContractorJobAssignmentEndpoints(this IEndpointRouteBuilder app)
     {
         RouteGroupBuilder assignments = app.MapGroup("/api/contractors/jobs/{contractorJobId:guid}/assignments")
-            .RequireAuthorization(FabricRoleDefaults.ContractorPlanningPolicy);
+            .RequireAuthorization(FabricRoleDefaults.ContractorEnrollmentOrPlanningPolicy);
 
         assignments.MapGet("", ListContractorJobAssignments)
             .WithSummary("List contractor job assignments")

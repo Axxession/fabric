@@ -45,18 +45,24 @@ Purpose: manage contractor master data.
 
 Can:
 
+- create jobs they own
+- edit jobs they own
+- create job assignments on jobs they own
+- edit job assignments on jobs they own
 - create companies
 - edit companies
 - create contractors
 - edit contractors
-- view jobs and assignments when needed for context
+
+Can also:
+
+- read companies and contractors for context
+- read jobs and assignments they own
 
 Cannot:
 
-- create jobs
-- edit jobs
-- create job assignments
-- edit job assignments
+- manage jobs owned by another actor
+- manage assignments owned by another actor
 
 ### Contractor Planning
 
@@ -72,6 +78,7 @@ Can:
 - edit job assignments on jobs they own
 - list contractors for assignment selection
 - view contractor details needed for assignment planning
+- view companies needed for planning context
 
 Cannot:
 
@@ -396,17 +403,21 @@ Meaning:
 
 Recommended endpoint split:
 
-- company CRUD -> requires `contractor-enrollment`
-- contractor CRUD -> requires `contractor-enrollment`
+- company create/update/activate/deactivate -> requires `contractor-enrollment`
+- company list/detail -> requires `contractor-planning` or `contractor-enrollment`
+- contractor create/update/archive/unarchive -> requires `contractor-enrollment`
 - contractor list/detail for planning selection -> requires `contractor-planning` or `contractor-enrollment`
-- job CRUD -> requires `contractor-planning`
-- job-assignment CRUD -> requires `contractor-planning`
+- job CRUD -> requires `contractor-planning` or `contractor-enrollment`
+- job-assignment CRUD -> requires `contractor-planning` or `contractor-enrollment`
 
 Recommended query scoping:
 
 - planner job list -> own jobs only
 - planner job detail/update -> only owned jobs
 - planner assignment list/detail/update -> only through owned jobs
+- enrollment job list -> own jobs only
+- enrollment job detail/update -> only owned jobs
+- enrollment assignment list/detail/update -> only through owned jobs
 
 ## Mermaid Model
 

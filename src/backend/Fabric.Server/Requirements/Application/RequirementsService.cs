@@ -111,6 +111,45 @@ public sealed class RequirementsService(
         return Result.Success<LocationJobRequirementPolicy, RequirementsEvaluationErrors>(policy);
     }
 
+    public async Task<Result<LocationJobRequirementPolicy, RequirementPolicyErrors>> UpdateLocationJobRequirementPolicyAsync(Guid id, UpdateLocationJobRequirementPolicyRequest request, CancellationToken cancellationToken = default)
+    {
+        LocationJobRequirementPolicy? policy = await db.LocationJobRequirementPolicies.SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (policy is null)
+            return Result.Failure<LocationJobRequirementPolicy, RequirementPolicyErrors>(RequirementPolicyErrors.LocationJobRequirementPolicyNotFound);
+
+        Result<RequirementPolicyErrors> update = policy.Update(request.IsBlocking, timeProvider.GetUtcNow());
+        if (update.IsFailure(out RequirementPolicyErrors error))
+            return Result.Failure<LocationJobRequirementPolicy, RequirementPolicyErrors>(error);
+
+        await db.SaveChangesAsync(cancellationToken);
+        return Result.Success<LocationJobRequirementPolicy, RequirementPolicyErrors>(policy);
+    }
+
+    public async Task<Result<LocationJobRequirementPolicy, RequirementPolicyErrors>> SetLocationJobRequirementPolicyEnabledAsync(Guid id, bool isEnabled, CancellationToken cancellationToken = default)
+    {
+        LocationJobRequirementPolicy? policy = await db.LocationJobRequirementPolicies.SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (policy is null)
+            return Result.Failure<LocationJobRequirementPolicy, RequirementPolicyErrors>(RequirementPolicyErrors.LocationJobRequirementPolicyNotFound);
+
+        Result<RequirementPolicyErrors> update = policy.SetEnabled(isEnabled, timeProvider.GetUtcNow());
+        if (update.IsFailure(out RequirementPolicyErrors error))
+            return Result.Failure<LocationJobRequirementPolicy, RequirementPolicyErrors>(error);
+
+        await db.SaveChangesAsync(cancellationToken);
+        return Result.Success<LocationJobRequirementPolicy, RequirementPolicyErrors>(policy);
+    }
+
+    public async Task<Result<LocationJobRequirementPolicy, RequirementPolicyErrors>> DeleteLocationJobRequirementPolicyAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        LocationJobRequirementPolicy? policy = await db.LocationJobRequirementPolicies.SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (policy is null)
+            return Result.Failure<LocationJobRequirementPolicy, RequirementPolicyErrors>(RequirementPolicyErrors.LocationJobRequirementPolicyNotFound);
+
+        db.LocationJobRequirementPolicies.Remove(policy);
+        await db.SaveChangesAsync(cancellationToken);
+        return Result.Success<LocationJobRequirementPolicy, RequirementPolicyErrors>(policy);
+    }
+
     public async Task<Result<RequirementEvidence, RequirementEvidenceErrors>> CreateRequirementEvidenceAsync(CreateRequirementEvidenceRequest request, CancellationToken cancellationToken = default)
     {
         if (!await db.RequirementDefinitions.AnyAsync(item => item.Id == request.RequirementDefinitionId, cancellationToken))

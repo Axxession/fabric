@@ -12,6 +12,11 @@ public static class LocationEndpoints
 {
     public static IEndpointRouteBuilder MapLocationEndpoints(this IEndpointRouteBuilder app)
     {
+        app.MapGet("/api/locations/locations", ListLocations)
+            .WithDescription("Retrieve locations by ids")
+            .WithSummary("List locations")
+            .Produces<LocationResponse[]>();
+
         app.MapGet("/api/locations/locations/{id:guid}", GetLocationById)
             .WithDescription("Retrieve a site, building, or room by id")
             .WithSummary("Retrieve a location by id")
@@ -78,6 +83,18 @@ public static class LocationEndpoints
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound);
 
         return app;
+    }
+
+    private static async Task<IResult> ListLocations(
+        [FromQuery] Guid[]? ids,
+        LocationService locationService,
+        CancellationToken cancellationToken = default)
+    {
+        if (ids is not { Length: > 0 })
+            return Results.Ok(Array.Empty<LocationResponse>());
+
+        IReadOnlyList<Location> locations = await locationService.GetLocationsByIds(ids, cancellationToken);
+        return Results.Ok(locations.Select(location => location.ToResponse()).ToArray());
     }
 
     private static async Task<IResult> GetLocationById(

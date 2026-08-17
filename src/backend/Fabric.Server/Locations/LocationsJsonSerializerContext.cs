@@ -10,6 +10,7 @@ namespace Fabric.Server.Locations;
 [JsonSerializable(typeof(AddRoomRequest))]
 [JsonSerializable(typeof(BuildingResponse[]))]
 [JsonSerializable(typeof(CreateSiteRequest))]
+[JsonSerializable(typeof(LocationResponse[]))]
 [JsonSerializable(typeof(LocationResponse))]
 [JsonSerializable(typeof(Page<SiteResponse>))]
 [JsonSerializable(typeof(ProblemDetails))]

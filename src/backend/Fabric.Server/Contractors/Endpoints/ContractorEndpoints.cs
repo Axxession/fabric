@@ -123,7 +123,7 @@ public static class ContractorEndpoints
     {
         Result<Contractor, ContractorErrors> result = await service.CreateContractorAsync(request, cancellationToken);
         if (result.IsFailure(out ContractorErrors error))
-            return result.Map(item => item.ToResponse(request.IdentityId)).AsResponse(MapError);
+            return result.Map(item => item.ToResponse(null)).AsResponse(MapError);
 
         result.IsSuccess(out Contractor contractor);
         Guid? identityId = await identitiesDb.ContractorAffiliations
