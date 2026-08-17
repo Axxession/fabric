@@ -40,7 +40,7 @@ AccessCatalog -> Locations by LocationId
 AccessCatalog -> AccessControl by AccessItemId and provisionable grant output
 AccessCatalog -> Requirements by requirement derivation and grant compliance evaluation
 Contractors -> Locations by LocationId
-Requirements -> Contractors by contractor planning facts and JobTypeId policy references
+Requirements -> Contractors by contractor planning facts and JobTypeId inputs used during contractor requirement derivation
 CredentialManagement -> AccessControl by CredentialTypeTarget and location-based provisioning resolution
 Automation/Sagas -> Employees, Visitors, AccessCatalog, CredentialManagement by application-service calls
 ```
@@ -51,6 +51,6 @@ Avoid cross-context ownership:
 - Access Control does not own approvals or package requests.
 - Access Catalog does not own native PACS objects or PACS assignments.
 - Access Catalog does not own requirement policy or evidence.
-- Contractors does not own identity linkage, enforcement zones, or compliance policy.
+- Contractors does not own identity linkage, requirement policy, grant-attached requirements, or grant compliance state.
 - Credential Management does not own access items or packages.
 - Employees and Visitors do not own automatic access package grant rules.
