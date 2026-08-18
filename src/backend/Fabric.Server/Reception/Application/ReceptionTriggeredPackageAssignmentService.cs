@@ -70,38 +70,52 @@ public sealed class ReceptionTriggeredPackageAssignmentService(
         ReceptionAccessRuleAssignment assignment,
         CancellationToken cancellationToken)
     {
-        bool exists = await db.AssignedAccessPolicies
-            .AnyAsync(policy => policy.ArrivalId == arrival.Id && policy.RuleAssignmentId == assignment.Id, cancellationToken);
-
-        if (exists)
-            return;
+        List<ReceptionAssignedAccessPolicy> assignedPolicies = await db.AssignedAccessPolicies
+            .Where(policy => policy.ArrivalId == arrival.Id && policy.RuleAssignmentId == assignment.Id)
+            .ToListAsync(cancellationToken);
 
         Guid? identityId = await ResolveIdentityIdAsync(arrival, cancellationToken);
         if (!identityId.HasValue || !arrival.LocationId.HasValue)
             return;
 
+        IReadOnlyList<AccessGrant> accessGrants = await accessGrantService.ListActiveForSourceAsync(
+            AssignmentSourceKind.ReceptionArrival,
+            arrival.Id,
+            assignment.PackageId,
+            cancellationToken);
+
         DateTimeOffset validFrom = arrival.ExpectedArrivalTime.AddMinutes(-assignment.GracePeriodMinutes);
         DateTimeOffset validUntil = arrival.ExpectedOffboardTime.AddMinutes(assignment.GracePeriodMinutes);
 
-        Result<IReadOnlyList<AccessGrant>, AccessCatalogErrors> create = await accessGrantService.CreateAsync(
-            assignment.PackageId,
-            identityId.Value,
-            arrival.LocationId.Value,
-            AssignmentChannel.AutomaticConfiguration,
-            AssignmentSourceKind.ReceptionArrival,
-            arrival.Id,
-            AccessDurationKind.Temporary,
-            validFrom,
-            validUntil,
-            $"Automatic reception access from trigger {assignment.Trigger}.",
-            cancellationToken);
+        if (accessGrants.Count == 0)
+        {
+            Result<IReadOnlyList<AccessGrant>, AccessCatalogErrors> create = await accessGrantService.CreateAsync(
+                assignment.PackageId,
+                identityId.Value,
+                arrival.LocationId.Value,
+                AssignmentChannel.AutomaticConfiguration,
+                AssignmentSourceKind.ReceptionArrival,
+                arrival.Id,
+                AccessDurationKind.Temporary,
+                validFrom,
+                validUntil,
+                $"Automatic reception access from trigger {assignment.Trigger}.",
+                cancellationToken);
 
-        if (create.IsFailure(out AccessCatalogErrors error))
-            throw new InvalidOperationException($"Failed to create reception access grant for arrival {arrival.Id}: {error}.");
+            if (create.IsFailure(out AccessCatalogErrors error))
+                throw new InvalidOperationException($"Failed to create reception access grant for arrival {arrival.Id}: {error}.");
 
-        create.IsSuccess(out IReadOnlyList<AccessGrant> accessGrants);
+            create.IsSuccess(out accessGrants);
+        }
+
+        HashSet<Guid> existingGrantIds = assignedPolicies.Select(policy => policy.AccessGrantId).ToHashSet();
         foreach (AccessGrant accessGrant in accessGrants)
+        {
+            if (existingGrantIds.Contains(accessGrant.Id))
+                continue;
+
             db.AssignedAccessPolicies.Add(ReceptionAssignedAccessPolicy.Create(arrival.Id, assignment.Id, accessGrant.Id, assignment.PackageId));
+        }
     }
 
     private async Task<Guid?> ResolveIdentityIdAsync(ExpectedArrival arrival, CancellationToken cancellationToken)

@@ -19,6 +19,18 @@ public sealed class AccessGrantService(
     AccessGrantProvisioningSagaService provisioningSagaService,
     TimeProvider timeProvider)
 {
+    public async Task<IReadOnlyList<AccessGrant>> ListActiveForSourceAsync(
+        AssignmentSourceKind sourceKind,
+        Guid sourceId,
+        Guid packageId,
+        CancellationToken cancellationToken = default) =>
+        await db.AccessGrants
+            .Where(item => item.SourceKind == sourceKind)
+            .Where(item => item.SourceId == sourceId)
+            .Where(item => item.PackageId == packageId)
+            .Where(item => item.Status == AccessGrantStatus.Active)
+            .ToListAsync(cancellationToken);
+
     public async Task<Result<IReadOnlyList<AccessGrant>, AccessCatalogErrors>> CreateAsync(
         Guid packageId,
         Guid identityId,

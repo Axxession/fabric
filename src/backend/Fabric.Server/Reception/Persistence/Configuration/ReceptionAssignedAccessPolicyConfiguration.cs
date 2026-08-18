@@ -21,7 +21,7 @@ public sealed class ReceptionAssignedAccessPolicyConfiguration : IEntityTypeConf
         builder.HasIndex(assignedPolicy => assignedPolicy.ArrivalId).HasDatabaseName("ix_assigned_access_policies_arrival_id");
         builder.HasIndex(assignedPolicy => assignedPolicy.RuleAssignmentId).HasDatabaseName("ix_assigned_access_policies_rule_assignment_id");
         builder.HasIndex(assignedPolicy => assignedPolicy.AccessGrantId).HasDatabaseName("ix_assigned_access_policies_access_grant_id");
-        builder.HasIndex(assignedPolicy => new { assignedPolicy.ArrivalId, assignedPolicy.RuleAssignmentId })
+        builder.HasIndex(assignedPolicy => new { assignedPolicy.ArrivalId, assignedPolicy.RuleAssignmentId, assignedPolicy.AccessGrantId })
             .IsUnique()
             .HasDatabaseName("ix_assigned_access_policies_arrival_id_rule_assignment_id");
     }

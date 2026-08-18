@@ -37,6 +37,13 @@ public class ReceptionService(
         if (expectedArrivalTime >= expectedOffboardTime)
             return Result.Failure<ExpectedArrival, ReceptionErrors>(ReceptionErrors.ExpectedArrivalMustBeBeforeExpectedOffboard);
 
+        ExpectedArrival? existingArrival = await FindExistingVisitorArrivalAsync(invitationId, visitorId, ct);
+        if (existingArrival is not null)
+        {
+            await receptionTriggeredPackageAssignmentService.ApplyTrigger(existingArrival, ReceptionAccessPolicyTrigger.ExpectedVisitorAdded, ct);
+            return Result<ExpectedArrival, ReceptionErrors>.Success(existingArrival);
+        }
+
         Result<ReceptionErrors> validation = await ValidateArrivalCodeAssignment(ArrivalType.Visitor, visitorId, arrivalCode, excludedArrivalId: null, ct);
         if (validation.IsFailure(out ReceptionErrors validationError))
             return Result.Failure<ExpectedArrival, ReceptionErrors>(validationError);
@@ -49,6 +56,15 @@ public class ReceptionService(
         await receptionTriggeredPackageAssignmentService.ApplyTrigger(arrival, ReceptionAccessPolicyTrigger.ExpectedVisitorAdded, ct);
         return Result<ExpectedArrival, ReceptionErrors>.Success(arrival);
     }
+
+    private async Task<ExpectedArrival?> FindExistingVisitorArrivalAsync(Guid invitationId, Guid visitorId, CancellationToken ct) =>
+        await db.Arrivals
+            .Where(arrival => arrival.InvitationId == invitationId && arrival.VisitorId == visitorId)
+            .Where(arrival => arrival.Status != OnboardingStatus.Offboarded)
+            .OrderByDescending(arrival => GetExistingVisitorArrivalPriority(arrival.Status))
+            .ThenByDescending(arrival => arrival.ExpectedArrivalTime)
+            .ThenBy(arrival => arrival.Id)
+            .FirstOrDefaultAsync(ct);
 
     public async Task<Result<ReceptionErrors>> UpdateArrivalCode(Guid arrivalId, string arrivalCode, CancellationToken cancellationToken = default)
     {
@@ -517,6 +533,14 @@ public class ReceptionService(
             ArrivalType.Visitor => arrival.VisitorId == subjectId,
             ArrivalType.Contractor => arrival.ContractorId == subjectId,
             _ => false,
+        };
+
+    private static int GetExistingVisitorArrivalPriority(OnboardingStatus status) =>
+        status switch
+        {
+            OnboardingStatus.Onboarded => 3,
+            OnboardingStatus.NotYetOnboarded => 2,
+            _ => 0,
         };
 
     private static ExpectedArrival SelectBestKioskArrival(List<ExpectedArrival> arrivals, Guid kioskLocationId, DateTimeOffset now) =>
