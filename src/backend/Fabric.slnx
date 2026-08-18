@@ -13,6 +13,9 @@
     <File Path="Directory.Packages.props" />
   </Folder>
   <Project Path="Fabric.Server\Fabric.Server.csproj" />
+  <Folder Name="/Integrations/">
+    <Project Path="integrations\Fabric.Keycloak\Fabric.Keycloak.csproj" />
+  </Folder>
   <Folder Name="/AccessControl/">
     <Project Path="access-control\unipass\AccessControl.Unipass.Tests\AccessControl.Unipass.Tests.csproj" />
     <Project Path="access-control\unipass\AccessControl.Unipass\AccessControl.Unipass.csproj" />

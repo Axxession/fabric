@@ -1,0 +1,22 @@
+{
+  "runtime": "Net100",
+  "documentGenerator": {
+    "fromDocument": {
+      "url": "openapi/keycloak-admin-api.json"
+    }
+  },
+  "codeGenerators": {
+    "openApiToCSharpClient": {
+      "className": "KeycloakAdminClient",
+      "namespace": "Fabric.Keycloak.Generated",
+      "generateClientInterfaces": true,
+      "injectHttpClient": true,
+      "disposeHttpClient": false,
+      "useBaseUrl": false,
+      "generateOptionalParameters": true,
+      "generateBaseUrlProperty": false,
+      "generateNullableReferenceTypes": true,
+      "output": "Generated/KeycloakAdminClient.g.cs"
+    }
+  }
+}
