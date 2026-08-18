@@ -2,7 +2,7 @@ using System.Threading.Channels;
 
 namespace Fabric.Server.Sagas.ContractorJobs;
 
-public sealed class ContractorJobOnboardingSagaTrigger
+public sealed class ContractorAssignmentAutomationTrigger
 {
     private readonly Channel<bool> _channel = Channel.CreateBounded<bool>(new BoundedChannelOptions(1)
     {

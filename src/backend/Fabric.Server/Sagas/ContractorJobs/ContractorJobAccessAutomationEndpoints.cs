@@ -24,7 +24,7 @@ public static class ContractorJobAccessAutomationEndpoints
         return app;
     }
 
-    private static async Task<IResult> EnqueueOnboardingReconcile(Guid assignmentId, ContractorJobOnboardingSagaService service, CancellationToken cancellationToken = default)
+    private static async Task<IResult> EnqueueOnboardingReconcile(Guid assignmentId, ContractorAssignmentAutomationService service, CancellationToken cancellationToken = default)
     {
         await service.EnqueueAsync(assignmentId, "ManualReconcile", cancellationToken);
         return Results.Accepted();
@@ -67,7 +67,7 @@ public static class ContractorJobAccessAutomationEndpoints
         return deleted ? Results.NoContent() : Results.NotFound();
     }
 
-    private static async Task<IResult> EnqueueAccessReconcile(Guid assignmentId, ContractorJobAccessAutomationService service, CancellationToken cancellationToken = default)
+    private static async Task<IResult> EnqueueAccessReconcile(Guid assignmentId, ContractorAssignmentAutomationService service, CancellationToken cancellationToken = default)
     {
         await service.EnqueueAsync(assignmentId, "ManualReconcile", cancellationToken);
         return Results.Accepted();

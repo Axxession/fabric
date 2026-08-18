@@ -31,12 +31,10 @@ public static class SagaServiceCollectionExtensions
         collection.AddSingleton<EmployeeLifecycleAutomationTrigger>();
         collection.AddScoped<EmployeeLifecycleAutomationService>();
         collection.AddHostedService<EmployeeLifecycleAutomationWorker>();
-        collection.AddSingleton<ContractorJobOnboardingSagaTrigger>();
-        collection.AddScoped<ContractorJobOnboardingSagaService>();
-        collection.AddHostedService<ContractorJobOnboardingWorker>();
-        collection.AddSingleton<ContractorJobAccessAutomationTrigger>();
+        collection.AddSingleton<ContractorAssignmentAutomationTrigger>();
+        collection.AddScoped<ContractorAssignmentAutomationService>();
+        collection.AddHostedService<ContractorAssignmentAutomationWorker>();
         collection.AddScoped<ContractorJobAccessAutomationService>();
-        collection.AddHostedService<ContractorJobAccessAutomationWorker>();
         collection.AddSingleton<VisitorPreOnboardingSagaTrigger>();
         collection.AddScoped<VisitorPreOnboardingSagaService>();
         collection.AddHostedService<VisitorPreOnboardingWorker>();

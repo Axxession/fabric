@@ -23,12 +23,12 @@ public sealed class ContractorJobPackageRuleConfiguration : IEntityTypeConfigura
     }
 }
 
-public sealed class ContractorJobOnboardingReconciliationConfiguration : IEntityTypeConfiguration<ContractorJobOnboardingReconciliation>
+public sealed class ContractorAssignmentAutomationMailboxConfiguration : IEntityTypeConfiguration<ContractorAssignmentAutomationMailbox>
 {
-    public void Configure(EntityTypeBuilder<ContractorJobOnboardingReconciliation> builder)
+    public void Configure(EntityTypeBuilder<ContractorAssignmentAutomationMailbox> builder)
     {
-        builder.ToTable("contractor_job_onboarding_reconciliations");
-        builder.HasKey(item => item.Id).HasName("pk_contractor_job_onboarding_reconciliations");
+        builder.ToTable("contractor_assignment_automation_mailboxes");
+        builder.HasKey(item => item.Id).HasName("pk_contractor_assignment_automation_mailboxes");
         builder.Property(item => item.Id).HasColumnName("id").ValueGeneratedNever();
         builder.Property(item => item.AssignmentId).HasColumnName("assignment_id").IsRequired();
         builder.Property(item => item.Reason).HasColumnName("reason").HasMaxLength(500).IsRequired();
@@ -38,35 +38,15 @@ public sealed class ContractorJobOnboardingReconciliationConfiguration : IEntity
         builder.Property(item => item.AttemptCount).HasColumnName("attempt_count").IsRequired();
         builder.Property(item => item.CreatedAt).HasColumnName("created_at").IsRequired();
         builder.Property(item => item.UpdatedAt).HasColumnName("updated_at").IsRequired();
+        builder.Property(item => item.LeaseOwner).HasColumnName("lease_owner").HasMaxLength(200);
+        builder.Property(item => item.LeaseUntil).HasColumnName("lease_until");
         TenantDbContext.ConfigureTenantProperty(builder);
-        builder.HasIndex("TenantId", nameof(ContractorJobOnboardingReconciliation.AssignmentId))
+        builder.HasIndex("TenantId", nameof(ContractorAssignmentAutomationMailbox.AssignmentId))
             .IsUnique()
-            .HasDatabaseName("ix_contractor_job_onboarding_reconciliations_tenant_id_assignment_id");
-        builder.HasIndex("TenantId", nameof(ContractorJobOnboardingReconciliation.ScheduledFor))
-            .HasDatabaseName("ix_contractor_job_onboarding_reconciliations_tenant_id_scheduled_for");
-    }
-}
-
-public sealed class ContractorJobAccessAutomationReconciliationConfiguration : IEntityTypeConfiguration<ContractorJobAccessAutomationReconciliation>
-{
-    public void Configure(EntityTypeBuilder<ContractorJobAccessAutomationReconciliation> builder)
-    {
-        builder.ToTable("contractor_job_access_automation_reconciliations");
-        builder.HasKey(item => item.Id).HasName("pk_contractor_job_access_automation_reconciliations");
-        builder.Property(item => item.Id).HasColumnName("id").ValueGeneratedNever();
-        builder.Property(item => item.AssignmentId).HasColumnName("assignment_id").IsRequired();
-        builder.Property(item => item.Reason).HasColumnName("reason").HasMaxLength(500).IsRequired();
-        builder.Property(item => item.ScheduledFor).HasColumnName("scheduled_for").IsRequired();
-        builder.Property(item => item.LastRetryAt).HasColumnName("last_retry_at");
-        builder.Property(item => item.LastKnownError).HasColumnName("last_known_error").HasMaxLength(2000);
-        builder.Property(item => item.AttemptCount).HasColumnName("attempt_count").IsRequired();
-        builder.Property(item => item.CreatedAt).HasColumnName("created_at").IsRequired();
-        builder.Property(item => item.UpdatedAt).HasColumnName("updated_at").IsRequired();
-        TenantDbContext.ConfigureTenantProperty(builder);
-        builder.HasIndex("TenantId", nameof(ContractorJobAccessAutomationReconciliation.AssignmentId))
-            .IsUnique()
-            .HasDatabaseName("ix_contractor_job_access_automation_reconciliations_tenant_id_assignment_id");
-        builder.HasIndex("TenantId", nameof(ContractorJobAccessAutomationReconciliation.ScheduledFor))
-            .HasDatabaseName("ix_contractor_job_access_automation_reconciliations_tenant_id_scheduled_for");
+            .HasDatabaseName("ix_contractor_assignment_automation_mailboxes_tenant_id_assignment_id");
+        builder.HasIndex("TenantId", nameof(ContractorAssignmentAutomationMailbox.ScheduledFor))
+            .HasDatabaseName("ix_contractor_assignment_automation_mailboxes_tenant_id_scheduled_for");
+        builder.HasIndex("TenantId", nameof(ContractorAssignmentAutomationMailbox.LeaseUntil))
+            .HasDatabaseName("ix_contractor_assignment_automation_mailboxes_tenant_id_lease_until");
     }
 }

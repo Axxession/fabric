@@ -3,13 +3,14 @@ using Fabric.Server.Tenants.Persistence;
 
 namespace Fabric.Server.Sagas.ContractorJobs;
 
-public sealed class ContractorJobOnboardingWorker(
+public sealed class ContractorAssignmentAutomationWorker(
     IServiceScopeFactory scopeFactory,
-    ContractorJobOnboardingSagaTrigger trigger,
-    ILogger<ContractorJobOnboardingWorker> logger,
+    ContractorAssignmentAutomationTrigger trigger,
+    ILogger<ContractorAssignmentAutomationWorker> logger,
     TimeProvider timeProvider) : BackgroundService
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromMinutes(1);
+    private readonly string _leaseOwner = $"{Environment.MachineName}:{Guid.NewGuid():N}";
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -45,13 +46,13 @@ public sealed class ContractorJobOnboardingWorker(
     private async Task ProcessDueAsync(CancellationToken cancellationToken)
     {
         await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
-        ContractorJobOnboardingSagaService service = scope.ServiceProvider.GetRequiredService<ContractorJobOnboardingSagaService>();
-        IReadOnlyList<ContractorJobOnboardingWorkItem> workItems = await service.GetDueWorkItemsAsync(cancellationToken);
-        foreach (ContractorJobOnboardingWorkItem workItem in workItems)
+        ContractorAssignmentAutomationService service = scope.ServiceProvider.GetRequiredService<ContractorAssignmentAutomationService>();
+        IReadOnlyList<ContractorAssignmentAutomationWorkItem> workItems = await service.GetDueWorkItemsAsync(cancellationToken);
+        foreach (ContractorAssignmentAutomationWorkItem workItem in workItems)
             await ProcessAsync(workItem, cancellationToken);
     }
 
-    private async Task ProcessAsync(ContractorJobOnboardingWorkItem workItem, CancellationToken cancellationToken)
+    private async Task ProcessAsync(ContractorAssignmentAutomationWorkItem workItem, CancellationToken cancellationToken)
     {
         try
         {
@@ -59,12 +60,16 @@ public sealed class ContractorJobOnboardingWorker(
             if (!await SetTenantAsync(scope.ServiceProvider, workItem.TenantId, cancellationToken))
                 return;
 
-            ContractorJobOnboardingSagaService service = scope.ServiceProvider.GetRequiredService<ContractorJobOnboardingSagaService>();
-            await service.ReconcileAsync(workItem.AssignmentId, cancellationToken);
+            ContractorAssignmentAutomationService service = scope.ServiceProvider.GetRequiredService<ContractorAssignmentAutomationService>();
+            bool acquired = await service.TryAcquireLeaseAsync(workItem.AssignmentId, _leaseOwner, cancellationToken);
+            if (!acquired)
+                return;
+
+            await service.ReconcileAsync(workItem.AssignmentId, _leaseOwner, cancellationToken);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error reconciling contractor onboarding for assignment {AssignmentId} in tenant {TenantId}", workItem.AssignmentId, workItem.TenantId);
+            logger.LogError(ex, "Error reconciling contractor assignment automation for assignment {AssignmentId} in tenant {TenantId}", workItem.AssignmentId, workItem.TenantId);
         }
     }
 

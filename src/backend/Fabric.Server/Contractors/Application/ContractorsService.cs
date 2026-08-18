@@ -14,8 +14,7 @@ public sealed class ContractorsService(
     ContractorsDbContext db,
     LocationsDbContext locationsDb,
     IdentityService identityService,
-    ContractorJobOnboardingSagaService contractorJobOnboardingSagaService,
-    ContractorJobAccessAutomationService contractorJobAccessAutomationService,
+    ContractorAssignmentAutomationService contractorAssignmentAutomationService,
     TimeProvider timeProvider)
 {
     public async Task<Result<Company, CompanyErrors>> CreateCompanyAsync(CreateCompanyRequest request, CancellationToken cancellationToken = default)
@@ -385,8 +384,7 @@ public sealed class ContractorsService(
 
     private async Task EnqueueAssignmentAutomationAsync(Guid assignmentId, string reason, CancellationToken cancellationToken)
     {
-        await contractorJobOnboardingSagaService.EnqueueAsync(assignmentId, reason, cancellationToken);
-        await contractorJobAccessAutomationService.EnqueueAsync(assignmentId, reason, cancellationToken);
+        await contractorAssignmentAutomationService.EnqueueAsync(assignmentId, reason, cancellationToken);
     }
 
     private async Task EnqueueAssignmentAutomationsAsync(IEnumerable<Guid> assignmentIds, string reason, CancellationToken cancellationToken)
@@ -395,7 +393,6 @@ public sealed class ContractorsService(
         if (distinctAssignmentIds.Length == 0)
             return;
 
-        await contractorJobOnboardingSagaService.EnqueueAssignmentsAsync(distinctAssignmentIds, reason, cancellationToken);
-        await contractorJobAccessAutomationService.EnqueueAssignmentsAsync(distinctAssignmentIds, reason, cancellationToken);
+        await contractorAssignmentAutomationService.EnqueueAssignmentsAsync(distinctAssignmentIds, reason, cancellationToken);
     }
 }
