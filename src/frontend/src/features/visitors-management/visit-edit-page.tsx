@@ -6,10 +6,11 @@ import { toast } from 'sonner';
 
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
+import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Card } from '@/shared/components/ui/card';
 import { Input } from '@/shared/components/ui/input';
-import { Separator } from '@/shared/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { VisitStatusBadge } from '@/shared/components/visit-status-badge';
 import { VisitForm, type VisitFormValues } from './visit-form';
 
@@ -44,6 +45,7 @@ function formatInvitationName(invitation: VisitInvitationResponse) {
 export function VisitEditPageContent({ visitId }: { readonly visitId: string }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'visit' | 'invitations'>('visit');
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [isInviteSuggestionsOpen, setIsInviteSuggestionsOpen] = useState(false);
@@ -301,26 +303,32 @@ export function VisitEditPageContent({ visitId }: { readonly visitId: string }) 
 
   return (
     <div className="grid gap-6">
-      <header className="flex items-start gap-4">
-        <button
-          type="button"
-          className="inline-flex size-9 shrink-0 items-center justify-center rounded-interactive border border-border bg-content text-muted-foreground transition hover:bg-hover-blue hover:text-foreground"
-          aria-label="Go back"
-          onClick={() => window.history.back()}
-        >
-          <ArrowLeft className="size-4" aria-hidden="true" />
-        </button>
+      <button
+        type="button"
+        className="inline-flex w-fit items-center gap-2 text-[14px] font-medium text-muted-foreground transition hover:text-foreground"
+        aria-label="Go back"
+        onClick={() => window.history.back()}
+      >
+        <ArrowLeft className="size-4" aria-hidden="true" />
+        Back
+      </button>
 
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h2 className="text-[20px] font-semibold tracking-tight">Edit visit</h2>
-            {visit?.status ? <VisitStatusBadge status={visit.status} /> : null}
+      {visit ? (
+        <header className="rounded-structural border border-border bg-content p-5 sm:p-6 md:p-8">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h1 className="text-[24px] font-semibold tracking-tight">{visit.summary || 'Untitled visit'}</h1>
+              <p className="mt-2 text-[14px] text-muted-foreground">Update visit details and manage invitation progress from one workspace.</p>
+            </div>
+            <VisitStatusBadge status={visit.status} />
           </div>
-          <p className="mt-2 max-w-2xl text-[14px] text-muted-foreground">
-            {visit?.summary || 'Untitled visit'}
-          </p>
-        </div>
-      </header>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <SummaryChip icon={<Users className="size-3.5" />} label={`${visit.invitations?.length ?? 0} ${(visit.invitations?.length ?? 0) === 1 ? 'participant' : 'participants'}`} />
+            {visit.host ? <SummaryChip icon={<Mail className="size-3.5" />} label={[visit.host.firstName, visit.host.lastName].filter(Boolean).join(' ') || visit.host.email || 'Host'} /> : null}
+            {visit.host?.email ? <SummaryChip icon={<Mail className="size-3.5" />} label={visit.host.email} /> : null}
+          </div>
+        </header>
+      ) : null}
 
       {errorMessage ? (
         <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">
@@ -333,265 +341,177 @@ export function VisitEditPageContent({ visitId }: { readonly visitId: string }) 
       ) : null}
 
       {!visitQuery.isLoading && !visitQuery.isError && visit && initialFormValues ? (
-        <>
-          <Card className="p-4 sm:p-6">
-            <h3 className="mb-4 text-[16px] font-semibold tracking-tight">Visit details</h3>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'visit' | 'invitations')}>
+          <TabsList>
+            <TabsTrigger value="visit">Visit</TabsTrigger>
+            <TabsTrigger value="invitations">Invitations <span className="text-[12px] font-medium text-muted-foreground">{visit.invitations?.length ?? 0}</span></TabsTrigger>
+          </TabsList>
 
-            <div className="mb-6 grid gap-3 text-[14px] sm:grid-cols-2">
-              <div>
-                <p className="text-[12px] font-medium text-muted-foreground">Host</p>
-                <p className="mt-0.5 text-foreground">
-                  {visit.host
-                    ? [visit.host.firstName, visit.host.lastName].filter(Boolean).join(' ')
-                    : '—'}
-                </p>
-                {visit.host?.email ? (
-                  <p className="text-[13px] text-muted-foreground">{visit.host.email}</p>
-                ) : null}
-              </div>
-              <div>
-                <p className="text-[12px] font-medium text-muted-foreground">Participants</p>
-                <p className="mt-0.5 inline-flex items-center gap-1.5 text-foreground">
-                  <Users className="size-3.5" aria-hidden="true" />
-                  {visit.invitations?.length ?? 0} {(visit.invitations?.length ?? 0) === 1 ? 'participant' : 'participants'}
-                </p>
-              </div>
-            </div>
+          <TabsContent value="visit" className="mt-5">
+            <Card className="p-5 sm:p-6">
+              <h2 className="mb-4 text-[18px] font-semibold tracking-tight">Visit details</h2>
+              <VisitForm
+                initialValues={initialFormValues}
+                isSubmitting={isSaving}
+                disableSubmit={isCancelledOrCompleted}
+                submitLabel="Save changes"
+                onSubmit={handleSubmit}
+                disabledFields={isCancelledOrCompleted ? ['summary', 'start', 'stop', 'location'] : undefined}
+                footerLeft={
+                  !isCancelledOrCompleted && !showCancelConfirm ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="border-error text-error hover:bg-error-background"
+                      onClick={() => setShowCancelConfirm(true)}
+                    >
+                      <CalendarX className="size-4" aria-hidden="true" />
+                      Cancel visit
+                    </Button>
+                  ) : undefined
+                }
+              />
 
-            <h3 className="mb-4 text-[16px] font-semibold tracking-tight">Schedule & summary</h3>
-
-            <VisitForm
-              initialValues={initialFormValues}
-              isSubmitting={isSaving}
-              disableSubmit={isCancelledOrCompleted}
-              submitLabel="Save changes"
-              onSubmit={handleSubmit}
-              disabledFields={isCancelledOrCompleted ? ['summary', 'start', 'stop', 'location'] : undefined}
-              footerLeft={
-                !isCancelledOrCompleted && !showCancelConfirm ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="border-error text-error hover:bg-error-background"
-                    onClick={() => setShowCancelConfirm(true)}
-                  >
-                    <CalendarX className="size-4" aria-hidden="true" />
-                    Cancel visit
-                  </Button>
-                ) : undefined
-              }
-            />
-
-            {showCancelConfirm ? (
-              <div className="-mx-4 -mb-4 mt-6 flex flex-col gap-3 border-t border-border bg-error-background px-4 py-4 sm:-mx-6 sm:-mb-6 sm:flex-row sm:items-center sm:px-6">
-                <p className="flex-1 text-[14px] text-error font-medium">Are you sure you want to cancel this visit?</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowCancelConfirm(false)}
-                >
-                  Keep
-                </Button>
-                <Button
-                  size="sm"
-                  className="bg-error text-white hover:opacity-90"
-                  onClick={handleCancel}
-                  disabled={cancelVisit.isPending}
-                >
-                  {cancelVisit.isPending ? 'Cancelling...' : 'Yes, cancel'}
-                </Button>
-              </div>
-            ) : null}
-          </Card>
-
-          <Card className="p-4 sm:p-6">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h3 className="text-[16px] font-semibold tracking-tight">Invitations</h3>
-              {!isCancelledOrCompleted && !showInviteForm ? (
-                <Button size="sm" onClick={() => setShowInviteForm(true)}>
-                  Invite
-                </Button>
+              {showCancelConfirm ? (
+                <div className="-mx-5 -mb-5 mt-6 flex flex-col gap-3 border-t border-border bg-error-background px-5 py-4 sm:-mx-6 sm:-mb-6 sm:flex-row sm:items-center sm:px-6">
+                  <p className="flex-1 text-[14px] font-medium text-error">Are you sure you want to cancel this visit?</p>
+                  <Button variant="outline" size="sm" onClick={() => setShowCancelConfirm(false)}>Keep</Button>
+                  <Button size="sm" className="bg-error text-white hover:opacity-90" onClick={handleCancel} disabled={cancelVisit.isPending}>{cancelVisit.isPending ? 'Cancelling...' : 'Yes, cancel'}</Button>
+                </div>
               ) : null}
-            </div>
+            </Card>
+          </TabsContent>
 
-            {showInviteForm && !isCancelledOrCompleted ? (
-              <form onSubmit={handleInvite} className="mb-6 rounded-interactive border border-border p-4">
-                <h4 className="mb-4 text-[14px] font-semibold tracking-tight">New invitation</h4>
-                <div className="mb-4 grid gap-3">
-                  <div className="relative">
-                    <label className="mb-1 block text-[13px] font-medium text-foreground">Email</label>
-                      <Input
-                        required
-                        type="email"
-                        placeholder="Email"
-                        value={inviteEmail}
-                        onChange={(e) => {
-                          setInviteEmail(e.target.value);
-                          setIsInviteSuggestionsOpen(true);
-                        }}
-                      />
-                    {isInviteSuggestionsOpen && inviteEmail && visitorsQuery.data && visitorsQuery.data.length > 0 ? (
-                      <div className="absolute z-50 mt-1 w-full rounded-structural border border-border bg-content text-foreground shadow-md">
-                        {visitorsQuery.data.map((visitor) => (
-                          <button
-                            key={visitor.id}
-                            type="button"
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] transition hover:bg-hover-blue"
-                            onClick={() => {
-                              setInviteEmail(visitor.email ?? '');
-                              setInviteFirstName(visitor.firstName ?? '');
-                              setInviteLastName(visitor.lastName ?? '');
-                              setInviteCompany(visitor.company ?? '');
-                              setIsInviteSuggestionsOpen(false);
-                            }}
-                          >
-                            <div>
-                              <p className="font-medium text-foreground">{visitor.email}</p>
-                              {visitor.firstName || visitor.lastName ? (
-                                <p className="text-[12px] text-muted-foreground">
-                                  {[visitor.firstName, visitor.lastName].filter(Boolean).join(' ')}
-                                </p>
-                              ) : null}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
+          <TabsContent value="invitations" className="mt-5">
+            <Card className="p-5 sm:p-6">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="text-[18px] font-semibold tracking-tight">Invitations</h2>
+                {!isCancelledOrCompleted && !showInviteForm ? <Button size="sm" onClick={() => setShowInviteForm(true)}>Invite</Button> : null}
+              </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-1 block text-[13px] font-medium text-foreground">First name</label>
-                      <Input
-                        placeholder="First name"
-                        value={inviteFirstName}
-                        onChange={(e) => setInviteFirstName(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-[13px] font-medium text-foreground">Last name</label>
-                      <Input
-                        placeholder="Last name"
-                        value={inviteLastName}
-                        onChange={(e) => setInviteLastName(e.target.value)}
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="mb-1 block text-[13px] font-medium text-foreground">Company</label>
-                      <Input
-                        placeholder="Company"
-                        value={inviteCompany}
-                      onChange={(e) => setInviteCompany(e.target.value)}
-                    />
-                  </div>
-                </div>
-                </div>
-
-                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between [&>*]:w-full sm:[&>*]:w-auto">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setShowInviteForm(false);
-                      setIsInviteSuggestionsOpen(false);
-                      setInviteFirstName('');
-                      setInviteLastName('');
-                      setInviteEmail('');
-                      setInviteCompany('');
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" size="sm" className="w-full sm:w-auto" disabled={inviteVisitor.isPending || !inviteEmail}>
-                    {inviteVisitor.isPending ? 'Sending...' : 'Send invitation'}
-                  </Button>
-                </div>
-              </form>
-            ) : null}
-
-            {visit.invitations && visit.invitations.length > 0 ? (
-              <>
-                <div className="grid gap-3 md:hidden">
-                  {visit.invitations.map((invitation) => {
-                    const saga = sagasByInvitationId.get(invitation.id) ?? null;
-                    const credentialAssignments = saga?.credentialId ? credentialAssignmentsByCredentialId.get(saga.credentialId) ?? [] : [];
-                    const qrStatus = getQrGeneratedStatus(saga, credentialAssignments);
-                    const arrivalStatus = saga?.arrivalId ? 'Registered' : 'Not yet';
-                    const invitationSentStatus = saga?.invitationSentAt ? 'Sent' : 'Not yet';
-
-                    return (
-                      <article key={invitation.id} className="rounded-structural border border-border p-4 transition hover:bg-hover-blue" role="link" tabIndex={0} onClick={() => void navigate({ to: '/employee/visitors/$visitId/invitations/$invitationId', params: { visitId, invitationId: invitation.id } })} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); void navigate({ to: '/employee/visitors/$visitId/invitations/$invitationId', params: { visitId, invitationId: invitation.id } }); } }}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-start gap-3 min-w-0">
-                          <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-hover-blue">
-                            <Mail className="size-4 text-primary" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="truncate text-[14px] font-medium text-foreground">{formatInvitationName(invitation)}</p>
-                            {invitation.email ? <p className="truncate text-[13px] text-muted-foreground">{invitation.email}</p> : null}
-                          </div>
-                          </div>
-                          <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-interactive border border-border text-muted-foreground">
-                            <ChevronRight className="size-4" aria-hidden="true" />
-                          </span>
+              {showInviteForm && !isCancelledOrCompleted ? (
+                <form onSubmit={handleInvite} className="mb-6 rounded-[18px] border border-border bg-background p-4">
+                  <h3 className="mb-4 text-[14px] font-semibold tracking-tight">New invitation</h3>
+                  <div className="mb-4 grid gap-3">
+                    <div className="relative">
+                      <label className="mb-1 block text-[13px] font-medium text-foreground">Email</label>
+                      <Input required type="email" placeholder="Email" value={inviteEmail} onChange={(e) => { setInviteEmail(e.target.value); setIsInviteSuggestionsOpen(true); }} />
+                      {isInviteSuggestionsOpen && inviteEmail && visitorsQuery.data && visitorsQuery.data.length > 0 ? (
+                        <div className="absolute z-50 mt-1 w-full rounded-structural border border-border bg-content text-foreground shadow-md">
+                          {visitorsQuery.data.map((visitor) => (
+                            <button key={visitor.id} type="button" className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] transition hover:bg-hover-blue" onClick={() => { setInviteEmail(visitor.email ?? ''); setInviteFirstName(visitor.firstName ?? ''); setInviteLastName(visitor.lastName ?? ''); setInviteCompany(visitor.company ?? ''); setIsInviteSuggestionsOpen(false); }}>
+                              <div>
+                                <p className="font-medium text-foreground">{visitor.email}</p>
+                                {visitor.firstName || visitor.lastName ? <p className="text-[12px] text-muted-foreground">{[visitor.firstName, visitor.lastName].filter(Boolean).join(' ')}</p> : null}
+                              </div>
+                            </button>
+                          ))}
                         </div>
-                        <dl className="mt-4 grid gap-2 text-[14px] text-muted-foreground">
-                          <div className="flex items-center justify-between gap-3"><dt>QR Generated</dt><dd><StatusBadge label={qrStatus} variant={getQrGeneratedVariant(qrStatus)} /></dd></div>
-                          <div className="flex items-center justify-between gap-3"><dt>Arrival Registered</dt><dd><StatusBadge label={arrivalStatus} variant={arrivalStatus === 'Registered' ? 'success' : 'secondary'} /></dd></div>
-                          <div className="flex items-center justify-between gap-3"><dt>Invitation Sent</dt><dd><StatusBadge label={invitationSentStatus} variant={invitationSentStatus === 'Sent' ? 'success' : 'secondary'} /></dd></div>
-                          <div className="flex items-center justify-between gap-3"><dt>Confirmation</dt><dd><StatusBadge label={formatConfirmationStatus(invitation.confirmationStatus)} variant={getConfirmationVariant(invitation.confirmationStatus)} /></dd></div>
-                        </dl>
-                      </article>
-                    );
-                  })}
-                </div>
+                      ) : null}
+                    </div>
 
-                <div className="hidden overflow-x-auto rounded-structural border border-border md:block">
-                  <table className="w-full min-w-[56rem] border-collapse text-left text-[14px]">
-                    <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
-                      <tr>
-                        <th className="px-4 py-3 font-semibold">Visitor</th>
-                        <th className="px-4 py-3 font-semibold">QR Generated</th>
-                        <th className="px-4 py-3 font-semibold">Arrival Registered</th>
-                        <th className="px-4 py-3 font-semibold">Invitation Sent</th>
-                        <th className="px-4 py-3 font-semibold">Confirmation Status</th>
-                        <th className="px-4 py-3 text-right font-semibold">Open</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {visit.invitations.map((invitation) => {
-                        const saga = sagasByInvitationId.get(invitation.id) ?? null;
-                        const credentialAssignments = saga?.credentialId ? credentialAssignmentsByCredentialId.get(saga.credentialId) ?? [] : [];
-                        const qrStatus = getQrGeneratedStatus(saga, credentialAssignments);
-                        const arrivalStatus = saga?.arrivalId ? 'Registered' : 'Not yet';
-                        const invitationSentStatus = saga?.invitationSentAt ? 'Sent' : 'Not yet';
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-[13px] font-medium text-foreground">First name</label>
+                        <Input placeholder="First name" value={inviteFirstName} onChange={(e) => setInviteFirstName(e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[13px] font-medium text-foreground">Last name</label>
+                        <Input placeholder="Last name" value={inviteLastName} onChange={(e) => setInviteLastName(e.target.value)} />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="mb-1 block text-[13px] font-medium text-foreground">Company</label>
+                        <Input placeholder="Company" value={inviteCompany} onChange={(e) => setInviteCompany(e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
 
-                        return (
-                      <tr key={invitation.id} className="cursor-pointer transition hover:bg-hover-blue" role="link" tabIndex={0} onClick={() => void navigate({ to: '/employee/visitors/$visitId/invitations/$invitationId', params: { visitId, invitationId: invitation.id } })} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); void navigate({ to: '/employee/visitors/$visitId/invitations/$invitationId', params: { visitId, invitationId: invitation.id } }); } }}>
-                        <td className="px-4 py-4">
-                          <div className="min-w-0">
-                            <p className="truncate font-medium text-foreground">{formatInvitationName(invitation)}</p>
-                            {invitation.email ? <p className="truncate text-[13px] text-muted-foreground">{invitation.email}</p> : null}
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between [&>*]:w-full sm:[&>*]:w-auto">
+                    <Button type="button" variant="outline" size="sm" onClick={() => { setShowInviteForm(false); setIsInviteSuggestionsOpen(false); setInviteFirstName(''); setInviteLastName(''); setInviteEmail(''); setInviteCompany(''); }}>Cancel</Button>
+                    <Button type="submit" size="sm" className="w-full sm:w-auto" disabled={inviteVisitor.isPending || !inviteEmail}>{inviteVisitor.isPending ? 'Sending...' : 'Send invitation'}</Button>
+                  </div>
+                </form>
+              ) : null}
+
+              {visit.invitations && visit.invitations.length > 0 ? (
+                <>
+                  <div className="hidden overflow-x-auto rounded-structural border border-border md:block">
+                    <table className="w-full min-w-[60rem] border-collapse text-left text-[14px]">
+                      <thead className="border-b border-border bg-background/70 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                        <tr>
+                          <th className="px-5 py-4 font-semibold">Visitor</th>
+                          <th className="px-5 py-4 font-semibold">Invitation</th>
+                          <th className="px-5 py-4 font-semibold">Confirmation</th>
+                          <th className="px-5 py-4 font-semibold">Credential</th>
+                          <th className="px-5 py-4 font-semibold">Arrival</th>
+                          <th className="px-5 py-4 text-right font-semibold">Open</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visit.invitations.map((invitation) => {
+                          const saga = sagasByInvitationId.get(invitation.id) ?? null;
+                          const credentialAssignments = saga?.credentialId ? credentialAssignmentsByCredentialId.get(saga.credentialId) ?? [] : [];
+                          const qrStatus = getQrGeneratedStatus(saga, credentialAssignments);
+                          const arrivalStatus = saga?.arrivalId ? 'Arrival registered' : 'Awaiting arrival';
+                          const invitationSentStatus = saga?.invitationSentAt ? 'Invitation sent' : 'Invitation pending';
+
+                          return (
+                            <tr key={invitation.id} className="cursor-pointer border-t border-border transition hover:bg-hover-blue/45" role="link" tabIndex={0} onClick={() => void navigate({ to: '/employee/visitors/$visitId/invitations/$invitationId', params: { visitId, invitationId: invitation.id } })} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); void navigate({ to: '/employee/visitors/$visitId/invitations/$invitationId', params: { visitId, invitationId: invitation.id } }); } }}>
+                              <td className="px-5 py-5 align-top">
+                                <div className="min-w-0">
+                                  <p className="truncate font-semibold text-foreground">{formatInvitationName(invitation)}</p>
+                                  {invitation.email ? <p className="truncate text-[13px] text-muted-foreground">{invitation.email}</p> : null}
+                                </div>
+                              </td>
+                              <td className="px-5 py-5 align-top"><Badge variant={invitationSentStatus === 'Invitation sent' ? 'success' : 'secondary'}>{invitationSentStatus}</Badge></td>
+                              <td className="px-5 py-5 align-top"><Badge variant={getConfirmationVariant(invitation.confirmationStatus)}>{formatConfirmationStatus(invitation.confirmationStatus)}</Badge></td>
+                              <td className="px-5 py-5 align-top"><Badge variant={getQrGeneratedVariant(qrStatus)}>{qrStatus}</Badge></td>
+                              <td className="px-5 py-5 align-top"><Badge variant={arrivalStatus === 'Arrival registered' ? 'success' : 'secondary'}>{arrivalStatus}</Badge></td>
+                              <td className="px-5 py-5 align-top text-right text-muted-foreground"><span className="inline-flex items-center justify-center"><ChevronRight className="size-4" aria-hidden="true" /></span></td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="grid gap-3 md:hidden">
+                    {visit.invitations.map((invitation) => {
+                      const saga = sagasByInvitationId.get(invitation.id) ?? null;
+                      const credentialAssignments = saga?.credentialId ? credentialAssignmentsByCredentialId.get(saga.credentialId) ?? [] : [];
+                      const qrStatus = getQrGeneratedStatus(saga, credentialAssignments);
+                      const arrivalStatus = saga?.arrivalId ? 'Arrival registered' : 'Awaiting arrival';
+                      const invitationSentStatus = saga?.invitationSentAt ? 'Invitation sent' : 'Invitation pending';
+
+                      return (
+                        <article key={invitation.id} className="rounded-[18px] border border-border bg-content p-5 shadow-[0_10px_28px_rgba(17,24,39,0.08)] transition hover:border-primary/20 hover:shadow-[0_14px_34px_rgba(17,24,39,0.1)]" role="link" tabIndex={0} onClick={() => void navigate({ to: '/employee/visitors/$visitId/invitations/$invitationId', params: { visitId, invitationId: invitation.id } })} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); void navigate({ to: '/employee/visitors/$visitId/invitations/$invitationId', params: { visitId, invitationId: invitation.id } }); } }}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex min-w-0 items-start gap-3">
+                              <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-hover-blue"><Mail className="size-4 text-primary" /></div>
+                              <div className="min-w-0">
+                                <p className="truncate text-[14px] font-semibold text-foreground">{formatInvitationName(invitation)}</p>
+                                {invitation.email ? <p className="truncate text-[13px] text-muted-foreground">{invitation.email}</p> : null}
+                              </div>
+                            </div>
+                            <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-interactive border border-border text-muted-foreground"><ChevronRight className="size-4" aria-hidden="true" /></span>
                           </div>
-                        </td>
-                            <td className="px-4 py-4"><StatusBadge label={qrStatus} variant={getQrGeneratedVariant(qrStatus)} /></td>
-                            <td className="px-4 py-4"><StatusBadge label={arrivalStatus} variant={arrivalStatus === 'Registered' ? 'success' : 'secondary'} /></td>
-                            <td className="px-4 py-4"><StatusBadge label={invitationSentStatus} variant={invitationSentStatus === 'Sent' ? 'success' : 'secondary'} /></td>
-                            <td className="px-4 py-4"><StatusBadge label={formatConfirmationStatus(invitation.confirmationStatus)} variant={getConfirmationVariant(invitation.confirmationStatus)} /></td>
-                            <td className="px-4 py-4 text-right text-muted-foreground"><span className="inline-flex items-center justify-center"><ChevronRight className="size-4" aria-hidden="true" /></span></td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            ) : (
-              <p className="text-[14px] text-muted-foreground">No invitations yet.</p>
-            )}
-          </Card>
-        </>
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <Badge variant={invitationSentStatus === 'Invitation sent' ? 'success' : 'secondary'}>{invitationSentStatus}</Badge>
+                            <Badge variant={getConfirmationVariant(invitation.confirmationStatus)}>{formatConfirmationStatus(invitation.confirmationStatus)}</Badge>
+                            <Badge variant={getQrGeneratedVariant(qrStatus)}>{qrStatus}</Badge>
+                            <Badge variant={arrivalStatus === 'Arrival registered' ? 'success' : 'secondary'}>{arrivalStatus}</Badge>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <p className="text-[14px] text-muted-foreground">No invitations yet.</p>
+              )}
+            </Card>
+          </TabsContent>
+        </Tabs>
       ) : null}
     </div>
   );
@@ -599,7 +519,7 @@ export function VisitEditPageContent({ visitId }: { readonly visitId: string }) 
 
 function getQrGeneratedStatus(saga: VisitorPreOnboardingSaga | null, assignments: readonly CredentialPACSAssignmentResponse[]) {
   if (!saga?.credentialId) {
-    return 'Not yet';
+    return 'QR pending';
   }
 
   if (assignments.some((assignment) => assignment.status === 'Provisioned')) {
@@ -635,8 +555,8 @@ function getConfirmationVariant(status: VisitInvitationResponse['confirmationSta
   }
 }
 
-function StatusBadge({ label, variant }: { readonly label: string; readonly variant: 'success' | 'secondary' | 'outline' | 'error' }) {
-  return <span className={variant === 'success' ? 'inline-flex rounded-full bg-success px-2.5 py-0.5 text-xs font-medium text-success-foreground' : variant === 'error' ? 'inline-flex rounded-full bg-error px-2.5 py-0.5 text-xs font-medium text-error-foreground' : variant === 'outline' ? 'inline-flex rounded-full border border-border px-2.5 py-0.5 text-xs font-medium text-foreground' : 'inline-flex rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground'}>{label}</span>;
+function SummaryChip({ icon, label }: { readonly icon: React.ReactNode; readonly label: string }) {
+  return <span className="inline-flex items-center gap-1.5 rounded-[10px] border border-border bg-background px-3 py-1 text-[12px] font-medium text-muted-foreground">{icon}{label}</span>;
 }
 
 function groupAssignmentsByCredentialId(assignments: readonly CredentialPACSAssignmentResponse[]) {

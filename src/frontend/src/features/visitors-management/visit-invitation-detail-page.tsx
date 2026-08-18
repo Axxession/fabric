@@ -1,14 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft, CalendarDays, Mail, MapPin, QrCode, UserRound } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { getGrantApprovalLabel, getGrantApprovalVariant, getGrantBusinessSummary, getGrantComplianceLabel, getGrantComplianceUntilLabel, getGrantComplianceVariant, getGrantStatusVariant } from '@/shared/access-grants/grant-status';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { Badge } from '@/shared/components/ui/badge';
-import { Button } from '@/shared/components/ui/button';
 import { Card } from '@/shared/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 
 type AccessGrantResponse = components['schemas']['AccessGrantResponse'];
 type CredentialPACSAssignmentResponse = components['schemas']['CredentialPACSAssignmentResponse'];
@@ -22,6 +23,7 @@ type VisitorResponse = components['schemas']['VisitorResponse'];
 export default function VisitInvitationDetailPage() {
   const { t } = useTranslation();
   const { visitId, invitationId } = useParams({ from: '/main/employee/visitors/$visitId/invitations/$invitationId' });
+  const [activeTab, setActiveTab] = useState<'overview' | 'access' | 'credential'>('overview');
 
   const detailsQuery = useQuery({
     queryKey: ['visitors-management', 'visits', visitId, 'invitations', invitationId, 'details'],
@@ -109,6 +111,8 @@ export default function VisitInvitationDetailPage() {
 
   const { visit, invitation, visitor, saga, locationLabel, confirmationLink, assignedPackages, credential, credentialType, credentialAssignments } = detailsQuery.data;
   const credentialProvisioningStatus = getCredentialProvisioningStatus(credential, credentialAssignments, t);
+  const visitTimeLabel = `${formatDateTime(visit.start ?? '')} - ${formatDateTime(visit.stop ?? '')}`;
+  const hostLabel = [visit.host.firstName, visit.host.lastName].filter(Boolean).join(' ') || visit.host.email || '-';
 
   return (
     <div className="grid gap-6">
@@ -117,108 +121,135 @@ export default function VisitInvitationDetailPage() {
         {t('visitorsManagement.invitationDetail.back')}
       </button>
 
-      <header className="rounded-structural border border-border bg-content p-5 sm:p-6">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-[24px] font-semibold tracking-tight">{t('visitorsManagement.invitationDetail.title')}</h1>
+      <header className="rounded-structural border border-border bg-content p-5 sm:p-6 md:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-[24px] font-semibold tracking-tight">{formatInvitationName(invitation, t)}</h1>
+            <p className="mt-2 text-[14px] text-muted-foreground">{t('visitorsManagement.invitationDetail.summary', { name: formatInvitationName(invitation, t), visit: visit.summary })}</p>
+          </div>
           <Badge variant={getConfirmationVariant(invitation.confirmationStatus)}>{formatConfirmationStatus(invitation.confirmationStatus, t)}</Badge>
         </div>
-        <p className="mt-2 text-[14px] text-muted-foreground">{t('visitorsManagement.invitationDetail.summary', { name: formatInvitationName(invitation, t), visit: visit.summary })}</p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <SummaryChip icon={<CalendarDays className="size-3.5" />} label={visitTimeLabel} />
+          <SummaryChip icon={<MapPin className="size-3.5" />} label={locationLabel} />
+          <SummaryChip icon={<UserRound className="size-3.5" />} label={hostLabel} />
+          {(visitor.company ?? invitation.company) ? <SummaryChip icon={<Mail className="size-3.5" />} label={visitor.company ?? invitation.company ?? '-'} /> : null}
+          {(visitor.licensePlate ?? invitation.licensePlate) ? <SummaryChip icon={<QrCode className="size-3.5" />} label={visitor.licensePlate ?? invitation.licensePlate ?? '-'} /> : null}
+        </div>
       </header>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <Card className="p-5 sm:p-6">
-          <h2 className="text-[18px] font-semibold tracking-tight">{t('visitorsManagement.invitationDetail.visitDetails')}</h2>
-          <dl className="mt-5 grid gap-4 text-[14px]">
-            <Detail icon={<CalendarDays className="size-4" />} label={t('visitorsManagement.invitationDetail.starts')} value={formatDateTime(visit.start ?? '')} />
-            <Detail icon={<CalendarDays className="size-4" />} label={t('visitorsManagement.invitationDetail.ends')} value={formatDateTime(visit.stop ?? '')} />
-            <Detail icon={<MapPin className="size-4" />} label={t('visitorsManagement.invitationDetail.location')} value={locationLabel} />
-            <Detail icon={<UserRound className="size-4" />} label={t('visitorsManagement.invitationDetail.host')} value={[visit.host.firstName, visit.host.lastName].filter(Boolean).join(' ') || visit.host.email || '-'} hint={visit.host.email ?? undefined} />
-          </dl>
-        </Card>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'overview' | 'access' | 'credential')}>
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="access">Access <span className="text-[12px] font-medium text-muted-foreground">{assignedPackages.length}</span></TabsTrigger>
+          <TabsTrigger value="credential">Credential {credential ? <span className="text-[12px] font-medium text-muted-foreground">1</span> : null}</TabsTrigger>
+        </TabsList>
 
-        <Card className="p-5 sm:p-6">
-          <h2 className="text-[18px] font-semibold tracking-tight">{t('visitorsManagement.invitationDetail.visitorDetails')}</h2>
-          <dl className="mt-5 grid gap-4 text-[14px]">
-            <Detail icon={<Mail className="size-4" />} label={t('visitorsManagement.invitationDetail.name')} value={formatInvitationName(invitation, t)} hint={invitation.email} />
-            <Detail icon={<Mail className="size-4" />} label={t('visitorsManagement.invitationDetail.company')} value={visitor.company ?? invitation.company ?? '-'} />
-            <Detail icon={<Mail className="size-4" />} label={t('visitorsManagement.invitationDetail.licensePlate')} value={visitor.licensePlate ?? invitation.licensePlate ?? '-'} />
-          </dl>
-        </Card>
+        <TabsContent value="overview" className="mt-5">
+          <div className="grid gap-6 xl:grid-cols-3">
+            <Card className="p-5 sm:p-6">
+              <h2 className="text-[18px] font-semibold tracking-tight">{t('visitorsManagement.invitationDetail.visitDetails')}</h2>
+              <dl className="mt-5 grid gap-4 text-[14px]">
+                <Detail icon={<CalendarDays className="size-4" />} label={t('visitorsManagement.invitationDetail.starts')} value={formatDateTime(visit.start ?? '')} />
+                <Detail icon={<CalendarDays className="size-4" />} label={t('visitorsManagement.invitationDetail.ends')} value={formatDateTime(visit.stop ?? '')} />
+                <Detail icon={<MapPin className="size-4" />} label={t('visitorsManagement.invitationDetail.location')} value={locationLabel} />
+                <Detail icon={<UserRound className="size-4" />} label={t('visitorsManagement.invitationDetail.host')} value={hostLabel} hint={visit.host.email ?? undefined} />
+              </dl>
+            </Card>
 
-        <Card className="p-5 sm:p-6">
-          <h2 className="text-[18px] font-semibold tracking-tight">{t('visitorsManagement.invitationDetail.confirmation')}</h2>
-          <div className="mt-5 flex flex-wrap items-center gap-3">
-            <Badge variant={getConfirmationVariant(invitation.confirmationStatus)}>{formatConfirmationStatus(invitation.confirmationStatus, t)}</Badge>
-            <Link to={confirmationLink} className="inline-flex text-[14px] font-medium text-primary underline-offset-4 hover:underline">{t('visitorsManagement.invitationDetail.openConfirmationPage')}</Link>
+            <Card className="p-5 sm:p-6">
+              <h2 className="text-[18px] font-semibold tracking-tight">{t('visitorsManagement.invitationDetail.visitorDetails')}</h2>
+              <dl className="mt-5 grid gap-4 text-[14px]">
+                <Detail icon={<Mail className="size-4" />} label={t('visitorsManagement.invitationDetail.name')} value={formatInvitationName(invitation, t)} hint={invitation.email} />
+                <Detail icon={<Mail className="size-4" />} label={t('visitorsManagement.invitationDetail.company')} value={visitor.company ?? invitation.company ?? '-'} />
+                <Detail icon={<Mail className="size-4" />} label={t('visitorsManagement.invitationDetail.licensePlate')} value={visitor.licensePlate ?? invitation.licensePlate ?? '-'} />
+              </dl>
+            </Card>
+
+            <Card className="p-5 sm:p-6">
+              <h2 className="text-[18px] font-semibold tracking-tight">{t('visitorsManagement.invitationDetail.confirmation')}</h2>
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <Badge variant={getConfirmationVariant(invitation.confirmationStatus)}>{formatConfirmationStatus(invitation.confirmationStatus, t)}</Badge>
+                <Link to={confirmationLink} className="inline-flex text-[14px] font-medium text-primary underline-offset-4 hover:underline">{t('visitorsManagement.invitationDetail.openConfirmationPage')}</Link>
+              </div>
+              <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-1">
+                <Info label={t('visitorsManagement.invitationDetail.confirmedAt')} value={invitation.confirmedAt ? formatDateTime(invitation.confirmedAt) : '-'} />
+                <Info label={t('visitorsManagement.invitationDetail.rejectedAt')} value={invitation.rejectedAt ? formatDateTime(invitation.rejectedAt) : '-'} />
+                {invitation.confirmationStatus === 'Confirmed' ? <Info label={t('visitorsManagement.invitationDetail.transport')} value={invitation.transport ?? '-'} /> : null}
+                {invitation.confirmationStatus === 'Confirmed' ? <Info label={t('visitorsManagement.invitationDetail.arrivedAt')} value={invitation.arrivedAt ? formatDateTime(invitation.arrivedAt) : '-'} /> : null}
+              </div>
+            </Card>
           </div>
-          <div className="mt-5 grid gap-3 md:grid-cols-2">
-            <Info label={t('visitorsManagement.invitationDetail.confirmedAt')} value={invitation.confirmedAt ? formatDateTime(invitation.confirmedAt) : '-'} />
-            <Info label={t('visitorsManagement.invitationDetail.rejectedAt')} value={invitation.rejectedAt ? formatDateTime(invitation.rejectedAt) : '-'} />
-            {invitation.confirmationStatus === 'Confirmed' ? <Info label={t('visitorsManagement.invitationDetail.transport')} value={invitation.transport ?? '-'} /> : null}
-            {invitation.confirmationStatus === 'Confirmed' ? <Info label={t('visitorsManagement.invitationDetail.arrivedAt')} value={invitation.arrivedAt ? formatDateTime(invitation.arrivedAt) : '-'} /> : null}
-          </div>
-        </Card>
+        </TabsContent>
 
-        <Card className="p-5 sm:p-6">
-          <h2 className="text-[18px] font-semibold tracking-tight">{t('visitorsManagement.invitationDetail.assignedPackages')}</h2>
-          {assignedPackages.length === 0 ? <p className="mt-5 text-[14px] text-muted-foreground">{t('visitorsManagement.invitationDetail.noAssignedPackages')}</p> : (
-            <div className="mt-5 overflow-x-auto">
-              <table className="w-full min-w-[32rem] border-collapse text-left text-[14px]">
-                <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-3 font-semibold">{t('visitorsManagement.invitationDetail.package')}</th>
-                    <th className="px-4 py-3 font-semibold">{t('visitorsManagement.invitationDetail.status')}</th>
-                    <th className="px-4 py-3 font-semibold">{t('visitorsManagement.invitationDetail.provisioned')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {assignedPackages.map((item) => (
-                    <tr key={item.grant.id}>
-                      <td className="px-4 py-4">
-                        <div className="font-medium text-foreground">{item.packageName}</div>
-                        <div className="mt-1 text-muted-foreground">{formatValidityRange(item.grant.validFrom, item.grant.validUntil)}</div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <Badge variant={getGrantStatusVariant(item.grant.status)}>{item.grant.status}</Badge>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <Badge variant={getGrantApprovalVariant(item.grant.approvalStatus)}>{getGrantApprovalLabel(item.grant.approvalStatus)}</Badge>
-                          <Badge variant={getGrantComplianceVariant(item.grant.complianceStatus)}>{getGrantComplianceLabel(item.grant.complianceStatus)}</Badge>
-                        </div>
-                        <div className="mt-2 text-[13px] text-muted-foreground">{getGrantBusinessSummary(item.grant)}</div>
-                        {getGrantComplianceUntilLabel(item.grant) ? <div className="mt-1 text-[13px] text-muted-foreground">Compliant until {formatDateTime(getGrantComplianceUntilLabel(item.grant)!)}</div> : null}
-                        {item.grant.status === 'Revoked' && item.grant.revokeCause ? <div className="mt-2 text-[13px] text-muted-foreground">{formatAccessGrantRevokeCause(item.grant.revokeCause, t)}</div> : null}
-                        {item.grant.status === 'Revoked' && item.grant.revokedBy ? <div className="mt-1 text-[13px] text-muted-foreground">{item.grant.revokedBy}</div> : null}
-                      </td>
-                      <td className="px-4 py-4"><Badge variant={item.isProvisioned ? 'success' : 'secondary'}>{item.isProvisioned ? t('visitorsManagement.invitationDetail.provisionedLabel') : t('visitorsManagement.invitationDetail.notYet')}</Badge></td>
+        <TabsContent value="access" className="mt-5">
+          <Card className="p-5 sm:p-6">
+            <h2 className="text-[18px] font-semibold tracking-tight">{t('visitorsManagement.invitationDetail.assignedPackages')}</h2>
+            {assignedPackages.length === 0 ? <p className="mt-5 text-[14px] text-muted-foreground">{t('visitorsManagement.invitationDetail.noAssignedPackages')}</p> : (
+              <div className="mt-5 overflow-x-auto">
+                <table className="w-full min-w-[36rem] border-collapse text-left text-[14px]">
+                  <thead className="border-b border-border bg-background/70 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                    <tr>
+                      <th className="px-5 py-4 font-semibold">{t('visitorsManagement.invitationDetail.package')}</th>
+                      <th className="px-5 py-4 font-semibold">{t('visitorsManagement.invitationDetail.status')}</th>
+                      <th className="px-5 py-4 font-semibold">{t('visitorsManagement.invitationDetail.provisioned')}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {assignedPackages.map((item) => (
+                      <tr key={item.grant.id}>
+                        <td className="px-5 py-5 align-top">
+                          <div className="font-semibold text-foreground">{item.packageName}</div>
+                          <div className="mt-1 text-[13px] text-muted-foreground">{formatValidityRange(item.grant.validFrom, item.grant.validUntil)}</div>
+                        </td>
+                        <td className="px-5 py-5 align-top">
+                          <Badge variant={getGrantStatusVariant(item.grant.status)}>{item.grant.status}</Badge>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <Badge variant={getGrantApprovalVariant(item.grant.approvalStatus)}>{getGrantApprovalLabel(item.grant.approvalStatus)}</Badge>
+                            <Badge variant={getGrantComplianceVariant(item.grant.complianceStatus)}>{getGrantComplianceLabel(item.grant.complianceStatus)}</Badge>
+                          </div>
+                          <div className="mt-2 text-[13px] text-muted-foreground">{getGrantBusinessSummary(item.grant)}</div>
+                          {getGrantComplianceUntilLabel(item.grant) ? <div className="mt-1 text-[13px] text-muted-foreground">Compliant until {formatDateTime(getGrantComplianceUntilLabel(item.grant)!)}</div> : null}
+                          {item.grant.status === 'Revoked' && item.grant.revokeCause ? <div className="mt-2 text-[13px] text-muted-foreground">{formatAccessGrantRevokeCause(item.grant.revokeCause, t)}</div> : null}
+                          {item.grant.status === 'Revoked' && item.grant.revokedBy ? <div className="mt-1 text-[13px] text-muted-foreground">{item.grant.revokedBy}</div> : null}
+                        </td>
+                        <td className="px-5 py-5 align-top"><Badge variant={item.isProvisioned ? 'success' : 'secondary'}>{item.isProvisioned ? t('visitorsManagement.invitationDetail.provisionedLabel') : t('visitorsManagement.invitationDetail.notYet')}</Badge></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </TabsContent>
 
-        <Card className="p-5 sm:p-6 xl:col-span-2">
-          <h2 className="text-[18px] font-semibold tracking-tight">{t('visitorsManagement.invitationDetail.assignedCredential')}</h2>
-          {!credential ? <p className="mt-5 text-[14px] text-muted-foreground">{t('visitorsManagement.invitationDetail.noCredential')}</p> : (
-            <div className="mt-5 grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
-              <div className="rounded-structural border border-border bg-background p-4">
-                <img src={`/api/credential-management/credentials/${credential.id}/qr?size=220`} alt={t('visitorsManagement.invitationDetail.qrAlt', { name: formatInvitationName(invitation, t) })} className="mx-auto size-full max-w-[220px] rounded-structural border border-border bg-white p-3" />
+        <TabsContent value="credential" className="mt-5">
+          <Card className="p-5 sm:p-6">
+            <h2 className="text-[18px] font-semibold tracking-tight">{t('visitorsManagement.invitationDetail.assignedCredential')}</h2>
+            {!credential ? <p className="mt-5 text-[14px] text-muted-foreground">{t('visitorsManagement.invitationDetail.noCredential')}</p> : (
+              <div className="mt-5 grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
+                <div className="rounded-structural border border-border bg-background p-4">
+                  <img src={`/api/credential-management/credentials/${credential.id}/qr?size=220`} alt={t('visitorsManagement.invitationDetail.qrAlt', { name: formatInvitationName(invitation, t) })} className="mx-auto size-full max-w-[220px] rounded-structural border border-border bg-white p-3" />
+                </div>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  <Info label={t('visitorsManagement.invitationDetail.credentialType')} value={credentialType?.name ?? credential.credentialTypeId} />
+                  <Info label={t('visitorsManagement.invitationDetail.identifier')} value={credential.identifier} />
+                  <Info label={t('visitorsManagement.invitationDetail.credentialStatus')} value={credential.status} />
+                  <Info label={t('visitorsManagement.invitationDetail.provisioning')} value={credentialProvisioningStatus} />
+                  <Info label={t('visitorsManagement.invitationDetail.validFrom')} value={formatDateTime(credential.validFrom)} />
+                  <Info label={t('visitorsManagement.invitationDetail.validUntil')} value={credential.validUntil ? formatDateTime(credential.validUntil) : t('visitorsManagement.invitationDetail.noEndDate')} />
+                </div>
               </div>
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                <Info label={t('visitorsManagement.invitationDetail.credentialType')} value={credentialType?.name ?? credential.credentialTypeId} />
-                <Info label={t('visitorsManagement.invitationDetail.identifier')} value={credential.formattedIdentifier} />
-                <Info label={t('visitorsManagement.invitationDetail.credentialStatus')} value={credential.status} />
-                <Info label={t('visitorsManagement.invitationDetail.provisioning')} value={credentialProvisioningStatus} />
-                <Info label={t('visitorsManagement.invitationDetail.validFrom')} value={formatDateTime(credential.validFrom)} />
-                <Info label={t('visitorsManagement.invitationDetail.validUntil')} value={credential.validUntil ? formatDateTime(credential.validUntil) : t('visitorsManagement.invitationDetail.noEndDate')} />
-              </div>
-            </div>
-          )}
-        </Card>
-      </div>
+            )}
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
+}
+
+function SummaryChip({ icon, label }: { readonly icon: React.ReactNode; readonly label: string }) {
+  return <span className="inline-flex items-center gap-1.5 rounded-[10px] border border-border bg-background px-3 py-1 text-[12px] font-medium text-muted-foreground">{icon}{label}</span>;
 }
 
 function formatInvitationName(invitation: VisitInvitationResponse, t: ReturnType<typeof useTranslation>['t']) {
