@@ -56,27 +56,25 @@ export default function IdentitiesPage() {
 
   return (
     <Card className="p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-[20px] font-semibold tracking-tight">{t('identities.list.title')}</h2>
-          <p className="mt-2 text-[14px] text-muted-foreground">{t('identities.list.description')}</p>
-        </div>
+      <div>
+        <h2 className="text-[20px] font-semibold tracking-tight">{t('identities.list.title')}</h2>
+        <p className="mt-2 text-[14px] text-muted-foreground">{t('identities.list.description')}</p>
       </div>
 
-      <div className="mt-6 grid gap-2 sm:max-w-sm">
+      <div className="grid gap-2 sm:max-w-sm">
         <label className="text-[14px] font-medium" htmlFor="identity-query">{t('identities.list.searchLabel')}</label>
-        <input id="identity-query" className="h-9 rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary focus:ring-[3px] focus:ring-primary/20" value={query} onChange={(event) => { setQuery(event.target.value); setPage(0); }} placeholder={t('identities.list.searchPlaceholder')} />
+        <input id="identity-query" className="h-10 rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary focus:ring-[3px] focus:ring-primary/20" value={query} onChange={(event) => { setQuery(event.target.value); setPage(0); }} placeholder={t('identities.list.searchPlaceholder')} />
       </div>
 
-      {identitiesQuery.isError ? <p className="mt-6 rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">{t('identities.list.couldNotLoad')}</p> : null}
-      {identitiesQuery.isLoading ? <p className="mt-6 text-[14px] text-muted-foreground">{t('identities.list.loading')}</p> : null}
-      {!identitiesQuery.isLoading && items.length === 0 ? <p className="mt-6 rounded-structural border border-dashed border-border p-6 text-[14px] text-muted-foreground">{t('identities.list.empty')}</p> : null}
+      {identitiesQuery.isError ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">{t('identities.list.couldNotLoad')}</p> : null}
+      {identitiesQuery.isLoading ? <p className="text-[14px] text-muted-foreground">{t('identities.list.loading')}</p> : null}
+      {!identitiesQuery.isLoading && items.length === 0 ? <p className="rounded-structural border border-dashed border-border p-6 text-[14px] text-muted-foreground">{t('identities.list.empty')}</p> : null}
 
       {items.length > 0 ? (
         <>
-          <div className="mt-6 hidden overflow-x-auto md:block">
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[64rem] border-collapse text-left text-[14px]">
-              <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
+              <thead className="border-b border-border text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3 font-semibold">{t('identities.list.name')}</th>
                   <th className="px-4 py-3 font-semibold">{t('identities.list.email')}</th>
@@ -87,8 +85,10 @@ export default function IdentitiesPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {items.map((item) => (
-                  <tr key={item.id} className="cursor-pointer transition hover:bg-hover-blue" role="link" tabIndex={0} onClick={() => openIdentity(item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openIdentity(item.id); } }}>
-                    <td className="px-4 py-4 font-medium text-foreground">{item.displayName}</td>
+                  <tr key={item.id} className="cursor-pointer transition hover:bg-hover-blue/55" role="link" tabIndex={0} onClick={() => openIdentity(item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openIdentity(item.id); } }}>
+                    <td className="px-4 py-4">
+                      <div className="font-medium text-foreground">{item.displayName}</div>
+                    </td>
                     <td className="px-4 py-4 text-muted-foreground">{item.email ?? '-'}</td>
                     <td className="px-4 py-4"><Badge variant={getStatusVariant(item.status)}>{item.status}</Badge></td>
                     <td className="px-4 py-4 text-muted-foreground">{formatAffiliations(item, t)}</td>
@@ -99,9 +99,9 @@ export default function IdentitiesPage() {
             </table>
           </div>
 
-          <div className="mt-6 grid gap-3 md:hidden">
+          <div className="grid gap-3 md:hidden">
             {items.map((item) => (
-              <article key={item.id} className="rounded-structural border border-border p-4 transition hover:bg-hover-blue" role="button" tabIndex={0} onClick={() => openIdentity(item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openIdentity(item.id); } }}>
+              <article key={item.id} className="rounded-structural border border-border p-4 transition hover:bg-hover-blue/55" role="button" tabIndex={0} onClick={() => openIdentity(item.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openIdentity(item.id); } }}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-medium text-foreground">{item.displayName}</p>
@@ -118,7 +118,7 @@ export default function IdentitiesPage() {
           </div>
 
           {pagination.totalPages > 1 || pagination.hasNextPage ? (
-            <div className="mt-6 flex flex-col gap-3 border-t border-border pt-4 text-[14px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 border-t border-border pt-4 text-[14px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
               <p>{t('identities.list.showing', { first: pagination.firstItem, last: pagination.lastItem, total: pagination.totalItems })}</p>
               <Pagination>
                 <PaginationContent>

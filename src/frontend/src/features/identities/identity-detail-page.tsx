@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
-import { ArrowLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight } from 'lucide-react';
 import { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -12,6 +12,7 @@ import { getLocationLabel, type LocationResponse } from '@/shared/components/loc
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Card } from '@/shared/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { i18n } from '@/shared/i18n/i18n';
 
 type AccessControlSystemResponse = components['schemas']['AccessControlSystemResponse'];
@@ -22,6 +23,8 @@ type AccessGrantResponse = components['schemas']['AccessGrantResponse'];
 type CredentialPACSAssignmentResponse = components['schemas']['CredentialPACSAssignmentResponse'];
 type CredentialResponse = components['schemas']['CredentialResponse'];
 type CredentialTypeResponse = components['schemas']['CredentialTypeResponse'];
+type ContractorCompanyResponse = components['schemas']['ContractorCompanyResponse'];
+type ContractorResponse = components['schemas']['ContractorResponse'];
 type EmployeeResponse = components['schemas']['EmployeeResponse'];
 type IdentityAffiliationSummaryResponse = components['schemas']['IdentityAffiliationSummaryResponse'];
 type IdentityResponse = components['schemas']['IdentityResponse'];
@@ -38,19 +41,26 @@ type PackageResponse = components['schemas']['PackageResponse'];
 type PackageRequestStatus = components['schemas']['PackageRequestStatus'];
 type VisitorResponse = components['schemas']['VisitorResponse'];
 
-type IdentitySection = 'overview' | 'assignments' | 'credentials' | 'known-in' | 'requests';
+type IdentitySection = 'overview' | 'access' | 'credentials' | 'known-in' | 'requests';
+type AccessFilter = 'requested' | 'automated';
+type RequestFilter = 'completed' | 'in-progress' | 'approved' | 'rejected' | 'expired';
+type CredentialFilter = 'active' | 'suspended' | 'expired' | 'revoked';
 
 export default function IdentityDetailPage() {
   const { t } = useTranslation();
   const { identityId } = useParams({ from: '/main/security-officer/identities/$identityId' });
   const navigate = useNavigate();
   const [section, setSection] = useState<IdentitySection>('overview');
-  const sections: readonly { id: IdentitySection; label: string; description: string }[] = [
-    { id: 'overview', label: t('identities.detail.overview.label'), description: t('identities.detail.overview.description') },
-    { id: 'assignments', label: t('identities.detail.assignments.label'), description: t('identities.detail.assignments.description') },
-    { id: 'credentials', label: t('identities.detail.credentials.label'), description: t('identities.detail.credentials.description') },
-    { id: 'known-in', label: t('identities.detail.knownIn.label'), description: t('identities.detail.knownIn.description') },
-    { id: 'requests', label: t('identities.detail.requests.label'), description: t('identities.detail.requests.description') },
+  const [accessFilters, setAccessFilters] = useState<readonly AccessFilter[]>(['requested', 'automated']);
+  const [showActiveAccessOnly, setShowActiveAccessOnly] = useState(true);
+  const [credentialFilters, setCredentialFilters] = useState<readonly CredentialFilter[]>(['active']);
+  const [requestFilter, setRequestFilter] = useState<RequestFilter>('completed');
+  const sections: readonly { id: IdentitySection; label: string }[] = [
+    { id: 'overview', label: t('identities.detail.overview.label') },
+    { id: 'access', label: t('identities.detail.access.label') },
+    { id: 'credentials', label: t('identities.detail.credentials.label') },
+    { id: 'known-in', label: t('identities.detail.knownIn.label') },
+    { id: 'requests', label: t('identities.detail.requests.label') },
   ];
 
   const identityQuery = useQuery({
@@ -66,7 +76,7 @@ export default function IdentityDetailPage() {
 
   const systemsQuery = useQuery({
     queryKey: ['security-officer', 'identity-360', identityId, 'systems'],
-    enabled: section === 'assignments' || section === 'credentials' || section === 'known-in',
+    enabled: section === 'access' || section === 'credentials' || section === 'known-in',
     queryFn: async () => {
       const { data, error } = await api.GET('/api/access-control/systems', { params: { query: { Name: undefined, Page: 0, PageSize: 200 } as never } });
       if (error) {
@@ -108,6 +118,39 @@ export default function IdentityDetailPage() {
     },
   });
 
+  const contractorDetailsQuery = useQuery({
+    queryKey: ['security-officer', 'identity-360', identityId, 'contractor-details', identityQuery.data?.contractorAffiliations.map((item) => item.sourceId).join(',') ?? ''],
+    enabled: section === 'overview' && (identityQuery.data?.contractorAffiliations.length ?? 0) > 0,
+    queryFn: async () => {
+      const items = await Promise.all((identityQuery.data?.contractorAffiliations ?? []).map(async (affiliation: IdentityAffiliationSummaryResponse) => {
+        const { data, error } = await api.GET('/api/contractors/contractors/{id}', { params: { path: { id: affiliation.sourceId } } });
+        if (error || !data) {
+          throw new Error('Could not load contractor details.');
+        }
+        return data;
+      }));
+
+      return items;
+    },
+  });
+
+  const contractorCompanyLabelsQuery = useQuery({
+    queryKey: ['security-officer', 'identity-360', identityId, 'contractor-companies', contractorDetailsQuery.data?.map((item) => item.companyId).join(',') ?? ''],
+    enabled: section === 'overview' && (contractorDetailsQuery.data?.length ?? 0) > 0,
+    queryFn: async () => {
+      const companyIds = Array.from(new Set((contractorDetailsQuery.data ?? []).map((item) => item.companyId)));
+      const companies = await Promise.all(companyIds.map(async (companyId) => {
+        const { data, error } = await api.GET('/api/contractors/companies/{id}', { params: { path: { id: companyId } } });
+        if (error || !data) {
+          return null;
+        }
+        return data;
+      }));
+
+      return new Map(companies.filter((item): item is ContractorCompanyResponse => item !== null).map((item) => [item.id, item.name]));
+    },
+  });
+
   const employeeWorkLocationLabelsQuery = useQuery({
     queryKey: ['security-officer', 'identity-360', identityId, 'employee-work-location-labels', employeeDetailsQuery.data?.map((item) => item.id).join(',') ?? ''],
     enabled: section === 'overview' && (employeeDetailsQuery.data?.length ?? 0) > 0,
@@ -127,7 +170,7 @@ export default function IdentityDetailPage() {
 
   const assignmentsQuery = useQuery({
     queryKey: ['security-officer', 'identity-360', identityId, 'assignments'],
-    enabled: section === 'assignments',
+    enabled: Boolean(identityId),
     queryFn: async () => {
       const [grantsResult, assignmentsResult, provisioningsResult] = await Promise.all([
         api.GET('/api/access-catalog/access-grants', { params: { query: { IdentityId: identityId, PackageId: undefined, Status: undefined, Page: 0, PageSize: 200 } as never } }),
@@ -223,7 +266,7 @@ export default function IdentityDetailPage() {
 
   const subjectsQuery = useQuery({
     queryKey: ['security-officer', 'identity-360', identityId, 'subjects'],
-    enabled: section === 'known-in',
+    enabled: Boolean(identityId),
     queryFn: async () => {
       const { data, error } = await api.GET('/api/access-control/subjects', { params: { query: { IdentityId: identityId, AccessControlSystemId: undefined, Page: 0, PageSize: 200 } as never } });
       if (error) {
@@ -279,7 +322,7 @@ export default function IdentityDetailPage() {
 
   const requestsQuery = useQuery({
     queryKey: ['security-officer', 'identity-360', identityId, 'requests'],
-    enabled: section === 'requests',
+    enabled: Boolean(identityId),
     queryFn: async () => {
       const { data, error } = await api.GET('/api/access-catalog/package-requests', { params: { query: { RequesterIdentityId: undefined, BeneficiaryIdentityId: identityId, Status: undefined, ids: [] } as never } });
       if (error) {
@@ -304,6 +347,11 @@ export default function IdentityDetailPage() {
   });
 
   const identity = identityQuery.data;
+  const headerBadges = [
+    getHeaderAnomalyBadge(subjectsQuery.data, subjectsQuery.isSuccess),
+    getHeaderProvisioningBadge(assignmentsQuery.data?.grants, assignmentsQuery.isSuccess),
+    getHeaderActiveRequestsBadge(requestsQuery.data?.requests, requestsQuery.isSuccess),
+  ].filter((item): item is HeaderBadge => item !== null);
 
   return (
     <section className="grid gap-6">
@@ -317,35 +365,82 @@ export default function IdentityDetailPage() {
 
       {identity ? (
         <>
-          <IdentityHeader identity={identity} />
+          <IdentityHeader identity={identity} headerBadges={headerBadges} />
 
-          <div className="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
-            <Card className="p-3">
-              <nav className="grid gap-2" aria-label={t('identities.detail.navigation')}>
-                {sections.map((item) => (
-                  <button key={item.id} type="button" className={section === item.id ? 'rounded-interactive bg-active-blue px-3 py-3 text-left text-foreground' : 'rounded-interactive px-3 py-3 text-left text-foreground transition hover:bg-hover-blue'} onClick={() => setSection(item.id)}>
-                    <span className="block font-semibold">{item.label}</span>
-                    <span className="mt-1 block text-[13px] leading-5 text-muted-foreground">{item.description}</span>
-                  </button>
-                ))}
-              </nav>
-            </Card>
+          <Tabs value={section} onValueChange={(value) => setSection(value as IdentitySection)}>
+            <TabsList aria-label={t('identities.detail.navigation')}>
+              {sections.map((item) => (
+                <TabsTrigger key={item.id} value={item.id}>{item.label}</TabsTrigger>
+              ))}
+            </TabsList>
 
-            <div className="min-w-0 grid gap-4">
-              {section === 'overview' ? <OverviewSection employeeDetails={employeeDetailsQuery.data ?? []} employeeWorkLocationLabels={employeeWorkLocationLabelsQuery.data ?? new Map<string, string>()} employeeLoading={employeeDetailsQuery.isLoading || employeeWorkLocationLabelsQuery.isLoading} employeeError={employeeDetailsQuery.isError || employeeWorkLocationLabelsQuery.isError} visitorDetails={visitorDetailsQuery.data ?? []} visitorLoading={visitorDetailsQuery.isLoading} visitorError={visitorDetailsQuery.isError} /> : null}
-              {section === 'assignments' ? <AssignmentsSection identityId={identityId} data={assignmentsQuery.data} isLoading={assignmentsQuery.isLoading} isError={assignmentsQuery.isError} systemsById={systemsQuery.data ?? new Map<string, AccessControlSystemResponse>()} /> : null}
-              {section === 'credentials' ? <CredentialsSection data={credentialsQuery.data} isLoading={credentialsQuery.isLoading} isError={credentialsQuery.isError} systemsById={systemsQuery.data ?? new Map<string, AccessControlSystemResponse>()} /> : null}
-              {section === 'known-in' ? <KnownInSection subjects={subjectsQuery.data ?? []} isLoading={subjectsQuery.isLoading} isError={subjectsQuery.isError} systemsById={systemsQuery.data ?? new Map<string, AccessControlSystemResponse>()} /> : null}
-              {section === 'requests' ? <RequestsSection data={requestsQuery.data} isLoading={requestsQuery.isLoading} isError={requestsQuery.isError} onOpenRequest={(requestId) => void navigate({ to: '/security-officer/identities/$identityId/requests/$requestId', params: { identityId, requestId } })} /> : null}
-            </div>
-          </div>
+            <TabsContent value="overview" className="mt-0">
+              <OverviewSection
+                identity={identity}
+                employeeDetails={employeeDetailsQuery.data ?? []}
+                employeeWorkLocationLabels={employeeWorkLocationLabelsQuery.data ?? new Map<string, string>()}
+                employeeLoading={employeeDetailsQuery.isLoading || employeeWorkLocationLabelsQuery.isLoading}
+                employeeError={employeeDetailsQuery.isError || employeeWorkLocationLabelsQuery.isError}
+                contractorDetails={contractorDetailsQuery.data ?? []}
+                contractorCompanyLabels={contractorCompanyLabelsQuery.data ?? new Map<string, string>()}
+                contractorLoading={contractorDetailsQuery.isLoading || contractorCompanyLabelsQuery.isLoading}
+                contractorError={contractorDetailsQuery.isError || contractorCompanyLabelsQuery.isError}
+                visitorDetails={visitorDetailsQuery.data ?? []}
+                visitorLoading={visitorDetailsQuery.isLoading}
+                visitorError={visitorDetailsQuery.isError}
+              />
+            </TabsContent>
+
+            <TabsContent value="access" className="mt-0">
+              <AssignmentsSection
+                identityId={identityId}
+                data={assignmentsQuery.data}
+                isLoading={assignmentsQuery.isLoading}
+                isError={assignmentsQuery.isError}
+                systemsById={systemsQuery.data ?? new Map<string, AccessControlSystemResponse>()}
+                accessFilters={accessFilters}
+                showActiveOnly={showActiveAccessOnly}
+                onToggleAccessFilter={(filter) => {
+                  setAccessFilters((current) => {
+                    if (current.includes(filter)) {
+                      return current.length === 1 ? current : current.filter((item) => item !== filter);
+                    }
+
+                    return [...current, filter];
+                  });
+                }}
+                onToggleActiveOnly={() => setShowActiveAccessOnly((current) => !current)}
+              />
+            </TabsContent>
+
+            <TabsContent value="credentials" className="mt-0">
+              <CredentialsSection
+                data={credentialsQuery.data}
+                isLoading={credentialsQuery.isLoading}
+                isError={credentialsQuery.isError}
+                systemsById={systemsQuery.data ?? new Map<string, AccessControlSystemResponse>()}
+                filters={credentialFilters}
+                onToggleFilter={(filter) => {
+                  setCredentialFilters((current) => current.includes(filter) ? current.filter((item) => item !== filter) : [...current, filter]);
+                }}
+              />
+            </TabsContent>
+
+            <TabsContent value="known-in" className="mt-0">
+              <KnownInSection subjects={subjectsQuery.data ?? []} isLoading={subjectsQuery.isLoading} isError={subjectsQuery.isError} systemsById={systemsQuery.data ?? new Map<string, AccessControlSystemResponse>()} />
+            </TabsContent>
+
+            <TabsContent value="requests" className="mt-0">
+              <RequestsSection data={requestsQuery.data} isLoading={requestsQuery.isLoading} isError={requestsQuery.isError} filter={requestFilter} onChangeFilter={setRequestFilter} onOpenRequest={(requestId) => void navigate({ to: '/security-officer/identities/$identityId/requests/$requestId', params: { identityId, requestId } })} />
+            </TabsContent>
+          </Tabs>
         </>
       ) : null}
     </section>
   );
 }
 
-function IdentityHeader({ identity }: { readonly identity: IdentityResponse }) {
+function IdentityHeader({ identity, headerBadges }: { readonly identity: IdentityResponse; readonly headerBadges: readonly HeaderBadge[] }) {
   const { t } = useTranslation();
   const affiliationLabels = [
     identity.employeeAffiliations.length > 0 ? t('identities.list.employee') : null,
@@ -356,12 +451,13 @@ function IdentityHeader({ identity }: { readonly identity: IdentityResponse }) {
   return (
     <Card className="p-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-[28px] font-semibold tracking-tight">{identity.displayName}</h1>
             <Badge variant={getIdentityStatusVariant(identity.status)}>{identity.status}</Badge>
           </div>
           <p className="mt-2 text-[14px] text-muted-foreground">{identity.email ?? t('identities.detail.noEmail')}</p>
+          {headerBadges.length > 0 ? <div className="mt-3 flex flex-wrap gap-2">{headerBadges.map((badge) => <Badge key={badge.label} variant={badge.variant}>{badge.label}</Badge>)}</div> : null}
         </div>
         <div className="flex flex-wrap gap-2">
           {affiliationLabels.length > 0 ? affiliationLabels.map((label) => <Badge key={label} variant="secondary">{label}</Badge>) : <Badge variant="outline">{t('identities.detail.noAffiliations')}</Badge>}
@@ -371,53 +467,90 @@ function IdentityHeader({ identity }: { readonly identity: IdentityResponse }) {
   );
 }
 
-function OverviewSection({ employeeDetails, employeeWorkLocationLabels, employeeLoading, employeeError, visitorDetails, visitorLoading, visitorError }: { readonly employeeDetails: EmployeeResponse[]; readonly employeeWorkLocationLabels: Map<string, string>; readonly employeeLoading: boolean; readonly employeeError: boolean; readonly visitorDetails: VisitorResponse[]; readonly visitorLoading: boolean; readonly visitorError: boolean; }) {
+function OverviewSection({ identity, employeeDetails, employeeWorkLocationLabels, employeeLoading, employeeError, contractorDetails, contractorCompanyLabels, contractorLoading, contractorError, visitorDetails, visitorLoading, visitorError }: { readonly identity: IdentityResponse; readonly employeeDetails: EmployeeResponse[]; readonly employeeWorkLocationLabels: Map<string, string>; readonly employeeLoading: boolean; readonly employeeError: boolean; readonly contractorDetails: ContractorResponse[]; readonly contractorCompanyLabels: Map<string, string>; readonly contractorLoading: boolean; readonly contractorError: boolean; readonly visitorDetails: VisitorResponse[]; readonly visitorLoading: boolean; readonly visitorError: boolean; }) {
   const { t } = useTranslation();
+  const overviewLoading = employeeLoading || contractorLoading || visitorLoading;
+  const overviewError = employeeError || contractorError || visitorError;
+  const linkedRecordCount = identity.employeeAffiliations.length + identity.contractorAffiliations.length + identity.visitorAffiliations.length;
+
   return (
-    <>
-      {employeeError || visitorError ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">{t('identities.detail.couldNotLoadOverview')}</p> : null}
-      {employeeLoading || visitorLoading ? <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">{t('identities.detail.loadingOverview')}</p> : null}
-      {!employeeLoading && !visitorLoading && employeeDetails.length === 0 && visitorDetails.length === 0 ? <Card className="p-6 text-[14px] text-muted-foreground">{t('identities.detail.noOverview')}</Card> : null}
+    <div className="grid gap-6">
+      {overviewError ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">{t('identities.detail.couldNotLoadOverview')}</p> : null}
+      {overviewLoading ? <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">{t('identities.detail.loadingOverview')}</p> : null}
+      {!overviewLoading && employeeDetails.length === 0 && contractorDetails.length === 0 && visitorDetails.length === 0 ? <Card className="p-6 text-[14px] text-muted-foreground">{t('identities.detail.noOverview')}</Card> : null}
+      {!overviewLoading && linkedRecordCount > 0 ? <p className="text-[14px] text-muted-foreground">{t('identities.detail.overviewLinkedRecordsHint', { count: linkedRecordCount })}</p> : null}
 
-      {employeeDetails.map((employee) => (
-        <Card key={employee.id} className="p-6">
-          <h2 className="text-[18px] font-semibold tracking-tight">{t('identities.list.employee')}</h2>
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <Info label={t('identities.detail.employeeNumber')} value={employee.employeeNumber ?? '-'} />
-            <Info label={t('identities.detail.organizationUnit')} value={employee.organizationUnit.name} />
-            <Info label={t('identities.detail.jobTitle')} value={employee.jobTitle ?? '-'} />
-            <Info label={t('identities.detail.status')} value={employee.status} />
-            <Info label={t('identities.detail.contract')} value={employee.contractStartDate ? `${employee.contractStartDate}${employee.contractEndDate ? ` to ${employee.contractEndDate}` : ''}` : '-'} />
-            <Info label={t('identities.detail.personas')} value={employee.personas.length > 0 ? employee.personas.map((item) => item.name).join(', ') : t('identities.list.none')} />
-            <Info label={t('identities.detail.workLocations')} value={employee.workLocations.length > 0 ? employee.workLocations.map((item) => employeeWorkLocationLabels.get(item.locationId) ? `${employeeWorkLocationLabels.get(item.locationId)}${item.isPrimary ? ` (${t('identities.detail.primary')})` : ''}` : item.isPrimary ? t('identities.detail.primaryLocation') : t('identities.detail.location')).join(', ') : t('identities.list.none')} />
-          </div>
-        </Card>
-      ))}
+      {employeeDetails.length > 0 ? (
+        <DetailSection title={t('identities.list.employee')} description={t('identities.detail.employeeSectionDescription')}>
+          {employeeDetails.map((employee) => (
+            <DetailRowCard
+              key={employee.id}
+              title={`${employee.organizationUnit.name}${employee.jobTitle ? ` · ${employee.jobTitle}` : ''}`}
+              description={employee.employeeNumber ? `${t('identities.detail.employeeNumber')}: ${employee.employeeNumber}` : t('identities.detail.noEmployeeNumber')}
+              badges={[
+                <Badge key="status" variant={employee.status === 'Active' ? 'success' : 'secondary'}>{employee.status}</Badge>,
+              ]}
+              chips={[
+                employee.personas.length > 0 ? `${t('identities.detail.personas')}: ${employee.personas.map((item) => item.name).join(', ')}` : null,
+                employee.workLocations.length > 0
+                  ? `${t('identities.detail.workLocations')}: ${employee.workLocations.map((item) => employeeWorkLocationLabels.get(item.locationId) ? `${employeeWorkLocationLabels.get(item.locationId)}${item.isPrimary ? ` (${t('identities.detail.primary')})` : ''}` : item.isPrimary ? t('identities.detail.primaryLocation') : t('identities.detail.location')).join(', ')}`
+                  : `${t('identities.detail.workLocations')}: ${t('identities.list.none')}`,
+                employee.contractStartDate ? `${t('identities.detail.contract')}: ${employee.contractStartDate}${employee.contractEndDate ? ` to ${employee.contractEndDate}` : ''}` : null,
+              ]}
+            />
+          ))}
+        </DetailSection>
+      ) : null}
 
-      {visitorDetails.map((visitor) => (
-        <Card key={visitor.id} className="p-6">
-          <h2 className="text-[18px] font-semibold tracking-tight">{t('identities.list.visitor')}</h2>
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <Info label={t('visitorsManagement.invitationDetail.name')} value={`${visitor.firstName} ${visitor.lastName}`} />
-            <Info label={t('identities.list.email')} value={visitor.email} />
-            <Info label={t('identities.detail.company')} value={visitor.company ?? '-'} />
-            <Info label={t('identities.detail.licensePlate')} value={visitor.licensePlate ?? '-'} />
-          </div>
-        </Card>
-      ))}
-    </>
+      {contractorDetails.length > 0 ? (
+        <DetailSection title={t('identities.list.contractor')} description={t('identities.detail.contractorSectionDescription')}>
+          {contractorDetails.map((contractor) => (
+            <DetailRowCard
+              key={contractor.id}
+              title={`${contractor.firstName} ${contractor.lastName}`}
+              description={contractor.email ?? t('identities.detail.noEmail')}
+              badges={[
+                <Badge key="status" variant={contractor.archivedAt ? 'secondary' : 'success'}>{contractor.archivedAt ? t('identities.detail.archived') : t('identities.detail.active')}</Badge>,
+              ]}
+              chips={[
+                `${t('identities.detail.company')}: ${contractorCompanyLabels.get(contractor.companyId) ?? contractor.companyId}`,
+                `${t('identities.detail.updated')}: ${formatDateTimeLabel(contractor.updatedAt)}`,
+                contractor.identityId ? `${t('identities.detail.linkedIdentity')}: ${t('identities.detail.yes')}` : `${t('identities.detail.linkedIdentity')}: ${t('identities.detail.no')}`,
+              ]}
+            />
+          ))}
+        </DetailSection>
+      ) : null}
+
+      {visitorDetails.length > 0 ? (
+        <DetailSection title={t('identities.list.visitor')} description={t('identities.detail.visitorSectionDescription')}>
+          {visitorDetails.map((visitor) => (
+            <DetailRowCard
+              key={visitor.id}
+              title={`${visitor.firstName} ${visitor.lastName}`}
+              description={visitor.email ?? t('identities.detail.noEmail')}
+              chips={[
+                visitor.company ? `${t('identities.detail.company')}: ${visitor.company}` : null,
+                visitor.licensePlate ? `${t('identities.detail.licensePlate')}: ${visitor.licensePlate}` : null,
+              ]}
+            />
+          ))}
+        </DetailSection>
+      ) : null}
+    </div>
   );
 }
 
-function AssignmentsSection({ identityId, data, isLoading, isError, systemsById }: { readonly identityId: string; readonly data: AssignmentData | undefined; readonly isLoading: boolean; readonly isError: boolean; readonly systemsById: Map<string, AccessControlSystemResponse>; }) {
+function AssignmentsSection({ identityId, data, isLoading, isError, systemsById, accessFilters, showActiveOnly, onToggleAccessFilter, onToggleActiveOnly }: { readonly identityId: string; readonly data: AssignmentData | undefined; readonly isLoading: boolean; readonly isError: boolean; readonly systemsById: Map<string, AccessControlSystemResponse>; readonly accessFilters: readonly AccessFilter[]; readonly showActiveOnly: boolean; readonly onToggleAccessFilter: (filter: AccessFilter) => void; readonly onToggleActiveOnly: () => void; }) {
   const { t } = useTranslation();
+  const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
 
   if (isError) {
     return <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load assignments.</p>;
   }
 
   if (isLoading) {
-    return <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">Loading {t('identities.detail.assignments.label').toLowerCase()}...</p>;
+    return <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">Loading {t('identities.detail.access.label').toLowerCase()}...</p>;
   }
 
   const grants = data?.grants ?? [];
@@ -428,202 +561,87 @@ function AssignmentsSection({ identityId, data, isLoading, isError, systemsById 
   const views = grants.map((grant) => buildGrantView(grant, data, systemsById));
   const catalogViews = views.filter((item) => item.grant.sourceKind === 'CatalogRequest');
   const automaticViews = views.filter((item) => item.grant.sourceKind !== 'CatalogRequest');
+  const catalogGroups = sortAccessGroups(filterCatalogGroups(groupCatalogViews([...catalogViews], data?.requestDetailsById ?? new Map<string, PackageRequestDetailResponse>()), accessFilters, showActiveOnly));
+  const automatedGroups = sortAccessGroups(filterAutomatedGroups(groupAutomaticViews([...automaticViews], data?.packageAccessItemsByPackageId ?? new Map<string, AccessItemResponse[]>(), data?.targetsById ?? new Map<string, AccessLevelTargetResponse>()), accessFilters, showActiveOnly));
+  const rows = sortAccessRows([...catalogGroups.map((group) => buildRequestedAccessRow(group)), ...automatedGroups.map((group) => buildAutomatedAccessRow(group))]);
+  const hasRequested = accessFilters.includes('requested');
+  const hasAutomated = accessFilters.includes('automated');
 
   return (
     <div className="grid gap-4">
-      <CatalogueAssignmentGroups views={catalogViews} requestDetailsById={data?.requestDetailsById ?? new Map<string, PackageRequestDetailResponse>()} />
-      <AutomatedAssignmentGroups identityId={identityId} views={automaticViews} packageAccessItemsByPackageId={data?.packageAccessItemsByPackageId ?? new Map<string, AccessItemResponse[]>()} targetsById={data?.targetsById ?? new Map<string, AccessLevelTargetResponse>()} />
+      <div>
+        <h2 className="text-[20px] font-semibold tracking-tight">{t('identities.detail.access.label')}</h2>
+        <p className="mt-2 text-[14px] text-muted-foreground">{t('identities.detail.accessFiltersDescription')}</p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <FilterPill active={hasRequested} onClick={() => onToggleAccessFilter('requested')}>{t('identities.detail.requested')}</FilterPill>
+        <FilterPill active={hasAutomated} onClick={() => onToggleAccessFilter('automated')}>{t('identities.detail.automated')}</FilterPill>
+        <FilterPill active={showActiveOnly} onClick={onToggleActiveOnly}>{t('identities.detail.active')}</FilterPill>
+      </div>
+
+      {rows.length === 0 ? <Card className="p-6 text-[14px] text-muted-foreground">{t('identities.detail.noAccessMatchesFilter')}</Card> : (
+        <Card className="p-4 sm:p-5">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[72rem] border-collapse text-left text-[14px]">
+              <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">{t('identities.detail.package')}</th>
+                  <th className="px-4 py-3 font-semibold">{t('identities.detail.source')}</th>
+                  <th className="px-4 py-3 font-semibold">{t('identities.detail.reason')}</th>
+                  <th className="px-4 py-3 font-semibold">{t('identities.detail.validity')}</th>
+                  <th className="px-4 py-3 font-semibold">{t('identities.detail.status')}</th>
+                  <th className="px-4 py-3 font-semibold">{t('identities.detail.compliance')}</th>
+                  <th className="px-4 py-3 font-semibold">{t('identities.detail.provisionStatus')}</th>
+                  <th className="px-4 py-3 text-right font-semibold">{t('identities.detail.details')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {rows.map((row) => {
+                  const isExpanded = expandedRowKeys.includes(row.key);
+                  const detailsId = `access-row-${row.key}`;
+
+                  return (
+                    <Fragment key={row.key}>
+                      <tr className={isExpanded ? 'bg-hover-blue/50' : 'transition hover:bg-hover-blue'}>
+                        <td className="px-4 py-4 font-medium text-foreground">{row.packageName}</td>
+                        <td className="px-4 py-4"><Badge variant={row.kind === 'requested' ? 'secondary' : 'outline'}>{row.kind === 'requested' ? t('identities.detail.requested') : t('identities.detail.automated')}</Badge></td>
+                        <td className="px-4 py-4 text-muted-foreground">{row.sourceReason}</td>
+                        <td className="px-4 py-4 text-muted-foreground">{row.validityLabel}</td>
+                        <td className="px-4 py-4"><Badge variant={getGrantStatusVariant(row.status)}>{row.status}</Badge></td>
+                        <td className="px-4 py-4"><Badge variant={row.complianceBadge.variant}>{row.complianceBadge.label}</Badge></td>
+                        <td className="px-4 py-4"><Badge variant={row.provisioningBadge.variant}>{row.provisioningBadge.label}</Badge></td>
+                        <td className="px-4 py-4 text-right">
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-2 rounded-interactive border border-border px-3 py-2 text-[13px] font-medium text-foreground transition hover:bg-hover-blue"
+                            aria-expanded={isExpanded}
+                            aria-controls={detailsId}
+                            onClick={() => setExpandedRowKeys((current) => current.includes(row.key) ? current.filter((item) => item !== row.key) : [...current, row.key])}
+                          >
+                            {isExpanded ? t('identities.detail.hide') : t('identities.detail.show')}
+                            <ChevronRight className={isExpanded ? 'size-4 shrink-0 rotate-90 text-muted-foreground transition' : 'size-4 shrink-0 text-muted-foreground transition'} aria-hidden="true" />
+                          </button>
+                        </td>
+                      </tr>
+                      {isExpanded ? (
+                        <tr id={detailsId} className="bg-background">
+                          <td colSpan={8} className="px-4 py-4">
+                            {row.kind === 'requested'
+                              ? <RequestedAccessDetails group={row.group} />
+                              : <AutomatedAccessDetails identityId={identityId} group={row.group} />}
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
     </div>
-  );
-}
-
-function CatalogueAssignmentGroups({ views, requestDetailsById }: { readonly views: readonly GrantView[]; readonly requestDetailsById: Map<string, PackageRequestDetailResponse>; }) {
-  const requestGroups = groupCatalogViews([...views], requestDetailsById);
-  if (requestGroups.length === 0) {
-    return null;
-  }
-
-  return <CatalogAssignmentGroupsTable groups={requestGroups} />;
-}
-
-function AutomatedAssignmentGroups({ identityId, views, packageAccessItemsByPackageId, targetsById }: { readonly identityId: string; readonly views: readonly GrantView[]; readonly packageAccessItemsByPackageId: Map<string, AccessItemResponse[]>; readonly targetsById: Map<string, AccessLevelTargetResponse>; }) {
-  const policyGroups = groupAutomaticViews([...views], packageAccessItemsByPackageId, targetsById);
-  if (policyGroups.length === 0) {
-    return null;
-  }
-
-  return <AutomatedAssignmentGroupsTable identityId={identityId} groups={policyGroups} />;
-}
-
-function AssignmentsTreeSection({ title, description, groups }: { readonly title: string; readonly description: string; readonly groups: React.ReactNode[] }) {
-  return (
-    <section className="grid gap-4">
-      <div>
-        <h2 className="text-[20px] font-semibold tracking-tight">{title}</h2>
-        <p className="mt-2 text-[14px] text-muted-foreground">{description}</p>
-      </div>
-      {groups}
-    </section>
-  );
-}
-
-function CatalogAssignmentGroupsTable({ groups }: { readonly groups: readonly PackageAssignmentGroupView[] }) {
-  const { t } = useTranslation();
-  const [expandedGroupKeys, setExpandedGroupKeys] = useState<string[]>([]);
-
-  return (
-    <AssignmentGroupTableSection title="Catalog requests" description="Access granted from catalog requests, grouped by access package.">
-      {groups.map((group) => {
-        const groupKey = `${group.sourceType}-${group.sourceId}-${group.packageId}`;
-        const isExpanded = expandedGroupKeys.includes(groupKey);
-        const detailsId = `assignment-group-details-${groupKey}`;
-        const provisionStatus = getCatalogAssignmentGroupProvisionStatus(group);
-        const grantStatus = getCatalogAssignmentGroupStatus(group);
-        const complianceStatus = getCatalogAssignmentGroupComplianceBadge(group);
-
-        return (
-          <Fragment key={groupKey}>
-            <tr className={isExpanded ? 'bg-hover-blue/50' : 'transition hover:bg-hover-blue'}>
-              <td className="px-3 py-3 font-medium text-foreground">{group.packageName}</td>
-              <td className="px-3 py-3 text-muted-foreground">{group.sourceLabel}</td>
-              <td className="px-3 py-3 text-muted-foreground">{group.sourceReason}</td>
-              <td className="px-3 py-3 text-muted-foreground">{group.validityLabel}</td>
-              <td className="px-3 py-3"><Badge variant={getGrantStatusVariant(grantStatus)}>{grantStatus}</Badge></td>
-              <td className="px-3 py-3"><Badge variant={complianceStatus.variant}>{complianceStatus.label}</Badge></td>
-              <td className="px-3 py-3"><Badge variant={provisionStatus.variant}>{provisionStatus.label}</Badge></td>
-              <td className="px-3 py-3 text-right">
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 rounded-interactive border border-border px-3 py-2 text-[13px] font-medium text-foreground transition hover:bg-hover-blue"
-                  aria-expanded={isExpanded}
-                  aria-controls={detailsId}
-                  onClick={() => setExpandedGroupKeys((current) => current.includes(groupKey) ? current.filter((item) => item !== groupKey) : [...current, groupKey])}
-                >
-                  {isExpanded ? t('identities.detail.hide') : t('identities.detail.show')}
-                  <ChevronRight className={isExpanded ? 'size-4 shrink-0 rotate-90 text-muted-foreground transition' : 'size-4 shrink-0 text-muted-foreground transition'} aria-hidden="true" />
-                </button>
-              </td>
-            </tr>
-            {isExpanded ? (
-              <tr id={detailsId} className="bg-background">
-                      <td colSpan={8} className="px-3 py-3">
-                  <div className="grid gap-3">
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                      <Info label="Grant status" value={grantStatus} />
-                      <Info label="Compliance state" value={getCatalogAssignmentGroupComplianceSummary(group)} />
-                      <Info label="Provisioning state" value={provisionStatus.label} />
-                      <Info label="Request status" value={group.requestStatus ? formatRequestStatus(group.requestStatus, group.requestSubStatus ?? null) : '-'} />
-                      <Info label="Approved by" value={group.approvalSummary} />
-                      <Info label={t('identities.detail.provisionings')} value={String(group.provisioningCount)} />
-                      <Info label={t('identities.detail.created')} value={group.requestCreatedAt ? formatDateTimeLabel(group.requestCreatedAt) : '-'} />
-                    </div>
-                    <div className="grid gap-3">
-                      {group.accessItems.map((item) => <AccessItemGroup key={`${group.packageId}-${item.accessItemId}`} group={item} />)}
-                    </div>
-                  </div>
-                </td>
-              </tr>
-            ) : null}
-          </Fragment>
-        );
-      })}
-    </AssignmentGroupTableSection>
-  );
-}
-
-function AutomatedAssignmentGroupsTable({ identityId, groups }: { readonly identityId: string; readonly groups: readonly AutomatedPackageAssignmentGroupView[] }) {
-  const [expandedGroupKeys, setExpandedGroupKeys] = useState<string[]>([]);
-
-  return (
-    <AssignmentGroupTableSection title="Automated grants" description="Access granted from policy automation, grouped by access package.">
-      {groups.map((group) => {
-        const groupKey = `${group.sourceType}-${group.sourceId}-${group.packageId}`;
-        const isExpanded = expandedGroupKeys.includes(groupKey);
-        const detailsId = `assignment-group-details-${groupKey}`;
-        const provisionStatus = getAutomatedAssignmentGroupProvisionStatus(group);
-        const complianceStatus = getAutomaticAssignmentGroupComplianceBadge(group);
-
-        return (
-          <Fragment key={groupKey}>
-            <tr className={isExpanded ? 'bg-hover-blue/50' : 'transition hover:bg-hover-blue'}>
-              <td className="px-3 py-3 font-medium text-foreground">{group.packageName}</td>
-              <td className="px-3 py-3 text-muted-foreground">{group.sourceLabel}</td>
-              <td className="px-3 py-3 text-muted-foreground">{group.sourceReason}</td>
-              <td className="px-3 py-3 text-muted-foreground">{group.validityLabel}</td>
-              <td className="px-3 py-3"><Badge variant={getGrantStatusVariant(group.status)}>{group.status}</Badge></td>
-              <td className="px-3 py-3"><Badge variant={complianceStatus.variant}>{complianceStatus.label}</Badge></td>
-              <td className="px-3 py-3"><Badge variant={provisionStatus.variant}>{provisionStatus.label}</Badge></td>
-              <td className="px-3 py-3 text-right">
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 rounded-interactive border border-border px-3 py-2 text-[13px] font-medium text-foreground transition hover:bg-hover-blue"
-                  aria-expanded={isExpanded}
-                  aria-controls={detailsId}
-                  onClick={() => setExpandedGroupKeys((current) => current.includes(groupKey) ? current.filter((item) => item !== groupKey) : [...current, groupKey])}
-                >
-                  {isExpanded ? 'Hide' : 'Show'}
-                  <ChevronRight className={isExpanded ? 'size-4 shrink-0 rotate-90 text-muted-foreground transition' : 'size-4 shrink-0 text-muted-foreground transition'} aria-hidden="true" />
-                </button>
-              </td>
-            </tr>
-            {isExpanded ? (
-              <tr id={detailsId} className="bg-background">
-                <td colSpan={8} className="px-3 py-3">
-                  <div className="grid gap-3">
-                    <div className="flex justify-end pb-1">
-                      <AutomatedGrantReconcileButton identityId={identityId} group={group} />
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                      <Info label="Grant status" value={group.status} />
-                      <Info label="Compliance state" value={getAutomaticAssignmentGroupComplianceSummary(group)} />
-                      <Info label="Provisioning state" value={provisionStatus.label} />
-                      <Info label="Approved by" value={group.approvalSummary} />
-                      <Info label="Provisionings" value={String(group.provisioningCount)} />
-                      <Info label="Locations" value={group.locationSummary || '-'} />
-                      {group.revokeCause ? <Info label="Revoke cause" value={formatAccessGrantRevokeCause(group.revokeCause)} /> : null}
-                      {group.revokedBy ? <Info label="Revoked by" value={group.revokedBy} /> : null}
-                    </div>
-                    <div className="grid gap-3">
-                      {group.accessItems.map((item) => <AutomatedAccessItemGroup key={`${group.packageId}-${item.accessItemId}`} group={item} />)}
-                    </div>
-                  </div>
-                </td>
-              </tr>
-            ) : null}
-          </Fragment>
-        );
-      })}
-    </AssignmentGroupTableSection>
-  );
-}
-
-function AssignmentGroupTableSection({ title, description, children }: { readonly title: string; readonly description: string; readonly children: React.ReactNode; }) {
-  return (
-    <section className="grid gap-3">
-      <div>
-        <h2 className="text-[20px] font-semibold tracking-tight">{title}</h2>
-        <p className="mt-2 text-[14px] text-muted-foreground">{description}</p>
-      </div>
-      <Card className="p-3 sm:p-4">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[62rem] border-collapse text-left text-[14px]">
-            <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
-              <tr>
-                <th className="px-3 py-3 font-semibold">Package</th>
-                <th className="px-3 py-3 font-semibold">Source</th>
-                <th className="px-3 py-3 font-semibold">Reason</th>
-                <th className="px-3 py-3 font-semibold">Validity</th>
-                <th className="px-3 py-3 font-semibold">Status</th>
-                <th className="px-3 py-3 font-semibold">Compliance</th>
-                <th className="px-3 py-3 font-semibold">Provision Status</th>
-                <th className="px-3 py-3 text-right font-semibold">Details</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">{children}</tbody>
-          </table>
-        </div>
-      </Card>
-    </section>
   );
 }
 
@@ -652,6 +670,55 @@ function AutomatedGrantReconcileButton({ identityId, group }: { readonly identit
     <Button type="button" variant="outline" size="sm" disabled={reconcileGrant.isPending} onClick={() => reconcileGrant.mutate()}>
       {reconcileGrant.isPending ? t('identities.detail.reconciling') : t('identities.detail.reconcileGrant')}
     </Button>
+  );
+}
+
+function RequestedAccessDetails({ group }: { readonly group: PackageAssignmentGroupView }) {
+  const { t } = useTranslation();
+  const grantStatus = getCatalogAssignmentGroupStatus(group);
+  const provisionStatus = getCatalogAssignmentGroupProvisionStatus(group);
+
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Info label="Grant status" value={grantStatus} />
+        <Info label="Compliance state" value={getCatalogAssignmentGroupComplianceSummary(group)} />
+        <Info label="Provisioning state" value={provisionStatus.label} />
+        <Info label="Request status" value={group.requestStatus ? formatRequestStatus(group.requestStatus, group.requestSubStatus ?? null) : '-'} />
+        <Info label="Approved by" value={group.approvalSummary} />
+        <Info label={t('identities.detail.provisionings')} value={String(group.provisioningCount)} />
+        <Info label={t('identities.detail.locations')} value={group.locationSummary || '-'} />
+        {group.requestCreatedAt ? <Info label={t('identities.detail.created')} value={formatDateTimeLabel(group.requestCreatedAt)} /> : null}
+      </div>
+      <div className="grid gap-3">
+        {group.accessItems.map((item) => <AccessItemGroup key={`${group.packageId}-${item.accessItemId}`} group={item} />)}
+      </div>
+    </div>
+  );
+}
+
+function AutomatedAccessDetails({ identityId, group }: { readonly identityId: string; readonly group: AutomatedPackageAssignmentGroupView }) {
+  const provisionStatus = getAutomatedAssignmentGroupProvisionStatus(group);
+
+  return (
+    <div className="grid gap-4">
+      <div className="flex justify-end pb-1">
+        <AutomatedGrantReconcileButton identityId={identityId} group={group} />
+      </div>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <Info label="Grant status" value={group.status} />
+        <Info label="Compliance state" value={getAutomaticAssignmentGroupComplianceSummary(group)} />
+        <Info label="Provisioning state" value={provisionStatus.label} />
+        <Info label="Approved by" value={group.approvalSummary} />
+        <Info label={i18n.t('identities.detail.provisionings')} value={String(group.provisioningCount)} />
+        <Info label={i18n.t('identities.detail.locations')} value={group.locationSummary || '-'} />
+        {group.revokeCause ? <Info label="Revoke cause" value={formatAccessGrantRevokeCause(group.revokeCause)} /> : null}
+        {group.revokedBy ? <Info label="Revoked by" value={group.revokedBy} /> : null}
+      </div>
+      <div className="grid gap-3">
+        {group.accessItems.map((item) => <AutomatedAccessItemGroup key={`${group.packageId}-${item.accessItemId}`} group={item} />)}
+      </div>
+    </div>
   );
 }
 
@@ -863,6 +930,7 @@ function PacsAssignmentRow({ row, provisioningTitle }: { readonly row: PacsAssig
 function KnownInSection({ subjects, isLoading, isError, systemsById }: { readonly subjects: PACSSubjectResponse[]; readonly isLoading: boolean; readonly isError: boolean; readonly systemsById: Map<string, AccessControlSystemResponse>; }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const [expandedSystemIds, setExpandedSystemIds] = useState<string[]>([]);
 
   const auditSubject = useMutation({
     mutationFn: async (subjectId: string) => {
@@ -886,45 +954,98 @@ function KnownInSection({ subjects, isLoading, isError, systemsById }: { readonl
     return <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">{t('identities.detail.loadingPacsSubjects')}</p>;
   }
 
-  if (subjects.length === 0) {
-    return <Card className="p-6 text-[14px] text-muted-foreground">{t('identities.detail.notKnownInAnyPacs')}</Card>;
+  const systems = Array.from(systemsById.values()).sort((left, right) => left.name.localeCompare(right.name));
+  if (systems.length === 0) {
+    return <Card className="p-6 text-[14px] text-muted-foreground">{t('identities.detail.noAccessControlSystems')}</Card>;
   }
+
+  const subjectsBySystemId = new Map(subjects.map((subject) => [subject.accessControlSystemId, subject]));
 
   return (
     <div className="grid gap-4">
-      {subjects.map((subject) => (
-        <Card key={subject.id} className="p-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 className="text-[18px] font-semibold tracking-tight">{systemsById.get(subject.accessControlSystemId)?.name ?? subject.accessControlSystemId}</h2>
-              <p className="mt-1 text-[14px] text-muted-foreground">{t('identities.detail.nativeSubjectId', { value: subject.nativeSubjectId })}</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 justify-end">
-              <Badge variant={subject.state === 'Active' ? 'success' : subject.state === 'Blocked' ? 'secondary' : 'error'}>{subject.state}</Badge>
-              <Badge variant={subject.conformityStatus === 'Conform' ? 'success' : subject.conformityStatus === 'Anomaly' ? 'error' : 'secondary'}>{subject.conformityStatus}</Badge>
-              <Badge variant={subject.provisioningBlockStatus === 'ProvisioningAllowed' ? 'success' : 'error'}>{subject.provisioningBlockStatus}</Badge>
-              <Button type="button" variant="outline" size="sm" disabled={auditSubject.isPending} onClick={() => auditSubject.mutate(subject.id)}>
-                {auditSubject.isPending ? 'Queueing...' : 'Audit now'}
-              </Button>
-            </div>
-          </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            <Info label={t('identities.detail.firstName')} value={subject.firstName} />
-            <Info label={t('identities.detail.lastName')} value={subject.lastName} />
-            <Info label={t('identities.list.email')} value={subject.email ?? '-'} />
-            <Info label={t('identities.detail.lastSynchronized')} value={formatDateTimeLabel(subject.lastSynchronizedAt)} />
-            <Info label="Conformity details" value={subject.conformityDetails ?? '-'} />
-            <Info label="Conformity checked" value={subject.lastConformityCheckedAt ? formatDateTimeLabel(subject.lastConformityCheckedAt) : '-'} />
-            <Info label="Conformity error" value={subject.lastConformityError ?? '-'} />
-            <Info label="Provisioning block reason" value={subject.provisioningBlockedReason ?? '-'} />
-          </div>
-        </Card>
-      ))}
+      <div>
+        <h2 className="text-[20px] font-semibold tracking-tight">{t('identities.detail.knownIn.label')}</h2>
+        <p className="mt-2 text-[14px] text-muted-foreground">{t('identities.detail.knownInMatrixDescription')}</p>
+      </div>
+
+      <Card className="p-4 sm:p-5">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[72rem] border-collapse text-left text-[14px]">
+            <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3 font-semibold">{t('identities.detail.system')}</th>
+                <th className="px-4 py-3 font-semibold">{t('identities.detail.knownInSystem')}</th>
+                <th className="px-4 py-3 font-semibold">{t('identities.detail.subjectState')}</th>
+                <th className="px-4 py-3 font-semibold">{t('identities.detail.conformity')}</th>
+                <th className="px-4 py-3 font-semibold">{t('identities.detail.provisioning')}</th>
+                <th className="px-4 py-3 font-semibold">{t('identities.detail.lastSynchronized')}</th>
+                <th className="px-4 py-3 text-right font-semibold">{t('identities.detail.actions')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {systems.map((system) => {
+                const subject = subjectsBySystemId.get(system.id);
+                const isExpanded = expandedSystemIds.includes(system.id);
+                const detailsId = `known-in-system-${system.id}`;
+
+                return (
+                  <Fragment key={system.id}>
+                    <tr className={isExpanded ? 'bg-hover-blue/50' : 'transition hover:bg-hover-blue'}>
+                      <td className="px-4 py-4">
+                        <div className="font-medium text-foreground">{system.name}</div>
+                        {subject ? <div className="mt-1 text-[13px] text-muted-foreground">{t('identities.detail.nativeSubjectId', { value: subject.nativeSubjectId })}</div> : null}
+                      </td>
+                      <td className="px-4 py-4"><Badge variant={subject ? 'success' : 'secondary'}>{subject ? t('identities.detail.yes') : t('identities.detail.no')}</Badge></td>
+                      <td className="px-4 py-4">{subject ? <Badge variant={subject.state === 'Active' ? 'success' : subject.state === 'Blocked' ? 'secondary' : 'error'}>{subject.state}</Badge> : <span className="text-muted-foreground">-</span>}</td>
+                      <td className="px-4 py-4">{subject ? <Badge variant={subject.conformityStatus === 'Conform' ? 'success' : subject.conformityStatus === 'Anomaly' ? 'error' : 'secondary'}>{subject.conformityStatus}</Badge> : <span className="text-muted-foreground">-</span>}</td>
+                      <td className="px-4 py-4">{subject ? <Badge variant={subject.provisioningBlockStatus === 'ProvisioningAllowed' ? 'success' : 'error'}>{subject.provisioningBlockStatus}</Badge> : <span className="text-muted-foreground">-</span>}</td>
+                      <td className="px-4 py-4 text-muted-foreground">{subject ? formatDateTimeLabel(subject.lastSynchronizedAt) : '-'}</td>
+                      <td className="px-4 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          {subject ? <Button type="button" variant="outline" size="sm" disabled={auditSubject.isPending} onClick={() => auditSubject.mutate(subject.id)}>{auditSubject.isPending ? 'Queueing...' : 'Audit now'}</Button> : null}
+                          {subject ? (
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-2 rounded-interactive border border-border px-3 py-2 text-[13px] font-medium text-foreground transition hover:bg-hover-blue"
+                              aria-expanded={isExpanded}
+                              aria-controls={detailsId}
+                              onClick={() => setExpandedSystemIds((current) => current.includes(system.id) ? current.filter((item) => item !== system.id) : [...current, system.id])}
+                            >
+                              {isExpanded ? t('identities.detail.hide') : t('identities.detail.show')}
+                              <ChevronRight className={isExpanded ? 'size-4 shrink-0 rotate-90 text-muted-foreground transition' : 'size-4 shrink-0 text-muted-foreground transition'} aria-hidden="true" />
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                    {subject && isExpanded ? (
+                      <tr id={detailsId} className="bg-background">
+                        <td colSpan={7} className="px-4 py-4">
+                          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                            <Info label={t('identities.detail.firstName')} value={subject.firstName} />
+                            <Info label={t('identities.detail.lastName')} value={subject.lastName} />
+                            <Info label={t('identities.list.email')} value={subject.email ?? '-'} />
+                            <Info label={t('identities.detail.lastSynchronized')} value={formatDateTimeLabel(subject.lastSynchronizedAt)} />
+                            <Info label={t('identities.detail.conformityChecked')} value={subject.lastConformityCheckedAt ? formatDateTimeLabel(subject.lastConformityCheckedAt) : '-'} />
+                            <Info label={t('identities.detail.conformityDetails')} value={subject.conformityDetails ?? '-'} />
+                            <Info label={t('identities.detail.conformityError')} value={subject.lastConformityError ?? '-'} />
+                            <Info label={t('identities.detail.provisioningBlockReason')} value={subject.provisioningBlockedReason ?? '-'} />
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   );
 }
 
-function CredentialsSection({ data, isLoading, isError, systemsById }: { readonly data: CredentialsData | undefined; readonly isLoading: boolean; readonly isError: boolean; readonly systemsById: Map<string, AccessControlSystemResponse>; }) {
+function CredentialsSection({ data, isLoading, isError, systemsById, filters, onToggleFilter }: { readonly data: CredentialsData | undefined; readonly isLoading: boolean; readonly isError: boolean; readonly systemsById: Map<string, AccessControlSystemResponse>; readonly filters: readonly CredentialFilter[]; readonly onToggleFilter: (filter: CredentialFilter) => void; }) {
   const { t } = useTranslation();
   const [expandedCredentialIds, setExpandedCredentialIds] = useState<string[]>([]);
 
@@ -936,85 +1057,98 @@ function CredentialsSection({ data, isLoading, isError, systemsById }: { readonl
     return <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">{t('identities.detail.loadingCredentials')}</p>;
   }
 
-  const credentials = data?.credentials ?? [];
+  const credentials = filterCredentials(data?.credentials ?? [], filters);
   if (credentials.length === 0) {
-    return <Card className="p-6 text-[14px] text-muted-foreground">{t('identities.detail.noIssuedCredentials')}</Card>;
+    return (
+      <div className="grid gap-4">
+        <div className="flex flex-wrap gap-2">
+          <CredentialFilterPills activeFilters={filters} onToggle={onToggleFilter} />
+        </div>
+        <Card className="p-6 text-[14px] text-muted-foreground">{t('identities.detail.noCredentialsMatchFilter')}</Card>
+      </div>
+    );
   }
 
   return (
-    <Card className="p-4 sm:p-5">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[56rem] border-collapse text-left text-[14px]">
-          <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3 font-semibold">{t('identities.detail.credential')}</th>
-              <th className="px-4 py-3 font-semibold">{t('identities.detail.duration')}</th>
-              <th className="px-4 py-3 font-semibold">{t('identities.detail.status')}</th>
-              <th className="px-4 py-3 font-semibold">{t('identities.detail.provisionStatus')}</th>
-              <th className="px-4 py-3 text-right font-semibold">{t('identities.detail.details')}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {credentials.map((credential) => {
-              const credentialType = data?.credentialTypesById.get(credential.credentialTypeId);
-              const assignments = data?.assignmentsByCredentialId.get(credential.id) ?? [];
-              const provisionStatus = getCredentialProvisionStatus(credential, assignments);
-              const isExpanded = expandedCredentialIds.includes(credential.id);
-              const detailsId = `credential-details-${credential.id}`;
+    <div className="grid gap-4">
+      <div className="flex flex-wrap gap-2">
+        <CredentialFilterPills activeFilters={filters} onToggle={onToggleFilter} />
+      </div>
 
-              return (
-                <Fragment key={credential.id}>
-                  <tr className={isExpanded ? 'bg-hover-blue/50' : 'transition hover:bg-hover-blue'}>
-                    <td className="px-4 py-4">
-                      <div className="font-medium text-foreground">{credentialType?.name ?? credential.credentialTypeId}</div>
-                      <div className="mt-1 text-muted-foreground">{credential.identifier}{credential.purpose ? ` - ${credential.purpose}` : ''}</div>
-                    </td>
-                    <td className="px-4 py-4 text-muted-foreground">
-                      <div>{credential.durationKind}</div>
-                      {credential.durationKind === 'Temporary' && credential.validUntil ? <div className="mt-1">{formatDateLabel(credential.validFrom)} - {formatDateLabel(credential.validUntil)}</div> : null}
-                    </td>
-                    <td className="px-4 py-4"><Badge variant={getCredentialStatusVariant(credential.status)}>{credential.status}</Badge></td>
-                    <td className="px-4 py-4"><Badge variant={provisionStatus.variant}>{provisionStatus.label}</Badge></td>
-                    <td className="px-4 py-4 text-right">
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-2 rounded-interactive border border-border px-3 py-2 text-[13px] font-medium text-foreground transition hover:bg-hover-blue"
-                        aria-expanded={isExpanded}
-                        aria-controls={detailsId}
-                        onClick={() => setExpandedCredentialIds((current) => current.includes(credential.id) ? current.filter((item) => item !== credential.id) : [...current, credential.id])}
-                      >
-                        {isExpanded ? t('identities.detail.hide') : t('identities.detail.show')}
-                        <ChevronRight className={isExpanded ? 'size-4 shrink-0 rotate-90 text-muted-foreground transition' : 'size-4 shrink-0 text-muted-foreground transition'} aria-hidden="true" />
-                      </button>
-                    </td>
-                  </tr>
-                  {isExpanded ? (
-                    <tr id={detailsId} className="bg-background">
-                      <td colSpan={5} className="px-4 py-4">
-                        <div className="grid gap-4">
-                          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                            <Info label={t('identities.detail.sourceKind')} value={credential.sourceKind} />
-                            <Info label={t('identities.detail.validFrom')} value={formatDateTimeLabel(credential.validFrom)} />
-                            <Info label={t('identities.detail.validUntil')} value={credential.validUntil ? formatDateTimeLabel(credential.validUntil) : t('visitorsManagement.invitationDetail.noEndDate')} />
-                            <Info label={t('identities.detail.issuedAt')} value={formatDateTimeLabel(credential.createdAt)} />
-                            <Info label={t('identities.detail.reasonText')} value={credential.reasonText} />
-                          </div>
-                          <TranslatedCredentialProvisioningPanel assignments={assignments} systemsById={systemsById} />
-                        </div>
+      <Card className="p-4 sm:p-5">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[56rem] border-collapse text-left text-[14px]">
+            <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3 font-semibold">{t('identities.detail.credential')}</th>
+                <th className="px-4 py-3 font-semibold">{t('identities.detail.duration')}</th>
+                <th className="px-4 py-3 font-semibold">{t('identities.detail.status')}</th>
+                <th className="px-4 py-3 font-semibold">{t('identities.detail.provisionStatus')}</th>
+                <th className="px-4 py-3 text-right font-semibold">{t('identities.detail.details')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {credentials.map((credential) => {
+                const credentialType = data?.credentialTypesById.get(credential.credentialTypeId);
+                const assignments = data?.assignmentsByCredentialId.get(credential.id) ?? [];
+                const provisionStatus = getCredentialProvisionStatus(credential, assignments);
+                const isExpanded = expandedCredentialIds.includes(credential.id);
+                const detailsId = `credential-details-${credential.id}`;
+
+                return (
+                  <Fragment key={credential.id}>
+                    <tr className={isExpanded ? 'bg-hover-blue/50' : 'transition hover:bg-hover-blue'}>
+                      <td className="px-4 py-4">
+                        <div className="font-medium text-foreground">{credentialType?.name ?? credential.credentialTypeId}</div>
+                        <div className="mt-1 text-muted-foreground">{credential.identifier}{credential.purpose ? ` - ${credential.purpose}` : ''}</div>
+                      </td>
+                      <td className="px-4 py-4 text-muted-foreground">
+                        <div>{credential.durationKind}</div>
+                        {credential.durationKind === 'Temporary' && credential.validUntil ? <div className="mt-1">{formatDateLabel(credential.validFrom)} - {formatDateLabel(credential.validUntil)}</div> : null}
+                      </td>
+                      <td className="px-4 py-4"><Badge variant={getCredentialStatusVariant(credential.status)}>{credential.status}</Badge></td>
+                      <td className="px-4 py-4"><Badge variant={provisionStatus.variant}>{provisionStatus.label}</Badge></td>
+                      <td className="px-4 py-4 text-right">
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-2 rounded-interactive border border-border px-3 py-2 text-[13px] font-medium text-foreground transition hover:bg-hover-blue"
+                          aria-expanded={isExpanded}
+                          aria-controls={detailsId}
+                          onClick={() => setExpandedCredentialIds((current) => current.includes(credential.id) ? current.filter((item) => item !== credential.id) : [...current, credential.id])}
+                        >
+                          {isExpanded ? t('identities.detail.hide') : t('identities.detail.show')}
+                          <ChevronRight className={isExpanded ? 'size-4 shrink-0 rotate-90 text-muted-foreground transition' : 'size-4 shrink-0 text-muted-foreground transition'} aria-hidden="true" />
+                        </button>
                       </td>
                     </tr>
-                  ) : null}
-                </Fragment>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+                    {isExpanded ? (
+                      <tr id={detailsId} className="bg-background">
+                        <td colSpan={5} className="px-4 py-4">
+                          <div className="grid gap-4">
+                            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                              <Info label={t('identities.detail.sourceKind')} value={credential.sourceKind} />
+                              <Info label={t('identities.detail.validFrom')} value={formatDateTimeLabel(credential.validFrom)} />
+                              <Info label={t('identities.detail.validUntil')} value={credential.validUntil ? formatDateTimeLabel(credential.validUntil) : t('visitorsManagement.invitationDetail.noEndDate')} />
+                              <Info label={t('identities.detail.issuedAt')} value={formatDateTimeLabel(credential.createdAt)} />
+                              <Info label={t('identities.detail.reasonText')} value={credential.reasonText} />
+                            </div>
+                            <TranslatedCredentialProvisioningPanel assignments={assignments} systemsById={systemsById} />
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
   );
 }
 
-function RequestsSection({ data, isLoading, isError, onOpenRequest }: { readonly data: { readonly requests: PackageRequestResponse[]; readonly packagesById: Map<string, PackageResponse>; } | undefined; readonly isLoading: boolean; readonly isError: boolean; readonly onOpenRequest: (requestId: string) => void; }) {
+function RequestsSection({ data, isLoading, isError, filter, onChangeFilter, onOpenRequest }: { readonly data: { readonly requests: PackageRequestResponse[]; readonly packagesById: Map<string, PackageResponse>; } | undefined; readonly isLoading: boolean; readonly isError: boolean; readonly filter: RequestFilter; readonly onChangeFilter: (filter: RequestFilter) => void; readonly onOpenRequest: (requestId: string) => void; }) {
   const { t } = useTranslation();
 
   if (isError) {
@@ -1025,13 +1159,30 @@ function RequestsSection({ data, isLoading, isError, onOpenRequest }: { readonly
     return <p className="rounded-structural border border-border bg-content p-6 text-[14px] text-muted-foreground">{t('identities.detail.loadingRequests')}</p>;
   }
 
-  const requests = data?.requests ?? [];
+  const requests = filterRequests(data?.requests ?? [], filter);
   if (requests.length === 0) {
-    return <Card className="p-6 text-[14px] text-muted-foreground">{t('identities.detail.noCatalogRequests')}</Card>;
+    return (
+      <div className="grid gap-4">
+        <div className="flex flex-wrap gap-2">
+          <RequestFilterPills activeFilter={filter} onChange={onChangeFilter} />
+        </div>
+        <Card className="p-6 text-[14px] text-muted-foreground">{t('identities.detail.noCatalogRequests')}</Card>
+      </div>
+    );
   }
 
   return (
-    <Card className="p-4 sm:p-5">
+    <div className="grid gap-4">
+      <div>
+        <h2 className="text-[20px] font-semibold tracking-tight">{t('identities.detail.requests.label')}</h2>
+        <p className="mt-2 text-[14px] text-muted-foreground">{t('identities.detail.requestsFiltersDescription')}</p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <RequestFilterPills activeFilter={filter} onChange={onChangeFilter} />
+      </div>
+
+      <Card className="p-4 sm:p-5">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[56rem] border-collapse text-left text-[14px]">
           <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
@@ -1058,7 +1209,8 @@ function RequestsSection({ data, isLoading, isError, onOpenRequest }: { readonly
           </tbody>
         </table>
       </div>
-    </Card>
+      </Card>
+    </div>
   );
 }
 
@@ -1144,6 +1296,85 @@ function CredentialProvisioningPanel({ assignments, systemsById }: { readonly as
       </div>
     </div>
   );
+}
+
+function DetailSection({ title, description, children }: { readonly title: string; readonly description: string; readonly children: React.ReactNode; }) {
+  return (
+    <section className="grid gap-3">
+      <div>
+        <h2 className="text-[20px] font-semibold tracking-tight">{title}</h2>
+        <p className="mt-2 text-[14px] text-muted-foreground">{description}</p>
+      </div>
+      <div className="grid gap-3">{children}</div>
+    </section>
+  );
+}
+
+function DetailRowCard({ title, description, badges, chips }: { readonly title: string; readonly description?: string; readonly badges?: readonly React.ReactNode[]; readonly chips?: readonly (string | null | undefined)[]; }) {
+  return (
+    <Card className="p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-[16px] font-semibold text-foreground">{title}</h3>
+          {description ? <p className="mt-1 text-[14px] text-muted-foreground">{description}</p> : null}
+        </div>
+        {badges && badges.length > 0 ? <div className="flex flex-wrap gap-2">{badges}</div> : null}
+      </div>
+      {chips && chips.some(Boolean) ? <div className="mt-4 flex flex-wrap gap-2">{chips.filter(Boolean).map((chip) => <InlineChip key={chip}>{chip}</InlineChip>)}</div> : null}
+    </Card>
+  );
+}
+
+function InlineChip({ children }: { readonly children: React.ReactNode }) {
+  return <span className="inline-flex items-center rounded-interactive border border-border bg-background px-3 py-1.5 text-[13px] text-foreground">{children}</span>;
+}
+
+function SummaryMetric({ label, value, support }: { readonly label: string; readonly value: string; readonly support?: string; }) {
+  return (
+    <div className="rounded-structural border border-border bg-content p-4 shadow-sm">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+      <p className="mt-3 text-[28px] font-semibold tracking-tight text-foreground">{value}</p>
+      {support ? <p className="mt-2 text-[13px] text-muted-foreground">{support}</p> : null}
+    </div>
+  );
+}
+
+function FilterPill({ active, onClick, children }: { readonly active: boolean; readonly onClick: () => void; readonly children: React.ReactNode; }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={active ? 'inline-flex items-center gap-2 rounded-interactive border border-primary bg-active-blue px-3 py-2 text-[14px] font-medium text-primary transition' : 'inline-flex items-center gap-2 rounded-interactive border border-border bg-content px-3 py-2 text-[14px] font-medium text-foreground transition hover:bg-hover-blue'}
+    >
+      {active ? <Check className="size-4" aria-hidden="true" /> : null}
+      <span>{children}</span>
+    </button>
+  );
+}
+
+function RequestFilterPills({ activeFilter, onChange }: { readonly activeFilter: RequestFilter; readonly onChange: (filter: RequestFilter) => void; }) {
+  const { t } = useTranslation();
+  const filters: readonly { id: RequestFilter; label: string }[] = [
+    { id: 'completed', label: t('identities.detail.completedSimple') },
+    { id: 'in-progress', label: t('identities.detail.inProgress') },
+    { id: 'approved', label: t('identities.detail.approved') },
+    { id: 'rejected', label: t('identities.detail.rejected') },
+    { id: 'expired', label: t('identities.detail.expired') },
+  ];
+
+  return filters.map((item) => <FilterPill key={item.id} active={activeFilter === item.id} onClick={() => onChange(item.id)}>{item.label}</FilterPill>);
+}
+
+function CredentialFilterPills({ activeFilters, onToggle }: { readonly activeFilters: readonly CredentialFilter[]; readonly onToggle: (filter: CredentialFilter) => void; }) {
+  const { t } = useTranslation();
+  const filters: readonly { id: CredentialFilter; label: string }[] = [
+    { id: 'active', label: t('identities.detail.active') },
+    { id: 'suspended', label: t('identities.detail.suspended') },
+    { id: 'expired', label: t('identities.detail.expired') },
+    { id: 'revoked', label: t('identities.detail.revoked') },
+  ];
+
+  return filters.map((item) => <FilterPill key={item.id} active={activeFilters.includes(item.id)} onClick={() => onToggle(item.id)}>{item.label}</FilterPill>);
 }
 
 function Info({ label, value }: { readonly label: string; readonly value: string }) {
@@ -1256,6 +1487,32 @@ function getGroupedGrantStatus(grants: readonly AccessGrantResponse[]): AccessGr
   return 'Expired';
 }
 
+function filterCatalogGroups(groups: readonly PackageAssignmentGroupView[], accessFilters: readonly AccessFilter[], showActiveOnly: boolean) {
+  if (!accessFilters.includes('requested')) {
+    return [];
+  }
+
+  return groups.filter((group) => !showActiveOnly || getCatalogAssignmentGroupStatus(group) === 'Active');
+}
+
+function filterAutomatedGroups(groups: readonly AutomatedPackageAssignmentGroupView[], accessFilters: readonly AccessFilter[], showActiveOnly: boolean) {
+  if (!accessFilters.includes('automated')) {
+    return [];
+  }
+
+  return groups.filter((group) => !showActiveOnly || group.status === 'Active');
+}
+
+function sortAccessGroups<T extends { shouldExpand: boolean; packageName: string }>(groups: readonly T[]) {
+  return [...groups].sort((left, right) => {
+    if (left.shouldExpand !== right.shouldExpand) {
+      return left.shouldExpand ? -1 : 1;
+    }
+
+    return left.packageName.localeCompare(right.packageName);
+  });
+}
+
 function getRequestStatusVariant(status: PackageRequestStatus, subStatus: PackageRequestResponse['subStatus']) {
   if (status === 'InProgress') {
     return 'secondary';
@@ -1286,6 +1543,49 @@ function formatRequestStatus(status: PackageRequestStatus, subStatus: PackageReq
         : subStatus === 'Expired'
           ? i18n.t('identities.detail.completedExpired')
           : i18n.t('identities.detail.completedSimple');
+}
+
+function filterRequests(requests: readonly PackageRequestResponse[], filter: RequestFilter) {
+  switch (filter) {
+    case 'completed':
+      return requests.filter((item) => item.status !== 'InProgress');
+    case 'in-progress':
+      return requests.filter((item) => item.status === 'InProgress');
+    case 'approved':
+      return requests.filter((item) => item.subStatus === 'Approved' || item.subStatus === 'PartiallyApproved');
+    case 'rejected':
+      return requests.filter((item) => item.subStatus === 'Rejected');
+    case 'expired':
+      return requests.filter((item) => item.subStatus === 'Expired');
+    default:
+      return requests;
+  }
+}
+
+function filterCredentials(credentials: readonly CredentialResponse[], filters: readonly CredentialFilter[]) {
+  if (filters.length === 0) {
+    return [];
+  }
+
+  return credentials.filter((item) => {
+    if (filters.includes('active') && (item.status === 'Active' || item.status === 'Issued')) {
+      return true;
+    }
+
+    if (filters.includes('suspended') && item.status === 'Suspended') {
+      return true;
+    }
+
+    if (filters.includes('expired') && item.status === 'Expired') {
+      return true;
+    }
+
+    if (filters.includes('revoked') && item.status === 'Revoked') {
+      return true;
+    }
+
+    return false;
+  });
 }
 
 function getInfraStatusVariant(status: string) {
@@ -1383,6 +1683,124 @@ function TranslatedCredentialProvisioningPanel({ assignments, systemsById }: { r
       </div>
     </div>
   );
+}
+
+type SubjectSummaryCounts = {
+  subjectCount: number;
+  anomalyCount: number;
+  blockedCount: number;
+  provisioningBlockedCount: number;
+};
+
+type HeaderBadge = {
+  label: string;
+  variant: 'success' | 'warning' | 'error' | 'secondary' | 'outline' | 'default';
+};
+
+type AccessTableRow = {
+  key: string;
+  kind: 'requested' | 'automated';
+  packageName: string;
+  sourceReason: string;
+  validityLabel: string;
+  status: AccessGrantResponse['status'];
+  complianceBadge: { label: string; variant: 'success' | 'warning' | 'error' | 'secondary' | 'outline' | 'default' };
+  provisioningBadge: { label: string; variant: 'success' | 'secondary' | 'error' };
+  shouldExpand: boolean;
+  group: PackageAssignmentGroupView | AutomatedPackageAssignmentGroupView;
+};
+
+function getSubjectSummaryCounts(subjects: readonly PACSSubjectResponse[]): SubjectSummaryCounts {
+  return {
+    subjectCount: subjects.length,
+    anomalyCount: subjects.filter((item) => item.conformityStatus === 'Anomaly').length,
+    blockedCount: subjects.filter((item) => item.state === 'Blocked').length,
+    provisioningBlockedCount: subjects.filter((item) => item.provisioningBlockStatus !== 'ProvisioningAllowed').length,
+  };
+}
+
+function getHeaderAnomalyBadge(subjects: readonly PACSSubjectResponse[] | undefined, isLoaded: boolean): HeaderBadge | null {
+  if (!isLoaded || !subjects?.some((item) => item.conformityStatus === 'Anomaly')) {
+    return null;
+  }
+
+  return { label: i18n.t('identities.detail.headerAnomalyDetected'), variant: 'error' };
+}
+
+function getHeaderProvisioningBadge(grants: readonly AccessGrantResponse[] | undefined, isLoaded: boolean): HeaderBadge | null {
+  if (!isLoaded || !grants) {
+    return null;
+  }
+
+  const activeGrants = grants.filter((item) => item.status === 'Active');
+  if (activeGrants.length === 0) {
+    return null;
+  }
+
+  const provisionedCount = activeGrants.filter((item) => item.provisioningStatus === 'Provisioned').length;
+  if (provisionedCount === activeGrants.length) {
+    return { label: i18n.t('identities.detail.headerFullyProvisioned'), variant: 'success' };
+  }
+
+  if (provisionedCount > 0) {
+    return { label: i18n.t('identities.detail.headerPartiallyProvisioned'), variant: 'warning' };
+  }
+
+  return { label: i18n.t('identities.detail.headerProvisioningIssue'), variant: 'error' };
+}
+
+function getHeaderActiveRequestsBadge(requests: readonly PackageRequestResponse[] | undefined, isLoaded: boolean): HeaderBadge | null {
+  if (!isLoaded || !requests?.some((item) => item.status === 'InProgress')) {
+    return null;
+  }
+
+  return { label: i18n.t('identities.detail.headerActiveAccessRequests'), variant: 'warning' };
+}
+
+function buildRequestedAccessRow(group: PackageAssignmentGroupView): AccessTableRow {
+  const grants = group.accessItems.flatMap((item) => item.leafViews.map((view) => view.grant));
+  return {
+    key: `requested-${group.sourceType}-${group.sourceId}-${group.packageId}`,
+    kind: 'requested',
+    packageName: group.packageName,
+    sourceReason: group.sourceReason,
+    validityLabel: group.validityLabel,
+    status: getCatalogAssignmentGroupStatus(group),
+    complianceBadge: getGroupedGrantComplianceBadge(grants),
+    provisioningBadge: getCatalogAssignmentGroupProvisionStatus(group),
+    shouldExpand: group.shouldExpand,
+    group,
+  };
+}
+
+function buildAutomatedAccessRow(group: AutomatedPackageAssignmentGroupView): AccessTableRow {
+  const grants = group.accessItems.map((item) => item.view.grant);
+  return {
+    key: `automated-${group.sourceType}-${group.sourceId}-${group.packageId}`,
+    kind: 'automated',
+    packageName: group.packageName,
+    sourceReason: group.sourceReason,
+    validityLabel: group.validityLabel,
+    status: group.status,
+    complianceBadge: getGroupedGrantComplianceBadge(grants),
+    provisioningBadge: getAutomatedAssignmentGroupProvisionStatus(group),
+    shouldExpand: group.shouldExpand,
+    group,
+  };
+}
+
+function sortAccessRows(rows: readonly AccessTableRow[]) {
+  return [...rows].sort((left, right) => {
+    if (left.shouldExpand !== right.shouldExpand) {
+      return left.shouldExpand ? -1 : 1;
+    }
+
+    if (left.kind !== right.kind) {
+      return left.kind === 'requested' ? -1 : 1;
+    }
+
+    return left.packageName.localeCompare(right.packageName);
+  });
 }
 
 type GrantView = {
