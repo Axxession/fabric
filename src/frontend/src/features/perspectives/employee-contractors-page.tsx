@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { Check, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -12,6 +13,7 @@ import { buttonVariants } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Input } from '@/shared/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { cn } from '@/shared/utils/cn';
 
 type CompanyResponse = components['schemas']['CompanyResponse'];
 type ContractorJobStatus = components['schemas']['ContractorJobStatus'];
@@ -25,10 +27,11 @@ const contractorEnrollmentRole = 'contractor-enrollment';
 
 export default function EmployeeContractorsPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const actorQuery = useCurrentActor();
   const [activeTab, setActiveTab] = useState<ContractorTab>('jobs');
   const [jobQuery, setJobQuery] = useState('');
-  const [jobStatus, setJobStatus] = useState<'all' | ContractorJobStatus>('all');
+  const [jobStatuses, setJobStatuses] = useState<ContractorJobStatus[]>(['Planned', 'Active']);
   const [companyQuery, setCompanyQuery] = useState('');
   const [companyStatus, setCompanyStatus] = useState<CompanyStatusFilter>('all');
 
@@ -36,7 +39,7 @@ export default function EmployeeContractorsPage() {
   const isEnrollmentRole = roles.includes(contractorEnrollmentRole);
 
   const jobsQuery = useQuery({
-    queryKey: ['employee', 'contractors', 'jobs', jobQuery, jobStatus],
+    queryKey: ['employee', 'contractors', 'jobs', jobQuery, jobStatuses.join(',')],
     queryFn: async () => {
       const { data, error } = await api.GET('/api/contractors/jobs', {
         params: {
@@ -47,7 +50,7 @@ export default function EmployeeContractorsPage() {
             LocationId: undefined,
             PlannedStartAfter: undefined,
             PlannedEndBefore: undefined,
-            Status: jobStatus === 'all' ? [] : [jobStatus],
+            Status: jobStatuses,
             Page: 0,
             PageSize: 200,
           } as never,
@@ -56,6 +59,33 @@ export default function EmployeeContractorsPage() {
 
       if (error) {
         throw new Error('Could not load contractor jobs.');
+      }
+
+      return data?.items ?? [];
+    },
+  });
+
+  const jobsSummaryQuery = useQuery({
+    queryKey: ['employee', 'contractors', 'jobs', 'summary'],
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/contractors/jobs', {
+        params: {
+          query: {
+            Query: undefined,
+            CompanyId: undefined,
+            JobTypeId: undefined,
+            LocationId: undefined,
+            PlannedStartAfter: undefined,
+            PlannedEndBefore: undefined,
+            Status: [],
+            Page: 0,
+            PageSize: 500,
+          } as never,
+        },
+      });
+
+      if (error) {
+        throw new Error('Could not load contractor jobs summary.');
       }
 
       return data?.items ?? [];
@@ -136,17 +166,46 @@ export default function EmployeeContractorsPage() {
     },
   });
 
+  const companiesSummaryQuery = useQuery({
+    queryKey: ['employee', 'contractors', 'companies', 'summary', isEnrollmentRole],
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/contractors/companies', {
+        params: {
+          query: {
+            Query: undefined,
+            IsActive: isEnrollmentRole ? undefined : true,
+            Page: 0,
+            PageSize: 500,
+          } as never,
+        },
+      });
+
+      if (error) {
+        throw new Error('Could not load contractor companies summary.');
+      }
+
+      return data?.items ?? [];
+    },
+  });
+
   const jobsLookupLoading = jobCompaniesQuery.isLoading || jobTypesQuery.isLoading || jobLocationsQuery.isLoading;
   const jobsLookupError = jobCompaniesQuery.isError || jobTypesQuery.isError || jobLocationsQuery.isError;
   const jobs = jobsQuery.data ?? [];
   const companies = companiesQuery.data ?? [];
+  const jobsSummary = jobsSummaryQuery.data ?? [];
+  const companiesSummary = companiesSummaryQuery.data ?? [];
+  const activeJobsCount = jobsSummary.filter((job) => job.status === 'Active').length;
+  const plannedJobsCount = jobsSummary.filter((job) => job.status === 'Planned').length;
+  const activeCompaniesCount = companiesSummary.filter((company) => company.isActive).length;
+  const activeJobAssignmentsCount = jobsSummary.filter((job) => job.status === 'Active').reduce((total, job) => total + Number(job.assignmentCount), 0);
 
   return (
     <section className="grid gap-6">
-      <div className="rounded-structural border border-border bg-content p-6 sm:p-8">
-        <p className="text-[14px] font-semibold uppercase text-primary">{t('perspectives.employee.contractors.kicker')}</p>
-        <h1 className="mt-3 text-[30px] font-semibold tracking-tight">{t('perspectives.employee.contractors.title')}</h1>
-        <p className="mt-3 max-w-3xl text-[14px] leading-6 text-muted-foreground">{t('perspectives.employee.contractors.description')}</p>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <OverviewStatCard label="Active Jobs" value={String(activeJobsCount)} detail="Currently running jobs" />
+        <OverviewStatCard label="Planned Jobs" value={String(plannedJobsCount)} detail="Upcoming contractor jobs" />
+        <OverviewStatCard label="Active Companies" value={String(activeCompaniesCount)} detail="Companies available in workspace" />
+        <OverviewStatCard label="Assignments On Active Jobs" value={String(activeJobAssignmentsCount)} detail="Total active-job assignments" />
       </div>
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ContractorTab)}>
@@ -162,27 +221,46 @@ export default function EmployeeContractorsPage() {
               <CardDescription>{t('perspectives.employee.contractors.jobs.description')}</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
-              <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
-                <div className="grid gap-2">
-                  <label className="text-[14px] font-medium" htmlFor="contractor-job-query">{t('perspectives.employee.contractors.filters.search')}</label>
-                  <Input id="contractor-job-query" value={jobQuery} onChange={(event) => setJobQuery(event.target.value)} placeholder={t('perspectives.employee.contractors.jobs.searchPlaceholder')} />
+              <div className="grid gap-4">
+                <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                  <div className="grid gap-2 md:min-w-0 md:flex-1 md:max-w-xl">
+                    <label className="text-[14px] font-medium" htmlFor="contractor-job-query">{t('perspectives.employee.contractors.filters.search')}</label>
+                    <Input id="contractor-job-query" value={jobQuery} onChange={(event) => setJobQuery(event.target.value)} placeholder={t('perspectives.employee.contractors.jobs.searchPlaceholder')} />
+                  </div>
+                  <Link to="/employee/contractors/jobs/new" className={buttonVariants()}>{t('perspectives.employee.contractors.jobs.new')}</Link>
                 </div>
-                <div className="grid gap-2">
-                  <label className="text-[14px] font-medium" htmlFor="contractor-job-status">{t('perspectives.employee.contractors.filters.status')}</label>
-                  <select
-                    id="contractor-job-status"
-                    className="h-9 w-full rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary focus:ring-[3px] focus:ring-primary/20"
-                    value={jobStatus}
-                    onChange={(event) => setJobStatus(event.target.value as 'all' | ContractorJobStatus)}
-                  >
-                    <option value="all">{t('perspectives.employee.contractors.jobs.allStatuses')}</option>
-                    {contractorJobStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
-                  </select>
-                </div>
-              </div>
 
-              <div className="flex justify-end">
-                <Link to="/employee/contractors/jobs/new" className={buttonVariants()}>{t('perspectives.employee.contractors.jobs.new')}</Link>
+                <div className="grid gap-2">
+                  <span className="text-[14px] font-medium">{t('perspectives.employee.contractors.filters.status')}</span>
+                  <div className="flex flex-wrap gap-2">
+                    {contractorJobStatuses.map((status) => {
+                      const isActive = jobStatuses.includes(status);
+
+                      return (
+                        <button
+                          key={status}
+                          type="button"
+                          className={cn(
+                            'inline-flex items-center rounded-interactive border px-3 py-2 text-[13px] font-semibold transition',
+                            isActive
+                              ? 'border-primary/20 bg-active-blue text-primary'
+                              : 'border-border bg-content text-muted-foreground hover:bg-hover-blue hover:text-foreground',
+                          )}
+                          onClick={() => setJobStatuses((current) => {
+                            if (current.includes(status)) {
+                              return current.length === 1 ? current : current.filter((item) => item !== status);
+                            }
+
+                            return [...current, status];
+                          })}
+                        >
+                          {isActive ? <Check className="size-3.5" aria-hidden="true" /> : null}
+                          {status}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
 
               {jobsQuery.isLoading || jobsLookupLoading ? <MutedText message={t('perspectives.employee.contractors.jobs.loading')} /> : null}
@@ -193,16 +271,14 @@ export default function EmployeeContractorsPage() {
                 <>
                   <div className="hidden overflow-hidden rounded-structural border border-border lg:block">
                     <table className="min-w-full text-left text-[14px]">
-                      <thead className="bg-muted/40 text-muted-foreground">
+                      <thead className="border-b border-border bg-background/70 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                         <tr>
                           <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.jobs.columns.job')}</th>
-                          <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.jobs.columns.company')}</th>
-                          <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.jobs.columns.jobType')}</th>
-                          <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.jobs.columns.location')}</th>
                           <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.jobs.columns.plannedStart')}</th>
                           <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.jobs.columns.plannedEnd')}</th>
                           <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.jobs.columns.status')}</th>
                           <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.jobs.columns.assignments')}</th>
+                          <th className="px-4 py-3 text-right font-semibold">Open</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -212,20 +288,30 @@ export default function EmployeeContractorsPage() {
                           const location = jobLocationsQuery.data?.get(job.locationId);
 
                           return (
-                            <tr key={job.id} className="border-t border-border align-top">
-                              <td className="px-4 py-4">
-                                <Link to="/employee/contractors/jobs/$jobId" params={{ jobId: job.id }} className="font-medium text-foreground underline-offset-4 hover:underline">
+                            <tr
+                              key={job.id}
+                              className="cursor-pointer border-t border-border align-top transition hover:bg-hover-blue/45"
+                              role="link"
+                              tabIndex={0}
+                              onClick={() => void navigate({ to: '/employee/contractors/jobs/$jobId', params: { jobId: job.id } })}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault();
+                                  void navigate({ to: '/employee/contractors/jobs/$jobId', params: { jobId: job.id } });
+                                }
+                              }}
+                            >
+                              <td className="px-5 py-5">
+                                <Link to="/employee/contractors/jobs/$jobId" params={{ jobId: job.id }} className="font-semibold text-foreground underline-offset-4 hover:underline" onClick={(event) => event.stopPropagation()}>
                                   {job.name}
                                 </Link>
-                                <p className="mt-1 text-[13px] text-muted-foreground">{job.description || t('perspectives.employee.contractors.jobs.noDescription')}</p>
+                                <p className="mt-1 text-[13px] leading-5 text-muted-foreground">{company?.name ?? t('perspectives.employee.contractors.unknownCompany')} • {jobType?.name ?? t('perspectives.employee.contractors.unknownJobType')} • {getLocationLabel(location)}</p>
                               </td>
-                              <td className="px-4 py-4 text-muted-foreground">{company?.name ?? t('perspectives.employee.contractors.unknownCompany')}</td>
-                              <td className="px-4 py-4 text-muted-foreground">{jobType?.name ?? t('perspectives.employee.contractors.unknownJobType')}</td>
-                              <td className="px-4 py-4 text-muted-foreground">{getLocationLabel(location)}</td>
-                              <td className="px-4 py-4 text-muted-foreground">{formatDateTimeLabel(job.plannedStart)}</td>
-                              <td className="px-4 py-4 text-muted-foreground">{formatDateTimeLabel(job.plannedEnd)}</td>
-                              <td className="px-4 py-4"><Badge variant={getContractorJobStatusVariant(job.status)}>{job.status}</Badge></td>
-                              <td className="px-4 py-4 text-muted-foreground">{job.assignmentCount}</td>
+                              <td className="px-5 py-5 text-muted-foreground">{formatDateTimeLabel(job.plannedStart)}</td>
+                              <td className="px-5 py-5 text-muted-foreground">{formatDateTimeLabel(job.plannedEnd)}</td>
+                              <td className="px-5 py-5"><Badge variant={getContractorJobStatusVariant(job.status)}>{job.status}</Badge></td>
+                              <td className="px-5 py-5"><Badge variant="secondary">{job.assignmentCount} assignment{job.assignmentCount === 1 ? '' : 's'}</Badge></td>
+                              <td className="px-5 py-5 text-right text-muted-foreground"><span className="inline-flex items-center justify-center"><ChevronRight className="size-4" aria-hidden="true" /></span></td>
                             </tr>
                           );
                         })}
@@ -240,25 +326,34 @@ export default function EmployeeContractorsPage() {
                       const location = jobLocationsQuery.data?.get(job.locationId);
 
                       return (
-                        <div key={job.id} className="rounded-structural border border-border p-4">
+                        <div
+                          key={job.id}
+                          className="rounded-[18px] border border-border bg-content p-5 shadow-[0_10px_28px_rgba(17,24,39,0.08)] transition hover:border-primary/20 hover:shadow-[0_14px_34px_rgba(17,24,39,0.1)]"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => void navigate({ to: '/employee/contractors/jobs/$jobId', params: { jobId: job.id } })}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              void navigate({ to: '/employee/contractors/jobs/$jobId', params: { jobId: job.id } });
+                            }
+                          }}
+                        >
                           <div className="flex items-start justify-between gap-3">
                             <div>
-                              <Link to="/employee/contractors/jobs/$jobId" params={{ jobId: job.id }} className="font-medium text-foreground underline-offset-4 hover:underline">
+                              <Link to="/employee/contractors/jobs/$jobId" params={{ jobId: job.id }} className="font-semibold text-foreground underline-offset-4 hover:underline" onClick={(event) => event.stopPropagation()}>
                                 {job.name}
                               </Link>
-                              <p className="mt-1 text-[13px] text-muted-foreground">{job.description || t('perspectives.employee.contractors.jobs.noDescription')}</p>
+                              <p className="mt-1 text-[13px] leading-5 text-muted-foreground">{company?.name ?? t('perspectives.employee.contractors.unknownCompany')} • {jobType?.name ?? t('perspectives.employee.contractors.unknownJobType')} • {getLocationLabel(location)}</p>
                             </div>
-                            <Badge variant={getContractorJobStatusVariant(job.status)}>{job.status}</Badge>
+                            <div className="flex items-center gap-3"><Badge variant={getContractorJobStatusVariant(job.status)}>{job.status}</Badge><ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" /></div>
                           </div>
 
-                          <dl className="mt-4 grid gap-2 text-[13px] text-muted-foreground">
-                            <div className="flex items-center justify-between gap-3"><dt>{t('perspectives.employee.contractors.jobs.columns.company')}</dt><dd className="text-right text-foreground">{company?.name ?? t('perspectives.employee.contractors.unknownCompany')}</dd></div>
-                            <div className="flex items-center justify-between gap-3"><dt>{t('perspectives.employee.contractors.jobs.columns.jobType')}</dt><dd className="text-right text-foreground">{jobType?.name ?? t('perspectives.employee.contractors.unknownJobType')}</dd></div>
-                            <div className="flex items-center justify-between gap-3"><dt>{t('perspectives.employee.contractors.jobs.columns.location')}</dt><dd className="text-right text-foreground">{getLocationLabel(location)}</dd></div>
-                            <div className="flex items-center justify-between gap-3"><dt>{t('perspectives.employee.contractors.jobs.columns.plannedStart')}</dt><dd className="text-right text-foreground">{formatDateTimeLabel(job.plannedStart)}</dd></div>
-                            <div className="flex items-center justify-between gap-3"><dt>{t('perspectives.employee.contractors.jobs.columns.plannedEnd')}</dt><dd className="text-right text-foreground">{formatDateTimeLabel(job.plannedEnd)}</dd></div>
-                            <div className="flex items-center justify-between gap-3"><dt>{t('perspectives.employee.contractors.jobs.columns.assignments')}</dt><dd className="text-right text-foreground">{job.assignmentCount}</dd></div>
-                          </dl>
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <span className="inline-flex items-center rounded-[10px] border border-border bg-background px-3 py-1 text-[12px] font-medium text-muted-foreground">starts {formatDateTimeLabel(job.plannedStart)}</span>
+                            <span className="inline-flex items-center rounded-[10px] border border-border bg-background px-3 py-1 text-[12px] font-medium text-muted-foreground">ends {formatDateTimeLabel(job.plannedEnd)}</span>
+                            <Badge variant="secondary">{job.assignmentCount} assignment{job.assignmentCount === 1 ? '' : 's'}</Badge>
+                          </div>
                         </div>
                       );
                     })}
@@ -306,29 +401,44 @@ export default function EmployeeContractorsPage() {
                 <>
                   <div className="hidden overflow-hidden rounded-structural border border-border lg:block">
                     <table className="min-w-full text-left text-[14px]">
-                      <thead className="bg-muted/40 text-muted-foreground">
+                      <thead className="border-b border-border bg-background/70 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                         <tr>
                           <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.companies.columns.name')}</th>
                           <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.companies.columns.code')}</th>
                           <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.companies.columns.companyNumber')}</th>
                           <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.companies.columns.status')}</th>
                           <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.companies.columns.updated')}</th>
-                          <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.companies.columns.actions')}</th>
+                          <th className="px-4 py-3 text-right font-semibold">Open</th>
                         </tr>
                       </thead>
                       <tbody>
                         {companies.map((company) => (
-                          <tr key={company.id} className="border-t border-border">
-                            <td className="px-4 py-4 font-medium text-foreground">{company.name}</td>
-                            <td className="px-4 py-4 text-muted-foreground">{company.code}</td>
-                            <td className="px-4 py-4 text-muted-foreground">{company.companyNumber || t('perspectives.employee.contractors.companies.noCompanyNumber')}</td>
-                            <td className="px-4 py-4"><Badge variant={company.isActive ? 'success' : 'secondary'}>{company.isActive ? t('perspectives.employee.contractors.companies.active') : t('perspectives.employee.contractors.companies.inactive')}</Badge></td>
-                            <td className="px-4 py-4 text-muted-foreground">{formatDateTimeLabel(company.updatedAt)}</td>
-                            <td className="px-4 py-4">
-                              <Link to="/employee/contractors/companies/$companyId" params={{ companyId: company.id }} className={buttonVariants({ variant: 'outline' })}>
-                                {isEnrollmentRole ? t('perspectives.employee.contractors.companies.edit') : t('perspectives.employee.contractors.companies.open')}
-                              </Link>
+                          <tr
+                            key={company.id}
+                            className="cursor-pointer border-t border-border transition hover:bg-hover-blue/45"
+                            role="link"
+                            tabIndex={0}
+                            onClick={() => void navigate({ to: '/employee/contractors/companies/$companyId', params: { companyId: company.id } })}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                void navigate({ to: '/employee/contractors/companies/$companyId', params: { companyId: company.id } });
+                              }
+                            }}
+                          >
+                            <td className="px-5 py-5 align-top">
+                              <div>
+                                <Link to="/employee/contractors/companies/$companyId" params={{ companyId: company.id }} className="font-semibold text-foreground underline-offset-4 hover:underline" onClick={(event) => event.stopPropagation()}>
+                                  {company.name}
+                                </Link>
+                                <p className="mt-1 text-[13px] leading-5 text-muted-foreground">{company.code} • {company.companyNumber || t('perspectives.employee.contractors.companies.noCompanyNumber')}</p>
+                              </div>
                             </td>
+                            <td className="px-5 py-5 text-muted-foreground">{company.code}</td>
+                            <td className="px-5 py-5 text-muted-foreground">{company.companyNumber || t('perspectives.employee.contractors.companies.noCompanyNumber')}</td>
+                            <td className="px-5 py-5"><Badge variant={company.isActive ? 'success' : 'secondary'}>{company.isActive ? t('perspectives.employee.contractors.companies.active') : t('perspectives.employee.contractors.companies.inactive')}</Badge></td>
+                            <td className="px-5 py-5 text-muted-foreground">{formatDateTimeLabel(company.updatedAt)}</td>
+                            <td className="px-5 py-5 text-right text-muted-foreground"><span className="inline-flex items-center justify-center"><ChevronRight className="size-4" aria-hidden="true" /></span></td>
                           </tr>
                         ))}
                       </tbody>
@@ -337,18 +447,30 @@ export default function EmployeeContractorsPage() {
 
                   <div className="grid gap-3 lg:hidden">
                     {companies.map((company) => (
-                      <div key={company.id} className="rounded-structural border border-border p-4">
-                        <p className="font-medium text-foreground">{company.name}</p>
-                        <dl className="mt-3 grid gap-2 text-[13px] text-muted-foreground">
-                          <div className="flex items-center justify-between gap-3"><dt>{t('perspectives.employee.contractors.companies.columns.code')}</dt><dd className="text-right text-foreground">{company.code}</dd></div>
-                          <div className="flex items-center justify-between gap-3"><dt>{t('perspectives.employee.contractors.companies.columns.companyNumber')}</dt><dd className="text-right text-foreground">{company.companyNumber || t('perspectives.employee.contractors.companies.noCompanyNumber')}</dd></div>
-                          <div className="flex items-center justify-between gap-3"><dt>{t('perspectives.employee.contractors.companies.columns.status')}</dt><dd className="text-right"><Badge variant={company.isActive ? 'success' : 'secondary'}>{company.isActive ? t('perspectives.employee.contractors.companies.active') : t('perspectives.employee.contractors.companies.inactive')}</Badge></dd></div>
-                          <div className="flex items-center justify-between gap-3"><dt>{t('perspectives.employee.contractors.companies.columns.updated')}</dt><dd className="text-right text-foreground">{formatDateTimeLabel(company.updatedAt)}</dd></div>
-                        </dl>
+                      <div
+                        key={company.id}
+                        className="rounded-[18px] border border-border bg-content p-5 shadow-[0_10px_28px_rgba(17,24,39,0.08)] transition hover:border-primary/20 hover:shadow-[0_14px_34px_rgba(17,24,39,0.1)]"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => void navigate({ to: '/employee/contractors/companies/$companyId', params: { companyId: company.id } })}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            void navigate({ to: '/employee/contractors/companies/$companyId', params: { companyId: company.id } });
+                          }
+                        }}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <Link to="/employee/contractors/companies/$companyId" params={{ companyId: company.id }} className="font-semibold text-foreground underline-offset-4 hover:underline" onClick={(event) => event.stopPropagation()}>
+                              {company.name}
+                            </Link>
+                            <p className="mt-1 text-[13px] leading-5 text-muted-foreground">{company.code} • {company.companyNumber || t('perspectives.employee.contractors.companies.noCompanyNumber')}</p>
+                          </div>
+                          <div className="flex items-center gap-3"><Badge variant={company.isActive ? 'success' : 'secondary'}>{company.isActive ? t('perspectives.employee.contractors.companies.active') : t('perspectives.employee.contractors.companies.inactive')}</Badge><ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" /></div>
+                        </div>
                         <div className="mt-4 flex flex-wrap gap-2">
-                          <Link to="/employee/contractors/companies/$companyId" params={{ companyId: company.id }} className={buttonVariants({ variant: 'outline' })}>
-                            {isEnrollmentRole ? t('perspectives.employee.contractors.companies.edit') : t('perspectives.employee.contractors.companies.open')}
-                          </Link>
+                          <span className="inline-flex items-center rounded-[10px] border border-border bg-background px-3 py-1 text-[12px] font-medium text-muted-foreground">updated {formatDateTimeLabel(company.updatedAt)}</span>
                         </div>
                       </div>
                     ))}
@@ -378,6 +500,16 @@ function getContractorJobStatusVariant(status: ContractorJobStatus) {
 
 function formatDateTimeLabel(value: string) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+}
+
+function OverviewStatCard({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="rounded-structural border border-border bg-content px-4 py-4 shadow-sm">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+      <p className="mt-2 text-[32px] font-semibold tracking-tight text-primary">{value}</p>
+      <p className="mt-1.5 text-[13px] leading-5 text-muted-foreground">{detail}</p>
+    </div>
+  );
 }
 
 function ErrorText({ message }: { message: string }) {

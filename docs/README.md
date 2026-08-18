@@ -24,6 +24,7 @@ When a task matches one of the conditions below, use the Read tool to load the c
 
 | File | Covers | Load when... |
 |---|---|---|
+| `standards/ui.md` | Theme tokens, shell layout, typography, tabs, lists, badges, actions | designing or changing frontend pages, components, layouts, or visual patterns |
 | `design/access-domain-overview.md` | Access-domain glossary, ownership split, dependency direction | choosing bounded-context ownership or high-level access-domain structure |
 | `design/contractors.md` | Contractor companies, contractors, job types, jobs, assignments, identity linkage boundary | designing or changing contractor planning, contractor jobs, contractor assignments, or contractor identity linkage |
 | `design/locations.md` | Location hierarchy, location ownership, boundary rules | designing or changing location models and location references |

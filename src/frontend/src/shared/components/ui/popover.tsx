@@ -55,7 +55,7 @@ function PopoverPopup({
     <PopoverPrimitive.Popup
       data-slot="popover-popup"
       className={cn(
-        'max-w-[calc(100vw-1.5rem)] origin-(--transform-origin) overflow-hidden rounded-structural bg-content text-foreground shadow-md ring-1 ring-foreground/10',
+        'max-w-[calc(100vw-1.5rem)] origin-(--transform-origin) overflow-hidden rounded-structural border border-border bg-content text-foreground shadow-[0_18px_50px_rgba(17,24,39,0.14)]',
         className,
       )}
       {...props}

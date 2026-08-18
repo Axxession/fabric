@@ -1,20 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap');
 @import 'tailwindcss';
-
-@font-face {
-  font-family: 'Satoshi';
-  src: url('./assets/fonts/satoshi/Satoshi-Variable.woff2') format('woff2');
-  font-display: swap;
-  font-style: normal;
-  font-weight: 300 900;
-}
-
-@font-face {
-  font-family: 'Satoshi';
-  src: url('./assets/fonts/satoshi/Satoshi-VariableItalic.woff2') format('woff2');
-  font-display: swap;
-  font-style: italic;
-  font-weight: 300 900;
-}
 
 @theme {
   --color-background: var(--fabric-background);
@@ -22,6 +7,7 @@
   --color-foreground: var(--fabric-text);
   --color-primary: var(--fabric-primary);
   --color-muted-foreground: var(--fabric-text-muted);
+  --color-faint-foreground: var(--fabric-text-faint);
   --color-border: var(--fabric-border);
   --color-hover-blue: var(--fabric-hover-blue);
   --color-active-blue: var(--fabric-active-blue);
@@ -31,11 +17,11 @@
   --color-danger: var(--fabric-danger);
   --color-success: var(--fabric-success);
   --color-success-background: var(--fabric-success-background);
-  --font-sans: Satoshi, 'DM Sans', Arial, sans-serif;
+  --font-sans: Montserrat, system-ui, Arial, sans-serif;
   --radius-status: 5px;
-  --radius-interactive: 8px;
-  --radius-structural: 12px;
-  --radius-fixed-action: 20px;
+  --radius-interactive: 12px;
+  --radius-structural: 14px;
+  --radius-fixed-action: 18px;
 }
 
 @layer base {
@@ -91,20 +77,31 @@
 
 :root {
   color-scheme: light;
-  --fabric-background: #f8f8f8;
-  --fabric-content: #ffffff;
-  --fabric-primary: #238cff;
-  --fabric-text: #212529;
-  --fabric-text-muted: #6c757d;
-  --fabric-border: #dddddd;
-  --fabric-hover-blue: #eef6ff;
-  --fabric-active-blue: #deeeff;
-  --fabric-hover-gray: #f3f3f3;
-  --fabric-error: #ff6467;
-  --fabric-error-background: #feeaea;
-  --fabric-danger: #ff6467;
-  --fabric-success: #00c950;
-  --fabric-success-background: #e6faeb;
+   --fabric-background: #f4f5f6;
+   --fabric-content: #ffffff;
+   --fabric-primary: #1d4268;
+   --fabric-text: #42464d;
+    --fabric-text-muted: #787c84;
+   --fabric-text-faint: #9aa0a8;
+    --fabric-border: #e2e4e8;
+    --fabric-hover-blue: #eef3f8;
+    --fabric-active-blue: #e3ebf4;
+   --fabric-hover-gray: #f7f8f9;
+   --fabric-error: #ff6467;
+   --fabric-error-background: #feeaea;
+   --fabric-danger: #ff6467;
+   --fabric-success: #00c950;
+   --fabric-success-background: #e6faeb;
+   --fabric-sidebar-rail: #13283f;
+   --fabric-sidebar-rail-hover: #1d3a5a;
+   --fabric-sidebar-rail-active: #1d3a5a;
+   --fabric-sidebar-rail-foreground: #ffffff;
+   --fabric-sidebar-rail-muted: rgba(255, 255, 255, 0.62);
+   --fabric-sidebar-panel: #f4f5f6;
+   --fabric-sidebar-panel-border: #e2e4e8;
+   --fabric-sidebar-menu: #1d4268;
+   --fabric-sidebar-menu-border: rgba(255, 255, 255, 0.14);
+   --fabric-sidebar-menu-muted: rgba(255, 255, 255, 0.62);
 }
 
 body.fabric-app-body {
@@ -114,6 +111,8 @@ body.fabric-app-body {
   background: var(--fabric-background);
   color: var(--fabric-text);
   font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 html.elsa-studio-fullscreen,
 body.elsa-studio-fullscreen {
@@ -134,4 +133,13 @@ input,
 textarea,
 select {
   font: inherit;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  letter-spacing: -0.02em;
 }

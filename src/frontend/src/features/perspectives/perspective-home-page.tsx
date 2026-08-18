@@ -12,11 +12,14 @@ import { VisitStatusBadge } from '@/shared/components/visit-status-badge';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button, buttonVariants } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { getPerspectiveById, type PerspectiveId } from '@/shared/perspectives/app-perspectives';
+import { cn } from '@/shared/utils/cn';
 
 type CredentialResponse = components['schemas']['CredentialResponse'];
 type CredentialTypeResponse = components['schemas']['CredentialTypeResponse'];
 type AccessGrantResponse = components['schemas']['AccessGrantResponse'];
+type ContractorJobResponse = components['schemas']['ContractorJobResponse'];
 type PackageRequestResponse = components['schemas']['PackageRequestResponse'];
 type PackageResponse = components['schemas']['PackageResponse'];
 type VisitResponse = components['schemas']['VisitResponse'];
@@ -159,9 +162,11 @@ function EmployeeOverviewPage() {
   const actorQuery = useCurrentActor();
   const navigate = useNavigate();
   const [visitorsDay, setVisitorsDay] = useState(() => startOfDay(new Date()));
+  const [activeTab, setActiveTab] = useState<'credentials' | 'packages' | 'requests' | 'visitors' | 'contractor-jobs'>('requests');
 
   const identityId = actorQuery.data?.identityId ?? null;
   const isHost = actorQuery.data?.isHost ?? false;
+  const canPlanContractors = (actorQuery.data?.roles ?? []).includes('contractor-planning') || (actorQuery.data?.roles ?? []).includes('contractor-enrollment');
   const visitorsInterval = getDayInterval(visitorsDay);
 
   const credentialsQuery = useQuery({
@@ -291,6 +296,34 @@ function EmployeeOverviewPage() {
     },
   });
 
+  const activeContractorJobsQuery = useQuery({
+    queryKey: ['employee', 'overview', 'contractor-jobs', 'active'],
+    enabled: canPlanContractors,
+    queryFn: async () => {
+      const { data, error } = await api.GET('/api/contractors/jobs', {
+        params: {
+          query: {
+            Query: undefined,
+            CompanyId: undefined,
+            JobTypeId: undefined,
+            LocationId: undefined,
+            PlannedStartAfter: undefined,
+            PlannedEndBefore: undefined,
+            Status: ['Active'],
+            Page: 0,
+            PageSize: 200,
+          } as never,
+        },
+      });
+
+      if (error) {
+        throw new Error('Could not load active contractor jobs.');
+      }
+
+      return data?.items ?? [];
+    },
+  });
+
   const credentials = credentialsQuery.data ?? [];
   const credentialTypesById = credentialTypesQuery.data ?? new Map<string, CredentialTypeResponse>();
   const activeGrants = (grantsQuery.data ?? []).filter((item) => item.status === 'Active');
@@ -302,20 +335,28 @@ function EmployeeOverviewPage() {
     });
   const requests = mergeEmployeeRequests(requesterRequestsQuery.data ?? [], beneficiaryRequestsQuery.data ?? [], identityId);
   const expectedVisitors = flattenExpectedVisitors(visitorsQuery.data ?? []);
+  const activeContractorJobs = activeContractorJobsQuery.data ?? [];
   const hasActorContext = Boolean(identityId);
+  const activeCredentialsCount = credentials.filter((item) => item.status === 'Active').length;
+  const todayVisitorsCount = isHost ? expectedVisitors.length : 0;
 
   return (
     <section className="grid gap-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="rounded-structural border border-border bg-content p-6 md:p-8">
         <div>
-          <h1 className="text-[28px] font-semibold tracking-tight">Employee Overview</h1>
-          <p className="mt-2 max-w-3xl text-[14px] text-muted-foreground">
-            {actorQuery.data?.displayName ? `Signed in as ${actorQuery.data.displayName}.` : 'Your identity, access, requests, and visitors at a glance.'}
+          <h1 className="text-[30px] font-semibold tracking-tight text-foreground">Employee Overview</h1>
+          <p className="mt-3 max-w-3xl text-[14px] leading-6 text-muted-foreground">
+            {actorQuery.data?.displayName ? `Signed in as ${actorQuery.data.displayName}. Review your access, pending requests, and today's activity.` : 'Your identity, access, requests, and visitors at a glance.'}
           </p>
         </div>
-        <Link to="/employee/request-access" className={buttonVariants()}>
-          Request Access
-        </Link>
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+          <OverviewStat label="Active credentials" value={String(activeCredentialsCount)} detail={`${credentials.length} total assigned`} />
+          <OverviewStat label="Active packages" value={String(assignedPackages.length)} detail={assignedPackages.length === 1 ? '1 package ready to use' : `${assignedPackages.length} packages ready to use`} />
+          <OverviewStat label="Requests in progress" value={String(requests.length)} detail={requests.length === 0 ? 'No pending requests' : 'Submitted by you or for you'} />
+          {canPlanContractors ? <OverviewStat label="Active jobs" value={String(activeContractorJobs.length)} detail={activeContractorJobs.length === 1 ? '1 contractor job active' : `${activeContractorJobs.length} contractor jobs active`} /> : null}
+          {isHost ? <OverviewStat label="Expected visitors" value={String(todayVisitorsCount)} detail={formatDayLabel(visitorsDay)} /> : null}
+        </div>
       </div>
 
       {!actorQuery.isLoading && !hasActorContext ? (
@@ -324,293 +365,244 @@ function EmployeeOverviewPage() {
         </p>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Assigned Credentials</CardTitle>
-            <CardDescription>Current credentials linked to your identity.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {credentialsQuery.isError || credentialTypesQuery.isError ? <ErrorText message="Could not load assigned credentials." /> : null}
-            {credentialsQuery.isLoading || credentialTypesQuery.isLoading ? <MutedText message="Loading assigned credentials..." /> : null}
-            {!credentialsQuery.isLoading && !credentialTypesQuery.isLoading && credentials.length === 0 ? <EmptyText message="No credentials assigned yet." /> : null}
-            {!credentialsQuery.isLoading && !credentialTypesQuery.isLoading && credentials.length > 0 ? (
-              <div className="grid gap-3">
-                {credentials.map((credential) => {
-                  const credentialType = credentialTypesById.get(credential.credentialTypeId);
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'credentials' | 'packages' | 'requests' | 'visitors' | 'contractor-jobs')}>
+        <TabsList className="overflow-x-auto">
+          <TabsTrigger value="credentials">Active Credentials <span className="text-[12px] font-medium text-muted-foreground">{credentials.length}</span></TabsTrigger>
+          <TabsTrigger value="packages">Assigned Packages <span className="text-[12px] font-medium text-muted-foreground">{assignedPackages.length}</span></TabsTrigger>
+          <TabsTrigger value="requests">Requests <span className="text-[12px] font-medium text-muted-foreground">{requests.length}</span></TabsTrigger>
+          {canPlanContractors ? <TabsTrigger value="contractor-jobs">Contractor Jobs <span className="text-[12px] font-medium text-muted-foreground">{activeContractorJobs.length}</span></TabsTrigger> : null}
+          {isHost ? <TabsTrigger value="visitors">Visitors <span className="text-[12px] font-medium text-muted-foreground">{todayVisitorsCount}</span></TabsTrigger> : null}
+        </TabsList>
 
-                  return (
-                    <div key={credential.id} className="rounded-structural border border-border p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <p className="font-medium text-foreground">{credentialType?.name ?? credential.formattedIdentifier}</p>
-                          <p className="mt-1 text-[13px] text-muted-foreground">{credential.formattedIdentifier}</p>
-                        </div>
-                        <Badge variant={getCredentialStatusVariant(credential.status)}>{credential.status}</Badge>
-                      </div>
-                      <dl className="mt-4 grid gap-2 text-[13px] text-muted-foreground sm:grid-cols-2">
-                        <div className="flex items-center justify-between gap-3 sm:block">
-                          <dt>Purpose</dt>
-                          <dd className="text-right text-foreground sm:mt-1 sm:text-left">{credential.purpose}</dd>
-                        </div>
-                        <div className="flex items-center justify-between gap-3 sm:block">
-                          <dt>Valid until</dt>
-                          <dd className="text-right text-foreground sm:mt-1 sm:text-left">{credential.validUntil ? formatDateTimeLabel(credential.validUntil) : 'No end date'}</dd>
-                        </div>
-                      </dl>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
+        <TabsContent value="credentials" className="mt-5">
+              {credentialsQuery.isError || credentialTypesQuery.isError ? <ErrorText message="Could not load assigned credentials." /> : null}
+              {credentialsQuery.isLoading || credentialTypesQuery.isLoading ? <MutedText message="Loading assigned credentials..." /> : null}
+              {!credentialsQuery.isLoading && !credentialTypesQuery.isLoading && credentials.length === 0 ? <EmptyText message="No credentials assigned yet." /> : null}
+              {!credentialsQuery.isLoading && !credentialTypesQuery.isLoading && credentials.length > 0 ? (
+                <div className="grid gap-3">
+                  {credentials.map((credential) => {
+                    const credentialType = credentialTypesById.get(credential.credentialTypeId);
 
-        <Card>
-          <CardHeader>
-              <CardTitle>Assigned Packages</CardTitle>
-              <CardDescription>Current access packages from active grants, including withheld compliance states.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {grantsQuery.isError || packagesQuery.isError ? <ErrorText message="Could not load assigned packages." /> : null}
-            {grantsQuery.isLoading || packagesQuery.isLoading ? <MutedText message="Loading assigned packages..." /> : null}
-            {!grantsQuery.isLoading && !packagesQuery.isLoading && assignedPackages.length === 0 ? <EmptyText message="No active packages assigned." /> : null}
-            {!grantsQuery.isLoading && !packagesQuery.isLoading && assignedPackages.length > 0 ? (
-              <div className="grid gap-3">
-                {assignedPackages.map((grant) => {
-                  const pkg = packagesQuery.data?.get(grant.packageId);
-
-                  return (
-                    <div key={grant.id} className="rounded-structural border border-border p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <p className="font-medium text-foreground">{pkg?.name ?? grant.packageId}</p>
-                          <p className="mt-1 text-[13px] text-muted-foreground">{pkg?.description ?? 'Current package assignment.'}</p>
-                        </div>
-                        <Badge variant={getGrantStatusVariant(grant.status)}>{grant.status}</Badge>
-                      </div>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <Badge variant={getGrantApprovalVariant(grant.approvalStatus)}>{getGrantApprovalLabel(grant.approvalStatus)}</Badge>
-                        <Badge variant={getGrantComplianceVariant(grant.complianceStatus)}>{getGrantComplianceLabel(grant.complianceStatus)}</Badge>
-                      </div>
-                      <dl className="mt-4 grid gap-2 text-[13px] text-muted-foreground sm:grid-cols-2">
-                        <div className="flex items-center justify-between gap-3 sm:block">
-                          <dt>Valid from</dt>
-                          <dd className="text-right text-foreground sm:mt-1 sm:text-left">{formatDateTimeLabel(grant.validFrom)}</dd>
-                        </div>
-                        <div className="flex items-center justify-between gap-3 sm:block">
-                          <dt>Valid until</dt>
-                          <dd className="text-right text-foreground sm:mt-1 sm:text-left">{grant.validUntil ? formatDateTimeLabel(grant.validUntil) : 'No end date'}</dd>
-                        </div>
-                        <div className="flex items-center justify-between gap-3 sm:block">
-                          <dt>State</dt>
-                          <dd className="text-right text-foreground sm:mt-1 sm:text-left">{getGrantBusinessSummary(grant)}</dd>
-                        </div>
-                        {getGrantComplianceUntilLabel(grant) ? (
-                          <div className="flex items-center justify-between gap-3 sm:block">
-                            <dt>Compliant until</dt>
-                            <dd className="text-right text-foreground sm:mt-1 sm:text-left">{formatDateTimeLabel(getGrantComplianceUntilLabel(grant)!)}</dd>
+                    return (
+                      <OverviewListItem key={credential.id}>
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[15px] font-semibold text-foreground">{credentialType?.name ?? credential.formattedIdentifier}</p>
+                            <p className="mt-1 text-[14px] text-muted-foreground">{credential.formattedIdentifier}</p>
                           </div>
-                        ) : null}
-                      </dl>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Requests In Progress</CardTitle>
-          <CardDescription>Requests you submitted or requests created for you.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {requesterRequestsQuery.isError || beneficiaryRequestsQuery.isError || packagesQuery.isError ? <ErrorText message="Could not load requests in progress." /> : null}
-          {requesterRequestsQuery.isLoading || beneficiaryRequestsQuery.isLoading || packagesQuery.isLoading ? <MutedText message="Loading requests in progress..." /> : null}
-          {!requesterRequestsQuery.isLoading && !beneficiaryRequestsQuery.isLoading && !packagesQuery.isLoading && requests.length === 0 ? <EmptyText message="No requests in progress." /> : null}
-          {!requesterRequestsQuery.isLoading && !beneficiaryRequestsQuery.isLoading && !packagesQuery.isLoading && requests.length > 0 ? (
-            <>
-              <div className="hidden overflow-x-auto md:block">
-                <table className="w-full min-w-[56rem] border-collapse text-left text-[14px]">
-                  <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-3 font-semibold">Package</th>
-                      <th className="px-4 py-3 font-semibold">Source</th>
-                      <th className="px-4 py-3 font-semibold">Created</th>
-                      <th className="px-4 py-3 font-semibold">Valid from</th>
-                      <th className="px-4 py-3 font-semibold">Valid until</th>
-                      <th className="px-4 py-3 text-right font-semibold">Open</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {requests.map((item) => (
-                      <tr
-                        key={item.request.id}
-                        className="cursor-pointer transition hover:bg-hover-blue"
-                        role="link"
-                        tabIndex={0}
-                        onClick={() => void navigate({ to: '/employee/request-access/$requestId', params: { requestId: item.request.id } })}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault();
-                            void navigate({ to: '/employee/request-access/$requestId', params: { requestId: item.request.id } });
-                          }
-                        }}
-                      >
-                        <td className="px-4 py-4 font-medium text-foreground">{packagesQuery.data?.get(item.request.packageId)?.name ?? item.request.packageId}</td>
-                        <td className="px-4 py-4"><Badge variant="secondary">{item.sourceLabel}</Badge></td>
-                        <td className="px-4 py-4 text-muted-foreground">{formatDateTimeLabel(item.request.createdAt)}</td>
-                        <td className="px-4 py-4 text-muted-foreground">{formatDateTimeLabel(item.request.validFrom)}</td>
-                        <td className="px-4 py-4 text-muted-foreground">{item.request.validUntil ? formatDateTimeLabel(item.request.validUntil) : 'No end date'}</td>
-                        <td className="px-4 py-4 text-right text-muted-foreground"><ExternalLink className="ml-auto size-4" aria-hidden="true" /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="grid gap-3 md:hidden">
-                {requests.map((item) => (
-                  <article
-                    key={item.request.id}
-                    className="rounded-structural border border-border p-4 transition hover:bg-hover-blue"
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => void navigate({ to: '/employee/request-access/$requestId', params: { requestId: item.request.id } })}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        void navigate({ to: '/employee/request-access/$requestId', params: { requestId: item.request.id } });
-                      }
-                    }}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-medium text-foreground">{packagesQuery.data?.get(item.request.packageId)?.name ?? item.request.packageId}</p>
-                        <p className="mt-1 text-[13px] text-muted-foreground">Created {formatDateTimeLabel(item.request.createdAt)}</p>
-                      </div>
-                      <Badge variant="secondary">{item.sourceLabel}</Badge>
-                    </div>
-                    <dl className="mt-4 grid gap-2 text-[14px]">
-                      <div className="flex items-center justify-between gap-3"><dt className="text-muted-foreground">Valid from</dt><dd className="text-right text-foreground">{formatDateTimeLabel(item.request.validFrom)}</dd></div>
-                      <div className="flex items-center justify-between gap-3"><dt className="text-muted-foreground">Valid until</dt><dd className="text-right text-foreground">{item.request.validUntil ? formatDateTimeLabel(item.request.validUntil) : 'No end date'}</dd></div>
-                    </dl>
-                  </article>
-                ))}
-              </div>
-            </>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      {isHost ? (
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <CardTitle>Expected Visitors</CardTitle>
-                <CardDescription>Today's invitations with quick day-by-day navigation.</CardDescription>
-              </div>
-              <div className="flex items-center gap-2 self-start">
-                <Button type="button" variant="outline" size="icon" aria-label="Previous day" onClick={() => setVisitorsDay(addDays(visitorsDay, -1))}>
-                  <ChevronLeft className="size-4" aria-hidden="true" />
-                </Button>
-                <div className="min-w-36 text-center text-[13px] font-medium text-foreground">{formatDayLabel(visitorsDay)}</div>
-                <Button type="button" variant="outline" size="icon" aria-label="Next day" onClick={() => setVisitorsDay(addDays(visitorsDay, 1))}>
-                  <ChevronRight className="size-4" aria-hidden="true" />
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {visitorsQuery.isError ? <ErrorText message="Could not load expected visitors." /> : null}
-            {visitorsQuery.isLoading ? <MutedText message="Loading expected visitors..." /> : null}
-            {!visitorsQuery.isLoading && expectedVisitors.length === 0 ? <EmptyText message="No visitors expected for this day." /> : null}
-            {!visitorsQuery.isLoading && expectedVisitors.length > 0 ? (
-              <>
-                <div className="hidden overflow-x-auto md:block">
-                  <table className="w-full min-w-[64rem] border-collapse text-left text-[14px]">
-                    <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
-                      <tr>
-                        <th className="px-4 py-3 font-semibold">Visitor</th>
-                        <th className="px-4 py-3 font-semibold">Visit</th>
-                        <th className="px-4 py-3 font-semibold">Visit Status</th>
-                        <th className="px-4 py-3 font-semibold">Time</th>
-                        <th className="px-4 py-3 font-semibold">Confirmation</th>
-                        <th className="px-4 py-3 text-right font-semibold">Open</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {expectedVisitors.map((item) => (
-                        <tr
-                          key={item.invitation.id}
-                          className="cursor-pointer transition hover:bg-hover-blue"
-                          role="link"
-                          tabIndex={0}
-                          onClick={() => void navigate({ to: '/employee/visitors/$visitId/invitations/$invitationId', params: { visitId: item.visit.id ?? '', invitationId: item.invitation.id } })}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                              event.preventDefault();
-                              void navigate({ to: '/employee/visitors/$visitId/invitations/$invitationId', params: { visitId: item.visit.id ?? '', invitationId: item.invitation.id } });
-                            }
-                          }}
-                        >
-                          <td className="px-4 py-4">
-                            <div>
-                              <p className="font-medium text-foreground">{formatInvitationName(item.invitation)}</p>
-                              <p className="mt-1 text-[13px] text-muted-foreground">{item.invitation.email}</p>
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 text-foreground">{item.visit.summary || 'Untitled visit'}</td>
-                          <td className="px-4 py-4"><VisitStatusBadge status={item.visit.status} /></td>
-                          <td className="px-4 py-4 text-muted-foreground">{formatVisitTime(item.visit.start, item.visit.stop)}</td>
-                          <td className="px-4 py-4"><Badge variant={getConfirmationVariant(item.invitation.confirmationStatus)}>{formatConfirmationStatus(item.invitation.confirmationStatus)}</Badge></td>
-                          <td className="px-4 py-4 text-right text-muted-foreground"><ExternalLink className="ml-auto size-4" aria-hidden="true" /></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          <Badge variant={getCredentialStatusVariant(credential.status)}>{credential.status}</Badge>
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <MetaChip>{credential.purpose}</MetaChip>
+                          <MetaChip>{credential.validUntil ? `valid until ${formatDateTimeLabel(credential.validUntil)}` : 'no end date'}</MetaChip>
+                        </div>
+                      </OverviewListItem>
+                    );
+                  })}
                 </div>
+              ) : null}
+        </TabsContent>
 
-                <div className="grid gap-3 md:hidden">
-                  {expectedVisitors.map((item) => (
-                    <article
-                      key={item.invitation.id}
-                      className="rounded-structural border border-border p-4 transition hover:bg-hover-blue"
+        <TabsContent value="packages" className="mt-5">
+              {grantsQuery.isError || packagesQuery.isError ? <ErrorText message="Could not load assigned packages." /> : null}
+              {grantsQuery.isLoading || packagesQuery.isLoading ? <MutedText message="Loading assigned packages..." /> : null}
+              {!grantsQuery.isLoading && !packagesQuery.isLoading && assignedPackages.length === 0 ? <EmptyText message="No active packages assigned." /> : null}
+              {!grantsQuery.isLoading && !packagesQuery.isLoading && assignedPackages.length > 0 ? (
+                <div className="grid gap-3">
+                  {assignedPackages.map((grant) => {
+                    const pkg = packagesQuery.data?.get(grant.packageId);
+
+                    return (
+                      <OverviewListItem key={grant.id}>
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[15px] font-semibold text-foreground">{pkg?.name ?? grant.packageId}</p>
+                            <p className="mt-1 text-[14px] leading-6 text-muted-foreground">{pkg?.description ?? 'Current package assignment.'}</p>
+                          </div>
+                          <Badge variant={getGrantStatusVariant(grant.status)}>{grant.status}</Badge>
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <Badge variant={getGrantApprovalVariant(grant.approvalStatus)}>{getGrantApprovalLabel(grant.approvalStatus)}</Badge>
+                          <Badge variant={getGrantComplianceVariant(grant.complianceStatus)}>{getGrantComplianceLabel(grant.complianceStatus)}</Badge>
+                          <MetaChip>{`from ${formatDateTimeLabel(grant.validFrom)}`}</MetaChip>
+                          <MetaChip>{grant.validUntil ? `until ${formatDateTimeLabel(grant.validUntil)}` : 'no end date'}</MetaChip>
+                          <MetaChip>{getGrantBusinessSummary(grant)}</MetaChip>
+                          {getGrantComplianceUntilLabel(grant) ? <MetaChip>{`compliant until ${formatDateTimeLabel(getGrantComplianceUntilLabel(grant)!)}`}</MetaChip> : null}
+                        </div>
+                      </OverviewListItem>
+                    );
+                  })}
+                </div>
+              ) : null}
+        </TabsContent>
+
+        <TabsContent value="requests" className="mt-5">
+              {requesterRequestsQuery.isError || beneficiaryRequestsQuery.isError || packagesQuery.isError ? <ErrorText message="Could not load requests in progress." /> : null}
+              {requesterRequestsQuery.isLoading || beneficiaryRequestsQuery.isLoading || packagesQuery.isLoading ? <MutedText message="Loading requests in progress..." /> : null}
+              {!requesterRequestsQuery.isLoading && !beneficiaryRequestsQuery.isLoading && !packagesQuery.isLoading && requests.length === 0 ? <EmptyText message="No requests in progress." /> : null}
+              {!requesterRequestsQuery.isLoading && !beneficiaryRequestsQuery.isLoading && !packagesQuery.isLoading && requests.length > 0 ? (
+                <div className="grid gap-3">
+                  {requests.map((item) => (
+                    <OverviewListItem
+                      key={item.request.id}
                       role="button"
                       tabIndex={0}
-                      onClick={() => void navigate({ to: '/employee/visitors/$visitId/invitations/$invitationId', params: { visitId: item.visit.id ?? '', invitationId: item.invitation.id } })}
+                      onClick={() => void navigate({ to: '/employee/request-access/$requestId', params: { requestId: item.request.id } })}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault();
-                          void navigate({ to: '/employee/visitors/$visitId/invitations/$invitationId', params: { visitId: item.visit.id ?? '', invitationId: item.invitation.id } });
+                          void navigate({ to: '/employee/request-access/$requestId', params: { requestId: item.request.id } });
                         }
                       }}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="font-medium text-foreground">{formatInvitationName(item.invitation)}</p>
-                          <p className="mt-1 text-[13px] text-muted-foreground">{item.visit.summary || 'Untitled visit'}</p>
+                          <p className="text-[15px] font-semibold text-foreground">{packagesQuery.data?.get(item.request.packageId)?.name ?? item.request.packageId}</p>
+                          <p className="mt-1 text-[14px] leading-6 text-muted-foreground">{item.sourceLabel}</p>
                         </div>
-                        <Badge variant={getConfirmationVariant(item.invitation.confirmationStatus)}>{formatConfirmationStatus(item.invitation.confirmationStatus)}</Badge>
+                        <Badge variant="secondary">Open</Badge>
                       </div>
-                      <dl className="mt-4 grid gap-2 text-[14px]">
-                        <div className="flex items-center justify-between gap-3"><dt className="text-muted-foreground">Time</dt><dd className="text-right text-foreground">{formatVisitTime(item.visit.start, item.visit.stop)}</dd></div>
-                        <div className="flex items-center justify-between gap-3"><dt className="text-muted-foreground">Visit status</dt><dd><VisitStatusBadge status={item.visit.status} /></dd></div>
-                      </dl>
-                    </article>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <MetaChip>{`created ${formatDateTimeLabel(item.request.createdAt)}`}</MetaChip>
+                        <MetaChip>{`from ${formatDateTimeLabel(item.request.validFrom)}`}</MetaChip>
+                        <MetaChip>{item.request.validUntil ? `until ${formatDateTimeLabel(item.request.validUntil)}` : 'no end date'}</MetaChip>
+                      </div>
+                    </OverviewListItem>
                   ))}
                 </div>
-              </>
+              ) : null}
+        </TabsContent>
+
+        {canPlanContractors ? (
+          <TabsContent value="contractor-jobs" className="mt-5">
+            {activeContractorJobsQuery.isError ? <ErrorText message="Could not load active contractor jobs." /> : null}
+            {activeContractorJobsQuery.isLoading ? <MutedText message="Loading active contractor jobs..." /> : null}
+            {!activeContractorJobsQuery.isLoading && activeContractorJobs.length === 0 ? <EmptyText message="No active contractor jobs right now." /> : null}
+            {!activeContractorJobsQuery.isLoading && activeContractorJobs.length > 0 ? (
+              <div className="grid gap-3">
+                {activeContractorJobs.map((job) => (
+                  <OverviewListItem
+                    key={job.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => void navigate({ to: '/employee/contractors/jobs/$jobId', params: { jobId: job.id } })}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        void navigate({ to: '/employee/contractors/jobs/$jobId', params: { jobId: job.id } });
+                      }
+                    }}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[15px] font-semibold text-foreground">{job.name}</p>
+                        <p className="mt-1 text-[14px] leading-6 text-muted-foreground">{job.description || 'Contractor job currently in progress.'}</p>
+                      </div>
+                      <Badge variant="success">{job.status}</Badge>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <MetaChip>{`from ${formatDateTimeLabel(job.plannedStart)}`}</MetaChip>
+                      <MetaChip>{`until ${formatDateTimeLabel(job.plannedEnd)}`}</MetaChip>
+                      <MetaChip>{`${job.assignmentCount} assignment${job.assignmentCount === 1 ? '' : 's'}`}</MetaChip>
+                    </div>
+                  </OverviewListItem>
+                ))}
+              </div>
             ) : null}
-          </CardContent>
-        </Card>
-      ) : null}
+          </TabsContent>
+        ) : null}
+
+        {isHost ? (
+          <TabsContent value="visitors" className="mt-5">
+                <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-[13px] text-muted-foreground">Today's invitations with quick day-by-day navigation.</p>
+                  </div>
+                  <div className="flex items-center gap-2 self-start">
+                    <Button type="button" variant="outline" size="icon" aria-label="Previous day" onClick={() => setVisitorsDay(addDays(visitorsDay, -1))}>
+                      <ChevronLeft className="size-4" aria-hidden="true" />
+                    </Button>
+                    <div className="min-w-36 text-center text-[13px] font-semibold text-foreground">{formatDayLabel(visitorsDay)}</div>
+                    <Button type="button" variant="outline" size="icon" aria-label="Next day" onClick={() => setVisitorsDay(addDays(visitorsDay, 1))}>
+                      <ChevronRight className="size-4" aria-hidden="true" />
+                    </Button>
+                  </div>
+                </div>
+                {visitorsQuery.isError ? <ErrorText message="Could not load expected visitors." /> : null}
+                {visitorsQuery.isLoading ? <MutedText message="Loading expected visitors..." /> : null}
+                {!visitorsQuery.isLoading && expectedVisitors.length === 0 ? <EmptyText message="No visitors expected for this day." /> : null}
+                {!visitorsQuery.isLoading && expectedVisitors.length > 0 ? (
+                  <div className="grid gap-3">
+                    {expectedVisitors.map((item) => (
+                      <OverviewListItem
+                        key={item.invitation.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => void navigate({ to: '/employee/visitors/$visitId/invitations/$invitationId', params: { visitId: item.visit.id ?? '', invitationId: item.invitation.id } })}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            void navigate({ to: '/employee/visitors/$visitId/invitations/$invitationId', params: { visitId: item.visit.id ?? '', invitationId: item.invitation.id } });
+                          }
+                        }}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[15px] font-semibold text-foreground">{formatInvitationName(item.invitation)}</p>
+                            <p className="mt-1 text-[14px] leading-6 text-muted-foreground">{item.visit.summary || 'Untitled visit'}</p>
+                          </div>
+                          <Badge variant={getConfirmationVariant(item.invitation.confirmationStatus)}>{formatConfirmationStatus(item.invitation.confirmationStatus)}</Badge>
+                        </div>
+                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                          <MetaChip>{formatVisitTime(item.visit.start, item.visit.stop)}</MetaChip>
+                          <VisitStatusBadge status={item.visit.status} />
+                          {item.invitation.email ? <MetaChip>{item.invitation.email}</MetaChip> : null}
+                        </div>
+                      </OverviewListItem>
+                    ))}
+                  </div>
+                ) : null}
+          </TabsContent>
+        ) : null}
+
+        {activeTab === 'requests' ? (
+          <div className="fixed bottom-6 right-6 z-10">
+            <Link to="/employee/request-access" className={buttonVariants({ className: 'h-12 rounded-fixed-action px-5 shadow-[0_18px_40px_rgba(29,66,104,0.22)]' })}>New Request</Link>
+          </div>
+        ) : null}
+
+        {activeTab === 'contractor-jobs' && canPlanContractors ? (
+          <div className="fixed bottom-6 right-6 z-10">
+            <Link to="/employee/contractors" className={buttonVariants({ className: 'h-12 rounded-fixed-action px-5 shadow-[0_18px_40px_rgba(29,66,104,0.22)]' })}>Open Contractors Workspace</Link>
+          </div>
+        ) : null}
+
+        {activeTab === 'visitors' && isHost ? (
+          <div className="fixed bottom-6 right-6 z-10">
+            <Link to="/employee/visitors" className={buttonVariants({ className: 'h-12 rounded-fixed-action px-5 shadow-[0_18px_40px_rgba(29,66,104,0.22)]' })}>Open Visitors</Link>
+          </div>
+        ) : null}
+      </Tabs>
     </section>
   );
+}
+
+function OverviewStat({ label, value, detail }: { readonly label: string; readonly value: string; readonly detail: string }) {
+  return (
+    <div className="rounded-structural border border-border bg-content px-4 py-4 shadow-sm">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+      <p className="mt-2 text-[32px] font-semibold tracking-tight text-primary">{value}</p>
+      <p className="mt-1.5 text-[13px] leading-5 text-muted-foreground">{detail}</p>
+    </div>
+  );
+}
+
+function OverviewListItem({ className, ...props }: React.ComponentProps<'article'>) {
+  return <article className={cn('rounded-[18px] border border-border bg-content p-5 shadow-[0_10px_28px_rgba(17,24,39,0.08)] transition hover:border-primary/20 hover:shadow-[0_14px_34px_rgba(17,24,39,0.1)]', className)} {...props} />;
+}
+
+function MetaChip({ children }: { readonly children: React.ReactNode }) {
+  return <span className="inline-flex items-center rounded-[10px] border border-border bg-background px-3 py-1 text-[12px] font-medium text-muted-foreground">{children}</span>;
 }
 
 function ErrorText({ message }: { readonly message: string }) {

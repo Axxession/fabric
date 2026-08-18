@@ -18,6 +18,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { Textarea } from '@/shared/components/ui/textarea';
+import { cn } from '@/shared/utils/cn';
 
 type AccessDurationKind = components['schemas']['AccessDurationKind'];
 type ApprovalRequirementsPreviewAccessItemResponse = components['schemas']['ApprovalRequirementsPreviewAccessItemResponse'];
@@ -32,6 +33,7 @@ type PackageRequestPreviewResponse = components['schemas']['PackageRequestPrevie
 type PreviewPackageRequestApprovalsRequest = components['schemas']['PreviewPackageRequestApprovalsRequest'];
 
 type EmployeeRequestTab = 'new-request' | 'my-requests';
+type MyRequestFilter = 'all' | 'in-progress' | 'approved' | 'partially-approved' | 'rejected' | 'expired';
 type RequestStep = 0 | 1 | 2 | 3;
 type RequestablePackage = PackageResponse & { catalogIds: string[] };
 
@@ -49,6 +51,7 @@ export default function EmployeeRequestAccessPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<EmployeeRequestTab>('new-request');
+  const [myRequestFilter, setMyRequestFilter] = useState<MyRequestFilter>('all');
   const [step, setStep] = useState<RequestStep>(0);
   const [selectedPackageId, setSelectedPackageId] = useState('');
   const [durationKind, setDurationKind] = useState<AccessDurationKind>('Permanent');
@@ -235,6 +238,7 @@ export default function EmployeeRequestAccessPage() {
   const approvalPreview = approvalPreviewQuery.data?.approvals ?? [];
   const compliancePreview = approvalPreviewQuery.data?.compliance ?? [];
   const myRequests = myRequestsQuery.data ?? [];
+  const filteredMyRequests = myRequests.filter((request) => matchesMyRequestFilter(request, myRequestFilter));
   const myRequestPackages = requestPackageDetailsQuery.data ?? new Map<string, PackageResponse>();
   const hasActorContext = Boolean(identityId && employeeId);
 
@@ -358,33 +362,54 @@ export default function EmployeeRequestAccessPage() {
         </TabsList>
 
         <TabsContent value="new-request" className="grid gap-6">
-          <Card className="p-6">
-            <ol className="grid gap-4 md:grid-cols-4">
-              {requestSteps.map((item, index) => {
-                const isActive = step === index;
-                const isComplete = step > index || submittedRequest !== null;
+          <div className="rounded-structural border border-border bg-content p-6 md:p-7">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-primary">Request Flow</p>
+              <div className="flex flex-wrap items-center gap-4 text-[12px] text-muted-foreground">
+                <span className="inline-flex items-center gap-2"><span className="size-2 rounded-full bg-primary" aria-hidden="true" />In progress</span>
+                <span className="inline-flex items-center gap-2"><span className="size-2 rounded-full bg-success" aria-hidden="true" />Completed</span>
+                <span className="inline-flex items-center gap-2"><span className="size-2 rounded-full bg-border" aria-hidden="true" />Upcoming</span>
+              </div>
+            </div>
 
-                return (
-                  <li key={item.title} className={isActive ? 'rounded-structural border border-primary bg-active-blue p-4' : 'rounded-structural border border-border p-4'}>
-                    <div className="flex items-center gap-3">
-                      <span className={isComplete ? 'flex size-8 items-center justify-center rounded-full bg-primary text-white' : isActive ? 'flex size-8 items-center justify-center rounded-full bg-primary text-white' : 'flex size-8 items-center justify-center rounded-full bg-hover-gray text-muted-foreground'}>{isComplete ? <CheckCircle2 className="size-4" aria-hidden="true" /> : index + 1}</span>
-                      <div>
-                        <p className="text-[14px] font-semibold text-foreground">{item.title}</p>
-                        <p className="text-[12px] text-muted-foreground">{item.description}</p>
+            <div className="mt-6 overflow-x-auto">
+              <div className="relative min-w-[52rem]">
+                <span className="absolute left-[0.5rem] right-[0.5rem] top-2 h-px bg-border" aria-hidden="true" />
+                <ol className="grid grid-cols-4 gap-8">
+                {requestSteps.map((item, index) => {
+                  const isActive = step === index;
+                  const isComplete = step > index || submittedRequest !== null;
+                  const stepToneClass = isComplete ? 'text-success' : isActive ? 'text-primary' : 'text-muted-foreground';
+                  const nodeClass = isComplete ? 'border-success bg-success-background' : isActive ? 'border-primary bg-active-blue' : 'border-border bg-content';
+
+                  return (
+                    <li key={item.title} className="grid grid-rows-[24px_minmax(92px,auto)] gap-5">
+                      <div className="flex items-center">
+                        <span className={cn('relative z-10 flex size-4 shrink-0 items-center justify-center rounded-full border-2', nodeClass)}>
+                          {isComplete ? <span className="size-1.5 rounded-full bg-success" aria-hidden="true" /> : isActive ? <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" /> : null}
+                        </span>
                       </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
-          </Card>
+                      <div>
+                        <div className="flex items-end gap-3">
+                          <span className={cn('text-[36px] leading-none font-semibold tracking-tight', stepToneClass)}>{String(index + 1).padStart(2, '0')}</span>
+                          <span className={cn('pb-1 text-[13px] font-semibold uppercase tracking-[0.18em]', stepToneClass)}>{item.title}</span>
+                        </div>
+                        <p className="mt-3 max-w-[16rem] text-[13px] leading-5 text-muted-foreground">{item.description}</p>
+                      </div>
+                    </li>
+                  );
+                })}
+                </ol>
+              </div>
+            </div>
+          </div>
 
           {submittedRequest ? (
-            <Card className="p-6 sm:p-8">
+            <div className="mt-4 rounded-structural border border-border bg-content p-6 sm:p-8">
               <div className="flex max-w-2xl flex-col gap-4">
                 <div className="flex items-center gap-3 text-success">
                   <CheckCircle2 className="size-6" aria-hidden="true" />
-                  <h2 className="text-[24px] font-semibold tracking-tight text-foreground">Requests sent</h2>
+                  <h2 className="text-[24px] font-semibold tracking-tight text-foreground">Request sent</h2>
                 </div>
                 <p className="text-[14px] leading-6 text-muted-foreground">Your request for <span className="font-medium text-foreground">{selectedPackage?.name ?? 'selected package'}</span> was submitted with status <span className="font-medium text-foreground">{submittedRequest.status}</span>.</p>
                 <div className="flex flex-wrap gap-3 pt-2">
@@ -392,268 +417,249 @@ export default function EmployeeRequestAccessPage() {
                   <Button type="button" variant="outline" onClick={() => setActiveTab('my-requests')}>Open my requests</Button>
                 </div>
               </div>
-            </Card>
+            </div>
           ) : (
-            <>
-              <Card className="p-6">
-                {step === 0 ? (
-                  <div className="grid gap-5">
-                    <div>
-                      <h2 className="text-[20px] font-semibold tracking-tight">Step 1. Select package</h2>
-                      <p className="mt-2 text-[14px] text-muted-foreground">Choose any requestable package from active catalogues.</p>
-                    </div>
-
-                    {requestablePackagesQuery.isError ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load requestable packages.</p> : null}
-                    {requestablePackagesQuery.isLoading ? <p className="text-[14px] text-muted-foreground">Loading requestable packages...</p> : null}
-
-                    {!requestablePackagesQuery.isLoading ? (
-                      <label className="grid gap-2 text-[14px] font-medium md:max-w-xl">
-                        <span>Package</span>
-                        <select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={selectedPackageId} onChange={(event) => { setSelectedPackageId(event.target.value); setStepError(null); }} disabled={!hasActorContext || requestablePackages.length === 0}>
-                          <option value="">Select package</option>
-                          {requestablePackages.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-                        </select>
-                      </label>
-                    ) : null}
-
-                    {selectedPackage ? (
-                      <div className="rounded-structural border border-border p-4">
-                        <p className="font-medium text-foreground">{selectedPackage.name}</p>
-                        <p className="mt-1 text-[14px] text-muted-foreground">{selectedPackage.description ?? 'No package description.'}</p>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {step === 1 ? (
-                  <div className="grid gap-6">
-                    <div>
-                      <h2 className="text-[20px] font-semibold tracking-tight">Step 2. Time period</h2>
-                      <p className="mt-2 text-[14px] text-muted-foreground">Set how long access is needed, confirm locations, and explain business need.</p>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <button type="button" className={durationKind === 'Permanent' ? 'rounded-structural border border-primary bg-active-blue p-4 text-left' : 'rounded-structural border border-border p-4 text-left transition hover:bg-hover-blue'} onClick={() => { setDurationKind('Permanent'); setStepError(null); }}>
-                        <span className="block font-semibold text-foreground">Permanent</span>
-                        <span className="mt-1 block text-[13px] text-muted-foreground">Keep access without end date.</span>
-                      </button>
-                      <button type="button" className={durationKind === 'Temporary' ? 'rounded-structural border border-primary bg-active-blue p-4 text-left' : 'rounded-structural border border-border p-4 text-left transition hover:bg-hover-blue'} onClick={() => { setDurationKind('Temporary'); setStepError(null); }}>
-                        <span className="block font-semibold text-foreground">Range</span>
-                        <span className="mt-1 block text-[13px] text-muted-foreground">Grant access for a fixed date range.</span>
-                      </button>
-                    </div>
-
-                    {durationKind === 'Temporary' ? (
-                      <div className="grid gap-5 md:grid-cols-2">
-                        <DateTimeField label="Valid from" value={validFrom} onChange={(value) => { setValidFrom(value); setStepError(null); }} />
-                        <DateTimeField label="Valid until" value={validUntil} onChange={(value) => { setValidUntil(value); setStepError(null); }} placeholder="Pick end date" />
-                      </div>
-                    ) : null}
-
-                    <div className="grid gap-4">
-                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <h3 className="text-[18px] font-semibold tracking-tight">Request locations</h3>
-                          <p className="mt-2 text-[14px] text-muted-foreground">Your work locations are prefilled. Add more locations if needed.</p>
-                        </div>
-                        <Button type="button" variant="outline" onClick={() => setIsAddLocationOpen((current) => !current)} disabled={!hasActorContext}>
-                          <Plus className="size-4" aria-hidden="true" />
-                          {isAddLocationOpen ? 'Cancel' : 'Add location'}
-                        </Button>
+            <div className="mt-4 grid gap-6">
+              <div className="grid gap-6">
+                <div className="rounded-structural border border-border bg-content p-6">
+                  {step === 0 ? (
+                    <div className="grid gap-5">
+                      <div>
+                        <h2 className="text-[20px] font-semibold tracking-tight">Select package</h2>
+                        <p className="mt-2 text-[14px] text-muted-foreground">Choose a requestable package from active catalogues.</p>
                       </div>
 
-                      {isAddLocationOpen ? (
-                        <div className="grid gap-4 rounded-structural border border-border p-4">
-                          <LocationSelector value={pickerLocationId} onChange={setPickerLocationId} level="Room" />
-                          <div className="flex justify-end">
-                            <Button type="button" disabled={!pickerLocationId || selectedLocationIds.includes(pickerLocationId)} onClick={handleAddLocation}>
-                              <Plus className="size-4" aria-hidden="true" />
-                              Add location
-                            </Button>
-                          </div>
+                      {requestablePackagesQuery.isError ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load requestable packages.</p> : null}
+                      {requestablePackagesQuery.isLoading ? <p className="text-[14px] text-muted-foreground">Loading requestable packages...</p> : null}
+
+                      {!requestablePackagesQuery.isLoading ? (
+                        <div className="grid gap-3">
+                          {requestablePackages.map((item) => {
+                            const isSelected = item.id === selectedPackageId;
+
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                className={cn('rounded-[18px] border bg-content p-5 text-left shadow-[0_10px_28px_rgba(17,24,39,0.08)] transition hover:border-primary/20 hover:shadow-[0_14px_34px_rgba(17,24,39,0.1)]', isSelected ? 'border-primary/30 bg-active-blue/60' : 'border-border')}
+                                onClick={() => { setSelectedPackageId(item.id); setStepError(null); }}
+                                disabled={!hasActorContext}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-[15px] font-semibold text-foreground">{item.name}</p>
+                                    <p className="mt-1 text-[14px] leading-6 text-muted-foreground">{item.description ?? 'No package description.'}</p>
+                                  </div>
+                                  {isSelected ? <Badge variant="default">Selected</Badge> : null}
+                                </div>
+                                <div className="mt-4 flex flex-wrap gap-2">
+                                  <RequestMetaChip>{item.catalogIds.length === 1 ? '1 catalogue' : `${item.catalogIds.length} catalogues`}</RequestMetaChip>
+                                  <RequestMetaChip>requestable</RequestMetaChip>
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
                       ) : null}
+                    </div>
+                  ) : null}
 
-                      {employeeWorkLocationsQuery.isError || selectedLocationDetailsQuery.isError ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">{employeeWorkLocationsQuery.isError ? 'Could not load default work locations.' : 'Could not load selected locations.'}</p> : null}
-                      {employeeWorkLocationsQuery.isLoading || selectedLocationDetailsQuery.isLoading ? <p className="text-[14px] text-muted-foreground">Loading locations...</p> : null}
+                  {step === 1 ? (
+                    <div className="grid gap-6">
+                      <div>
+                        <h2 className="text-[20px] font-semibold tracking-tight">Set time period</h2>
+                        <p className="mt-2 text-[14px] text-muted-foreground">Choose duration, confirm locations, and explain the business need.</p>
+                      </div>
 
-                      {selectedLocationIds.length === 0 ? <p className="rounded-structural border border-dashed border-border p-6 text-[14px] text-muted-foreground">No locations selected yet.</p> : null}
+                      <section className="grid gap-4">
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <button type="button" className={durationKind === 'Permanent' ? 'rounded-[18px] border border-primary/20 bg-active-blue p-5 text-left shadow-[0_10px_28px_rgba(17,24,39,0.08)]' : 'rounded-[18px] border border-border bg-content p-5 text-left shadow-[0_10px_28px_rgba(17,24,39,0.08)] transition hover:border-primary/20 hover:shadow-[0_14px_34px_rgba(17,24,39,0.1)]'} onClick={() => { setDurationKind('Permanent'); setStepError(null); }}>
+                            <span className="block text-[15px] font-semibold text-foreground">Permanent</span>
+                            <span className="mt-1 block text-[14px] text-muted-foreground">Keep access without end date.</span>
+                          </button>
+                          <button type="button" className={durationKind === 'Temporary' ? 'rounded-[18px] border border-primary/20 bg-active-blue p-5 text-left shadow-[0_10px_28px_rgba(17,24,39,0.08)]' : 'rounded-[18px] border border-border bg-content p-5 text-left shadow-[0_10px_28px_rgba(17,24,39,0.08)] transition hover:border-primary/20 hover:shadow-[0_14px_34px_rgba(17,24,39,0.1)]'} onClick={() => { setDurationKind('Temporary'); setStepError(null); }}>
+                            <span className="block text-[15px] font-semibold text-foreground">Temporary</span>
+                            <span className="mt-1 block text-[14px] text-muted-foreground">Grant access for a fixed date range.</span>
+                          </button>
+                        </div>
 
-                      {selectedLocationIds.length > 0 ? (
-                        <div className="grid gap-3">
-                          {selectedLocationIds.map((locationId) => (
-                            <div key={locationId} className="flex items-center justify-between gap-4 rounded-structural border border-border p-4">
-                              <div className="min-w-0">
-                                <p className="font-medium text-foreground">{getLocationLabel(selectedLocationDetails.get(locationId))}</p>
-                                <p className="mt-1 text-[14px] text-muted-foreground">{defaultLocationIds.has(locationId) ? primaryLocationIds.has(locationId) ? 'Primary work location' : 'Default work location' : 'Added for this request'}</p>
-                              </div>
-                              <Button type="button" variant="outline" size="sm" onClick={() => handleRemoveLocation(locationId)}>
-                                <Trash2 className="size-4" aria-hidden="true" />
-                                Remove
+                        <div className="grid gap-5 md:grid-cols-2">
+                          <DateTimeField label="Valid from" value={validFrom} onChange={(value) => { setValidFrom(value); setStepError(null); }} />
+                          {durationKind === 'Temporary' ? <DateTimeField label="Valid until" value={validUntil} onChange={(value) => { setValidUntil(value); setStepError(null); }} placeholder="Pick end date" /> : <SummaryBlock label="Valid until" value="No end date" />}
+                        </div>
+                      </section>
+
+                      <section className="grid gap-4">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <h3 className="text-[18px] font-semibold tracking-tight">Request locations</h3>
+                            <p className="mt-2 text-[14px] text-muted-foreground">Your work locations are prefilled. Add more locations if needed.</p>
+                          </div>
+                          <Button type="button" variant="outline" onClick={() => setIsAddLocationOpen((current) => !current)} disabled={!hasActorContext}>
+                            <Plus className="size-4" aria-hidden="true" />
+                            {isAddLocationOpen ? 'Cancel' : 'Add location'}
+                          </Button>
+                        </div>
+
+                        {isAddLocationOpen ? (
+                          <div className="grid gap-4 rounded-[18px] border border-border bg-background p-4">
+                            <LocationSelector value={pickerLocationId} onChange={setPickerLocationId} level="Room" />
+                            <div className="flex justify-end">
+                              <Button type="button" disabled={!pickerLocationId || selectedLocationIds.includes(pickerLocationId)} onClick={handleAddLocation}>
+                                <Plus className="size-4" aria-hidden="true" />
+                                Add location
                               </Button>
                             </div>
-                          ))}
+                          </div>
+                        ) : null}
+
+                        {employeeWorkLocationsQuery.isError || selectedLocationDetailsQuery.isError ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">{employeeWorkLocationsQuery.isError ? 'Could not load default work locations.' : 'Could not load selected locations.'}</p> : null}
+                        {employeeWorkLocationsQuery.isLoading || selectedLocationDetailsQuery.isLoading ? <p className="text-[14px] text-muted-foreground">Loading locations...</p> : null}
+
+                        {selectedLocationIds.length === 0 ? <p className="rounded-structural border border-dashed border-border p-6 text-[14px] text-muted-foreground">No locations selected yet.</p> : null}
+
+                        {selectedLocationIds.length > 0 ? (
+                          <div className="grid gap-3">
+                            {selectedLocationIds.map((locationId) => (
+                              <div key={locationId} className="flex items-center justify-between gap-4 rounded-[18px] border border-border bg-content p-5 shadow-[0_10px_28px_rgba(17,24,39,0.08)]">
+                                <div className="min-w-0">
+                                  <p className="text-[15px] font-semibold text-foreground">{getLocationLabel(selectedLocationDetails.get(locationId))}</p>
+                                  <p className="mt-1 text-[14px] text-muted-foreground">{defaultLocationIds.has(locationId) ? primaryLocationIds.has(locationId) ? 'Primary work location' : 'Default work location' : 'Added for this request'}</p>
+                                </div>
+                                <Button type="button" variant="outline" size="sm" onClick={() => handleRemoveLocation(locationId)}>
+                                  <Trash2 className="size-4" aria-hidden="true" />
+                                  Remove
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </section>
+
+                      <label className="grid gap-2 text-[14px] font-medium">
+                        <span>Business justification</span>
+                        <Textarea value={businessJustification} onChange={(event) => { setBusinessJustification(event.target.value); setStepError(null); }} rows={6} placeholder="Explain why you need this access." />
+                      </label>
+                    </div>
+                  ) : null}
+
+                  {step === 2 ? (
+                    <div className="grid gap-6">
+                      <div>
+                        <h2 className="text-[20px] font-semibold tracking-tight">Review approval and compliance</h2>
+                        <p className="mt-2 text-[14px] text-muted-foreground">Inspect the approval path and current compliance posture before submitting.</p>
+                      </div>
+
+                      {approvalPreviewQuery.isError ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load approval preview.</p> : null}
+                      {approvalPreviewQuery.isLoading ? <p className="text-[14px] text-muted-foreground">Loading approval preview...</p> : null}
+
+                      {!approvalPreviewQuery.isLoading ? (
+                        <div className="grid gap-6">
+                          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                            <SummaryBlock label="Access items" value={String(approvalPreview.length)} />
+                            <SummaryBlock label="Approval requirements" value={String(approvalPreview.reduce((total, item) => total + item.requirements.length, 0))} />
+                            <SummaryBlock label="Autoapproved items" value={String(approvalPreview.filter((item) => item.requirements.length === 0).length)} />
+                            <SummaryBlock label="Locations with issues" value={String(compliancePreview.filter(hasComplianceIssue).length)} />
+                          </div>
+
+                          <section className="rounded-[18px] border border-border bg-content p-5 shadow-[0_10px_28px_rgba(17,24,39,0.08)]">
+                            <h3 className="text-[18px] font-semibold tracking-tight text-foreground">Approval path</h3>
+                            <p className="mt-2 text-[14px] text-muted-foreground">Each access item shows whether it autoapproves or requires additional review. Open details only when you need the exact requirement breakdown.</p>
+                            <div className="mt-5 grid gap-4">
+                              {approvalPreview.length === 0 && !approvalPreviewQuery.isError ? <p className="rounded-structural border border-dashed border-border p-6 text-[14px] text-muted-foreground">No approval requirements returned. This request will autoapprove.</p> : approvalPreview.map((item) => <ApprovalPreviewRow key={item.accessItemId} item={item} selectedLocationDetails={selectedLocationDetails} />)}
+                            </div>
+                          </section>
+
+                          <section className="rounded-[18px] border border-border bg-content p-5 shadow-[0_10px_28px_rgba(17,24,39,0.08)]">
+                            <h3 className="text-[18px] font-semibold tracking-tight text-foreground">Compliance status</h3>
+                            <p className="mt-2 text-[14px] text-muted-foreground">Provisioning waits until the required compliance checks are satisfied. Problematic locations stay visible first; compliant locations collapse below.</p>
+                            <div className="mt-4 rounded-interactive border border-border bg-background px-4 py-3 text-[13px] text-muted-foreground">Approval can still proceed while compliance is pending. Provisioning resumes once blocking compliance items are fulfilled.</div>
+                            {compliancePreview.length === 0 && !approvalPreviewQuery.isError ? <p className="mt-5 rounded-structural border border-dashed border-border p-6 text-[14px] text-muted-foreground">No compliance preview returned.</p> : (
+                              <div className="mt-5 grid gap-4">
+                                {compliancePreview.filter(hasComplianceIssue).map((item) => <CompliancePreviewRow key={item.locationId} item={item} />)}
+                                {compliancePreview.filter((item) => !hasComplianceIssue(item)).length > 0 ? (
+                                  <details className="rounded-[18px] border border-border bg-background p-4">
+                                    <summary className="cursor-pointer list-none text-[14px] font-semibold text-foreground">Compliant locations ({compliancePreview.filter((item) => !hasComplianceIssue(item)).length})</summary>
+                                    <div className="mt-4 grid gap-3">
+                                      {compliancePreview.filter((item) => !hasComplianceIssue(item)).map((item) => <CompliancePreviewRow key={item.locationId} item={item} compact />)}
+                                    </div>
+                                  </details>
+                                ) : null}
+                              </div>
+                            )}
+                          </section>
                         </div>
                       ) : null}
                     </div>
+                  ) : null}
 
-                    <label className="grid gap-2 text-[14px] font-medium">
-                      <span>Business justification</span>
-                      <Textarea value={businessJustification} onChange={(event) => { setBusinessJustification(event.target.value); setStepError(null); }} rows={5} placeholder="Explain why you need this access." />
-                    </label>
-                  </div>
-                ) : null}
+                  {step === 3 ? (
+                    <div className="grid gap-6">
+                      <div>
+                        <h2 className="text-[20px] font-semibold tracking-tight">Submit request</h2>
+                        <p className="mt-2 text-[14px] text-muted-foreground">Review the request one last time before sending it for approval.</p>
+                      </div>
 
-                {step === 2 ? (
-                  <div className="grid gap-6">
-                    <div>
-                      <h2 className="text-[20px] font-semibold tracking-tight">Step 3. Approval and compliance</h2>
-                      <p className="mt-2 text-[14px] text-muted-foreground">Review approvals and current compliance state for the selected request.</p>
-                    </div>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <SummaryBlock label="Package" value={selectedPackage?.name ?? '-'} />
+                        <SummaryBlock label="Time period" value={durationKind === 'Permanent' ? 'Permanent' : 'Range'} />
+                        <SummaryBlock label="Valid from" value={formatDateTimeLabel(validFrom)} />
+                        <SummaryBlock label="Valid until" value={durationKind === 'Permanent' ? 'No end date' : formatDateTimeLabel(validUntil)} />
+                      </div>
 
-                    {approvalPreviewQuery.isError ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load approval preview.</p> : null}
-                    {approvalPreviewQuery.isLoading ? <p className="text-[14px] text-muted-foreground">Loading approval preview...</p> : null}
-
-                    {!approvalPreviewQuery.isLoading ? (
-                      <div className="grid gap-4">
-                        {approvalPreview.map((item) => (
-                          <div key={item.accessItemId} className="rounded-structural border border-border p-4">
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                              <div>
-                                <p className="font-medium text-foreground">{item.name}</p>
-                                <p className="mt-1 text-[14px] text-muted-foreground">{item.description ?? 'Access item in selected package.'}</p>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <Badge variant={item.isComplianceRequired ? 'secondary' : 'success'}>
-                                  {item.isComplianceRequired ? 'Requires compliance' : 'Compliance not required'}
-                                </Badge>
-                                <Badge variant={item.requirements.length === 0 ? 'success' : 'secondary'}>{item.requirements.length === 0 ? 'Autoapproved' : `${item.requirements.length} approval${item.requirements.length === 1 ? '' : 's'}`}</Badge>
-                              </div>
-                            </div>
-
-                            {item.requirements.length === 0 ? null : (
-                              <div className="mt-4 grid gap-3">
-                                {item.requirements.map((requirement, index) => (
-                                  <div key={`${requirement.locationId}-${requirement.role}-${index}`} className="rounded-structural border border-border bg-hover-gray/50 p-3">
-                                    <p className="font-medium text-foreground">{getRequirementTitle(requirement)}</p>
-                                    <p className="mt-1 text-[14px] text-muted-foreground">{getRequirementDescription(requirement, selectedLocationDetails.get(requirement.locationId))}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-
-                        {approvalPreview.length === 0 && !approvalPreviewQuery.isError ? <p className="rounded-structural border border-dashed border-border p-6 text-[14px] text-muted-foreground">No approval requirements returned. This request will autoapprove.</p> : null}
-
-                        <div className="mt-2 rounded-structural border border-border p-4">
-                          <div>
-                            <h3 className="text-[18px] font-semibold tracking-tight">Compliance check</h3>
-                            <p className="mt-2 text-[14px] text-muted-foreground">Requests can still be approved while compliance is pending. Provisioning waits until compliance is met.</p>
-                          </div>
-                          <div className="mt-4 grid gap-4">
-                            {compliancePreview.map((item) => (
-                              <div key={item.locationId} className="rounded-structural border border-border bg-hover-gray/30 p-4">
-                                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                  <div>
-                                    <p className="font-medium text-foreground">{item.locationLabel}</p>
-                                    {item.compliantUntil ? <p className="mt-1 text-[14px] text-muted-foreground">Compliant until {formatDateTimeLabel(item.compliantUntil)}</p> : null}
-                                  </div>
-                                  <Badge variant={getGrantComplianceVariant(item.status)}>{getGrantComplianceLabel(item.status)}</Badge>
-                                </div>
-                                {item.requirements.length === 0 ? (
-                                  <p className="mt-4 text-[14px] text-muted-foreground">No compliance requirements for this location.</p>
-                                ) : (
-                                  <div className="mt-4 grid gap-3">
-                                    {item.requirements.map((requirement) => (
-                                      <div key={requirement.requirementDefinitionId} className="rounded-structural border border-border bg-background p-3">
-                                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                          <div>
-                                            <p className="font-medium text-foreground">{requirement.name}</p>
-                                            <p className="mt-1 text-[14px] text-muted-foreground">{requirement.code}{requirement.isBlocking ? ' • blocking' : ''}</p>
-                                          </div>
-                                          <Badge variant={requirement.status === 'Fulfilled' ? 'success' : requirement.status === 'Missing' || requirement.status === 'Failed' || requirement.status === 'Expired' ? 'error' : 'secondary'}>{requirement.status}</Badge>
-                                        </div>
-                                        <p className="mt-3 text-[14px] text-muted-foreground">{requirement.reason}</p>
-                                        {requirement.validUntil ? <p className="mt-1 text-[13px] text-muted-foreground">Valid until {formatDateTimeLabel(requirement.validUntil)}</p> : null}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                            {compliancePreview.length === 0 && !approvalPreviewQuery.isError ? <p className="rounded-structural border border-dashed border-border p-6 text-[14px] text-muted-foreground">No compliance preview returned.</p> : null}
-                          </div>
+                      <div className="rounded-[18px] border border-border bg-content p-5 shadow-[0_10px_28px_rgba(17,24,39,0.08)]">
+                        <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Locations</p>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {selectedLocationIds.map((locationId) => <RequestMetaChip key={locationId}>{getLocationLabel(selectedLocationDetails.get(locationId))}</RequestMetaChip>)}
                         </div>
                       </div>
-                    ) : null}
+
+                      <div className="rounded-[18px] border border-border bg-content p-5 shadow-[0_10px_28px_rgba(17,24,39,0.08)]">
+                        <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Business justification</p>
+                        <p className="mt-3 whitespace-pre-wrap text-[14px] leading-6 text-foreground">{businessJustification.trim()}</p>
+                      </div>
+
+                      <div className="rounded-[18px] border border-border bg-content p-5 shadow-[0_10px_28px_rgba(17,24,39,0.08)]">
+                        <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Approval summary</p>
+                        <div className="mt-4 grid gap-2 text-[14px] text-foreground">
+                          {approvalPreview.length === 0 ? <p>Autoapproved</p> : approvalPreview.map((item) => <p key={item.accessItemId}>{item.name}: {item.requirements.length === 0 ? 'Autoapproved' : `${item.requirements.length} approval${item.requirements.length === 1 ? '' : 's'} required`}{item.isComplianceRequired ? '' : ' • compliance not required'}</p>)}
+                        </div>
+                      </div>
+
+                      <div className="rounded-[18px] border border-border bg-content p-5 shadow-[0_10px_28px_rgba(17,24,39,0.08)]">
+                        <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Compliance summary</p>
+                        <div className="mt-4 grid gap-2 text-[14px] text-foreground">
+                          {compliancePreview.length === 0 ? <p>No compliance preview.</p> : compliancePreview.map((item) => <p key={item.locationId}>{item.locationLabel}: {getGrantComplianceLabel(item.status)}{item.compliantUntil ? ` until ${formatDateTimeLabel(item.compliantUntil)}` : ''}</p>)}
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {stepError ? <p className="mt-6 rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">{stepError}</p> : null}
+                  {submitRequest.isError ? <p className="mt-6 rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not submit request.</p> : null}
+                </div>
+
+                <div className="rounded-[18px] border border-border bg-content p-5 shadow-[0_10px_28px_rgba(17,24,39,0.08)]">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <Button type="button" variant="outline" onClick={handleBack} disabled={step === 0 || submitRequest.isPending}>
+                      <ChevronLeft className="size-4" aria-hidden="true" />
+                      Back
+                    </Button>
+
+                    {step < 3 ? (
+                      <Button type="button" onClick={handleNext} disabled={submitRequest.isPending}>
+                        Next
+                        <ArrowRight className="size-4" aria-hidden="true" />
+                      </Button>
+                    ) : (
+                      <Button type="button" onClick={handleSubmit} disabled={submitRequest.isPending || approvalPreviewQuery.isLoading}>
+                        {submitRequest.isPending ? 'Submitting...' : 'Submit request'}
+                      </Button>
+                    )}
                   </div>
-                ) : null}
-
-                {step === 3 ? (
-                  <div className="grid gap-6">
-                    <div>
-                      <h2 className="text-[20px] font-semibold tracking-tight">Step 4. Submit</h2>
-                      <p className="mt-2 text-[14px] text-muted-foreground">Confirm details before sending the request.</p>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <SummaryBlock label="Package" value={selectedPackage?.name ?? '-'} />
-                      <SummaryBlock label="Time period" value={durationKind === 'Permanent' ? 'Permanent' : 'Range'} />
-                      <SummaryBlock label="Valid from" value={formatDateTimeLabel(validFrom)} />
-                      <SummaryBlock label="Valid until" value={durationKind === 'Permanent' ? 'No end date' : formatDateTimeLabel(validUntil)} />
-                    </div>
-
-                    <div className="rounded-structural border border-border p-4">
-                      <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Locations</p>
-                      <div className="mt-3 grid gap-2">
-                        {selectedLocationIds.map((locationId) => <p key={locationId} className="text-[14px] text-foreground">{getLocationLabel(selectedLocationDetails.get(locationId))}</p>)}
-                      </div>
-                    </div>
-
-                    <div className="rounded-structural border border-border p-4">
-                      <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Business justification</p>
-                      <p className="mt-3 text-[14px] leading-6 text-foreground whitespace-pre-wrap">{businessJustification.trim()}</p>
-                    </div>
-
-                    <div className="rounded-structural border border-border p-4">
-                      <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Approval summary</p>
-                      <div className="mt-3 grid gap-2">
-                        {approvalPreview.length === 0 ? <p className="text-[14px] text-foreground">Autoapproved</p> : approvalPreview.map((item) => <p key={item.accessItemId} className="text-[14px] text-foreground">{item.name}: {item.requirements.length === 0 ? 'Autoapproved' : `${item.requirements.length} approval${item.requirements.length === 1 ? '' : 's'} required`}{item.isComplianceRequired ? '' : ' • compliance not required'}</p>)}
-                      </div>
-                    </div>
-
-                    <div className="rounded-structural border border-border p-4">
-                      <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Compliance summary</p>
-                      <div className="mt-3 grid gap-2">
-                        {compliancePreview.length === 0 ? <p className="text-[14px] text-foreground">No compliance preview.</p> : compliancePreview.map((item) => <p key={item.locationId} className="text-[14px] text-foreground">{item.locationLabel}: {getGrantComplianceLabel(item.status)}{item.compliantUntil ? ` until ${formatDateTimeLabel(item.compliantUntil)}` : ''}</p>)}
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-
-                {stepError ? <p className="mt-6 rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">{stepError}</p> : null}
-                {submitRequest.isError ? <p className="mt-6 rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not submit request.</p> : null}
-              </Card>
-
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <Button type="button" variant="outline" onClick={handleBack} disabled={step === 0 || submitRequest.isPending}>
-                  <ChevronLeft className="size-4" aria-hidden="true" />
-                  Back
-                </Button>
-
-                {step < 3 ? (
-                  <Button type="button" onClick={handleNext} disabled={submitRequest.isPending}>
-                    Next
-                    <ArrowRight className="size-4" aria-hidden="true" />
-                  </Button>
-                ) : (
-                  <Button type="button" onClick={handleSubmit} disabled={submitRequest.isPending || approvalPreviewQuery.isLoading}>
-                    {submitRequest.isPending ? 'Submitting...' : 'Submit request'}
-                  </Button>
-                )}
+                </div>
               </div>
-            </>
+            </div>
           )}
         </TabsContent>
 
@@ -667,58 +673,89 @@ export default function EmployeeRequestAccessPage() {
               <Link to="/employee/request-access" className={buttonVariants({ variant: 'outline' })}>New request</Link>
             </div>
 
+            <div className="mt-6 flex flex-wrap gap-2 border-b border-border pb-5">
+              {myRequestFilters.map((filter) => {
+                const count = myRequests.filter((request) => matchesMyRequestFilter(request, filter.value)).length;
+                const isActive = myRequestFilter === filter.value;
+
+                return (
+                  <button
+                    key={filter.value}
+                    type="button"
+                    className={cn(
+                      'inline-flex items-center gap-2 rounded-interactive border px-3 py-2 text-[13px] font-semibold transition',
+                      isActive
+                        ? 'border-primary/20 bg-active-blue text-primary'
+                        : 'border-border bg-content text-muted-foreground hover:bg-hover-blue hover:text-foreground',
+                    )}
+                    onClick={() => setMyRequestFilter(filter.value)}
+                  >
+                    <span>{filter.label}</span>
+                    <span className="text-[12px] font-medium opacity-80">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+
             {myRequestsQuery.isError ? <p className="mt-6 rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Could not load requests.</p> : null}
             {myRequestsQuery.isLoading ? <p className="mt-6 text-[14px] text-muted-foreground">Loading requests...</p> : null}
 
             {!myRequestsQuery.isLoading && myRequests.length === 0 ? <p className="mt-6 rounded-structural border border-dashed border-border p-6 text-[14px] text-muted-foreground">No requests yet.</p> : null}
+            {!myRequestsQuery.isLoading && myRequests.length > 0 && filteredMyRequests.length === 0 ? <p className="mt-6 rounded-structural border border-dashed border-border p-6 text-[14px] text-muted-foreground">No requests match this status.</p> : null}
 
-            {myRequests.length > 0 ? (
-              <>
-                <div className="mt-6 hidden overflow-x-auto md:block">
-                  <table className="w-full min-w-[56rem] border-collapse text-left text-[14px]">
-                    <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
+            {filteredMyRequests.length > 0 ? (
+              <div className="mt-6 grid gap-4">
+                <div className="hidden overflow-x-auto rounded-[18px] border border-border bg-content shadow-[0_10px_28px_rgba(17,24,39,0.08)] md:block">
+                  <table className="w-full min-w-[60rem] border-collapse text-left text-[14px]">
+                    <thead className="border-b border-border bg-background/70 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                       <tr>
-                        <th className="px-4 py-3 font-semibold">Package</th>
-                        <th className="px-4 py-3 font-semibold">Status</th>
-                        <th className="px-4 py-3 font-semibold">Created</th>
-                        <th className="px-4 py-3 font-semibold">Valid from</th>
-                        <th className="px-4 py-3 font-semibold">Valid until</th>
-                        <th className="px-4 py-3 text-right font-semibold">Open</th>
+                        <th className="px-5 py-4 font-semibold">Package</th>
+                        <th className="px-5 py-4 font-semibold">Status</th>
+                        <th className="px-5 py-4 font-semibold">Created</th>
+                        <th className="px-5 py-4 font-semibold">Valid from</th>
+                        <th className="px-5 py-4 font-semibold">Valid until</th>
+                        <th className="px-5 py-4 text-right font-semibold">Open</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-border">
-                      {myRequests.map((request) => (
-                        <tr key={request.id} className="cursor-pointer transition hover:bg-hover-blue" role="link" tabIndex={0} onClick={() => openRequest(request.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openRequest(request.id); } }}>
-                          <td className="px-4 py-4 font-medium text-foreground">{myRequestPackages.get(request.packageId)?.name ?? request.packageId}</td>
-                          <td className="px-4 py-4"><Badge variant={getRequestStatusVariant(request)}>{formatRequestStatus(request)}</Badge></td>
-                          <td className="px-4 py-4 text-muted-foreground">{formatDateTimeLabel(request.createdAt)}</td>
-                          <td className="px-4 py-4 text-muted-foreground">{formatDateTimeLabel(request.validFrom)}</td>
-                          <td className="px-4 py-4 text-muted-foreground">{request.validUntil ? formatDateTimeLabel(request.validUntil) : 'No end date'}</td>
-                          <td className="px-4 py-4 text-right text-muted-foreground"><span className="inline-flex items-center justify-center"><ChevronRight className="size-4" aria-hidden="true" /></span></td>
+                    <tbody>
+                      {filteredMyRequests.map((request, index) => (
+                        <tr key={request.id} className={cn('cursor-pointer transition hover:bg-hover-blue/45', index !== 0 && 'border-t border-border')} role="link" tabIndex={0} onClick={() => openRequest(request.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openRequest(request.id); } }}>
+                          <td className="px-5 py-5 align-top">
+                            <div>
+                              <p className="text-[15px] font-semibold text-foreground">{myRequestPackages.get(request.packageId)?.name ?? request.packageId}</p>
+                              <p className="mt-1 text-[13px] leading-5 text-muted-foreground">Track approval progress and effective dates for this access request.</p>
+                            </div>
+                          </td>
+                          <td className="px-5 py-5 align-top"><Badge variant={getRequestStatusVariant(request)}>{formatRequestStatus(request)}</Badge></td>
+                          <td className="px-5 py-5 align-top text-muted-foreground">{formatDateTimeLabel(request.createdAt)}</td>
+                          <td className="px-5 py-5 align-top text-muted-foreground">{formatDateTimeLabel(request.validFrom)}</td>
+                          <td className="px-5 py-5 align-top text-muted-foreground">{request.validUntil ? formatDateTimeLabel(request.validUntil) : 'No end date'}</td>
+                          <td className="px-5 py-5 align-top text-right text-muted-foreground"><span className="inline-flex items-center justify-center"><ChevronRight className="size-4" aria-hidden="true" /></span></td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
 
-                <div className="mt-6 grid gap-3 md:hidden">
-                  {myRequests.map((request) => (
-                    <article key={request.id} className="rounded-structural border border-border p-4 transition hover:bg-hover-blue" role="button" tabIndex={0} onClick={() => openRequest(request.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openRequest(request.id); } }}>
+                <div className="grid gap-3 md:hidden">
+                  {filteredMyRequests.map((request) => (
+                    <article key={request.id} className="rounded-[18px] border border-border bg-content p-5 shadow-[0_10px_28px_rgba(17,24,39,0.08)] transition hover:border-primary/20 hover:shadow-[0_14px_34px_rgba(17,24,39,0.1)]" role="button" tabIndex={0} onClick={() => openRequest(request.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openRequest(request.id); } }}>
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="font-medium text-foreground">{myRequestPackages.get(request.packageId)?.name ?? request.packageId}</p>
-                          <p className="mt-1 text-[13px] text-muted-foreground">Created {formatDateTimeLabel(request.createdAt)}</p>
+                          <p className="text-[15px] font-semibold text-foreground">{myRequestPackages.get(request.packageId)?.name ?? request.packageId}</p>
+                          <p className="mt-1 text-[14px] leading-6 text-muted-foreground">Track approval progress and effective dates for this access request.</p>
                         </div>
                         <div className="flex items-center gap-3"><Badge variant={getRequestStatusVariant(request)}>{formatRequestStatus(request)}</Badge><ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" /></div>
                       </div>
-                      <dl className="mt-4 grid gap-2 text-[14px]">
-                        <div className="flex items-center justify-between gap-3"><dt className="text-muted-foreground">Valid from</dt><dd className="text-right text-foreground">{formatDateTimeLabel(request.validFrom)}</dd></div>
-                        <div className="flex items-center justify-between gap-3"><dt className="text-muted-foreground">Valid until</dt><dd className="text-right text-foreground">{request.validUntil ? formatDateTimeLabel(request.validUntil) : 'No end date'}</dd></div>
-                      </dl>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <RequestMetaChip>{`created ${formatDateTimeLabel(request.createdAt)}`}</RequestMetaChip>
+                        <RequestMetaChip>{`from ${formatDateTimeLabel(request.validFrom)}`}</RequestMetaChip>
+                        <RequestMetaChip>{request.validUntil ? `until ${formatDateTimeLabel(request.validUntil)}` : 'no end date'}</RequestMetaChip>
+                      </div>
                     </article>
                   ))}
                 </div>
-              </>
+              </div>
             ) : null}
           </Card>
         </TabsContent>
@@ -773,6 +810,108 @@ function SummaryBlock({ label, value }: { readonly label: string; readonly value
       <p className="mt-3 text-[14px] text-foreground">{value}</p>
     </div>
   );
+}
+
+function ApprovalPreviewRow({ item, selectedLocationDetails }: { readonly item: ApprovalRequirementsPreviewAccessItemResponse; readonly selectedLocationDetails: Map<string, LocationResponse> }) {
+  return (
+    <details className="rounded-[18px] border border-border bg-background p-4">
+      <summary className="cursor-pointer list-none">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-[15px] font-semibold text-foreground">{item.name}</p>
+          <p className="mt-1 text-[14px] leading-6 text-muted-foreground">{item.description ?? 'Access item in selected package.'}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={item.isComplianceRequired ? 'secondary' : 'success'}>{item.isComplianceRequired ? 'Requires compliance' : 'Compliance not required'}</Badge>
+          <Badge variant={item.requirements.length === 0 ? 'success' : 'secondary'}>{item.requirements.length === 0 ? 'Autoapproved' : `${item.requirements.length} approval${item.requirements.length === 1 ? '' : 's'}`}</Badge>
+          {item.requirements.length > 0 ? <RequestMetaChip>Show details</RequestMetaChip> : null}
+        </div>
+      </div>
+      </summary>
+
+      {item.requirements.length > 0 ? (
+        <div className="mt-4 grid gap-2">
+          {item.requirements.map((requirement, index) => (
+            <div key={`${requirement.locationId}-${requirement.role}-${index}`} className="rounded-interactive border border-border bg-content p-3">
+              <p className="font-medium text-foreground">{getRequirementTitle(requirement)}</p>
+              <p className="mt-1 text-[13px] text-muted-foreground">{getRequirementDescription(requirement, selectedLocationDetails.get(requirement.locationId))}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </details>
+  );
+}
+
+function CompliancePreviewRow({ item, compact = false }: { readonly item: PackageRequestPreviewResponse['compliance'][number]; readonly compact?: boolean }) {
+  const issueCount = item.requirements.filter((requirement) => requirement.status !== 'Fulfilled').length;
+
+  return (
+    <div className="rounded-[18px] border border-border bg-background p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-[15px] font-semibold text-foreground">{item.locationLabel}</p>
+          {item.compliantUntil ? <p className="mt-1 text-[14px] text-muted-foreground">Compliant until {formatDateTimeLabel(item.compliantUntil)}</p> : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={getGrantComplianceVariant(item.status)}>{getGrantComplianceLabel(item.status)}</Badge>
+          {!compact && issueCount > 0 ? <RequestMetaChip>{`${issueCount} open issue${issueCount === 1 ? '' : 's'}`}</RequestMetaChip> : null}
+        </div>
+      </div>
+
+      {compact ? null : item.requirements.length === 0 ? <p className="mt-4 text-[14px] text-muted-foreground">No compliance requirements for this location.</p> : (
+        <div className="mt-4 grid gap-3">
+          {item.requirements.map((requirement) => (
+            <div key={requirement.requirementDefinitionId} className="rounded-interactive border border-border bg-content p-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="font-medium text-foreground">{requirement.name}</p>
+                  <p className="mt-1 text-[13px] text-muted-foreground">{requirement.code}{requirement.isBlocking ? ' • blocking' : ''}</p>
+                </div>
+                <Badge variant={requirement.status === 'Fulfilled' ? 'success' : requirement.status === 'Missing' || requirement.status === 'Failed' || requirement.status === 'Expired' ? 'error' : 'secondary'}>{requirement.status}</Badge>
+              </div>
+              <p className="mt-3 text-[14px] text-muted-foreground">{requirement.reason}</p>
+              {requirement.validUntil ? <p className="mt-1 text-[13px] text-muted-foreground">Valid until {formatDateTimeLabel(requirement.validUntil)}</p> : null}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RequestMetaChip({ children }: { readonly children: React.ReactNode }) {
+  return <span className="inline-flex items-center rounded-[10px] border border-border bg-background px-3 py-1 text-[12px] font-medium text-muted-foreground">{children}</span>;
+}
+
+const myRequestFilters = [
+  { value: 'all', label: 'All' },
+  { value: 'in-progress', label: 'In Progress' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'partially-approved', label: 'Partially Approved' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'expired', label: 'Expired' },
+] as const satisfies readonly { value: MyRequestFilter; label: string }[];
+
+function matchesMyRequestFilter(request: PackageRequestResponse, filter: MyRequestFilter) {
+  switch (filter) {
+    case 'all':
+      return true;
+    case 'in-progress':
+      return request.status === 'InProgress';
+    case 'approved':
+      return request.status === 'Completed' && request.subStatus === 'Approved';
+    case 'partially-approved':
+      return request.status === 'Completed' && request.subStatus === 'PartiallyApproved';
+    case 'rejected':
+      return request.status === 'Completed' && request.subStatus === 'Rejected';
+    case 'expired':
+      return request.status === 'Completed' && request.subStatus === 'Expired';
+  }
+}
+
+function hasComplianceIssue(item: PackageRequestPreviewResponse['compliance'][number]) {
+  return item.status !== 'Compliant' || item.requirements.some((requirement) => requirement.status !== 'Fulfilled');
 }
 
 function getDefaultDateTime() {

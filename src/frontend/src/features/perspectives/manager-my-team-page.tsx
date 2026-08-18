@@ -1,13 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { ChevronRight } from 'lucide-react';
+import { Check, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 
 import { useCurrentActor } from '@/shared/actors/current-actor';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
+import { Badge } from '@/shared/components/ui/badge';
 import { buttonVariants } from '@/shared/components/ui/button';
 import { Card } from '@/shared/components/ui/card';
+import { Input } from '@/shared/components/ui/input';
+import { cn } from '@/shared/utils/cn';
 
 type EmployeeResponse = components['schemas']['EmployeeResponse'];
 type EmployeeStatus = components['schemas']['EmployeeStatus'];
@@ -21,20 +24,20 @@ export default function ManagerMyTeamPage() {
 
   const [page, setPage] = useState(0);
   const [query, setQuery] = useState('');
-  const [status, setStatus] = useState<'all' | EmployeeStatus>('all');
+  const [statuses, setStatuses] = useState<EmployeeStatus[]>(['Active']);
   const [includeIndirectReports, setIncludeIndirectReports] = useState(false);
 
   const managerEmployeeId = actorQuery.data?.employeeId ?? null;
 
   const teamQuery = useQuery({
-    queryKey: ['manager', 'my-team', managerEmployeeId, page, query, status, includeIndirectReports],
+    queryKey: ['manager', 'my-team', managerEmployeeId, page, query, statuses.join(','), includeIndirectReports],
     enabled: actorQuery.data?.isManager === true && Boolean(managerEmployeeId),
     queryFn: async () => {
       const { data, error } = await api.GET('/api/employees/employees', {
         params: {
           query: {
             Query: query || undefined,
-            Status: status === 'all' ? [] : [status],
+            Status: statuses,
             OrganizationUnitId: undefined,
             ManagerEmployeeId: managerEmployeeId ?? undefined,
             IncludeIndirectReports: includeIndirectReports,
@@ -78,47 +81,72 @@ export default function ManagerMyTeamPage() {
       {actorQuery.data?.isManager && !managerEmployeeId ? <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">Your actor is missing an employee record.</p> : null}
 
       <Card className="p-4 sm:p-6">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_14rem]">
-          <label className="grid gap-2 text-[14px] font-medium">
-            <span>Search employees</span>
-            <input
-              className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary"
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setPage(0);
-              }}
-              placeholder="Search name, email, or employee number"
-            />
-          </label>
-
-          <label className="grid gap-2 text-[14px] font-medium">
-            <span>Status</span>
-            <select
-              className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary"
-              value={status}
-              onChange={(event) => {
-                setStatus(event.target.value as 'all' | EmployeeStatus);
+        <div className="grid gap-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="grid gap-2 md:min-w-0 md:flex-1 md:max-w-xl">
+              <label className="text-[14px] font-medium" htmlFor="manager-team-query">Search employees</label>
+              <Input
+                id="manager-team-query"
+                value={query}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setPage(0);
+                }}
+                placeholder="Search name, email, or employee number"
+              />
+            </div>
+            <button
+              type="button"
+              className={cn(
+                'inline-flex items-center rounded-interactive border px-3 py-2 text-[13px] font-semibold transition',
+                includeIndirectReports
+                  ? 'border-primary/20 bg-active-blue text-primary'
+                  : 'border-border bg-content text-muted-foreground hover:bg-hover-blue hover:text-foreground',
+              )}
+              onClick={() => {
+                setIncludeIndirectReports((current) => !current);
                 setPage(0);
               }}
             >
-              <option value="all">All statuses</option>
-              {employeeStatuses.map((value) => <option key={value} value={value}>{value}</option>)}
-            </select>
-          </label>
+              {includeIndirectReports ? <Check className="size-3.5" aria-hidden="true" /> : null}
+              Show indirect reports
+            </button>
+          </div>
 
-          <label className="flex items-center gap-3 rounded-structural border border-border px-4 py-3 text-[14px] font-medium xl:col-span-2">
-            <input
-              type="checkbox"
-              className="size-4 rounded border border-border"
-              checked={includeIndirectReports}
-              onChange={(event) => {
-                setIncludeIndirectReports(event.target.checked);
-                setPage(0);
-              }}
-            />
-            <span>{includeIndirectReports ? 'Include indirect reports' : 'Direct reports only'}</span>
-          </label>
+          <div className="grid gap-2">
+            <span className="text-[14px] font-medium">Status</span>
+            <div className="flex flex-wrap gap-2">
+              {employeeStatuses.map((value) => {
+                const isActive = statuses.includes(value);
+
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    className={cn(
+                      'inline-flex items-center rounded-interactive border px-3 py-2 text-[13px] font-semibold transition',
+                      isActive
+                        ? 'border-primary/20 bg-active-blue text-primary'
+                        : 'border-border bg-content text-muted-foreground hover:bg-hover-blue hover:text-foreground',
+                    )}
+                    onClick={() => {
+                      setStatuses((current) => {
+                        if (current.includes(value)) {
+                          return current.length === 1 ? current : current.filter((item) => item !== value);
+                        }
+
+                        return [...current, value];
+                      });
+                      setPage(0);
+                    }}
+                  >
+                    {isActive ? <Check className="size-3.5" aria-hidden="true" /> : null}
+                    {value}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </Card>
 
@@ -131,23 +159,22 @@ export default function ManagerMyTeamPage() {
         {employees.length > 0 ? (
           <>
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[72rem] border-collapse text-left text-[14px]">
-                <thead className="bg-hover-gray text-[12px] uppercase text-muted-foreground">
+              <table className="w-full min-w-[68rem] border-collapse text-left text-[14px]">
+                <thead className="border-b border-border bg-background/70 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3 font-semibold">Name</th>
-                    <th className="px-4 py-3 font-semibold">Reporting Level</th>
-                    <th className="px-4 py-3 font-semibold">Email</th>
-                    <th className="px-4 py-3 font-semibold">Organizational Unit</th>
-                    <th className="px-4 py-3 font-semibold">Job Title</th>
-                    <th className="px-4 py-3 font-semibold">Status</th>
-                    <th className="px-4 py-3 text-right font-semibold">Open</th>
+                    <th className="px-5 py-4 font-semibold">Name</th>
+                    <th className="px-5 py-4 font-semibold">Reporting Level</th>
+                    <th className="px-5 py-4 font-semibold">Organizational Unit</th>
+                    <th className="px-5 py-4 font-semibold">Job Title</th>
+                    <th className="px-5 py-4 font-semibold">Status</th>
+                    <th className="px-5 py-4 text-right font-semibold">Open</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody>
                   {employees.map((employee) => (
                     <tr
                       key={employee.id}
-                      className="cursor-pointer transition hover:bg-hover-blue"
+                      className="cursor-pointer border-t border-border transition hover:bg-hover-blue/45"
                       role="link"
                       tabIndex={0}
                       onClick={() => openEmployee(employee.id)}
@@ -158,13 +185,17 @@ export default function ManagerMyTeamPage() {
                         }
                       }}
                     >
-                      <td className="px-4 py-4 font-medium text-foreground">{employee.firstName} {employee.lastName}</td>
-                      <td className="px-4 py-4 text-muted-foreground">{getReportingLevel(employee, managerEmployeeId)}</td>
-                      <td className="px-4 py-4 text-muted-foreground">{employee.email ?? '-'}</td>
-                      <td className="px-4 py-4 text-muted-foreground">{employee.organizationUnit?.name ?? '-'}</td>
-                      <td className="px-4 py-4 text-muted-foreground">{employee.jobTitle ?? '-'}</td>
-                      <td className="px-4 py-4 text-muted-foreground">{employee.status}</td>
-                      <td className="px-4 py-4 text-right text-muted-foreground"><span className="inline-flex items-center justify-center"><ChevronRight className="size-4" aria-hidden="true" /></span></td>
+                      <td className="px-5 py-5 align-top">
+                        <div>
+                          <p className="font-semibold text-foreground">{employee.firstName} {employee.lastName}</p>
+                          <p className="mt-1 text-[13px] text-muted-foreground">{employee.email ?? '-'}</p>
+                        </div>
+                      </td>
+                      <td className="px-5 py-5 align-top"><Badge variant="outline">{getReportingLevel(employee, managerEmployeeId)}</Badge></td>
+                      <td className="px-5 py-5 align-top text-muted-foreground">{employee.organizationUnit?.name ?? '-'}</td>
+                      <td className="px-5 py-5 align-top text-muted-foreground">{employee.jobTitle ?? '-'}</td>
+                      <td className="px-5 py-5 align-top"><Badge variant={getEmployeeStatusVariant(employee.status)}>{employee.status}</Badge></td>
+                      <td className="px-5 py-5 align-top text-right text-muted-foreground"><span className="inline-flex items-center justify-center"><ChevronRight className="size-4" aria-hidden="true" /></span></td>
                     </tr>
                   ))}
                 </tbody>
@@ -175,7 +206,7 @@ export default function ManagerMyTeamPage() {
               {employees.map((employee) => (
                 <article
                   key={employee.id}
-                  className="rounded-structural border border-border p-4 transition hover:bg-hover-blue"
+                  className="rounded-[18px] border border-border bg-content p-5 shadow-[0_10px_28px_rgba(17,24,39,0.08)] transition hover:border-primary/20 hover:shadow-[0_14px_34px_rgba(17,24,39,0.1)]"
                   role="button"
                   tabIndex={0}
                   onClick={() => openEmployee(employee.id)}
@@ -188,17 +219,16 @@ export default function ManagerMyTeamPage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-medium text-foreground">{employee.firstName} {employee.lastName}</p>
-                      <p className="mt-1 text-[13px] text-muted-foreground">{getReportingLevel(employee, managerEmployeeId)}</p>
+                      <p className="font-semibold text-foreground">{employee.firstName} {employee.lastName}</p>
+                      <p className="mt-1 text-[13px] text-muted-foreground">{employee.email ?? '-'}</p>
                     </div>
-                    <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
+                    <div className="flex items-center gap-3"><Badge variant={getEmployeeStatusVariant(employee.status)}>{employee.status}</Badge><ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" /></div>
                   </div>
-                  <dl className="mt-4 grid gap-2 text-[14px]">
-                    <div className="flex items-center justify-between gap-3"><dt className="text-muted-foreground">Email</dt><dd className="text-right text-foreground">{employee.email ?? '-'}</dd></div>
-                    <div className="flex items-center justify-between gap-3"><dt className="text-muted-foreground">Organizational Unit</dt><dd className="text-right text-foreground">{employee.organizationUnit?.name ?? '-'}</dd></div>
-                    <div className="flex items-center justify-between gap-3"><dt className="text-muted-foreground">Job Title</dt><dd className="text-right text-foreground">{employee.jobTitle ?? '-'}</dd></div>
-                    <div className="flex items-center justify-between gap-3"><dt className="text-muted-foreground">Status</dt><dd className="text-right text-foreground">{employee.status}</dd></div>
-                  </dl>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Badge variant="outline">{getReportingLevel(employee, managerEmployeeId)}</Badge>
+                    {employee.organizationUnit?.name ? <span className="inline-flex items-center rounded-[10px] border border-border bg-background px-3 py-1 text-[12px] font-medium text-muted-foreground">{employee.organizationUnit.name}</span> : null}
+                    {employee.jobTitle ? <span className="inline-flex items-center rounded-[10px] border border-border bg-background px-3 py-1 text-[12px] font-medium text-muted-foreground">{employee.jobTitle}</span> : null}
+                  </div>
                 </article>
               ))}
             </div>
@@ -236,4 +266,18 @@ export default function ManagerMyTeamPage() {
 
 function getReportingLevel(employee: EmployeeResponse, managerEmployeeId: string | null) {
   return employee.managerEmployeeId === managerEmployeeId ? 'Direct' : 'Indirect';
+}
+
+function getEmployeeStatusVariant(status: EmployeeStatus) {
+  switch (status) {
+    case 'Active':
+      return 'success';
+    case 'Leave':
+    case 'Suspended':
+    case 'PreHire':
+      return 'secondary';
+    case 'Terminated':
+    case 'Archived':
+      return 'error';
+  }
 }

@@ -1,16 +1,13 @@
 import { Link, useLocation } from '@tanstack/react-router';
-import { ChevronDown } from 'lucide-react';
 import { type ReactNode, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from 'react-oidc-context';
 
 import { useCurrentActor } from '@/shared/actors/current-actor';
-import { FabricLogo } from '@/shared/branding/fabric-logo';
 import { useBranding } from '@/shared/branding/branding-context';
 import { isElsaStudioFullscreenRoute } from '@/features/automation/elsa-studio-fullscreen';
-import { Button } from '@/shared/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover';
-import { AppLanguageSelect } from '@/shared/i18n/app-language-select';
+import { SidebarProvider, SidebarTrigger } from '@/shared/components/ui/sidebar';
+import { AccountMenu } from '@/shared/layout/account-menu';
 import { PerspectiveSidebar } from '@/shared/layout/perspective-sidebar';
 import { NoPerspectiveWarning } from '@/shared/perspectives/no-perspective-warning';
 import { getAvailablePerspectives, getPerspectiveByPathname } from '@/shared/perspectives/app-perspectives';
@@ -30,6 +27,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const showNoPerspectiveWarning = auth.isAuthenticated && !isFullscreenElsaRoute && !actorQuery.isLoading && !actorQuery.isError && availablePerspectives.length === 0;
   const currentUserName = actorQuery.data?.displayName ?? readProfileValue(auth.user?.profile.name) ?? readProfileValue(auth.user?.profile.preferred_username) ?? readProfileValue(auth.user?.profile.email) ?? t('common.signedIn');
   const currentUserSecondary = actorQuery.data?.email ?? readProfileValue(auth.user?.profile.email) ?? readProfileValue(auth.user?.profile.preferred_username);
+  const currentUserInitials = getUserInitials(currentUserName, currentUserSecondary);
 
   useEffect(() => {
     document.body.classList.toggle('fabric-app-body', !isFullscreenElsaRoute);
@@ -40,63 +38,75 @@ export function AppLayout({ children }: { children: ReactNode }) {
   }, [isFullscreenElsaRoute]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {isFullscreenElsaRoute ? (
-        <main className="min-h-screen">{children}</main>
-      ) : (
-        <>
-          <header className="sticky top-0 z-10 border-b border-border bg-content">
-            <div className="flex items-center gap-3 px-3 py-3 sm:px-4 sm:py-4">
-              <Link to="/" className="flex items-center gap-3" aria-label={`${branding.appName} home`}>
-                <FabricLogo logoUrl={branding.logoUrl} />
-                <span className="hidden text-[20px] font-semibold tracking-tight min-[380px]:inline">{branding.appName}</span>
-              </Link>
-              <div className="ml-auto flex items-center gap-2">
-                {auth.isAuthenticated ? (
-                  <>
-                    <AppLanguageSelect />
-                    <Popover>
-                      <PopoverTrigger render={<Button type="button" variant="outline" className="max-w-[16rem] justify-between sm:max-w-[20rem]" aria-label={t('common.openAccountMenu')} />}>
-                        <span className="truncate text-left text-[14px] font-semibold">{currentUserName}</span>
-                        <ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />
-                      </PopoverTrigger>
-                      <PopoverContent align="end" className="grid min-w-64 gap-3 p-3">
-                        <div className="min-w-0 border-b border-border pb-3">
-                          <p className="truncate text-[14px] font-semibold text-foreground">{currentUserName}</p>
-                          {currentUserSecondary && currentUserSecondary !== currentUserName ? <p className="mt-1 truncate text-[13px] text-muted-foreground">{currentUserSecondary}</p> : null}
-                        </div>
-                        <Button type="button" variant="ghost" className="justify-start" onClick={() => void auth.signoutRedirect().catch(() => auth.removeUser())}>
-                          {t('common.signOut')}
-                        </Button>
-                      </PopoverContent>
-                    </Popover>
-                  </>
-                ) : null}
-              </div>
-            </div>
-          </header>
-          <main className="min-w-0">
-            {showNoPerspectiveWarning ? <NoPerspectiveWarning /> : null}
-            {!showNoPerspectiveWarning && showPerspectiveShell ? (
-              <div className="flex min-h-[calc(100vh-73px)] items-stretch">
-                <PerspectiveSidebar perspectives={availablePerspectives} version={tenantSettings.version} />
-                <div className="min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-6 md:px-10 md:py-8">
-                  <div className="mx-auto w-full max-w-7xl">{children}</div>
+    <SidebarProvider>
+      <div className="min-h-screen bg-background text-foreground">
+        {isFullscreenElsaRoute ? (
+          <main className="min-h-screen">{children}</main>
+        ) : (
+          <>
+            <main className="min-w-0">
+              {showNoPerspectiveWarning ? <NoPerspectiveWarning /> : null}
+              {!showNoPerspectiveWarning && showPerspectiveShell ? (
+                <div className="flex min-h-screen items-stretch">
+                  <PerspectiveSidebar
+                    perspectives={availablePerspectives}
+                    version={tenantSettings.version}
+                    currentUserName={currentUserName}
+                    currentUserSecondary={currentUserSecondary}
+                    currentUserInitials={currentUserInitials}
+                    appName={branding.appName}
+                    logoUrl={branding.logoUrl}
+                  />
+                  <div className="min-w-0 flex-1 px-4 py-4 sm:px-6 sm:py-6 md:px-8 md:py-8 xl:px-10">
+                    <div className="mb-5 flex items-center gap-3 md:hidden">
+                      <SidebarTrigger className="border-[var(--fabric-sidebar-panel-border)] bg-content" />
+                      <Link to="/" className="min-w-0 text-[18px] font-semibold tracking-tight text-foreground" aria-label={`${branding.appName} home`}>
+                        {branding.appName}
+                      </Link>
+                      <div className="ml-auto">
+                        <AccountMenu
+                          currentUserName={currentUserName}
+                          currentUserSecondary={currentUserSecondary}
+                          currentUserInitials={currentUserInitials}
+                          trigger={<button type="button" className="inline-flex size-11 items-center justify-center rounded-full bg-[var(--fabric-sidebar-rail)] text-[14px] font-semibold tracking-[0.08em] text-white transition hover:bg-[var(--fabric-sidebar-rail-hover)] focus-visible:ring-[3px] focus-visible:ring-primary/20 focus-visible:outline-none" aria-label={t('common.openAccountMenu')} />}
+                        />
+                      </div>
+                    </div>
+                    <div className="mx-auto w-full max-w-7xl">{children}</div>
+                  </div>
                 </div>
-              </div>
-            ) : null}
-            {!showNoPerspectiveWarning && !showPerspectiveShell ? (
-              <div className="px-3 py-5 sm:px-4 sm:py-6 md:px-8 md:py-8">
-                <div className="mx-auto max-w-7xl">{children}</div>
-              </div>
-            ) : null}
-          </main>
-        </>
-      )}
-    </div>
+              ) : null}
+              {!showNoPerspectiveWarning && !showPerspectiveShell ? (
+                <div className="px-3 py-5 sm:px-4 sm:py-6 md:px-8 md:py-8">
+                  <div className="mx-auto max-w-7xl">{children}</div>
+                </div>
+              ) : null}
+            </main>
+          </>
+        )}
+      </div>
+    </SidebarProvider>
   );
 }
 
 function readProfileValue(value: unknown) {
   return typeof value === 'string' && value.trim() ? value : undefined;
+}
+
+function getUserInitials(name: string, fallback?: string) {
+  const source = name.trim() || fallback?.trim() || '';
+  const parts = source
+    .split(/\s+/)
+    .map((part) => part.replace(/[^a-zA-Z0-9]/g, ''))
+    .filter(Boolean);
+
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  }
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return '??';
 }

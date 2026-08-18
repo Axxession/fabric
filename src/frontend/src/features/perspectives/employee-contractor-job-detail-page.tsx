@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useParams } from '@tanstack/react-router';
-import { ArrowLeft } from 'lucide-react';
+import { Link, useNavigate, useParams } from '@tanstack/react-router';
+import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -13,7 +13,9 @@ import { Badge } from '@/shared/components/ui/badge';
 import { buttonVariants, Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Input } from '@/shared/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { Textarea } from '@/shared/components/ui/textarea';
+import { cn } from '@/shared/utils/cn';
 
 import { DetailRow, EmptyText, ErrorText, formatDateTimeLabel, getAssignmentStatusVariant, getContractorJobFormState, getContractorJobStatusVariant, invalidateContractorJobQueries, MutedText, toApiDateTimeValue, type ContractorJobFormState } from './employee-contractor-job-shared';
 
@@ -27,8 +29,10 @@ type UpdateContractorJobRequest = components['schemas']['UpdateContractorJobRequ
 export default function EmployeeContractorJobDetailPage() {
   const { t } = useTranslation();
   const { jobId } = useParams({ from: '/main/employee/contractors/jobs/$jobId' });
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<ContractorJobFormState>(getContractorJobFormStatePlaceholder());
+  const [activeTab, setActiveTab] = useState<'edit' | 'assignments'>('edit');
 
   const jobQuery = useQuery({
     queryKey: ['employee', 'contractors', 'jobs', jobId, 'detail'],
@@ -155,13 +159,13 @@ export default function EmployeeContractorJobDetailPage() {
 
   const setJobStatus = useMutation({
     mutationFn: async (status: 'activate' | 'complete' | 'cancel') => {
-      const requests = {
-        activate: api.POST('/api/contractors/jobs/{id}/activate', { params: { path: { id: jobId } } }),
-        complete: api.POST('/api/contractors/jobs/{id}/complete', { params: { path: { id: jobId } } }),
-        cancel: api.POST('/api/contractors/jobs/{id}/cancel', { params: { path: { id: jobId } } }),
-      };
+      const response = status === 'activate'
+        ? await api.POST('/api/contractors/jobs/{id}/activate', { params: { path: { id: jobId } } })
+        : status === 'complete'
+          ? await api.POST('/api/contractors/jobs/{id}/complete', { params: { path: { id: jobId } } })
+          : await api.POST('/api/contractors/jobs/{id}/cancel', { params: { path: { id: jobId } } });
 
-      const { data, error } = await requests[status];
+      const { data, error } = response;
       if (error || !data) {
         throw new Error(`Could not ${status} contractor job.`);
       }
@@ -260,167 +264,212 @@ export default function EmployeeContractorJobDetailPage() {
                 <p className="text-[14px] font-semibold uppercase text-primary">{t('perspectives.employee.contractors.detail.kicker')}</p>
                 <h1 className="mt-3 text-[30px] font-semibold tracking-tight">{job.name}</h1>
                 <p className="mt-3 max-w-3xl text-[14px] leading-6 text-muted-foreground">{job.description || t('perspectives.employee.contractors.jobs.noDescription')}</p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <RequestDetailChip>{companiesQuery.data?.get(job.companyId)?.name ?? t('perspectives.employee.contractors.unknownCompany')}</RequestDetailChip>
+                  <RequestDetailChip>{jobTypesQuery.data?.get(job.jobTypeId)?.name ?? t('perspectives.employee.contractors.unknownJobType')}</RequestDetailChip>
+                  <RequestDetailChip>{getLocationLabel(locationQuery.data as LocationResponse | null | undefined)}</RequestDetailChip>
+                  <RequestDetailChip>{`${formatDateTimeLabel(job.plannedStart)} -> ${formatDateTimeLabel(job.plannedEnd)}`}</RequestDetailChip>
+                  <Badge variant="secondary">{job.assignmentCount} assignment{job.assignmentCount === 1 ? '' : 's'}</Badge>
+                </div>
               </div>
               <Badge variant={getContractorJobStatusVariant(job.status)}>{job.status}</Badge>
             </div>
           </div>
 
-          <div className="grid gap-6 xl:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('perspectives.employee.contractors.jobs.editTitle')}</CardTitle>
-                <CardDescription>{t('perspectives.employee.contractors.jobs.editDescription')}</CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="grid gap-2 text-[14px] font-medium">
-                    <span>{t('perspectives.employee.contractors.jobs.columns.company')}</span>
-                    <select className="h-9 w-full rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary focus:ring-[3px] focus:ring-primary/20" value={form.companyId} onChange={(event) => setForm((current) => ({ ...current, companyId: event.target.value }))}>
-                      <option value="">{t('perspectives.employee.contractors.jobs.selectCompany')}</option>
-                      {Array.from(companiesQuery.data?.values() ?? []).map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
-                    </select>
-                  </label>
-                  <label className="grid gap-2 text-[14px] font-medium">
-                    <span>{t('perspectives.employee.contractors.jobs.columns.jobType')}</span>
-                    <select className="h-9 w-full rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary focus:ring-[3px] focus:ring-primary/20" value={form.jobTypeId} onChange={(event) => setForm((current) => ({ ...current, jobTypeId: event.target.value }))}>
-                      <option value="">{t('perspectives.employee.contractors.jobs.selectJobType')}</option>
-                      {Array.from(jobTypesQuery.data?.values() ?? []).map((jobType) => <option key={jobType.id} value={jobType.id}>{jobType.name}</option>)}
-                    </select>
-                  </label>
-                </div>
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'edit' | 'assignments')}>
+            <TabsList>
+              <TabsTrigger value="edit">Edit</TabsTrigger>
+              <TabsTrigger value="assignments">Assignments <span className="text-[12px] font-medium text-muted-foreground">{assignments.length}</span></TabsTrigger>
+            </TabsList>
 
-                <div className="grid gap-2">
-                  <span className="text-[14px] font-medium">{t('perspectives.employee.contractors.jobs.columns.location')}</span>
-                  <LocationSelector value={form.locationId} onChange={(value) => setForm((current) => ({ ...current, locationId: value }))} level="Room" />
-                </div>
+            <TabsContent value="edit" className="mt-5">
+              <Card>
+                <CardHeader>
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <CardTitle>{t('perspectives.employee.contractors.jobs.editTitle')}</CardTitle>
+                      <CardDescription>{t('perspectives.employee.contractors.jobs.editDescription')}</CardDescription>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {job.status !== 'Active' ? <Button type="button" variant="outline" onClick={() => setJobStatus.mutate('activate')} disabled={setJobStatus.isPending}>{t('perspectives.employee.contractors.jobs.activate')}</Button> : null}
+                      {job.status !== 'Completed' ? <Button type="button" variant="outline" onClick={() => setJobStatus.mutate('complete')} disabled={setJobStatus.isPending}>{t('perspectives.employee.contractors.jobs.complete')}</Button> : null}
+                      {job.status !== 'Cancelled' ? <Button type="button" variant="outline" onClick={() => setJobStatus.mutate('cancel')} disabled={setJobStatus.isPending}>{t('perspectives.employee.contractors.jobs.cancel')}</Button> : null}
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="grid gap-6">
+                  <section className="grid gap-4">
+                    <div>
+                      <h3 className="text-[16px] font-semibold tracking-tight text-foreground">Classification</h3>
+                      <p className="mt-1 text-[13px] text-muted-foreground">Set company, job type, and location.</p>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <label className="grid gap-2 text-[14px] font-medium">
+                        <span>{t('perspectives.employee.contractors.jobs.columns.company')}</span>
+                        <select className="h-10 w-full rounded-interactive border border-border bg-content px-3.5 text-[14px] outline-none transition focus:border-primary focus:ring-[3px] focus:ring-primary/20" value={form.companyId} onChange={(event) => setForm((current) => ({ ...current, companyId: event.target.value }))}>
+                          <option value="">{t('perspectives.employee.contractors.jobs.selectCompany')}</option>
+                          {Array.from(companiesQuery.data?.values() ?? []).map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+                        </select>
+                      </label>
+                      <label className="grid gap-2 text-[14px] font-medium">
+                        <span>{t('perspectives.employee.contractors.jobs.columns.jobType')}</span>
+                        <select className="h-10 w-full rounded-interactive border border-border bg-content px-3.5 text-[14px] outline-none transition focus:border-primary focus:ring-[3px] focus:ring-primary/20" value={form.jobTypeId} onChange={(event) => setForm((current) => ({ ...current, jobTypeId: event.target.value }))}>
+                          <option value="">{t('perspectives.employee.contractors.jobs.selectJobType')}</option>
+                          {Array.from(jobTypesQuery.data?.values() ?? []).map((jobType) => <option key={jobType.id} value={jobType.id}>{jobType.name}</option>)}
+                        </select>
+                      </label>
+                    </div>
+                    <div className="grid gap-2">
+                      <span className="text-[14px] font-medium">{t('perspectives.employee.contractors.jobs.columns.location')}</span>
+                      <LocationSelector value={form.locationId} onChange={(value) => setForm((current) => ({ ...current, locationId: value }))} level="Room" />
+                    </div>
+                  </section>
 
-                <label className="grid gap-2 text-[14px] font-medium">
-                  <span>{t('perspectives.employee.contractors.jobs.columns.job')}</span>
-                  <Input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
-                </label>
+                  <section className="grid gap-4 border-t border-border pt-6">
+                    <div>
+                      <h3 className="text-[16px] font-semibold tracking-tight text-foreground">Job Details</h3>
+                      <p className="mt-1 text-[13px] text-muted-foreground">Update the job name and optional context.</p>
+                    </div>
+                    <label className="grid gap-2 text-[14px] font-medium">
+                      <span>{t('perspectives.employee.contractors.jobs.columns.job')}</span>
+                      <Input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
+                    </label>
+                    <label className="grid gap-2 text-[14px] font-medium">
+                      <span>{t('perspectives.employee.contractors.jobs.fields.description')}</span>
+                      <Textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} rows={4} />
+                    </label>
+                  </section>
 
-                <label className="grid gap-2 text-[14px] font-medium">
-                  <span>{t('perspectives.employee.contractors.jobs.fields.description')}</span>
-                  <Textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} rows={4} />
-                </label>
+                  <section className="grid gap-4 border-t border-border pt-6">
+                    <div>
+                      <h3 className="text-[16px] font-semibold tracking-tight text-foreground">Planning Window</h3>
+                      <p className="mt-1 text-[13px] text-muted-foreground">Set when the job starts and ends.</p>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <label className="grid gap-2 text-[14px] font-medium">
+                        <span>{t('perspectives.employee.contractors.jobs.columns.plannedStart')}</span>
+                        <Input type="datetime-local" value={form.plannedStart} onChange={(event) => setForm((current) => ({ ...current, plannedStart: event.target.value }))} />
+                      </label>
+                      <label className="grid gap-2 text-[14px] font-medium">
+                        <span>{t('perspectives.employee.contractors.jobs.columns.plannedEnd')}</span>
+                        <Input type="datetime-local" value={form.plannedEnd} onChange={(event) => setForm((current) => ({ ...current, plannedEnd: event.target.value }))} />
+                      </label>
+                    </div>
+                  </section>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="grid gap-2 text-[14px] font-medium">
-                    <span>{t('perspectives.employee.contractors.jobs.columns.plannedStart')}</span>
-                    <Input type="datetime-local" value={form.plannedStart} onChange={(event) => setForm((current) => ({ ...current, plannedStart: event.target.value }))} />
-                  </label>
-                  <label className="grid gap-2 text-[14px] font-medium">
-                    <span>{t('perspectives.employee.contractors.jobs.columns.plannedEnd')}</span>
-                    <Input type="datetime-local" value={form.plannedEnd} onChange={(event) => setForm((current) => ({ ...current, plannedEnd: event.target.value }))} />
-                  </label>
-                </div>
+                  <div className="flex justify-end">
+                    <Button type="button" onClick={submit} disabled={saveJob.isPending}>{t('perspectives.employee.contractors.jobs.save')}</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-                <div className="flex flex-wrap justify-end gap-2">
-                  {job.status !== 'Active' ? <Button type="button" variant="outline" onClick={() => setJobStatus.mutate('activate')} disabled={setJobStatus.isPending}>{t('perspectives.employee.contractors.jobs.activate')}</Button> : null}
-                  {job.status !== 'Completed' ? <Button type="button" variant="outline" onClick={() => setJobStatus.mutate('complete')} disabled={setJobStatus.isPending}>{t('perspectives.employee.contractors.jobs.complete')}</Button> : null}
-                  {job.status !== 'Cancelled' ? <Button type="button" variant="outline" onClick={() => setJobStatus.mutate('cancel')} disabled={setJobStatus.isPending}>{t('perspectives.employee.contractors.jobs.cancel')}</Button> : null}
-                  <Button type="button" onClick={submit} disabled={saveJob.isPending}>{t('perspectives.employee.contractors.jobs.save')}</Button>
-                </div>
-              </CardContent>
-            </Card>
+            <TabsContent value="assignments" className="mt-5">
+              <Card>
+                <CardHeader>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <CardTitle>{t('perspectives.employee.contractors.detail.assignmentsTitle')}</CardTitle>
+                      <CardDescription>{t('perspectives.employee.contractors.detail.assignmentsDescription')}</CardDescription>
+                    </div>
+                    <Link to="/employee/contractors/jobs/$jobId/assignments/new" params={{ jobId }} className={buttonVariants()}>{t('perspectives.employee.contractors.assignments.new')}</Link>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {assignments.length === 0 ? <EmptyText message={t('perspectives.employee.contractors.detail.assignmentsEmpty')} /> : null}
 
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('perspectives.employee.contractors.detail.summaryTitle')}</CardTitle>
-                <CardDescription>{t('perspectives.employee.contractors.detail.summaryDescription')}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <dl className="grid gap-3 text-[14px] text-muted-foreground">
-                  <DetailRow label={t('perspectives.employee.contractors.jobs.columns.company')} value={companiesQuery.data?.get(job.companyId)?.name ?? t('perspectives.employee.contractors.unknownCompany')} />
-                  <DetailRow label={t('perspectives.employee.contractors.jobs.columns.jobType')} value={jobTypesQuery.data?.get(job.jobTypeId)?.name ?? t('perspectives.employee.contractors.unknownJobType')} />
-                  <DetailRow label={t('perspectives.employee.contractors.jobs.columns.location')} value={getLocationLabel(locationQuery.data as LocationResponse | null | undefined)} />
-                  <DetailRow label={t('perspectives.employee.contractors.jobs.columns.plannedStart')} value={formatDateTimeLabel(job.plannedStart)} />
-                  <DetailRow label={t('perspectives.employee.contractors.jobs.columns.plannedEnd')} value={formatDateTimeLabel(job.plannedEnd)} />
-                  <DetailRow label={t('perspectives.employee.contractors.jobs.columns.assignments')} value={String(job.assignmentCount)} />
-                </dl>
-              </CardContent>
-            </Card>
-          </div>
+                  {assignments.length > 0 ? (
+                    <>
+                      <div className="hidden overflow-hidden rounded-structural border border-border lg:block">
+                        <table className="min-w-full text-left text-[14px]">
+                          <thead className="border-b border-border bg-background/70 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                            <tr>
+                              <th className="px-5 py-4 font-semibold">{t('perspectives.employee.contractors.detail.assignmentsColumns.contractor')}</th>
+                              <th className="px-5 py-4 font-semibold">{t('perspectives.employee.contractors.detail.assignmentsColumns.assignedFrom')}</th>
+                              <th className="px-5 py-4 font-semibold">{t('perspectives.employee.contractors.detail.assignmentsColumns.assignedUntil')}</th>
+                              <th className="px-5 py-4 font-semibold">Compliance</th>
+                              <th className="px-5 py-4 font-semibold">{t('perspectives.employee.contractors.detail.assignmentsColumns.status')}</th>
+                              <th className="px-5 py-4 text-right font-semibold">Open</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {assignments.map((assignment) => {
+                              const contractor = contractorsQuery.data?.get(assignment.contractorId);
+                              const compliance = assignmentComplianceQuery.data?.get(assignment.id);
 
-          <Card>
-            <CardHeader>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <CardTitle>{t('perspectives.employee.contractors.detail.assignmentsTitle')}</CardTitle>
-                  <CardDescription>{t('perspectives.employee.contractors.detail.assignmentsDescription')}</CardDescription>
-                </div>
-                <Link to="/employee/contractors/jobs/$jobId/assignments/new" params={{ jobId }} className={buttonVariants()}>{t('perspectives.employee.contractors.assignments.new')}</Link>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {assignments.length === 0 ? <EmptyText message={t('perspectives.employee.contractors.detail.assignmentsEmpty')} /> : null}
+                              return (
+                                <tr
+                                  key={assignment.id}
+                                  className="cursor-pointer border-t border-border transition hover:bg-hover-blue/45"
+                                  role="link"
+                                  tabIndex={0}
+                                  onClick={() => void navigate({ to: '/employee/contractors/jobs/$jobId/assignments/$assignmentId', params: { jobId, assignmentId: assignment.id } })}
+                                  onKeyDown={(event) => {
+                                    if (event.key === 'Enter' || event.key === ' ') {
+                                      event.preventDefault();
+                                      void navigate({ to: '/employee/contractors/jobs/$jobId/assignments/$assignmentId', params: { jobId, assignmentId: assignment.id } });
+                                    }
+                                  }}
+                                >
+                                  <td className="px-5 py-5">
+                                    <div>
+                                      <p className="font-semibold text-foreground">{formatContractorName(contractor, assignment)}</p>
+                                      <p className="mt-1 text-[13px] text-muted-foreground">{contractor?.email || t('perspectives.employee.contractors.detail.noEmail')}</p>
+                                    </div>
+                                  </td>
+                                  <td className="px-5 py-5 text-muted-foreground">{formatDateTimeLabel(assignment.assignedFrom)}</td>
+                                  <td className="px-5 py-5 text-muted-foreground">{formatDateTimeLabel(assignment.assignedUntil)}</td>
+                                  <td className="px-5 py-5">{renderComplianceBadge(compliance)}</td>
+                                  <td className="px-5 py-5"><Badge variant={getAssignmentStatusVariant(assignment.status)}>{assignment.status}</Badge></td>
+                                  <td className="px-5 py-5 text-right text-muted-foreground"><span className="inline-flex items-center justify-center"><ChevronRight className="size-4" aria-hidden="true" /></span></td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
 
-              {assignments.length > 0 ? (
-                <>
-                  <div className="hidden overflow-hidden rounded-structural border border-border lg:block">
-                    <table className="min-w-full text-left text-[14px]">
-                      <thead className="bg-muted/40 text-muted-foreground">
-                        <tr>
-                          <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.detail.assignmentsColumns.contractor')}</th>
-                          <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.detail.assignmentsColumns.email')}</th>
-                          <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.detail.assignmentsColumns.assignedFrom')}</th>
-                          <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.detail.assignmentsColumns.assignedUntil')}</th>
-                          <th className="px-4 py-3 font-semibold">Compliance</th>
-                          <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.detail.assignmentsColumns.status')}</th>
-                          <th className="px-4 py-3 font-semibold">{t('perspectives.employee.contractors.assignments.actions')}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                      <div className="grid gap-3 lg:hidden">
                         {assignments.map((assignment) => {
                           const contractor = contractorsQuery.data?.get(assignment.contractorId);
                           const compliance = assignmentComplianceQuery.data?.get(assignment.id);
 
                           return (
-                            <tr key={assignment.id} className="border-t border-border">
-                              <td className="px-4 py-4 font-medium text-foreground">{formatContractorName(contractor, assignment)}</td>
-                              <td className="px-4 py-4 text-muted-foreground">{contractor?.email || t('perspectives.employee.contractors.detail.noEmail')}</td>
-                              <td className="px-4 py-4 text-muted-foreground">{formatDateTimeLabel(assignment.assignedFrom)}</td>
-                              <td className="px-4 py-4 text-muted-foreground">{formatDateTimeLabel(assignment.assignedUntil)}</td>
-                              <td className="px-4 py-4">{renderComplianceBadge(compliance)}</td>
-                              <td className="px-4 py-4"><Badge variant={getAssignmentStatusVariant(assignment.status)}>{assignment.status}</Badge></td>
-                              <td className="px-4 py-4"><Link to="/employee/contractors/jobs/$jobId/assignments/$assignmentId" params={{ jobId, assignmentId: assignment.id }} className={buttonVariants({ variant: 'outline' })}>{t('perspectives.employee.contractors.assignments.open')}</Link></td>
-                            </tr>
+                            <div
+                              key={assignment.id}
+                              className="rounded-[18px] border border-border bg-content p-5 shadow-[0_10px_28px_rgba(17,24,39,0.08)] transition hover:border-primary/20 hover:shadow-[0_14px_34px_rgba(17,24,39,0.1)]"
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => void navigate({ to: '/employee/contractors/jobs/$jobId/assignments/$assignmentId', params: { jobId, assignmentId: assignment.id } })}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault();
+                                  void navigate({ to: '/employee/contractors/jobs/$jobId/assignments/$assignmentId', params: { jobId, assignmentId: assignment.id } });
+                                }
+                              }}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="font-semibold text-foreground">{formatContractorName(contractor, assignment)}</p>
+                                  <p className="mt-1 text-[13px] text-muted-foreground">{contractor?.email || t('perspectives.employee.contractors.detail.noEmail')}</p>
+                                </div>
+                                <div className="flex items-center gap-3"><Badge variant={getAssignmentStatusVariant(assignment.status)}>{assignment.status}</Badge><ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" /></div>
+                              </div>
+                              <div className="mt-4 flex flex-wrap gap-2">
+                                <RequestDetailChip>{`from ${formatDateTimeLabel(assignment.assignedFrom)}`}</RequestDetailChip>
+                                <RequestDetailChip>{`until ${formatDateTimeLabel(assignment.assignedUntil)}`}</RequestDetailChip>
+                                {compliance?.complianceStatus ? renderComplianceBadge(compliance) : null}
+                              </div>
+                            </div>
                           );
                         })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="grid gap-3 lg:hidden">
-                    {assignments.map((assignment) => {
-                      const contractor = contractorsQuery.data?.get(assignment.contractorId);
-                      const compliance = assignmentComplianceQuery.data?.get(assignment.id);
-
-                      return (
-                        <div key={assignment.id} className="rounded-structural border border-border p-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="font-medium text-foreground">{formatContractorName(contractor, assignment)}</p>
-                              <p className="mt-1 text-[13px] text-muted-foreground">{contractor?.email || t('perspectives.employee.contractors.detail.noEmail')}</p>
-                            </div>
-                            <Badge variant={getAssignmentStatusVariant(assignment.status)}>{assignment.status}</Badge>
-                          </div>
-                          <dl className="mt-4 grid gap-2 text-[13px] text-muted-foreground">
-                            <DetailRow label={t('perspectives.employee.contractors.detail.assignmentsColumns.assignedFrom')} value={formatDateTimeLabel(assignment.assignedFrom)} />
-                            <DetailRow label={t('perspectives.employee.contractors.detail.assignmentsColumns.assignedUntil')} value={formatDateTimeLabel(assignment.assignedUntil)} />
-                            <div className="flex items-center justify-between gap-3"><dt>Compliance</dt><dd className="text-right">{renderComplianceBadge(compliance)}</dd></div>
-                          </dl>
-                          <div className="mt-4 flex flex-wrap gap-2">
-                            <Link to="/employee/contractors/jobs/$jobId/assignments/$assignmentId" params={{ jobId, assignmentId: assignment.id }} className={buttonVariants({ variant: 'outline' })}>{t('perspectives.employee.contractors.assignments.open')}</Link>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              ) : null}
-            </CardContent>
-          </Card>
+                      </div>
+                    </>
+                  ) : null}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </>
       ) : null}
     </section>
@@ -441,6 +490,10 @@ function renderComplianceBadge(compliance: AssignmentComplianceSummaryResponse |
   }
 
   return <Badge variant={getGrantComplianceVariant(compliance.complianceStatus)}>{getGrantComplianceLabel(compliance.complianceStatus)}</Badge>;
+}
+
+function RequestDetailChip({ children }: { readonly children: React.ReactNode }) {
+  return <span className="inline-flex items-center gap-1.5 rounded-[10px] border border-border bg-background px-3 py-1 text-[12px] font-medium text-muted-foreground">{children}</span>;
 }
 
 function getContractorJobFormStatePlaceholder(): ContractorJobFormState {

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useParams } from '@tanstack/react-router';
-import { ArrowLeft } from 'lucide-react';
+import { Link, useNavigate, useParams } from '@tanstack/react-router';
+import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -9,9 +9,10 @@ import { useCurrentActor } from '@/shared/actors/current-actor';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { Badge } from '@/shared/components/ui/badge';
-import { Button } from '@/shared/components/ui/button';
+import { buttonVariants, Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Input } from '@/shared/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 
 type CompanyResponse = components['schemas']['CompanyResponse'];
 type ContractorResponse = components['schemas']['ContractorResponse'];
@@ -29,11 +30,13 @@ const contractorEnrollmentRole = 'contractor-enrollment';
 export default function EmployeeContractorCompanyDetailPage() {
   const { t } = useTranslation();
   const { companyId } = useParams({ from: '/main/employee/contractors/companies/$companyId' });
+  const navigate = useNavigate();
   const actorQuery = useCurrentActor();
   const queryClient = useQueryClient();
   const [companyForm, setCompanyForm] = useState<CompanyFormState>({ code: '', name: '', companyNumber: '' });
   const [contractorFilter, setContractorFilter] = useState<ContractorFilter>('all');
   const [contractorQuery, setContractorQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<'edit' | 'contractors'>('edit');
 
   const isEnrollmentRole = (actorQuery.data?.roles ?? []).includes(contractorEnrollmentRole);
 
@@ -151,100 +154,140 @@ export default function EmployeeContractorCompanyDetailPage() {
 
       {company ? (
         <>
-          <Card>
-            <CardHeader>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <CardTitle>{company.name}</CardTitle>
-                  <CardDescription>{isEnrollmentRole ? t('perspectives.employee.contractors.companies.detail.enrollmentDescription') : t('perspectives.employee.contractors.companies.detail.description')}</CardDescription>
+          <div className="rounded-structural border border-border bg-content p-6 sm:p-8">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <h1 className="text-[30px] font-semibold tracking-tight">{company.name}</h1>
+                <p className="mt-3 max-w-3xl text-[14px] leading-6 text-muted-foreground">{isEnrollmentRole ? t('perspectives.employee.contractors.companies.detail.enrollmentDescription') : t('perspectives.employee.contractors.companies.detail.description')}</p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <RequestDetailChip>{company.code}</RequestDetailChip>
+                  <RequestDetailChip>{company.companyNumber || t('perspectives.employee.contractors.companies.noCompanyNumber')}</RequestDetailChip>
+                  <Badge variant="secondary">{contractors.length} contractor{contractors.length === 1 ? '' : 's'}</Badge>
                 </div>
-                <Badge variant={company.isActive ? 'success' : 'secondary'}>{company.isActive ? t('perspectives.employee.contractors.companies.active') : t('perspectives.employee.contractors.companies.inactive')}</Badge>
               </div>
-            </CardHeader>
-            <CardContent className="grid gap-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="grid gap-2 text-[14px] font-medium">
-                  <span>{t('perspectives.employee.contractors.companies.fields.code')}</span>
-                  <Input value={companyForm.code} disabled={!isEnrollmentRole} onChange={(event) => setCompanyForm((current) => ({ ...current, code: event.target.value }))} />
-                </label>
-                <label className="grid gap-2 text-[14px] font-medium">
-                  <span>{t('perspectives.employee.contractors.companies.fields.name')}</span>
-                  <Input value={companyForm.name} disabled={!isEnrollmentRole} onChange={(event) => setCompanyForm((current) => ({ ...current, name: event.target.value }))} />
-                </label>
-                <label className="grid gap-2 text-[14px] font-medium md:col-span-2">
-                  <span>{t('perspectives.employee.contractors.companies.fields.companyNumber')}</span>
-                  <Input value={companyForm.companyNumber} disabled={!isEnrollmentRole} onChange={(event) => setCompanyForm((current) => ({ ...current, companyNumber: event.target.value }))} />
-                </label>
-              </div>
+              <Badge variant={company.isActive ? 'success' : 'secondary'}>{company.isActive ? t('perspectives.employee.contractors.companies.active') : t('perspectives.employee.contractors.companies.inactive')}</Badge>
+            </div>
+          </div>
 
-              {isEnrollmentRole ? (
-                <div className="flex flex-wrap justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setCompanyStatus.mutate(!company.isActive)} disabled={setCompanyStatus.isPending}>
-                    {company.isActive ? t('perspectives.employee.contractors.companies.deactivate') : t('perspectives.employee.contractors.companies.activate')}
-                  </Button>
-                  <Button type="button" onClick={submitCompany} disabled={saveCompany.isPending}>{t('perspectives.employee.contractors.companies.save')}</Button>
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'edit' | 'contractors')}>
+            <TabsList>
+              <TabsTrigger value="edit">Edit</TabsTrigger>
+              <TabsTrigger value="contractors">Contractors <span className="text-[12px] font-medium text-muted-foreground">{contractors.length}</span></TabsTrigger>
+            </TabsList>
 
-          <Card>
-            <CardHeader>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <CardTitle>{t('perspectives.employee.contractors.contractors.title')}</CardTitle>
-                  <CardDescription>{isEnrollmentRole ? t('perspectives.employee.contractors.contractors.enrollmentDescription') : t('perspectives.employee.contractors.contractors.description')}</CardDescription>
-                </div>
-                {isEnrollmentRole ? <Link to="/employee/contractors/companies/$companyId/contractors/new" params={{ companyId }} className="inline-flex h-9 items-center rounded-interactive bg-primary px-4 text-[14px] font-medium text-primary-foreground transition hover:opacity-90">{t('perspectives.employee.contractors.contractors.new')}</Link> : null}
-              </div>
-            </CardHeader>
-            <CardContent className="grid gap-4">
-              <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
-                <label className="grid gap-2 text-[14px] font-medium">
-                  <span>{t('perspectives.employee.contractors.filters.search')}</span>
-                  <Input value={contractorQuery} onChange={(event) => setContractorQuery(event.target.value)} placeholder={t('perspectives.employee.contractors.contractors.searchPlaceholder')} />
-                </label>
-                <label className="grid gap-2 text-[14px] font-medium">
-                  <span>{t('perspectives.employee.contractors.filters.status')}</span>
-                  <select className="h-9 w-full rounded-interactive border border-border bg-content px-3 text-[14px] outline-none transition focus:border-primary focus:ring-[3px] focus:ring-primary/20" value={contractorFilter} onChange={(event) => setContractorFilter(event.target.value as ContractorFilter)}>
-                    <option value="all">{t('perspectives.employee.contractors.contractors.statusFilter.all')}</option>
-                    <option value="active">{t('perspectives.employee.contractors.contractors.statusFilter.active')}</option>
-                    <option value="archived">{t('perspectives.employee.contractors.contractors.statusFilter.archived')}</option>
-                  </select>
-                </label>
-              </div>
-
-              {contractorsQuery.isLoading ? <MutedText message={t('perspectives.employee.contractors.contractors.loading')} /> : null}
-              {contractorsQuery.isError ? <ErrorText message={t('perspectives.employee.contractors.contractors.error')} /> : null}
-              {!contractorsQuery.isLoading && !contractorsQuery.isError && contractors.length === 0 ? <EmptyText message={t('perspectives.employee.contractors.contractors.empty')} /> : null}
-
-              {!contractorsQuery.isLoading && !contractorsQuery.isError && contractors.length > 0 ? (
-                <div className="grid gap-3">
-                  {contractors.map((contractor) => (
-                    <div key={contractor.id} className="rounded-structural border border-border p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <p className="font-medium text-foreground">{contractor.firstName} {contractor.lastName}</p>
-                          <p className="mt-1 text-[13px] text-muted-foreground">{contractor.email || t('perspectives.employee.contractors.detail.noEmail')}</p>
-                        </div>
-                        <Badge variant={contractor.archivedAt ? 'secondary' : 'success'}>{contractor.archivedAt ? t('perspectives.employee.contractors.contractors.archivedBadge') : t('perspectives.employee.contractors.contractors.activeBadge')}</Badge>
-                      </div>
-
-                      <dl className="mt-4 grid gap-2 text-[13px] text-muted-foreground md:grid-cols-2">
-                        <DetailRow label={t('perspectives.employee.contractors.contractors.fields.updated')} value={formatDateTimeLabel(contractor.updatedAt)} />
-                      </dl>
-
-                      {isEnrollmentRole ? (
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          <Link to="/employee/contractors/companies/$companyId/contractors/$contractorId" params={{ companyId, contractorId: contractor.id }} className="inline-flex h-9 items-center rounded-interactive border border-border bg-content px-4 text-[14px] font-medium text-foreground transition hover:bg-hover-blue">{t('perspectives.employee.contractors.contractors.edit')}</Link>
-                        </div>
-                      ) : <div className="mt-4 flex flex-wrap gap-2"><Link to="/employee/contractors/companies/$companyId/contractors/$contractorId" params={{ companyId, contractorId: contractor.id }} className="inline-flex h-9 items-center rounded-interactive border border-border bg-content px-4 text-[14px] font-medium text-foreground transition hover:bg-hover-blue">{t('perspectives.employee.contractors.contractors.open')}</Link></div>}
+            <TabsContent value="edit" className="mt-5">
+              <Card>
+                <CardHeader>
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <CardTitle>{t('perspectives.employee.contractors.companies.fields.name')}</CardTitle>
+                      <CardDescription>{isEnrollmentRole ? t('perspectives.employee.contractors.companies.detail.enrollmentDescription') : t('perspectives.employee.contractors.companies.detail.description')}</CardDescription>
                     </div>
-                  ))}
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
+                    {isEnrollmentRole ? (
+                      <Button type="button" variant="outline" onClick={() => setCompanyStatus.mutate(!company.isActive)} disabled={setCompanyStatus.isPending}>
+                        {company.isActive ? t('perspectives.employee.contractors.companies.deactivate') : t('perspectives.employee.contractors.companies.activate')}
+                      </Button>
+                    ) : null}
+                  </div>
+                </CardHeader>
+                <CardContent className="grid gap-6">
+                  <section className="grid gap-4">
+                    <div>
+                      <h3 className="text-[16px] font-semibold tracking-tight text-foreground">Company Details</h3>
+                      <p className="mt-1 text-[13px] text-muted-foreground">Update the primary company metadata.</p>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <label className="grid gap-2 text-[14px] font-medium">
+                        <span>{t('perspectives.employee.contractors.companies.fields.code')}</span>
+                        <Input value={companyForm.code} disabled={!isEnrollmentRole} onChange={(event) => setCompanyForm((current) => ({ ...current, code: event.target.value }))} />
+                      </label>
+                      <label className="grid gap-2 text-[14px] font-medium">
+                        <span>{t('perspectives.employee.contractors.companies.fields.name')}</span>
+                        <Input value={companyForm.name} disabled={!isEnrollmentRole} onChange={(event) => setCompanyForm((current) => ({ ...current, name: event.target.value }))} />
+                      </label>
+                      <label className="grid gap-2 text-[14px] font-medium md:col-span-2">
+                        <span>{t('perspectives.employee.contractors.companies.fields.companyNumber')}</span>
+                        <Input value={companyForm.companyNumber} disabled={!isEnrollmentRole} onChange={(event) => setCompanyForm((current) => ({ ...current, companyNumber: event.target.value }))} />
+                      </label>
+                    </div>
+                  </section>
+
+                  {isEnrollmentRole ? (
+                    <div className="flex justify-end">
+                      <Button type="button" onClick={submitCompany} disabled={saveCompany.isPending}>{t('perspectives.employee.contractors.companies.save')}</Button>
+                    </div>
+                  ) : null}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="contractors" className="mt-5">
+              <Card>
+                <CardHeader>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <CardTitle>{t('perspectives.employee.contractors.contractors.title')}</CardTitle>
+                      <CardDescription>{isEnrollmentRole ? t('perspectives.employee.contractors.contractors.enrollmentDescription') : t('perspectives.employee.contractors.contractors.description')}</CardDescription>
+                    </div>
+                    {isEnrollmentRole ? <Link to="/employee/contractors/companies/$companyId/contractors/new" params={{ companyId }} className={buttonVariants()}>{t('perspectives.employee.contractors.contractors.new')}</Link> : null}
+                  </div>
+                </CardHeader>
+                <CardContent className="grid gap-4">
+                  <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+                    <label className="grid gap-2 text-[14px] font-medium">
+                      <span>{t('perspectives.employee.contractors.filters.search')}</span>
+                      <Input value={contractorQuery} onChange={(event) => setContractorQuery(event.target.value)} placeholder={t('perspectives.employee.contractors.contractors.searchPlaceholder')} />
+                    </label>
+                    <label className="grid gap-2 text-[14px] font-medium">
+                      <span>{t('perspectives.employee.contractors.filters.status')}</span>
+                      <select className="h-10 w-full rounded-interactive border border-border bg-content px-3.5 text-[14px] outline-none transition focus:border-primary focus:ring-[3px] focus:ring-primary/20" value={contractorFilter} onChange={(event) => setContractorFilter(event.target.value as ContractorFilter)}>
+                        <option value="all">{t('perspectives.employee.contractors.contractors.statusFilter.all')}</option>
+                        <option value="active">{t('perspectives.employee.contractors.contractors.statusFilter.active')}</option>
+                        <option value="archived">{t('perspectives.employee.contractors.contractors.statusFilter.archived')}</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  {contractorsQuery.isLoading ? <MutedText message={t('perspectives.employee.contractors.contractors.loading')} /> : null}
+                  {contractorsQuery.isError ? <ErrorText message={t('perspectives.employee.contractors.contractors.error')} /> : null}
+                  {!contractorsQuery.isLoading && !contractorsQuery.isError && contractors.length === 0 ? <EmptyText message={t('perspectives.employee.contractors.contractors.empty')} /> : null}
+
+                  {!contractorsQuery.isLoading && !contractorsQuery.isError && contractors.length > 0 ? (
+                    <div className="grid gap-3">
+                      {contractors.map((contractor) => (
+                        <div
+                          key={contractor.id}
+                          className="rounded-[18px] border border-border bg-content p-5 shadow-[0_10px_28px_rgba(17,24,39,0.08)] transition hover:border-primary/20 hover:shadow-[0_14px_34px_rgba(17,24,39,0.1)]"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => void navigate({ to: '/employee/contractors/companies/$companyId/contractors/$contractorId', params: { companyId, contractorId: contractor.id } })}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              void navigate({ to: '/employee/contractors/companies/$companyId/contractors/$contractorId', params: { companyId, contractorId: contractor.id } });
+                            }
+                          }}
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <Link to="/employee/contractors/companies/$companyId/contractors/$contractorId" params={{ companyId, contractorId: contractor.id }} className="font-semibold text-foreground underline-offset-4 hover:underline" onClick={(event) => event.stopPropagation()}>
+                                {contractor.firstName} {contractor.lastName}
+                              </Link>
+                              <p className="mt-1 text-[13px] text-muted-foreground">{contractor.email || t('perspectives.employee.contractors.detail.noEmail')}</p>
+                            </div>
+                            <div className="flex items-center gap-3"><Badge variant={contractor.archivedAt ? 'secondary' : 'success'}>{contractor.archivedAt ? t('perspectives.employee.contractors.contractors.archivedBadge') : t('perspectives.employee.contractors.contractors.activeBadge')}</Badge><ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" /></div>
+                          </div>
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <RequestDetailChip>{`updated ${formatDateTimeLabel(contractor.updatedAt)}`}</RequestDetailChip>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </>
       ) : null}
     </section>
@@ -269,6 +312,10 @@ function EmptyText({ message }: { message: string }) {
 
 function formatDateTimeLabel(value: string) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+}
+
+function RequestDetailChip({ children }: { readonly children: React.ReactNode }) {
+  return <span className="inline-flex items-center gap-1.5 rounded-[10px] border border-border bg-background px-3 py-1 text-[12px] font-medium text-muted-foreground">{children}</span>;
 }
 
 async function invalidateCompanyQueries(queryClient: ReturnType<typeof useQueryClient>, companyId: string) {

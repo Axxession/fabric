@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link, useParams } from '@tanstack/react-router';
+import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
+import type { KeyboardEvent } from 'react';
 
 import { useCurrentActor } from '@/shared/actors/current-actor';
 import { getGrantApprovalLabel, getGrantApprovalVariant, getGrantBusinessSummary, getGrantComplianceLabel, getGrantComplianceUntilLabel, getGrantComplianceVariant, getGrantStatusVariant } from '@/shared/access-grants/grant-status';
@@ -8,15 +9,18 @@ import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { Badge } from '@/shared/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 
 type AccessGrantResponse = components['schemas']['AccessGrantResponse'];
 type CredentialResponse = components['schemas']['CredentialResponse'];
 type CredentialTypeResponse = components['schemas']['CredentialTypeResponse'];
 type EmployeeResponse = components['schemas']['EmployeeResponse'];
+type PackageRequestResponse = components['schemas']['PackageRequestResponse'];
 type PackageResponse = components['schemas']['PackageResponse'];
 
 export default function ManagerTeamMemberDetailPage() {
   const { employeeId } = useParams({ from: '/main/manager/my-team/$employeeId' });
+  const navigate = useNavigate();
   const actorQuery = useCurrentActor();
   const managerEmployeeId = actorQuery.data?.employeeId ?? null;
 
@@ -83,12 +87,31 @@ export default function ManagerTeamMemberDetailPage() {
 
   const packageIds = Array.from(new Set((grantsQuery.data ?? []).map((grant) => grant.packageId)));
 
-  const packagesQuery = useQuery({
-    queryKey: ['manager', 'my-team', employeeId, 'packages', packageIds.join(',')],
-    enabled: packageIds.length > 0,
+  const requestsQuery = useQuery({
+    queryKey: ['manager', 'my-team', employeeId, 'requests', identityId],
+    enabled: Boolean(identityId),
     queryFn: async () => {
+      const { data, error } = await api.GET('/api/access-catalog/package-requests', {
+        params: { query: { RequesterIdentityId: undefined, BeneficiaryIdentityId: identityId ?? undefined, Status: 'InProgress', ids: [] } as never },
+      });
+
+      if (error) {
+        throw new Error('Could not load open requests.');
+      }
+
+      return (data?.items ?? []) as PackageRequestResponse[];
+    },
+  });
+
+  const requestPackageIds = Array.from(new Set((requestsQuery.data ?? []).map((request) => request.packageId)));
+
+  const packagesQuery = useQuery({
+    queryKey: ['manager', 'my-team', employeeId, 'packages', [...packageIds, ...requestPackageIds].join(',')],
+    enabled: packageIds.length > 0 || requestPackageIds.length > 0,
+    queryFn: async () => {
+      const ids = Array.from(new Set([...packageIds, ...requestPackageIds]));
       const { data, error } = await api.GET('/api/access-catalog/packages', {
-        params: { query: { Name: undefined, Page: 0, PageSize: 200, ids: packageIds } as never },
+        params: { query: { Name: undefined, Page: 0, PageSize: 200, ids } as never },
       });
 
       if (error) {
@@ -142,6 +165,7 @@ export default function ManagerTeamMemberDetailPage() {
       return leftName.localeCompare(rightName);
     });
   const credentials = credentialsQuery.data ?? [];
+  const requests = requestsQuery.data ?? [];
 
   return (
     <section className="grid gap-6">
@@ -160,103 +184,136 @@ export default function ManagerTeamMemberDetailPage() {
         <>
           <EmployeeSummary employee={employee} managerEmployeeId={managerEmployeeId} />
 
-          <div className="grid gap-6 xl:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Assigned Packages</CardTitle>
-                <CardDescription>Current active package grants for this employee, including withheld compliance states.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {grantsQuery.isError || packagesQuery.isError ? <ErrorText message="Could not load assigned packages." /> : null}
-                {grantsQuery.isLoading || packagesQuery.isLoading ? <MutedText message="Loading assigned packages..." /> : null}
-                {!grantsQuery.isLoading && !packagesQuery.isLoading && assignedPackages.length === 0 ? <EmptyText message="No active packages assigned." /> : null}
-                {!grantsQuery.isLoading && !packagesQuery.isLoading && assignedPackages.length > 0 ? (
-                  <div className="grid gap-3">
-                    {assignedPackages.map((grant) => {
-                      const pkg = packagesQuery.data?.get(grant.packageId);
+          <Tabs defaultValue="requests">
+            <TabsList>
+              <TabsTrigger value="requests">Requests <span className="text-[12px] font-medium text-muted-foreground">{requests.length}</span></TabsTrigger>
+              <TabsTrigger value="packages">Assigned Packages <span className="text-[12px] font-medium text-muted-foreground">{assignedPackages.length}</span></TabsTrigger>
+              <TabsTrigger value="credentials">Credentials <span className="text-[12px] font-medium text-muted-foreground">{credentials.length}</span></TabsTrigger>
+            </TabsList>
 
-                      return (
-                        <div key={grant.id} className="rounded-structural border border-border p-4">
+            <TabsContent value="requests" className="mt-5">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Requests</CardTitle>
+                  <CardDescription>Open package requests that currently affect this employee.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {requestsQuery.isError || packagesQuery.isError ? <ErrorText message="Could not load open requests." /> : null}
+                  {requestsQuery.isLoading || packagesQuery.isLoading ? <MutedText message="Loading requests..." /> : null}
+                  {!requestsQuery.isLoading && !packagesQuery.isLoading && requests.length === 0 ? <EmptyText message="No open requests for this employee." /> : null}
+                  {!requestsQuery.isLoading && !packagesQuery.isLoading && requests.length > 0 ? (
+                    <div className="grid gap-3">
+                      {requests.map((request) => (
+                        <ManagerOverviewRow
+                          key={request.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => void navigate({ to: '/manager/approval-inbox/$requestId', params: { requestId: request.id } })}
+                          onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              void navigate({ to: '/manager/approval-inbox/$requestId', params: { requestId: request.id } });
+                            }
+                          }}
+                        >
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div>
-                              <p className="font-medium text-foreground">{pkg?.name ?? grant.packageId}</p>
-                              <p className="mt-1 text-[13px] text-muted-foreground">{pkg?.description ?? 'Current package assignment.'}</p>
+                              <p className="text-[15px] font-semibold text-foreground">{packagesQuery.data?.get(request.packageId)?.name ?? request.packageId}</p>
+                              <p className="mt-1 text-[14px] leading-6 text-muted-foreground">Requested for this employee and still in progress.</p>
                             </div>
-                            <Badge variant={getGrantStatusVariant(grant.status)}>{grant.status}</Badge>
+                            <Badge variant={getRequestStatusVariant(request)}>{formatRequestStatus(request)}</Badge>
                           </div>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            <Badge variant={getGrantApprovalVariant(grant.approvalStatus)}>{getGrantApprovalLabel(grant.approvalStatus)}</Badge>
-                            <Badge variant={getGrantComplianceVariant(grant.complianceStatus)}>{getGrantComplianceLabel(grant.complianceStatus)}</Badge>
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <ManagerMetaChip>{`created ${formatDateTimeLabel(request.createdAt)}`}</ManagerMetaChip>
+                            <ManagerMetaChip>{`from ${formatDateTimeLabel(request.validFrom)}`}</ManagerMetaChip>
+                            <ManagerMetaChip>{request.validUntil ? `until ${formatDateTimeLabel(request.validUntil)}` : 'no end date'}</ManagerMetaChip>
                           </div>
-                          <dl className="mt-4 grid gap-2 text-[13px] text-muted-foreground sm:grid-cols-2">
-                            <div className="flex items-center justify-between gap-3 sm:block">
-                              <dt>Valid from</dt>
-                              <dd className="text-right text-foreground sm:mt-1 sm:text-left">{formatDateTimeLabel(grant.validFrom)}</dd>
-                            </div>
-                            <div className="flex items-center justify-between gap-3 sm:block">
-                              <dt>Valid until</dt>
-                              <dd className="text-right text-foreground sm:mt-1 sm:text-left">{grant.validUntil ? formatDateTimeLabel(grant.validUntil) : 'No end date'}</dd>
-                            </div>
-                            <div className="flex items-center justify-between gap-3 sm:block">
-                              <dt>State</dt>
-                              <dd className="text-right text-foreground sm:mt-1 sm:text-left">{getGrantBusinessSummary(grant)}</dd>
-                            </div>
-                            {getGrantComplianceUntilLabel(grant) ? (
-                              <div className="flex items-center justify-between gap-3 sm:block">
-                                <dt>Compliant until</dt>
-                                <dd className="text-right text-foreground sm:mt-1 sm:text-left">{formatDateTimeLabel(getGrantComplianceUntilLabel(grant)!)}</dd>
+                        </ManagerOverviewRow>
+                      ))}
+                    </div>
+                  ) : null}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="packages" className="mt-5">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Assigned Packages</CardTitle>
+                  <CardDescription>Current active package grants for this employee, including withheld compliance states.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {grantsQuery.isError || packagesQuery.isError ? <ErrorText message="Could not load assigned packages." /> : null}
+                  {grantsQuery.isLoading || packagesQuery.isLoading ? <MutedText message="Loading assigned packages..." /> : null}
+                  {!grantsQuery.isLoading && !packagesQuery.isLoading && assignedPackages.length === 0 ? <EmptyText message="No active packages assigned." /> : null}
+                  {!grantsQuery.isLoading && !packagesQuery.isLoading && assignedPackages.length > 0 ? (
+                    <div className="grid gap-3">
+                      {assignedPackages.map((grant) => {
+                        const pkg = packagesQuery.data?.get(grant.packageId);
+
+                        return (
+                          <ManagerOverviewRow key={grant.id}>
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <p className="text-[15px] font-semibold text-foreground">{pkg?.name ?? grant.packageId}</p>
+                                <p className="mt-1 text-[14px] leading-6 text-muted-foreground">{pkg?.description ?? 'Current package assignment.'}</p>
                               </div>
-                            ) : null}
-                          </dl>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : null}
-              </CardContent>
-            </Card>
+                              <Badge variant={getGrantStatusVariant(grant.status)}>{grant.status}</Badge>
+                            </div>
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              <Badge variant={getGrantApprovalVariant(grant.approvalStatus)}>{getGrantApprovalLabel(grant.approvalStatus)}</Badge>
+                              <Badge variant={getGrantComplianceVariant(grant.complianceStatus)}>{getGrantComplianceLabel(grant.complianceStatus)}</Badge>
+                              <ManagerMetaChip>{`from ${formatDateTimeLabel(grant.validFrom)}`}</ManagerMetaChip>
+                              <ManagerMetaChip>{grant.validUntil ? `until ${formatDateTimeLabel(grant.validUntil)}` : 'no end date'}</ManagerMetaChip>
+                              <ManagerMetaChip>{getGrantBusinessSummary(grant)}</ManagerMetaChip>
+                              {getGrantComplianceUntilLabel(grant) ? <ManagerMetaChip>{`compliant until ${formatDateTimeLabel(getGrantComplianceUntilLabel(grant)!)}`}</ManagerMetaChip> : null}
+                            </div>
+                          </ManagerOverviewRow>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Credentials</CardTitle>
-                <CardDescription>Current credentials linked to this employee identity.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {credentialsQuery.isError || credentialTypesQuery.isError ? <ErrorText message="Could not load credentials." /> : null}
-                {credentialsQuery.isLoading || credentialTypesQuery.isLoading ? <MutedText message="Loading credentials..." /> : null}
-                {!credentialsQuery.isLoading && !credentialTypesQuery.isLoading && credentials.length === 0 ? <EmptyText message="No credentials assigned yet." /> : null}
-                {!credentialsQuery.isLoading && !credentialTypesQuery.isLoading && credentials.length > 0 ? (
-                  <div className="grid gap-3">
-                    {credentials.map((credential) => {
-                      const credentialType = credentialTypesQuery.data?.get(credential.credentialTypeId);
+            <TabsContent value="credentials" className="mt-5">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Credentials</CardTitle>
+                  <CardDescription>Current credentials linked to this employee identity.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {credentialsQuery.isError || credentialTypesQuery.isError ? <ErrorText message="Could not load credentials." /> : null}
+                  {credentialsQuery.isLoading || credentialTypesQuery.isLoading ? <MutedText message="Loading credentials..." /> : null}
+                  {!credentialsQuery.isLoading && !credentialTypesQuery.isLoading && credentials.length === 0 ? <EmptyText message="No credentials assigned yet." /> : null}
+                  {!credentialsQuery.isLoading && !credentialTypesQuery.isLoading && credentials.length > 0 ? (
+                    <div className="grid gap-3">
+                      {credentials.map((credential) => {
+                        const credentialType = credentialTypesQuery.data?.get(credential.credentialTypeId);
 
-                      return (
-                        <div key={credential.id} className="rounded-structural border border-border p-4">
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                              <p className="font-medium text-foreground">{credentialType?.name ?? credential.formattedIdentifier}</p>
-                              <p className="mt-1 text-[13px] text-muted-foreground">{credential.formattedIdentifier}</p>
+                        return (
+                          <ManagerOverviewRow key={credential.id}>
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <p className="text-[15px] font-semibold text-foreground">{credentialType?.name ?? credential.formattedIdentifier}</p>
+                                <p className="mt-1 text-[14px] text-muted-foreground">{credential.formattedIdentifier}</p>
+                              </div>
+                              <Badge variant={getCredentialStatusVariant(credential.status)}>{credential.status}</Badge>
                             </div>
-                            <Badge variant={getCredentialStatusVariant(credential.status)}>{credential.status}</Badge>
-                          </div>
-                          <dl className="mt-4 grid gap-2 text-[13px] text-muted-foreground sm:grid-cols-2">
-                            <div className="flex items-center justify-between gap-3 sm:block">
-                              <dt>Purpose</dt>
-                              <dd className="text-right text-foreground sm:mt-1 sm:text-left">{credential.purpose}</dd>
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              <ManagerMetaChip>{credential.purpose}</ManagerMetaChip>
+                              <ManagerMetaChip>{credential.validUntil ? `valid until ${formatDateTimeLabel(credential.validUntil)}` : 'no end date'}</ManagerMetaChip>
                             </div>
-                            <div className="flex items-center justify-between gap-3 sm:block">
-                              <dt>Valid until</dt>
-                              <dd className="text-right text-foreground sm:mt-1 sm:text-left">{credential.validUntil ? formatDateTimeLabel(credential.validUntil) : 'No end date'}</dd>
-                            </div>
-                          </dl>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : null}
-              </CardContent>
-            </Card>
-          </div>
+                          </ManagerOverviewRow>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </>
       ) : null}
     </section>
@@ -274,13 +331,12 @@ function EmployeeSummary({ employee, managerEmployeeId }: { readonly employee: E
             <Badge variant="outline">{employee.managerEmployeeId === managerEmployeeId ? 'Direct report' : 'Indirect report'}</Badge>
           </div>
           <p className="mt-2 text-[14px] text-muted-foreground">{employee.email ?? 'No email'}</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <ManagerMetaChip>{employee.employeeNumber ?? 'No employee number'}</ManagerMetaChip>
+            <ManagerMetaChip>{employee.organizationUnit.name}</ManagerMetaChip>
+            <ManagerMetaChip>{employee.jobTitle ?? 'No job title'}</ManagerMetaChip>
+          </div>
         </div>
-      </div>
-      <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Info label="Employee Number" value={employee.employeeNumber ?? '-'} />
-        <Info label="Organizational Unit" value={employee.organizationUnit.name} />
-        <Info label="Job Title" value={employee.jobTitle ?? '-'} />
-        <Info label="Reporting Level" value={employee.managerEmployeeId === managerEmployeeId ? 'Direct' : 'Indirect'} />
       </div>
     </Card>
   );
@@ -317,4 +373,44 @@ function getCredentialStatusVariant(status: CredentialResponse['status']) {
     default:
       return 'outline';
   }
+}
+
+function formatRequestStatus(request: PackageRequestResponse) {
+  if (request.status === 'InProgress') {
+    return 'In Progress';
+  }
+
+  return request.subStatus === 'PartiallyApproved'
+    ? 'Completed - Partially Approved'
+    : request.subStatus === 'Approved'
+      ? 'Completed - Approved'
+      : request.subStatus === 'Rejected'
+        ? 'Completed - Rejected'
+        : request.subStatus === 'Expired'
+          ? 'Completed - Expired'
+          : 'Completed';
+}
+
+function getRequestStatusVariant(request: PackageRequestResponse) {
+  if (request.status === 'InProgress') {
+    return 'secondary';
+  }
+
+  switch (request.subStatus) {
+    case 'Approved':
+      return 'success';
+    case 'Rejected':
+    case 'Expired':
+      return 'error';
+    default:
+      return 'secondary';
+  }
+}
+
+function ManagerOverviewRow({ children, className, ...props }: React.ComponentProps<'div'>) {
+  return <div className={`rounded-[18px] border border-border bg-content p-5 shadow-[0_10px_28px_rgba(17,24,39,0.08)]${className ? ` ${className}` : ''}`} {...props}>{children}</div>;
+}
+
+function ManagerMetaChip({ children }: { readonly children: React.ReactNode }) {
+  return <span className="inline-flex items-center rounded-[10px] border border-border bg-background px-3 py-1 text-[12px] font-medium text-muted-foreground">{children}</span>;
 }
