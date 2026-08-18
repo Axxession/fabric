@@ -8,6 +8,7 @@ type AdminTenantSettingsResponse = components['schemas']['AdminTenantSettingsRes
 type OidcSettingsResponse = components['schemas']['OidcSettingsResponse'];
 type LogoSettingsResponse = components['schemas']['LogoSettingsResponse'];
 type GraphEmailSettingsResponse = components['schemas']['GraphEmailSettingsResponse'];
+type KeycloakSettingsResponse = components['schemas']['KeycloakSettingsResponse'];
 
 export type UpdateTenantSettingsRequest = components['schemas']['UpdateTenantSettingsRequest'];
 
@@ -20,6 +21,7 @@ export type TenantSettings = {
 
 export type AdminTenantSettings = TenantSettings & {
   email: TenantEmailSettings | null;
+  keycloak: TenantKeycloakSettings | null;
 };
 
 export type TenantOidcSettings = {
@@ -31,6 +33,8 @@ export type TenantOidcSettings = {
 export type TenantLogoSettings = Required<LogoSettingsResponse>;
 
 export type TenantEmailSettings = Required<GraphEmailSettingsResponse>;
+
+export type TenantKeycloakSettings = Required<KeycloakSettingsResponse>;
 
 export const tenantSettingsQueryKey = ['settings', 'tenant'] as const;
 
@@ -89,8 +93,9 @@ function parseTenantSettings(value: TenantSettingsResponse): TenantSettings {
 function parseAdminTenantSettings(value: AdminTenantSettingsResponse): AdminTenantSettings {
   const settings = parseTenantSettings(value);
   const email = parseEmailSettings(value.email);
+  const keycloak = parseKeycloakSettings(value.keycloak);
 
-  return { ...settings, email };
+  return { ...settings, email, keycloak };
 }
 
 function parseOidcSettings(value: OidcSettingsResponse | undefined): TenantOidcSettings {
@@ -140,5 +145,27 @@ function parseEmailSettings(value: GraphEmailSettingsResponse | null | undefined
     applicationId: value.applicationId,
     saveSentItems: value.saveSentItems,
     hasSecret: value.hasSecret,
+  };
+}
+
+function parseKeycloakSettings(value: KeycloakSettingsResponse | null | undefined): TenantKeycloakSettings | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (
+    typeof value.url !== 'string'
+    || typeof value.realm !== 'string'
+    || typeof value.clientId !== 'string'
+    || typeof value.hasClientSecret !== 'boolean'
+  ) {
+    throw new Error('Tenant keycloak settings response is invalid.');
+  }
+
+  return {
+    url: value.url,
+    realm: value.realm,
+    clientId: value.clientId,
+    hasClientSecret: value.hasClientSecret,
   };
 }

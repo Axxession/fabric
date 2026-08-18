@@ -1,3 +1,4 @@
+using Fabric.Server.Keycloak;
 using Fabric.Server.Notifications;
 
 namespace Fabric.Server.Infrastructure.Tenancy;
@@ -16,6 +17,7 @@ public sealed class DefaultTenantOptions
     public string Id { get; set; } = TenantContext.DefaultTenantId;
     public OidcOptions Oidc { get; set; } = new();
     public GraphEmailSettings? GraphEmail { get; set; }
+    public KeycloakSettings? Keycloak { get; set; }
 }
 
 public class OidcOptions

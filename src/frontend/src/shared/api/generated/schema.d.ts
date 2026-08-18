@@ -17315,6 +17315,7 @@ export interface components {
             theme: components["schemas"]["ThemeSettingsResponse"];
             logo: null | components["schemas"]["LogoSettingsResponse"];
             email: null | components["schemas"]["GraphEmailSettingsResponse"];
+            keycloak: null | components["schemas"]["KeycloakSettingsResponse"];
         };
         /** @enum {unknown} */
         AffiliationStatus: "Active" | "Ended";
@@ -18851,6 +18852,12 @@ export interface components {
         };
         JsonElement: unknown;
         JsonObject: Record<string, never>;
+        KeycloakSettingsResponse: {
+            url: string;
+            realm: string;
+            clientId: string;
+            hasClientSecret: boolean;
+        };
         /** @enum {unknown} */
         KeyDiversificationAlgorithm: "None" | "NxpAn10922";
         KeyDiversificationStrategyResponse: {
@@ -21022,6 +21029,12 @@ export interface components {
             name: string;
             description: null | string;
         };
+        UpdateKeycloakSettingsRequest: {
+            url: string;
+            realm: string;
+            clientId: string;
+            clientSecret: null | string;
+        };
         UpdateKeyDiversificationStrategyRequest: {
             name: string;
             algorithm: components["schemas"]["KeyDiversificationAlgorithm"];
@@ -21110,6 +21123,7 @@ export interface components {
             oidc: components["schemas"]["UpdateOidcSettingsRequest"];
             theme: components["schemas"]["UpdateThemeSettingsRequest"];
             email: null | components["schemas"]["UpdateGraphEmailSettingsRequest"];
+            keycloak: null | components["schemas"]["UpdateKeycloakSettingsRequest"];
         };
         UpdateThemeSettingsRequest: {
             backgroundColor: string;

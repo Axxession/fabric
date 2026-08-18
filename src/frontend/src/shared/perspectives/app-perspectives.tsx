@@ -1,10 +1,10 @@
-import { Briefcase, Building2, ShieldCheck, UsersRound } from 'lucide-react';
+import { Briefcase, Building2, PlugZap, ShieldCheck, UsersRound } from 'lucide-react';
 import type { ComponentType } from 'react';
 
 import type { CurrentActor } from '@/shared/actors/current-actor';
 import { i18n } from '@/shared/i18n/i18n';
 
-export type PerspectiveId = 'employee' | 'manager' | 'security-officer' | 'administration';
+export type PerspectiveId = 'employee' | 'manager' | 'security-officer' | 'integrations' | 'administration';
 
 export type AppPerspective = {
   id: PerspectiveId;
@@ -76,13 +76,27 @@ function getAppPerspectives(): readonly AppPerspective[] {
       isAvailable: (actor) => actor.isSecurityOfficer,
     },
     {
+      id: 'integrations',
+      label: i18n.t('perspectives.integrations.label'),
+      shortLabel: i18n.t('perspectives.integrations.shortLabel'),
+      description: i18n.t('perspectives.integrations.description'),
+      to: '/integrations',
+      icon: PlugZap,
+      priority: 4,
+      menuItems: [
+        { label: i18n.t('perspectives.integrations.menu.microsoftGraph.label'), description: i18n.t('perspectives.integrations.menu.microsoftGraph.description'), to: '/integrations/microsoft-graph' },
+        { label: i18n.t('perspectives.integrations.menu.keycloak.label'), description: i18n.t('perspectives.integrations.menu.keycloak.description'), to: '/integrations/keycloak' },
+      ],
+      isAvailable: (actor) => actor.roles.includes('integrator'),
+    },
+    {
       id: 'administration',
       label: i18n.t('perspectives.administration.label'),
       shortLabel: i18n.t('perspectives.administration.shortLabel'),
       description: i18n.t('perspectives.administration.description'),
       to: '/administration',
       icon: Building2,
-      priority: 4,
+      priority: 5,
       menuItems: [
         { label: i18n.t('perspectives.administration.menu.sites.label'), description: i18n.t('perspectives.administration.menu.sites.description'), to: '/administration/sites' },
         { label: i18n.t('perspectives.administration.menu.myOrganization.label'), description: i18n.t('perspectives.administration.menu.myOrganization.description'), to: '/administration/my-organization' },

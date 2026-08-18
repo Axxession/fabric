@@ -14,6 +14,8 @@ public static class TenancyServiceCollectionExtensions
                 "Tenancy:DefaultTenant:Oidc must include MetadataUrl and ClientId. MetadataUrl must be HTTPS unless RequireHttpsMetadata is false.")
             .Validate(options => options.Mode != TenancyMode.SingleTenant || options.DefaultTenant.GraphEmail is null || options.DefaultTenant.GraphEmail.IsConfigured(),
                 "Tenancy:DefaultTenant:GraphEmail must include FromEmail, FromName, AzureTenantId, ApplicationId and Secret when configured.")
+            .Validate(options => options.Mode != TenancyMode.SingleTenant || options.DefaultTenant.Keycloak is null || options.DefaultTenant.Keycloak.IsConfigured(),
+                "Tenancy:DefaultTenant:Keycloak must include Url, Realm, ClientId and ClientSecret when configured.")
             .ValidateOnStart();
 
         services.AddOptions<AdminOidcOptions>()

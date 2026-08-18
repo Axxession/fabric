@@ -6,6 +6,7 @@ public static class FabricRoleDefaults
     public const string HostRole = "host";
     public const string ManagerRole = "manager";
     public const string SecurityOfficerRole = "security-officer";
+    public const string IntegratorRole = "integrator";
     public const string ContractorEnrollmentRole = "contractor-enrollment";
     public const string ContractorPlanningRole = "contractor-planning";
 

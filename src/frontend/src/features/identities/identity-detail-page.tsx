@@ -23,7 +23,7 @@ type AccessGrantResponse = components['schemas']['AccessGrantResponse'];
 type CredentialPACSAssignmentResponse = components['schemas']['CredentialPACSAssignmentResponse'];
 type CredentialResponse = components['schemas']['CredentialResponse'];
 type CredentialTypeResponse = components['schemas']['CredentialTypeResponse'];
-type ContractorCompanyResponse = components['schemas']['ContractorCompanyResponse'];
+type ContractorCompanyResponse = components['schemas']['CompanyResponse'];
 type ContractorResponse = components['schemas']['ContractorResponse'];
 type EmployeeResponse = components['schemas']['EmployeeResponse'];
 type IdentityAffiliationSummaryResponse = components['schemas']['IdentityAffiliationSummaryResponse'];
@@ -1697,9 +1697,8 @@ type HeaderBadge = {
   variant: 'success' | 'warning' | 'error' | 'secondary' | 'outline' | 'default';
 };
 
-type AccessTableRow = {
+type AccessTableRowBase = {
   key: string;
-  kind: 'requested' | 'automated';
   packageName: string;
   sourceReason: string;
   validityLabel: string;
@@ -1707,8 +1706,11 @@ type AccessTableRow = {
   complianceBadge: { label: string; variant: 'success' | 'warning' | 'error' | 'secondary' | 'outline' | 'default' };
   provisioningBadge: { label: string; variant: 'success' | 'secondary' | 'error' };
   shouldExpand: boolean;
-  group: PackageAssignmentGroupView | AutomatedPackageAssignmentGroupView;
 };
+
+type AccessTableRow =
+  | (AccessTableRowBase & { kind: 'requested'; group: PackageAssignmentGroupView })
+  | (AccessTableRowBase & { kind: 'automated'; group: AutomatedPackageAssignmentGroupView });
 
 function getSubjectSummaryCounts(subjects: readonly PACSSubjectResponse[]): SubjectSummaryCounts {
   return {

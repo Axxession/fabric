@@ -310,6 +310,15 @@ const resources = {
             identity360: { label: 'Identity 360', description: 'Review canonical identities and drill into full identity records.' },
           },
         },
+        integrations: {
+          label: 'Integrations',
+          shortLabel: 'Integr.',
+          description: 'Integration workspace for tenant-scoped external service configuration.',
+          menu: {
+            microsoftGraph: { label: 'Microsoft Graph', description: 'Configure tenant email integration settings.' },
+            keycloak: { label: 'Keycloak', description: 'Configure tenant Keycloak API credentials.' },
+          },
+        },
         administration: {
           label: 'Administration',
           shortLabel: 'Admin',
@@ -345,6 +354,54 @@ const resources = {
           directAndIndirect: 'Direct + indirect',
           loadingTeamSummary: 'Loading team summary...',
           couldNotLoadTeamSummary: 'Could not load team summary.',
+        },
+      },
+      integrationsSettings: {
+        common: {
+          loading: 'Loading tenant integration settings...',
+          saving: 'Saving...',
+        },
+        microsoftGraph: {
+          title: 'Microsoft Graph',
+          description: 'Configure sender details and application credentials used for tenant email delivery.',
+          cardTitle: 'Tenant Microsoft Graph settings',
+          cardDescription: 'These settings are stored per tenant and used for Graph email integration.',
+          loadError: 'Could not load Microsoft Graph settings.',
+          saveSuccess: 'Microsoft Graph settings saved.',
+          saveError: 'Could not save Microsoft Graph settings.',
+          fields: {
+            fromEmail: 'From email',
+            fromName: 'From name',
+            azureTenantId: 'Azure tenant ID',
+            applicationId: 'Application ID',
+            secret: 'Client secret',
+            saveSentItems: 'Save sent items',
+          },
+          hints: {
+            secretConfigured: 'A secret is already configured. Leave blank to keep it unchanged.',
+            secretRequired: 'Enter a secret to configure this integration.',
+          },
+          save: 'Save Microsoft Graph settings',
+        },
+        keycloak: {
+          title: 'Keycloak',
+          description: 'Configure the tenant Keycloak Admin API connection used for user and role management.',
+          cardTitle: 'Tenant Keycloak settings',
+          cardDescription: 'These settings are stored per tenant and used for Keycloak API integration.',
+          loadError: 'Could not load Keycloak settings.',
+          saveSuccess: 'Keycloak settings saved.',
+          saveError: 'Could not save Keycloak settings.',
+          fields: {
+            url: 'Base URL',
+            realm: 'Realm',
+            clientId: 'Client ID',
+            clientSecret: 'Client secret',
+          },
+          hints: {
+            clientSecretConfigured: 'A client secret is already configured. Leave blank to keep it unchanged.',
+            clientSecretRequired: 'Enter a client secret to configure this integration.',
+          },
+          save: 'Save Keycloak settings',
         },
       },
       home: {

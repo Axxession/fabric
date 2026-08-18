@@ -11,7 +11,8 @@ public sealed record AdminTenantSettingsResponse(
     OidcSettingsResponse Oidc,
     ThemeSettingsResponse Theme,
     LogoSettingsResponse? Logo,
-    GraphEmailSettingsResponse? Email);
+    GraphEmailSettingsResponse? Email,
+    KeycloakSettingsResponse? Keycloak);
 
 public sealed record OidcSettingsResponse(
     string MetadataUrl,
@@ -44,10 +45,17 @@ public sealed record GraphEmailSettingsResponse(
     bool SaveSentItems,
     bool HasSecret);
 
+public sealed record KeycloakSettingsResponse(
+    string Url,
+    string Realm,
+    string ClientId,
+    bool HasClientSecret);
+
 public sealed record UpdateTenantSettingsRequest(
     UpdateOidcSettingsRequest Oidc,
     UpdateThemeSettingsRequest Theme,
-    UpdateGraphEmailSettingsRequest? Email);
+    UpdateGraphEmailSettingsRequest? Email,
+    UpdateKeycloakSettingsRequest? Keycloak);
 
 public sealed record UpdateOidcSettingsRequest(
     string MetadataUrl,
@@ -77,3 +85,9 @@ public sealed record UpdateGraphEmailSettingsRequest(
     string ApplicationId,
     string? Secret,
     bool SaveSentItems);
+
+public sealed record UpdateKeycloakSettingsRequest(
+    string Url,
+    string Realm,
+    string ClientId,
+    string? ClientSecret);

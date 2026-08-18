@@ -1,9 +1,12 @@
 using Fabric.Server.Infrastructure.Tenancy;
 using Fabric.Server.Infrastructure;
+using Fabric.Server.Infrastructure.Authentication;
+using Fabric.Server.Keycloak;
 using Fabric.Server.Notifications;
 using Fabric.Server.Tenants.Contracts;
 using Fabric.Server.Tenants.Domain;
 using Fabric.Server.Tenants.Persistence;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text.RegularExpressions;
@@ -25,11 +28,13 @@ public static class TenantsEndpoints
         app.MapGet("/api/tenants/admin/settings", GetAdminTenantSettings)
             .WithDescription("Retrieve editable tenant settings")
             .WithSummary("Retrieve editable tenant settings")
+            .RequireAuthorization(new AuthorizeAttribute { Roles = FabricRoleDefaults.IntegratorRole })
             .Produces<AdminTenantSettingsResponse>();
 
         app.MapPut("/api/tenants/admin/settings", UpdateAdminTenantSettings)
             .WithDescription("Update editable tenant settings")
             .WithSummary("Update editable tenant settings")
+            .RequireAuthorization(new AuthorizeAttribute { Roles = FabricRoleDefaults.IntegratorRole })
             .Produces<AdminTenantSettingsResponse>()
             .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound);
@@ -51,7 +56,7 @@ public static class TenantsEndpoints
         TenantsDbContext dbContext,
         CancellationToken cancellationToken = default)
     {
-        IResult? validationResult = ValidateRequest(request, tenantContext.Configuration.GraphEmail);
+        IResult? validationResult = ValidateRequest(request, tenantContext.Configuration.GraphEmail, tenantContext.Configuration.Keycloak);
         if (validationResult is not null)
             return validationResult;
 
@@ -89,7 +94,8 @@ public static class TenantsEndpoints
                 SuccessColor = request.Theme.SuccessColor.Trim(),
                 SuccessBackgroundColor = request.Theme.SuccessBackgroundColor.Trim()
             },
-            GraphEmail = ToGraphEmailSettings(request.Email, tenant.Configuration.GraphEmail)
+            GraphEmail = ToGraphEmailSettings(request.Email, tenant.Configuration.GraphEmail),
+            Keycloak = ToKeycloakSettings(request.Keycloak, tenant.Configuration.Keycloak)
         };
 
         tenant.UpdateConfiguration(configuration);
@@ -115,7 +121,21 @@ public static class TenantsEndpoints
         };
     }
 
-    private static IResult? ValidateRequest(UpdateTenantSettingsRequest request, GraphEmailSettings? currentEmail)
+    private static KeycloakSettings? ToKeycloakSettings(UpdateKeycloakSettingsRequest? request, KeycloakSettings? current)
+    {
+        if (request is null)
+            return null;
+
+        return new KeycloakSettings
+        {
+            Url = request.Url.Trim(),
+            Realm = request.Realm.Trim(),
+            ClientId = request.ClientId.Trim(),
+            ClientSecret = string.IsNullOrWhiteSpace(request.ClientSecret) ? current?.ClientSecret ?? string.Empty : request.ClientSecret.Trim()
+        };
+    }
+
+    private static IResult? ValidateRequest(UpdateTenantSettingsRequest request, GraphEmailSettings? currentEmail, KeycloakSettings? currentKeycloak)
     {
         if (request.Oidc is null)
             return ValidationProblem("OIDC settings are required.");
@@ -153,19 +173,32 @@ public static class TenantsEndpoints
         if (colors.Any(color => string.IsNullOrWhiteSpace(color) || !HexColorRegex.IsMatch(color.Trim())))
             return ValidationProblem("Theme colors must be hex colors.");
 
-        if (request.Email is null)
-            return null;
-
-        if (string.IsNullOrWhiteSpace(request.Email.FromEmail)
-            || string.IsNullOrWhiteSpace(request.Email.FromName)
-            || string.IsNullOrWhiteSpace(request.Email.AzureTenantId)
-            || string.IsNullOrWhiteSpace(request.Email.ApplicationId))
+        if (request.Email is not null
+            && (string.IsNullOrWhiteSpace(request.Email.FromEmail)
+                || string.IsNullOrWhiteSpace(request.Email.FromName)
+                || string.IsNullOrWhiteSpace(request.Email.AzureTenantId)
+                || string.IsNullOrWhiteSpace(request.Email.ApplicationId)))
         {
             return ValidationProblem("Email settings must include sender email, sender name, Azure tenant ID and application ID.");
         }
 
-        if (string.IsNullOrWhiteSpace(request.Email.Secret) && string.IsNullOrWhiteSpace(currentEmail?.Secret))
+        if (request.Email is not null && string.IsNullOrWhiteSpace(request.Email.Secret) && string.IsNullOrWhiteSpace(currentEmail?.Secret))
             return ValidationProblem("Email settings require a secret when first configured.");
+
+        if (request.Keycloak is null)
+            return null;
+
+        if (string.IsNullOrWhiteSpace(request.Keycloak.Url) || !Uri.TryCreate(request.Keycloak.Url, UriKind.Absolute, out _))
+            return ValidationProblem("Keycloak URL must be an absolute URL.");
+
+        if (string.IsNullOrWhiteSpace(request.Keycloak.Realm))
+            return ValidationProblem("Keycloak realm is required.");
+
+        if (string.IsNullOrWhiteSpace(request.Keycloak.ClientId))
+            return ValidationProblem("Keycloak client ID is required.");
+
+        if (string.IsNullOrWhiteSpace(request.Keycloak.ClientSecret) && string.IsNullOrWhiteSpace(currentKeycloak?.ClientSecret))
+            return ValidationProblem("Keycloak settings require a client secret when first configured.");
 
         return null;
     }

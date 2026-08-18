@@ -173,6 +173,7 @@ function isPerspectiveRootPath(itemPath: string) {
   return itemPath === '/employee'
     || itemPath === '/manager'
     || itemPath === '/security-officer'
+    || itemPath === '/integrations'
     || itemPath === '/administration';
 }
 

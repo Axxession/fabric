@@ -1,3 +1,4 @@
+using Fabric.Server.Keycloak;
 using Fabric.Server.Tenants.Domain;
 using Fabric.Server.Notifications;
 
@@ -18,7 +19,8 @@ public static class TenantSettingsMapper
             configuration.Oidc.ToResponse(),
             configuration.Theme.ToResponse(),
             configuration.Logo?.ToResponse(),
-            configuration.GraphEmail?.ToResponse());
+            configuration.GraphEmail?.ToResponse(),
+            configuration.Keycloak?.ToResponse());
 
     private static OidcSettingsResponse ToResponse(this OidcSettings oidc) =>
         new(oidc.MetadataUrl, oidc.ClientId, oidc.RequireHttpsMetadata);
@@ -51,4 +53,11 @@ public static class TenantSettingsMapper
             email.ApplicationId,
             email.SaveSentItems,
             !string.IsNullOrWhiteSpace(email.Secret));
+
+    private static KeycloakSettingsResponse ToResponse(this KeycloakSettings keycloak) =>
+        new(
+            keycloak.Url,
+            keycloak.Realm,
+            keycloak.ClientId,
+            !string.IsNullOrWhiteSpace(keycloak.ClientSecret));
 }

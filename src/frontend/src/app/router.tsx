@@ -4,6 +4,7 @@ import { lazy, Suspense } from 'react';
 
 import { AppLayout } from '@/shared/layout/app-layout';
 import { ProtectedRoute } from '@/shared/auth/protected-route';
+import { IntegratorRoute } from '@/features/integrations/integrator-route';
 import { EmployeeContractorPlannerRoute } from '@/features/perspectives/employee-contractor-planner-route';
 import { EmployeeHostRoute } from '@/features/perspectives/employee-host-route';
 import { PerspectiveHomePage } from '@/features/perspectives/perspective-home-page';
@@ -61,6 +62,8 @@ const DesfireStudioPage = lazy(() => import('@/features/desfire-studio/desfire-s
 const EmployeeCreatePage = lazy(() => import('@/features/administration/employee-create-page'));
 const EmployeeEditPage = lazy(() => import('@/features/administration/employee-edit-page'));
 const IdentitiesPage = lazy(() => import('@/features/identities/identities-page'));
+const IntegrationsKeycloakPage = lazy(() => import('@/features/integrations/keycloak-page'));
+const IntegrationsMicrosoftGraphPage = lazy(() => import('@/features/integrations/microsoft-graph-page'));
 const FacilityHardwareAgentDetailPage = lazy(() => import('@/features/facility/hardware-agent-detail-page'));
 const FacilityBuildingEditPage = lazy(() => import('@/features/facility/building-edit-page'));
 const FacilityRoomEditPage = lazy(() => import('@/features/facility/room-edit-page'));
@@ -328,6 +331,36 @@ const securityOfficerIdentityRequestDetailRoute = createRoute({
   getParentRoute: () => mainLayoutRoute,
   path: '/security-officer/identities/$identityId/requests/$requestId',
   component: () => <ProtectedLazyRoute component={<EmployeeRequestDetailPage />} />,
+});
+
+const integrationsRoute = createRoute({
+  getParentRoute: () => mainLayoutRoute,
+  path: '/integrations',
+  component: () => (
+    <ProtectedRoute>
+      <IntegratorRoute>
+        <Outlet />
+      </IntegratorRoute>
+    </ProtectedRoute>
+  ),
+});
+
+const integrationsIndexRoute = createRoute({
+  getParentRoute: () => integrationsRoute,
+  path: '/',
+  component: () => <Navigate to="/integrations/microsoft-graph" replace />,
+});
+
+const integrationsMicrosoftGraphRoute = createRoute({
+  getParentRoute: () => integrationsRoute,
+  path: '/microsoft-graph',
+  component: () => <LazyRoute component={<IntegrationsMicrosoftGraphPage />} />,
+});
+
+const integrationsKeycloakRoute = createRoute({
+  getParentRoute: () => integrationsRoute,
+  path: '/keycloak',
+  component: () => <LazyRoute component={<IntegrationsKeycloakPage />} />,
 });
 
 const administrationRoute = createRoute({
@@ -895,6 +928,11 @@ const routeTree = rootRoute.addChildren([
     securityOfficerIdentitiesRoute,
     securityOfficerIdentityDetailRoute,
     securityOfficerIdentityRequestDetailRoute,
+    integrationsRoute.addChildren([
+      integrationsIndexRoute,
+      integrationsMicrosoftGraphRoute,
+      integrationsKeycloakRoute,
+    ]),
     administrationRoute.addChildren([
       administrationIndexRoute,
       administrationSitesRoute,

@@ -29,7 +29,8 @@ public sealed class TenantSeeder(TenantsDbContext dbContext, IOptions<TenancyOpt
             tenant = Tenant.Create(defaultTenant.Id, new TenantConfiguration
             {
                 Oidc = configuredOidc,
-                GraphEmail = defaultTenant.GraphEmail
+                GraphEmail = defaultTenant.GraphEmail,
+                Keycloak = defaultTenant.Keycloak
             });
 
             dbContext.Tenants.Add(tenant);
