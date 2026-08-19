@@ -36,3 +36,9 @@ When a task matches one of the conditions below, use the Read tool to load the c
 | `design/credential-management.md` | Credential issuance, ranges, recycle rules, PACS credential targeting | changing credential allocation, issuance, recycle, or PACS credential provisioning |
 | `design/printing.md` | PrintDesign ownership, template parsing, rendering split, DESFire/label integration boundaries | changing visual print designs, rendering, card/label template storage, or print-job ownership |
 | `design/access-cross-context-use-cases.md` | End-to-end examples across access domains | validating or understanding cross-context access flows |
+
+### Integrations
+
+| File | Covers | Load when... |
+|---|---|---|
+| `integration/keycloak-tenant.md` | Tenant-scoped Keycloak user management, groups, roles, membership, password reset, and boundary to realm provisioning | changing or understanding the tenant Keycloak integration |
