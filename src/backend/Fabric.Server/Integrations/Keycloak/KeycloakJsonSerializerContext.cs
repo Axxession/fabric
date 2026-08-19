@@ -1,0 +1,43 @@
+using System.Text.Json.Serialization;
+using Fabric.Server.Integrations.Keycloak.Contracts;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Fabric.Server.Integrations.Keycloak;
+
+[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, UseStringEnumConverter = true)]
+[JsonSerializable(typeof(CreateKeycloakGroupRequest))]
+[JsonSerializable(typeof(CreateKeycloakRoleRequest))]
+[JsonSerializable(typeof(CreateKeycloakUserRequest))]
+[JsonSerializable(typeof(KeycloakAccessTokenResponse))]
+[JsonSerializable(typeof(KeycloakGroupRepresentation))]
+[JsonSerializable(typeof(KeycloakGroupRepresentation[]))]
+[JsonSerializable(typeof(KeycloakGroupMembershipResponse))]
+[JsonSerializable(typeof(KeycloakGroupMembershipResponse[]))]
+[JsonSerializable(typeof(KeycloakGroupResponse))]
+[JsonSerializable(typeof(KeycloakGroupResponse[]))]
+[JsonSerializable(typeof(KeycloakGroupWriteRequest))]
+[JsonSerializable(typeof(KeycloakResetPasswordRequest))]
+[JsonSerializable(typeof(KeycloakRoleMappingRepresentation))]
+[JsonSerializable(typeof(KeycloakRoleMappingRepresentation[]))]
+[JsonSerializable(typeof(KeycloakRoleRepresentation))]
+[JsonSerializable(typeof(KeycloakRoleRepresentation[]))]
+[JsonSerializable(typeof(KeycloakRoleResponse))]
+[JsonSerializable(typeof(KeycloakRoleResponse[]))]
+[JsonSerializable(typeof(KeycloakRoleWriteRequest))]
+[JsonSerializable(typeof(KeycloakUserRepresentation))]
+[JsonSerializable(typeof(KeycloakUserRepresentation[]))]
+[JsonSerializable(typeof(KeycloakUserMembershipResponse))]
+[JsonSerializable(typeof(KeycloakUserMembershipResponse[]))]
+[JsonSerializable(typeof(KeycloakUserResponse))]
+[JsonSerializable(typeof(KeycloakUserResponse[]))]
+[JsonSerializable(typeof(KeycloakUserWriteRequest))]
+[JsonSerializable(typeof(ListKeycloakGroupsRequest))]
+[JsonSerializable(typeof(ListKeycloakRolesRequest))]
+[JsonSerializable(typeof(ListKeycloakUsersRequest))]
+[JsonSerializable(typeof(ProblemDetails))]
+[JsonSerializable(typeof(ResetKeycloakUserPasswordRequest))]
+[JsonSerializable(typeof(UpdateKeycloakGroupRequest))]
+[JsonSerializable(typeof(UpdateKeycloakRealmRoleAssignmentsRequest))]
+[JsonSerializable(typeof(UpdateKeycloakRoleRequest))]
+[JsonSerializable(typeof(UpdateKeycloakUserRequest))]
+internal sealed partial class KeycloakJsonSerializerContext : JsonSerializerContext;

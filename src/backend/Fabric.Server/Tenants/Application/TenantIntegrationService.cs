@@ -26,6 +26,12 @@ public sealed class TenantIntegrationService(
             !string.IsNullOrWhiteSpace(config.AdminApi.ClientSecret)));
     }
 
+    public async Task<KeycloakAdminApiIntegrationConfig?> GetKeycloakAdminApiConfigAsync(CancellationToken cancellationToken = default)
+    {
+        KeycloakIntegrationConfig? config = await GetConfigAsync<KeycloakIntegrationConfig>(TenantIntegrationName.Keycloak, cancellationToken);
+        return config?.AdminApi;
+    }
+
     public async Task<MicrosoftGraphIntegrationResponse> GetMicrosoftGraphAsync(CancellationToken cancellationToken = default)
     {
         MicrosoftGraphIntegrationConfig config = await GetConfigAsync<MicrosoftGraphIntegrationConfig>(TenantIntegrationName.MicrosoftGraph, cancellationToken) ?? new();

@@ -16,6 +16,8 @@ using Fabric.Server.Hardware;
 using Fabric.Server.Hardware.Endpoints;
 using Fabric.Server.Identities;
 using Fabric.Server.Identities.Endpoints;
+using Fabric.Server.Integrations.Keycloak;
+using Fabric.Server.Integrations.Keycloak.Endpoints;
 using Fabric.Server.Infrastructure;
 using Fabric.Server.Infrastructure.Authentication;
 using Fabric.Server.Infrastructure.Storage;
@@ -76,6 +78,7 @@ builder.Services.AddCors(options =>
 builder.Services
     .SetupActors(builder.Configuration)
     .SetupTenants(builder.Configuration)
+    .SetupKeycloakIntegration(builder.Configuration)
     .SetupIdentities(builder.Configuration)
     .SetupContractors(builder.Configuration)
     .SetupEmployees(builder.Configuration)
@@ -129,6 +132,9 @@ app.UseAuthorization();
 
 app.MapTenantEndpoints();
 app.MapTenantIntegrationEndpoints();
+app.MapKeycloakUserEndpoints();
+app.MapKeycloakRoleEndpoints();
+app.MapKeycloakGroupEndpoints();
 app.MapActorEndpoints();
 app.MapIdentityEndpoints();
 app.MapContractorModuleEndpoints();

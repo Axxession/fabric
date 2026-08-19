@@ -103,6 +103,7 @@ function getAppPerspectives(): readonly AppPerspective[] {
         { label: i18n.t('perspectives.administration.menu.accessModel.label'), description: i18n.t('perspectives.administration.menu.accessModel.description'), to: '/administration/access-model' },
         { label: i18n.t('perspectives.administration.menu.credentialTypes.label'), description: i18n.t('perspectives.administration.menu.credentialTypes.description'), to: '/administration/credential-types' },
         { label: i18n.t('perspectives.administration.menu.accessControl.label'), description: i18n.t('perspectives.administration.menu.accessControl.description'), to: '/administration/access-control' },
+        { label: i18n.t('perspectives.administration.menu.userManagement.label'), description: i18n.t('perspectives.administration.menu.userManagement.description'), to: '/administration/user-management' },
         { label: i18n.t('perspectives.administration.menu.clients.label'), description: i18n.t('perspectives.administration.menu.clients.description'), to: '/administration/clients' },
         { label: i18n.t('perspectives.administration.menu.automation.label'), description: i18n.t('perspectives.administration.menu.automation.description'), to: '/administration/automation' },
         { label: i18n.t('perspectives.administration.menu.notifications.label'), description: i18n.t('perspectives.administration.menu.notifications.description'), to: '/administration/notifications' },

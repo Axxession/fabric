@@ -64,6 +64,13 @@ const EmployeeEditPage = lazy(() => import('@/features/administration/employee-e
 const IdentitiesPage = lazy(() => import('@/features/identities/identities-page'));
 const IntegrationsKeycloakPage = lazy(() => import('@/features/integrations/keycloak-page'));
 const IntegrationsMicrosoftGraphPage = lazy(() => import('@/features/integrations/microsoft-graph-page'));
+const UserManagementPage = lazy(() => import('@/features/administration/user-management-page'));
+const KeycloakUserCreatePage = lazy(() => import('@/features/administration/keycloak-user-create-page'));
+const KeycloakUserEditPage = lazy(() => import('@/features/administration/keycloak-user-edit-page'));
+const KeycloakRoleCreatePage = lazy(() => import('@/features/administration/keycloak-role-create-page'));
+const KeycloakRoleEditPage = lazy(() => import('@/features/administration/keycloak-role-edit-page'));
+const KeycloakGroupCreatePage = lazy(() => import('@/features/administration/keycloak-group-create-page'));
+const KeycloakGroupEditPage = lazy(() => import('@/features/administration/keycloak-group-edit-page'));
 const FacilityHardwareAgentDetailPage = lazy(() => import('@/features/facility/hardware-agent-detail-page'));
 const FacilityBuildingEditPage = lazy(() => import('@/features/facility/building-edit-page'));
 const FacilityRoomEditPage = lazy(() => import('@/features/facility/room-edit-page'));
@@ -465,6 +472,48 @@ const administrationAccessControlRoute = createRoute({
   getParentRoute: () => administrationRoute,
   path: '/access-control',
   component: () => <LazyRoute component={<AccessControlPage />} />,
+});
+
+const administrationUserManagementRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/user-management',
+  component: () => <LazyRoute component={<UserManagementPage />} />,
+});
+
+const administrationUserManagementUserCreateRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/user-management/users/new',
+  component: () => <LazyRoute component={<KeycloakUserCreatePage />} />,
+});
+
+const administrationUserManagementUserEditRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/user-management/users/$userId/edit',
+  component: () => <LazyRoute component={<KeycloakUserEditPage />} />,
+});
+
+const administrationUserManagementRoleCreateRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/user-management/roles/new',
+  component: () => <LazyRoute component={<KeycloakRoleCreatePage />} />,
+});
+
+const administrationUserManagementRoleEditRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/user-management/roles/$roleId/edit',
+  component: () => <LazyRoute component={<KeycloakRoleEditPage />} />,
+});
+
+const administrationUserManagementGroupCreateRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/user-management/groups/new',
+  component: () => <LazyRoute component={<KeycloakGroupCreatePage />} />,
+});
+
+const administrationUserManagementGroupEditRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/user-management/groups/$groupId/edit',
+  component: () => <LazyRoute component={<KeycloakGroupEditPage />} />,
 });
 
 const administrationCredentialTypesRoute = createRoute({
@@ -948,10 +997,17 @@ const routeTree = rootRoute.addChildren([
         administrationAutomationKioskEditRoute,
         administrationAutomationKioskProfileEditRoute,
       ]),
-  administrationAccessModelRoute,
-  administrationCredentialTypesRoute,
-  administrationAccessControlRoute,
-  administrationNotificationsRoute,
+   administrationAccessModelRoute,
+   administrationCredentialTypesRoute,
+   administrationAccessControlRoute,
+   administrationUserManagementRoute,
+   administrationUserManagementUserCreateRoute,
+   administrationUserManagementUserEditRoute,
+   administrationUserManagementRoleCreateRoute,
+   administrationUserManagementRoleEditRoute,
+   administrationUserManagementGroupCreateRoute,
+   administrationUserManagementGroupEditRoute,
+   administrationNotificationsRoute,
   administrationCredentialTypeCreateRoute,
   administrationCredentialTypeEditRoute,
   administrationAccessItemCreateRoute,

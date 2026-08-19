@@ -14,7 +14,8 @@ public static class TenantIntegrationEndpoints
         RouteGroupBuilder group = app.MapGroup("/api/tenant-integrations")
             .RequireAuthorization(new AuthorizeAttribute { Roles = FabricRoleDefaults.IntegratorRole });
 
-        group.MapGet("/keycloak", GetKeycloak)
+        app.MapGet("/api/tenant-integrations/keycloak", GetKeycloak)
+            .RequireAuthorization(new AuthorizeAttribute { Roles = $"{FabricRoleDefaults.AdminRole},{FabricRoleDefaults.IntegratorRole}" })
             .Produces<KeycloakIntegrationResponse>();
 
         group.MapPut("/keycloak", UpdateKeycloak)

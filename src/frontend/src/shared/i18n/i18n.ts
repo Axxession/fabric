@@ -329,6 +329,7 @@ const resources = {
             accessModel: { label: 'Access Model', description: 'Catalogs, packages, and access automation.' },
             credentialTypes: { label: 'Credential Types', description: 'Manage credential types, ranges, and recycle policies.' },
             accessControl: { label: 'Access Control', description: 'Manage physical access control configuration.' },
+            userManagement: { label: 'User Management', description: 'Manage tenant Keycloak users, groups, and roles.' },
             clients: { label: 'Clients', description: 'Manage hardware agents and reception kiosks.' },
             automation: { label: 'Automation', description: 'Manage workflow definitions, run history, kiosks, and profiles.' },
             notifications: { label: 'Notifications', description: 'Manage visitor notification templates and delivery toggles.' },
