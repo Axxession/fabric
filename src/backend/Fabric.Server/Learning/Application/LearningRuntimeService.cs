@@ -12,7 +12,7 @@ public sealed class LearningRuntimeService(LearningDbContext db, TimeProvider ti
 {
     private static readonly TimeSpan DefaultSessionLifetime = TimeSpan.FromHours(4);
 
-    public async Task<Result<LaunchSession, EnrollmentErrors>> CreateLaunchSessionAsync(Guid enrollmentId, Guid? scoId, CancellationToken cancellationToken = default)
+    public async Task<Result<LaunchSession, EnrollmentErrors>> CreateLaunchSessionAsync(Guid enrollmentId, Guid languageId, Guid? scoId, CancellationToken cancellationToken = default)
     {
         Enrollment? enrollment = await db.Enrollments.SingleOrDefaultAsync(item => item.Id == enrollmentId, cancellationToken);
         if (enrollment is null)
@@ -22,7 +22,7 @@ public sealed class LearningRuntimeService(LearningDbContext db, TimeProvider ti
             return Result.Failure<LaunchSession, EnrollmentErrors>(EnrollmentErrors.EnrollmentNotActive);
 
         Attempt? activeAttempt = await ResolveActiveAttemptAsync(enrollment, cancellationToken);
-        Guid courseVersionId = activeAttempt?.CourseVersionId ?? await ResolveCourseVersionIdAsync(enrollment, cancellationToken);
+        Guid courseVersionId = activeAttempt?.CourseVersionId ?? await ResolveCourseVersionIdAsync(enrollment, languageId, cancellationToken);
         if (courseVersionId == Guid.Empty)
             return Result.Failure<LaunchSession, EnrollmentErrors>(EnrollmentErrors.CourseVersionNotFound);
 
@@ -119,9 +119,12 @@ public sealed class LearningRuntimeService(LearningDbContext db, TimeProvider ti
         return Result.Success<ScormProgress?, EnrollmentErrors>(progress);
     }
 
-    private async Task<Guid> ResolveCourseVersionIdAsync(Enrollment enrollment, CancellationToken cancellationToken)
+    private async Task<Guid> ResolveCourseVersionIdAsync(Enrollment enrollment, Guid languageId, CancellationToken cancellationToken)
     {
-        return await db.Courses.AsNoTracking().Where(item => item.Id == enrollment.CourseId).Select(item => item.CurrentVersionId ?? Guid.Empty).SingleOrDefaultAsync(cancellationToken);
+        return await db.CourseLanguages.AsNoTracking()
+            .Where(item => item.Id == languageId && item.CourseId == enrollment.CourseId && item.IsActive)
+            .Select(item => item.CurrentVersionId ?? Guid.Empty)
+            .SingleOrDefaultAsync(cancellationToken);
     }
 
     private async Task<Attempt?> ResolveActiveAttemptAsync(Enrollment enrollment, CancellationToken cancellationToken)

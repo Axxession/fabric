@@ -109,6 +109,7 @@ const LmsCourseLanguageEditPage = lazy(() => import('@/features/administration/l
 const LmsEnrollmentCreatePage = lazy(() => import('@/features/administration/lms-enrollment-create-page'));
 const LmsCourseRequirementCreatePage = lazy(() => import('@/features/administration/lms-course-requirement-create-page'));
 const LmsCourseRequirementEditPage = lazy(() => import('@/features/administration/lms-course-requirement-edit-page'));
+const ScormTestPage = lazy(() => import('@/features/learning/scorm-test-page'));
 const PackageCreatePage = lazy(() => import('@/features/administration/package-create-page'));
 const PackageEditPage = lazy(() => import('@/features/administration/package-edit-page'));
 const RequirementCreatePage = lazy(() => import('@/features/administration/requirement-create-page'));
@@ -196,6 +197,12 @@ const authCallbackRoute = createRoute({
   getParentRoute: () => mainLayoutRoute,
   path: '/auth/callback',
   component: () => <LazyRoute component={<AuthCallbackPage />} />,
+});
+
+const scormTestRoute = createRoute({
+  getParentRoute: () => mainLayoutRoute,
+  path: '/scorm/test/$enrollmentId',
+  component: () => <ProtectedLazyRoute component={<ScormTestPage />} />,
 });
 
 const employeeRoute = createRoute({
@@ -1008,6 +1015,7 @@ const routeTree = rootRoute.addChildren([
   mainLayoutRoute.addChildren([
     indexRoute,
     authCallbackRoute,
+    scormTestRoute,
     employeeRoute,
     employeeRequestAccessRoute,
     employeeRequestDetailRoute,

@@ -46,6 +46,8 @@ public sealed record ListEnrollmentsRequest : BaseListRequest
 
 public sealed record CreateLaunchSessionRequest(Guid EnrollmentId, Guid? ScoId);
 
+public sealed record StartLaunchSessionRequest(Guid EnrollmentId, Guid LanguageId, Guid? ScoId);
+
 public sealed record RecordScormProgressRequest(
     string Token,
     Guid? ScoId,

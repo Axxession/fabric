@@ -8,6 +8,7 @@ public static class LearningEndpointRouteBuilderExtensions
     {
         app.MapCourseEndpoints();
         app.MapEnrollmentEndpoints();
+        app.MapLearningRuntimeEndpoints();
         return app;
     }
 }

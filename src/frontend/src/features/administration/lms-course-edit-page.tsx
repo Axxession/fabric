@@ -16,6 +16,7 @@ type CourseLanguageResponse = components['schemas']['CourseLanguageResponse'];
 type CourseCompletionReportRowResponse = components['schemas']['CourseCompletionReportRowResponse'];
 type CourseResponse = components['schemas']['CourseResponse'];
 type EnrollmentResponse = components['schemas']['EnrollmentResponse'];
+type IdentityResponse = components['schemas']['IdentityResponse'];
 type PageOfCourseLanguageResponse = { items?: CourseLanguageResponse[] };
 type PageOfEnrollmentResponse = components['schemas']['PageOfEnrollmentResponse'];
 type PageOfAttemptResponse = components['schemas']['PageOfAttemptResponse'];
@@ -94,7 +95,9 @@ export default function LmsCourseEditPage() {
 }
 
 function EnrollmentRow({ enrollment }: { readonly enrollment: EnrollmentResponse }) {
+  const navigate = useNavigate();
   const attemptsQuery = useQuery({ queryKey: ['administration', 'lms', 'enrollment', enrollment.id, 'attempts'], queryFn: async () => { const { data, error } = await api.GET('/api/learning/enrollments/{id}/attempts', { params: { path: { id: enrollment.id }, query: { Page: 0, PageSize: 50 } } }); if (error || !data) throw new Error('Could not load attempts.'); return data as PageOfAttemptResponse; } });
+  const identityQuery = useQuery({ queryKey: ['administration', 'lms', 'identity', enrollment.identityId], queryFn: async () => { const { data, error } = await api.GET('/api/identities/{id}', { params: { path: { id: enrollment.identityId } } }); if (error || !data) throw new Error('Could not load identity.'); return data as IdentityResponse; } });
   const latestAttempt = attemptsQuery.data?.items?.[0];
-  return <tr><td className="px-4 py-4 text-muted-foreground">{enrollment.identityId}</td><td className="px-4 py-4 text-muted-foreground">{enrollment.status}</td><td className="px-4 py-4 text-muted-foreground">{new Date(enrollment.assignedAt).toLocaleString()}</td><td className="px-4 py-4 text-muted-foreground">{enrollment.completedAt ? new Date(enrollment.completedAt).toLocaleString() : 'n/a'}</td><td className="px-4 py-4 text-muted-foreground">{latestAttempt ? `${latestAttempt.status}${latestAttempt.score !== null ? ` • ${latestAttempt.score}` : ''}` : 'No attempts'}</td></tr>;
+  return <tr className="cursor-pointer transition hover:bg-hover-blue" onClick={() => void navigate({ to: '/scorm/test/$enrollmentId', params: { enrollmentId: enrollment.id } })}><td className="px-4 py-4"><div><p className="font-medium text-foreground">{identityQuery.data?.displayName ?? 'Loading identity...'}</p><p className="mt-1 text-[13px] text-muted-foreground">{identityQuery.data?.email ?? enrollment.identityId}</p></div></td><td className="px-4 py-4 text-muted-foreground">{enrollment.status}</td><td className="px-4 py-4 text-muted-foreground">{new Date(enrollment.assignedAt).toLocaleString()}</td><td className="px-4 py-4 text-muted-foreground">{enrollment.completedAt ? new Date(enrollment.completedAt).toLocaleString() : 'n/a'}</td><td className="px-4 py-4 text-muted-foreground">{latestAttempt ? `${latestAttempt.status}${latestAttempt.score !== null ? ` • ${latestAttempt.score}` : ''}` : 'No attempts'}</td></tr>;
 }

@@ -9,6 +9,7 @@ namespace Fabric.Server.Learning.Application;
 public interface ILearningPackageStorage
 {
     Task<(string StoragePath, string? ManifestChecksum)> SavePackageAsync(Guid courseId, Guid courseVersionId, string sourceDirectory, CancellationToken cancellationToken);
+    Task<Stream?> OpenReadAsync(string packagePath, string relativePath, CancellationToken cancellationToken);
 }
 
 public sealed class LearningPackageStorage(IStorage storage, IStoragePathBuilder pathBuilder) : ILearningPackageStorage
@@ -34,6 +35,17 @@ public sealed class LearningPackageStorage(IStorage storage, IStoragePathBuilder
         return (storagePath, manifestChecksum);
     }
 
+    public async Task<Stream?> OpenReadAsync(string packagePath, string relativePath, CancellationToken cancellationToken)
+    {
+        string normalizedRelativePath = NormalizeRelativePath(relativePath);
+        string fullPath = string.Join('/', [packagePath.TrimEnd('/'), normalizedRelativePath]);
+        Result<LocalFile> result = await storage.DownloadAsync(fullPath, cancellationToken);
+        if (!result.IsSuccess || result.Value is null)
+            return null;
+
+        return result.Value.OpenReadStream();
+    }
+
     private static async Task<string> ComputeSha256Async(string filePath, CancellationToken cancellationToken)
     {
         await using FileStream stream = File.OpenRead(filePath);
@@ -57,5 +69,17 @@ public sealed class LearningPackageStorage(IStorage storage, IStoragePathBuilder
             ".svg" => "image/svg+xml",
             _ => "application/octet-stream"
         };
+    }
+
+    private static string NormalizeRelativePath(string relativePath)
+    {
+        string[] parts = relativePath.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0)
+            throw new InvalidOperationException("Learning package path cannot be empty.");
+
+        if (parts.Any(part => part is "." or ".."))
+            throw new InvalidOperationException("Learning package path contains invalid traversal tokens.");
+
+        return string.Join('/', parts);
     }
 }
