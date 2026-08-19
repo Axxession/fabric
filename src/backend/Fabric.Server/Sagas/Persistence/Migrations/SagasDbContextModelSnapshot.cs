@@ -640,6 +640,54 @@ namespace Fabric.Server.Sagas.Persistence.Migrations
                     b.ToTable("kiosk_saga_events", "sagas");
                 });
 
+            modelBuilder.Entity("Fabric.Server.Sagas.LearningRequirements.LearningRequirementRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CourseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("course_id");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_enabled");
+
+                    b.Property<decimal?>("MinimumScore")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("minimum_score");
+
+                    b.Property<Guid>("RequirementDefinitionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requirement_definition_id");
+
+                    b.Property<string>("SatisfactionMode")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("satisfaction_mode");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_learning_requirement_rules");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_learning_requirement_rules_tenant_id");
+
+                    b.HasIndex("TenantId", "RequirementDefinitionId", "CourseId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_learning_requirement_rules_tenant_id_requirement_definition_id_course_id");
+
+                    b.ToTable("learning_requirement_rules", "sagas");
+                });
+
             modelBuilder.Entity("Fabric.Server.Sagas.VisitorPreOnboarding.VisitorPreOnboardingSaga", b =>
                 {
                     b.Property<Guid>("Id")

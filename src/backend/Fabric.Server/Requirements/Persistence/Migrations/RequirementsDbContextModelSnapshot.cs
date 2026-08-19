@@ -150,11 +150,11 @@ namespace Fabric.Server.Requirements.Persistence.Migrations
                         .HasColumnType("character varying(2000)")
                         .HasColumnName("description");
 
-                    b.Property<string>("EvaluatorKind")
+                    b.Property<string>("FulfillmentKind")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
-                        .HasColumnName("evaluator_kind");
+                        .HasColumnName("fulfillment_kind");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")

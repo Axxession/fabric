@@ -25,6 +25,9 @@ public static class RequirementDefinitionEndpoints
     private static async Task<IResult> ListRequirementDefinitions([AsParameters] ListRequirementsRequest request, RequirementsDbContext db, CancellationToken cancellationToken = default)
     {
         IQueryable<RequirementDefinition> query = db.RequirementDefinitions.AsNoTracking();
+        if (request.Ids is { Length: > 0 })
+            query = query.Where(item => request.Ids.Contains(item.Id));
+
         if (request.LocationId.HasValue)
         {
             Guid[] definitionIds = await db.LocationRequirementPolicies.AsNoTracking()

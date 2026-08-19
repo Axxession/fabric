@@ -8,6 +8,7 @@ using Fabric.Server.Hardware.Persistence;
 using Fabric.Server.Identities.Persistence;
 using Fabric.Server.Infrastructure.Tenancy;
 using Fabric.Server.Kiosk.Persistence;
+using Fabric.Server.Learning.Persistence;
 using Fabric.Server.Locations.Persistence;
 using Fabric.Server.Printing.Persistence;
 using Fabric.Server.Reception.Persistence;
@@ -49,6 +50,7 @@ public sealed class MigrationsRunner(IServiceScopeFactory scopeFactory)
         await new MigrationRunner<PrintingDbContext>(services).RunMigrationsAsync(cancellationToken);
         await new MigrationRunner<HardwareDbContext>(services).RunMigrationsAsync(cancellationToken);
         await new MigrationRunner<KioskDbContext>(services).RunMigrationsAsync(cancellationToken);
+        await new MigrationRunner<LearningDbContext>(services).RunMigrationsAsync(cancellationToken);
         await new MigrationRunner<RequirementsDbContext>(services).RunMigrationsAsync(cancellationToken);
         await new MigrationRunner<ReceptionDbContext>(services).RunMigrationsAsync(cancellationToken);
     }

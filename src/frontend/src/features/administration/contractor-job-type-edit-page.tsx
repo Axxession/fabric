@@ -319,7 +319,7 @@ export default function ContractorJobTypeEditPage() {
                       {item.isBlocking ? <Badge variant="error">Blocking</Badge> : <Badge variant="secondary">Non-blocking</Badge>}
                       {item.isEnabled ? <Badge variant="success">Enabled</Badge> : <Badge variant="secondary">Disabled</Badge>}
                     </div>
-                    <p className="mt-1 text-[14px] text-muted-foreground">Location: {getLocationLabel(location)} • Evaluator: {item.evaluatorKind}{item.isSensitive ? ' • Sensitive' : ''}</p>
+                    <p className="mt-1 text-[14px] text-muted-foreground">Location: {getLocationLabel(location)} • Fulfillment: {item.fulfillmentKind}{item.isSensitive ? ' • Sensitive' : ''}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <Link to="/administration/access-model/compliancy/$requirementId/edit" params={{ requirementId: item.requirementDefinitionId }} className="inline-flex size-9 items-center justify-center rounded-interactive border border-border text-muted-foreground transition hover:bg-hover-blue hover:text-foreground" aria-label={`Edit ${item.requirementName}`}>

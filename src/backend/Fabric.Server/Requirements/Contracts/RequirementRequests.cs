@@ -6,13 +6,14 @@ namespace Fabric.Server.Requirements.Contracts;
 
 public sealed record ListRequirementsRequest : BaseListRequest
 {
+    public Guid[]? Ids { get; set; }
     public string? Query { get; set; }
     public bool? IsActive { get; set; }
     public Guid? LocationId { get; set; }
 }
 
-public sealed record CreateRequirementDefinitionRequest(string Code, string Name, string? Description, RequirementEvaluatorKind EvaluatorKind, bool IsSensitive);
-public sealed record UpdateRequirementDefinitionRequest(string Code, string Name, string? Description, RequirementEvaluatorKind EvaluatorKind, bool IsSensitive);
+public sealed record CreateRequirementDefinitionRequest(string Code, string Name, string? Description, RequirementFulfillmentKind FulfillmentKind, bool IsSensitive);
+public sealed record UpdateRequirementDefinitionRequest(string Code, string Name, string? Description, RequirementFulfillmentKind FulfillmentKind, bool IsSensitive);
 public sealed record CreateLocationRequirementPolicyRequest(Guid LocationId, Guid RequirementDefinitionId, RequirementSubjectKind SubjectKind, bool IsBlocking);
 public sealed record ListLocationJobRequirementPoliciesRequest : BaseListRequest
 {

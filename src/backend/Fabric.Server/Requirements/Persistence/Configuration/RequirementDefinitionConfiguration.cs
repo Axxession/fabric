@@ -15,7 +15,7 @@ public sealed class RequirementDefinitionConfiguration : IEntityTypeConfiguratio
         builder.Property(item => item.Code).HasColumnName("code").HasMaxLength(100).IsRequired();
         builder.Property(item => item.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
         builder.Property(item => item.Description).HasColumnName("description").HasMaxLength(2_000);
-        builder.Property(item => item.EvaluatorKind).HasColumnName("evaluator_kind").HasConversion<string>().HasMaxLength(50).IsRequired();
+        builder.Property(item => item.FulfillmentKind).HasColumnName("fulfillment_kind").HasConversion<string>().HasMaxLength(50).IsRequired();
         builder.Property(item => item.IsSensitive).HasColumnName("is_sensitive").IsRequired();
         builder.Property(item => item.IsActive).HasColumnName("is_active").IsRequired();
         builder.Property(item => item.CreatedAt).HasColumnName("created_at").IsRequired();

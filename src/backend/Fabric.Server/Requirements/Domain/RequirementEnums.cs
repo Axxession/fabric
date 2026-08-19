@@ -1,11 +1,9 @@
 namespace Fabric.Server.Requirements.Domain;
 
-public enum RequirementEvaluatorKind
+public enum RequirementFulfillmentKind
 {
-    UploadedDocument,
-    ExternalCheck,
-    Escort,
-    Computed
+    Document,
+    Learning,
 }
 
 public enum RequirementSubjectKind
@@ -22,7 +20,8 @@ public enum RequirementEvidenceKind
     ExternalCheck,
     Onboarded,
     Computed,
-    Escort
+    Escort,
+    LearningCourseCompletion,
 }
 
 public enum RequirementEvidenceStatus

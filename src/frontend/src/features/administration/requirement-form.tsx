@@ -5,17 +5,17 @@ import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Textarea } from '@/shared/components/ui/textarea';
 
-type RequirementEvaluatorKind = components['schemas']['RequirementEvaluatorKind'];
+type RequirementFulfillmentKind = components['schemas']['RequirementFulfillmentKind'];
 
 export type RequirementFormValues = {
   readonly code: string;
   readonly name: string;
   readonly description: string;
-  readonly evaluatorKind: RequirementEvaluatorKind;
+  readonly fulfillmentKind: RequirementFulfillmentKind;
   readonly isSensitive: boolean;
 };
 
-const evaluatorOptions: RequirementEvaluatorKind[] = ['UploadedDocument', 'ExternalCheck', 'Escort', 'Computed'];
+const fulfillmentOptions: RequirementFulfillmentKind[] = ['Document', 'Learning'];
 
 export function RequirementForm({ initialValues, isSubmitting, submitLabel, onSubmit }: { readonly initialValues: RequirementFormValues; readonly isSubmitting: boolean; readonly submitLabel: string; readonly onSubmit: (values: RequirementFormValues) => void; }) {
   const [values, setValues] = useState(initialValues);
@@ -44,9 +44,9 @@ export function RequirementForm({ initialValues, isSubmitting, submitLabel, onSu
 
       <div className="grid gap-5 md:grid-cols-2">
         <label className="grid gap-2 text-[14px] font-medium">
-          <span>Evaluator</span>
-          <select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={values.evaluatorKind} onChange={(event) => setValues((current) => ({ ...current, evaluatorKind: event.target.value as RequirementEvaluatorKind }))}>
-            {evaluatorOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+          <span>Fulfillment</span>
+          <select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={values.fulfillmentKind} onChange={(event) => setValues((current) => ({ ...current, fulfillmentKind: event.target.value as RequirementFulfillmentKind }))}>
+            {fulfillmentOptions.map((option) => <option key={option} value={option}>{option}</option>)}
           </select>
         </label>
 

@@ -21,7 +21,7 @@ public sealed class ContractorsServiceTests
         await using LocationsDbContext locationsDb = CreateLocationsDbContext();
         await using IdentitiesDbContext identitiesDb = CreateIdentitiesDbContext();
         IdentityService identityService = new(identitiesDb, TimeProvider.System);
-        ContractorsService service = new(contractorsDb, locationsDb, identityService, null!, null!, TimeProvider.System);
+        ContractorsService service = new(contractorsDb, locationsDb, identityService, null!, TimeProvider.System);
 
         DateTimeOffset now = new(2026, 8, 14, 8, 0, 0, TimeSpan.Zero);
         Result<Company, CompanyErrors> companyAResult = Company.Create("ACME", "Acme", null, now);
@@ -67,7 +67,7 @@ public sealed class ContractorsServiceTests
         await using LocationsDbContext locationsDb = CreateLocationsDbContext();
         await using IdentitiesDbContext identitiesDb = CreateIdentitiesDbContext();
         IdentityService identityService = new(identitiesDb, TimeProvider.System);
-        ContractorsService service = new(contractorsDb, locationsDb, identityService, null!, null!, TimeProvider.System);
+        ContractorsService service = new(contractorsDb, locationsDb, identityService, null!, TimeProvider.System);
 
         Result<Company, CompanyErrors> companyResult = Company.Create("ACME", "Acme", null, DateTimeOffset.UtcNow);
         companyResult.IsSuccess(out Company company);

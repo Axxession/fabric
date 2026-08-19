@@ -174,7 +174,7 @@ export function LocationRequirementsCard({ locationId, title = 'Requirements', d
                   <Badge variant="secondary">{item.subjectKind}</Badge>
                   {item.isBlocking ? <Badge variant="error">Blocking</Badge> : <Badge variant="secondary">Non-blocking</Badge>}
                 </div>
-                <p className="mt-1 text-[14px] text-muted-foreground">Evaluator: {item.evaluatorKind}{item.isSensitive ? ' • Sensitive' : ''}</p>
+                <p className="mt-1 text-[14px] text-muted-foreground">Fulfillment: {item.fulfillmentKind}{item.isSensitive ? ' • Sensitive' : ''}</p>
               </div>
               <div className="flex items-center gap-2">
                 <Link to="/administration/access-model/compliancy/$requirementId/edit" params={{ requirementId: item.requirementDefinitionId }} className="inline-flex size-9 items-center justify-center rounded-interactive border border-border text-muted-foreground transition hover:bg-hover-blue hover:text-foreground" aria-label={`Edit ${item.requirementName}`}>

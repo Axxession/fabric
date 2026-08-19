@@ -24,6 +24,7 @@ using Fabric.Server.Infrastructure.Storage;
 using Fabric.Server.Infrastructure.Tenancy;
 using Fabric.Server.Kiosk;
 using Fabric.Server.Kiosk.Endpoints;
+using Fabric.Server.Learning;
 using Fabric.Server.Locations;
 using Fabric.Server.Locations.Endpoints;
 using Fabric.Server.Notifications;
@@ -35,6 +36,7 @@ using Fabric.Server.Requirements;
 using Fabric.Server.Sagas;
 using Fabric.Server.Sagas.ContractorJobs;
 using Fabric.Server.Sagas.EmployeeLifecycle;
+using Fabric.Server.Sagas.LearningRequirements;
 using Fabric.Server.Sagas.VisitorPreOnboarding;
 using Fabric.Server.Tenants;
 using Fabric.Server.Tenants.Endpoints;
@@ -91,6 +93,7 @@ builder.Services
     .SetupPrinting(builder.Configuration)
     .SetupHardware(builder.Configuration)
     .SetupKiosk(builder.Configuration)
+    .SetupLearning(builder.Configuration)
     .SetupLocations(builder.Configuration)
     .SetupRequirements(builder.Configuration)
     .SetupReception(builder.Configuration)
@@ -168,6 +171,7 @@ app.MapDesfireEncodingEndpoints();
 app.MapPrintDesignEndpoints();
 app.MapKioskProfileEndpoints();
 app.MapKioskEndpoints(enableAutomation);
+app.MapLearningEndpoints();
 
 if (enableAutomation)
 {
@@ -178,6 +182,7 @@ app.MapHostEndpoints();
 app.MapVisitorPreOnboardingSagaEndpoints();
 app.MapEmployeeLifecycleAutomationEndpoints();
 app.MapContractorJobAccessAutomationEndpoints();
+app.MapLearningRequirementAutomationEndpoints();
 
 
 if (enableAutomation)

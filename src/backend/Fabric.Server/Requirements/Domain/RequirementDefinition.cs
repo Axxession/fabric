@@ -10,7 +10,7 @@ public sealed class RequirementDefinition
     public string Code { get; private set; } = null!;
     public string Name { get; private set; } = null!;
     public string? Description { get; private set; }
-    public RequirementEvaluatorKind EvaluatorKind { get; private set; }
+    public RequirementFulfillmentKind FulfillmentKind { get; private set; }
     public bool IsSensitive { get; private set; }
     public bool IsActive { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
@@ -20,7 +20,7 @@ public sealed class RequirementDefinition
         string code,
         string name,
         string? description,
-        RequirementEvaluatorKind evaluatorKind,
+        RequirementFulfillmentKind fulfillmentKind,
         bool isSensitive,
         DateTimeOffset now)
     {
@@ -34,7 +34,7 @@ public sealed class RequirementDefinition
             Code = code.Trim(),
             Name = name.Trim(),
             Description = NormalizeOptional(description),
-            EvaluatorKind = evaluatorKind,
+            FulfillmentKind = fulfillmentKind,
             IsSensitive = isSensitive,
             IsActive = true,
             CreatedAt = now,
@@ -46,7 +46,7 @@ public sealed class RequirementDefinition
         string code,
         string name,
         string? description,
-        RequirementEvaluatorKind evaluatorKind,
+        RequirementFulfillmentKind fulfillmentKind,
         bool isSensitive,
         DateTimeOffset now)
     {
@@ -57,7 +57,7 @@ public sealed class RequirementDefinition
         Code = code.Trim();
         Name = name.Trim();
         Description = NormalizeOptional(description);
-        EvaluatorKind = evaluatorKind;
+        FulfillmentKind = fulfillmentKind;
         IsSensitive = isSensitive;
         UpdatedAt = now;
         return Result.Success<RequirementDefinitionErrors>();

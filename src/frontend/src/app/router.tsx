@@ -101,6 +101,14 @@ const ManagerTeamMemberDetailPage = lazy(() => import('@/features/perspectives/m
 const IdentityDetailPage = lazy(() => import('@/features/identities/identity-detail-page'));
 const KioskPage = lazy(() => import('@/features/kiosk/kiosk-page'));
 const KioskSetupPage = lazy(() => import('@/features/kiosk/kiosk-setup-page'));
+const LmsPage = lazy(() => import('@/features/administration/lms-page'));
+const LmsCourseCreatePage = lazy(() => import('@/features/administration/lms-course-create-page'));
+const LmsCourseEditPage = lazy(() => import('@/features/administration/lms-course-edit-page'));
+const LmsCourseLanguageCreatePage = lazy(() => import('@/features/administration/lms-course-language-create-page'));
+const LmsCourseLanguageEditPage = lazy(() => import('@/features/administration/lms-course-language-edit-page'));
+const LmsEnrollmentCreatePage = lazy(() => import('@/features/administration/lms-enrollment-create-page'));
+const LmsCourseRequirementCreatePage = lazy(() => import('@/features/administration/lms-course-requirement-create-page'));
+const LmsCourseRequirementEditPage = lazy(() => import('@/features/administration/lms-course-requirement-edit-page'));
 const PackageCreatePage = lazy(() => import('@/features/administration/package-create-page'));
 const PackageEditPage = lazy(() => import('@/features/administration/package-edit-page'));
 const RequirementCreatePage = lazy(() => import('@/features/administration/requirement-create-page'));
@@ -466,6 +474,54 @@ const administrationAccessModelRoute = createRoute({
   getParentRoute: () => administrationRoute,
   path: '/access-model',
   component: () => <LazyRoute component={<AccessModelPage />} />,
+});
+
+const administrationLmsRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/lms',
+  component: () => <LazyRoute component={<LmsPage />} />,
+});
+
+const administrationLmsCourseCreateRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/lms/courses/new',
+  component: () => <LazyRoute component={<LmsCourseCreatePage />} />,
+});
+
+const administrationLmsCourseEditRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/lms/courses/$courseId',
+  component: () => <LazyRoute component={<LmsCourseEditPage />} />,
+});
+
+const administrationLmsCourseLanguageCreateRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/lms/courses/$courseId/languages/new',
+  component: () => <LazyRoute component={<LmsCourseLanguageCreatePage />} />,
+});
+
+const administrationLmsCourseLanguageEditRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/lms/courses/$courseId/languages/$languageId',
+  component: () => <LazyRoute component={<LmsCourseLanguageEditPage />} />,
+});
+
+const administrationLmsEnrollmentCreateRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/lms/courses/$courseId/enrollments/new',
+  component: () => <LazyRoute component={<LmsEnrollmentCreatePage />} />,
+});
+
+const administrationLmsCourseRequirementCreateRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/lms/course-requirements/new',
+  component: () => <LazyRoute component={<LmsCourseRequirementCreatePage />} />,
+});
+
+const administrationLmsCourseRequirementEditRoute = createRoute({
+  getParentRoute: () => administrationRoute,
+  path: '/lms/course-requirements/$ruleId',
+  component: () => <LazyRoute component={<LmsCourseRequirementEditPage />} />,
 });
 
 const administrationAccessControlRoute = createRoute({
@@ -997,29 +1053,37 @@ const routeTree = rootRoute.addChildren([
         administrationAutomationKioskEditRoute,
         administrationAutomationKioskProfileEditRoute,
       ]),
-   administrationAccessModelRoute,
-   administrationCredentialTypesRoute,
-   administrationAccessControlRoute,
-   administrationUserManagementRoute,
-   administrationUserManagementUserCreateRoute,
-   administrationUserManagementUserEditRoute,
-   administrationUserManagementRoleCreateRoute,
-   administrationUserManagementRoleEditRoute,
-   administrationUserManagementGroupCreateRoute,
-   administrationUserManagementGroupEditRoute,
-   administrationNotificationsRoute,
-  administrationCredentialTypeCreateRoute,
-  administrationCredentialTypeEditRoute,
-  administrationAccessItemCreateRoute,
+      administrationAccessModelRoute,
+      administrationLmsRoute,
+      administrationLmsCourseCreateRoute,
+      administrationLmsCourseEditRoute,
+      administrationLmsCourseLanguageCreateRoute,
+      administrationLmsCourseLanguageEditRoute,
+      administrationLmsEnrollmentCreateRoute,
+      administrationLmsCourseRequirementCreateRoute,
+      administrationLmsCourseRequirementEditRoute,
+      administrationCredentialTypesRoute,
+      administrationAccessControlRoute,
+      administrationUserManagementRoute,
+      administrationUserManagementUserCreateRoute,
+      administrationUserManagementUserEditRoute,
+      administrationUserManagementRoleCreateRoute,
+      administrationUserManagementRoleEditRoute,
+      administrationUserManagementGroupCreateRoute,
+      administrationUserManagementGroupEditRoute,
+      administrationNotificationsRoute,
+      administrationCredentialTypeCreateRoute,
+      administrationCredentialTypeEditRoute,
+      administrationAccessItemCreateRoute,
       administrationAccessItemEditRoute,
       administrationAccessControlTargetEditRoute,
       administrationAccessControlSystemCreateRoute,
       administrationAccessControlSystemEditRoute,
-    administrationPackageCreateRoute,
-    administrationPackageEditRoute,
-    administrationRequirementCreateRoute,
-    administrationRequirementEditRoute,
-    administrationCatalogueCreateRoute,
+      administrationPackageCreateRoute,
+      administrationPackageEditRoute,
+      administrationRequirementCreateRoute,
+      administrationRequirementEditRoute,
+      administrationCatalogueCreateRoute,
       administrationCatalogueEditRoute,
       administrationApprovalGroupCreateRoute,
       administrationApprovalGroupEditRoute,
