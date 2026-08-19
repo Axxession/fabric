@@ -1566,6 +1566,140 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tenant-integrations/keycloak": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["KeycloakIntegrationResponse"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateKeycloakIntegrationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["KeycloakIntegrationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tenant-integrations/microsoft-graph": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MicrosoftGraphIntegrationResponse"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateMicrosoftGraphIntegrationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MicrosoftGraphIntegrationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/actors/me": {
         parameters: {
             query?: never;
@@ -18852,6 +18986,16 @@ export interface components {
         };
         JsonElement: unknown;
         JsonObject: Record<string, never>;
+        KeycloakAdminApiIntegrationResponse: {
+            isEnabled: boolean;
+            url: string;
+            realm: string;
+            clientId: string;
+            hasClientSecret: boolean;
+        };
+        KeycloakIntegrationResponse: {
+            adminApi: components["schemas"]["KeycloakAdminApiIntegrationResponse"];
+        };
         KeycloakSettingsResponse: {
             url: string;
             realm: string;
@@ -19298,6 +19442,18 @@ export interface components {
             displayName: string;
             description: string;
             typeName: string;
+        };
+        MicrosoftGraphEmailIntegrationResponse: {
+            isEnabled: boolean;
+            fromEmail: string;
+            fromName: string;
+            azureTenantId: string;
+            applicationId: string;
+            saveSentItems: boolean;
+            hasSecret: boolean;
+        };
+        MicrosoftGraphIntegrationResponse: {
+            email: components["schemas"]["MicrosoftGraphEmailIntegrationResponse"];
         };
         /** @enum {unknown} */
         ModeOfTransport: "Car" | "PublicTransport" | "Bike" | "Walk" | null;
@@ -21029,6 +21185,16 @@ export interface components {
             name: string;
             description: null | string;
         };
+        UpdateKeycloakAdminApiIntegrationRequest: {
+            isEnabled: boolean;
+            url: string;
+            realm: string;
+            clientId: string;
+            clientSecret: null | string;
+        };
+        UpdateKeycloakIntegrationRequest: {
+            adminApi: components["schemas"]["UpdateKeycloakAdminApiIntegrationRequest"];
+        };
         UpdateKeycloakSettingsRequest: {
             url: string;
             realm: string;
@@ -21059,6 +21225,18 @@ export interface components {
         };
         UpdateLocationJobRequirementPolicyRequest: {
             isBlocking: boolean;
+        };
+        UpdateMicrosoftGraphEmailIntegrationRequest: {
+            isEnabled: boolean;
+            fromEmail: string;
+            fromName: string;
+            azureTenantId: string;
+            applicationId: string;
+            secret: null | string;
+            saveSentItems: boolean;
+        };
+        UpdateMicrosoftGraphIntegrationRequest: {
+            email: components["schemas"]["UpdateMicrosoftGraphEmailIntegrationRequest"];
         };
         UpdateOidcSettingsRequest: {
             metadataUrl: string;

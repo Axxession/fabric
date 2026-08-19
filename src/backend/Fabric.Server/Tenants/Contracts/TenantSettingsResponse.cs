@@ -10,9 +10,7 @@ public sealed record AdminTenantSettingsResponse(
     string Version,
     OidcSettingsResponse Oidc,
     ThemeSettingsResponse Theme,
-    LogoSettingsResponse? Logo,
-    GraphEmailSettingsResponse? Email,
-    KeycloakSettingsResponse? Keycloak);
+    LogoSettingsResponse? Logo);
 
 public sealed record OidcSettingsResponse(
     string MetadataUrl,
@@ -37,25 +35,9 @@ public sealed record ThemeSettingsResponse(
 
 public sealed record LogoSettingsResponse(string ContentType, string Data);
 
-public sealed record GraphEmailSettingsResponse(
-    string FromEmail,
-    string FromName,
-    string AzureTenantId,
-    string ApplicationId,
-    bool SaveSentItems,
-    bool HasSecret);
-
-public sealed record KeycloakSettingsResponse(
-    string Url,
-    string Realm,
-    string ClientId,
-    bool HasClientSecret);
-
 public sealed record UpdateTenantSettingsRequest(
     UpdateOidcSettingsRequest Oidc,
-    UpdateThemeSettingsRequest Theme,
-    UpdateGraphEmailSettingsRequest? Email,
-    UpdateKeycloakSettingsRequest? Keycloak);
+    UpdateThemeSettingsRequest Theme);
 
 public sealed record UpdateOidcSettingsRequest(
     string MetadataUrl,
@@ -77,17 +59,3 @@ public sealed record UpdateThemeSettingsRequest(
     string DangerColor,
     string SuccessColor,
     string SuccessBackgroundColor);
-
-public sealed record UpdateGraphEmailSettingsRequest(
-    string FromEmail,
-    string FromName,
-    string AzureTenantId,
-    string ApplicationId,
-    string? Secret,
-    bool SaveSentItems);
-
-public sealed record UpdateKeycloakSettingsRequest(
-    string Url,
-    string Realm,
-    string ClientId,
-    string? ClientSecret);

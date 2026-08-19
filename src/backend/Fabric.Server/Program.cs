@@ -128,6 +128,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapTenantEndpoints();
+app.MapTenantIntegrationEndpoints();
 app.MapActorEndpoints();
 app.MapIdentityEndpoints();
 app.MapContractorModuleEndpoints();

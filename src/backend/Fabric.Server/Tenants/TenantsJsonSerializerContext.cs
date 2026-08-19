@@ -9,4 +9,8 @@ namespace Fabric.Server.Tenants;
 [JsonSerializable(typeof(TenantSettingsResponse))]
 [JsonSerializable(typeof(AdminTenantSettingsResponse))]
 [JsonSerializable(typeof(UpdateTenantSettingsRequest))]
+[JsonSerializable(typeof(KeycloakIntegrationResponse))]
+[JsonSerializable(typeof(UpdateKeycloakIntegrationRequest))]
+[JsonSerializable(typeof(MicrosoftGraphIntegrationResponse))]
+[JsonSerializable(typeof(UpdateMicrosoftGraphIntegrationRequest))]
 internal sealed partial class TenantsJsonSerializerContext : JsonSerializerContext;

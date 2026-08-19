@@ -9,6 +9,7 @@ public sealed class TenantsDbContext : DbContext
     public const string Schema = "tenancy";
 
     public DbSet<Tenant> Tenants { get; set; } = null!;
+    public DbSet<TenantIntegration> TenantIntegrations { get; set; } = null!;
 
     public TenantsDbContext(DbContextOptions<TenantsDbContext> options) : base(options)
     {
@@ -23,5 +24,6 @@ public sealed class TenantsDbContext : DbContext
         base.OnModelCreating(modelBuilder);
         modelBuilder.HasDefaultSchema(Schema);
         modelBuilder.ApplyConfiguration(new TenantConfigurationConfiguration());
+        modelBuilder.ApplyConfiguration(new TenantIntegrationConfiguration());
     }
 }

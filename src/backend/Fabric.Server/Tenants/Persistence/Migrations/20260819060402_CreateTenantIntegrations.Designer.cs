@@ -3,6 +3,7 @@ using System;
 using Fabric.Server.Tenants.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Fabric.Server.Tenants.Persistence.Migrations
 {
     [DbContext(typeof(TenantsDbContext))]
-    partial class TenantsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260819060402_CreateTenantIntegrations")]
+    partial class CreateTenantIntegrations
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -35,6 +38,10 @@ namespace Fabric.Server.Tenants.Persistence.Migrations
 
                     b.ToTable("tenants", "tenancy", t =>
                         {
+                            t.HasCheckConstraint("ck_tenants_graph_email_all_or_none", "(graph_email_from_email IS NULL AND graph_email_from_name IS NULL AND graph_email_azure_tenant_id IS NULL AND graph_email_application_id IS NULL AND graph_email_secret IS NULL AND graph_email_save_sent_items IS NULL) OR (graph_email_from_email IS NOT NULL AND graph_email_from_name IS NOT NULL AND graph_email_azure_tenant_id IS NOT NULL AND graph_email_application_id IS NOT NULL AND graph_email_secret IS NOT NULL AND graph_email_save_sent_items IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_tenants_keycloak_all_or_none", "(keycloak_url IS NULL AND keycloak_realm IS NULL AND keycloak_client_id IS NULL AND keycloak_client_secret IS NULL) OR (keycloak_url IS NOT NULL AND keycloak_realm IS NOT NULL AND keycloak_client_id IS NOT NULL AND keycloak_client_secret IS NOT NULL)");
+
                             t.HasCheckConstraint("ck_tenants_logo_data_max_length", "logo_data IS NULL OR octet_length(logo_data) <= 1048576");
                         });
                 });
@@ -87,6 +94,90 @@ namespace Fabric.Server.Tenants.Persistence.Migrations
 
                             b1.WithOwner()
                                 .HasForeignKey("TenantId");
+
+                            b1.OwnsOne("Fabric.Server.Keycloak.KeycloakSettings", "Keycloak", b2 =>
+                                {
+                                    b2.Property<string>("TenantConfigurationTenantId")
+                                        .HasColumnType("character varying(100)");
+
+                                    b2.Property<string>("ClientId")
+                                        .IsRequired()
+                                        .HasMaxLength(200)
+                                        .HasColumnType("character varying(200)")
+                                        .HasColumnName("keycloak_client_id");
+
+                                    b2.Property<string>("ClientSecret")
+                                        .IsRequired()
+                                        .HasMaxLength(2000)
+                                        .HasColumnType("character varying(2000)")
+                                        .HasColumnName("keycloak_client_secret");
+
+                                    b2.Property<string>("Realm")
+                                        .IsRequired()
+                                        .HasMaxLength(200)
+                                        .HasColumnType("character varying(200)")
+                                        .HasColumnName("keycloak_realm");
+
+                                    b2.Property<string>("Url")
+                                        .IsRequired()
+                                        .HasMaxLength(2000)
+                                        .HasColumnType("character varying(2000)")
+                                        .HasColumnName("keycloak_url");
+
+                                    b2.HasKey("TenantConfigurationTenantId");
+
+                                    b2.ToTable("tenants", "tenancy");
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("TenantConfigurationTenantId");
+                                });
+
+                            b1.OwnsOne("Fabric.Server.Notifications.GraphEmailSettings", "GraphEmail", b2 =>
+                                {
+                                    b2.Property<string>("TenantConfigurationTenantId")
+                                        .HasColumnType("character varying(100)");
+
+                                    b2.Property<string>("ApplicationId")
+                                        .IsRequired()
+                                        .HasMaxLength(200)
+                                        .HasColumnType("character varying(200)")
+                                        .HasColumnName("graph_email_application_id");
+
+                                    b2.Property<string>("AzureTenantId")
+                                        .IsRequired()
+                                        .HasMaxLength(200)
+                                        .HasColumnType("character varying(200)")
+                                        .HasColumnName("graph_email_azure_tenant_id");
+
+                                    b2.Property<string>("FromEmail")
+                                        .IsRequired()
+                                        .HasMaxLength(320)
+                                        .HasColumnType("character varying(320)")
+                                        .HasColumnName("graph_email_from_email");
+
+                                    b2.Property<string>("FromName")
+                                        .IsRequired()
+                                        .HasMaxLength(200)
+                                        .HasColumnType("character varying(200)")
+                                        .HasColumnName("graph_email_from_name");
+
+                                    b2.Property<bool>("SaveSentItems")
+                                        .HasColumnType("boolean")
+                                        .HasColumnName("graph_email_save_sent_items");
+
+                                    b2.Property<string>("Secret")
+                                        .IsRequired()
+                                        .HasMaxLength(2000)
+                                        .HasColumnType("character varying(2000)")
+                                        .HasColumnName("graph_email_secret");
+
+                                    b2.HasKey("TenantConfigurationTenantId");
+
+                                    b2.ToTable("tenants", "tenancy");
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("TenantConfigurationTenantId");
+                                });
 
                             b1.OwnsOne("Fabric.Server.Tenants.Domain.HostSettings", "Host", b2 =>
                                 {
@@ -288,8 +379,12 @@ namespace Fabric.Server.Tenants.Persistence.Migrations
                                         .HasForeignKey("TenantConfigurationTenantId");
                                 });
 
+                            b1.Navigation("GraphEmail");
+
                             b1.Navigation("Host")
                                 .IsRequired();
+
+                            b1.Navigation("Keycloak");
 
                             b1.Navigation("Logo");
 

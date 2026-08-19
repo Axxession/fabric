@@ -1,8 +1,9 @@
 using Azure.Identity;
 using Fabric.Server.Core;
-using Fabric.Server.Infrastructure.Tenancy;
 using Fabric.Server.Notifications;
 using Fabric.Server.Sagas.VisitorPreOnboarding;
+using Fabric.Server.Tenants.Application;
+using Fabric.Server.Tenants.Domain;
 using Fabric.Server.Visitors.Domain;
 using Fluid;
 using Microsoft.Graph;
@@ -13,7 +14,7 @@ namespace Fabric.Server.Notifications.Services;
 
 public sealed class EmailNotificationSender(
     IOptions<EmailOptions> options,
-    ITenantContext tenantContext,
+    TenantIntegrationService tenantIntegrationService,
     ILogger<EmailNotificationSender> logger)
 {
     private const string GraphEndpoint = "https://graph.microsoft.com/.default";
@@ -45,7 +46,10 @@ public sealed class EmailNotificationSender(
             return Result.Failure(EmailErrors.GraphFailed);
         }
 
-        GraphEmailSettings? emailSettings = tenantContext.Configuration.GraphEmail ?? options.Value.Graph;
+        MicrosoftGraphEmailIntegrationConfig? tenantEmailConfig = await tenantIntegrationService.GetMicrosoftGraphEmailConfigAsync(ct);
+        GraphEmailSettings? emailSettings = tenantEmailConfig is { IsEnabled: true }
+            ? ToGraphEmailSettings(tenantEmailConfig)
+            : options.Value.Graph;
         if (emailSettings is null || !emailSettings.IsConfigured())
         {
             logger.EmailNotConfigured();
@@ -98,6 +102,17 @@ public sealed class EmailNotificationSender(
     {
         return addresses.Select(addr => new Recipient { EmailAddress = new EmailAddress { Address = addr } }).ToList();
     }
+
+    private static GraphEmailSettings ToGraphEmailSettings(MicrosoftGraphEmailIntegrationConfig config) =>
+        new()
+        {
+            FromEmail = config.FromEmail,
+            FromName = config.FromName,
+            AzureTenantId = config.AzureTenantId,
+            ApplicationId = config.ApplicationId,
+            Secret = config.Secret,
+            SaveSentItems = config.SaveSentItems
+        };
 
     private static async Task<string> RenderTemplate(string templateText, object model)
     {
