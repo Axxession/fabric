@@ -110,7 +110,7 @@ export function ScormPlayer({ token, onExit, onComplete }: ScormPlayerProps) {
     if (progressQuery.data?.rawCmiData) {
       try {
         const rawState = JSON.parse(progressQuery.data.rawCmiData) as Record<string, unknown>;
-        runtime.loadFromFlattenedJSON(rawState);
+        loadRuntimeState(runtime, rawState);
       } catch {
         // Ignore malformed persisted state and start with fresh runtime state.
       }
@@ -124,7 +124,7 @@ export function ScormPlayer({ token, onExit, onComplete }: ScormPlayerProps) {
         await requestJson<ScormProgressResponse>('/api/learning/runtime/progress', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...payload, isCompleted: payload.isCompleted || isTerminateCommit && payload.isCompleted }),
+          body: JSON.stringify(payload),
         });
         setSaveState('saved');
 
@@ -242,12 +242,12 @@ function buildPersistRequest(token: string, bootstrap: LaunchSessionBootstrapRes
 }
 
 function readString(snapshot: Record<string, unknown>, key: string) {
-  const value = snapshot[key];
+  const value = readValue(snapshot, key);
   return typeof value === 'string' && value.trim() !== '' ? value : null;
 }
 
 function readNumber(snapshot: Record<string, unknown>, key: string) {
-  const value = snapshot[key];
+  const value = readValue(snapshot, key);
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value === 'string' && value.trim() !== '') {
     const parsed = Number(value);
@@ -255,6 +255,64 @@ function readNumber(snapshot: Record<string, unknown>, key: string) {
   }
 
   return null;
+}
+
+function readValue(snapshot: Record<string, unknown>, key: string) {
+  const flatValue = snapshot[key];
+  if (flatValue !== undefined) return flatValue;
+
+  const segments = key.split('.');
+  let current: unknown = snapshot;
+  for (const segment of segments) {
+    if (!current || typeof current !== 'object' || !(segment in current)) return undefined;
+    current = (current as Record<string, unknown>)[segment];
+  }
+
+  return current;
+}
+
+function loadRuntimeState(runtime: ScormApiInstance, rawState: Record<string, unknown>) {
+  if (isFlattenedCmiState(rawState)) {
+    runtime.loadFromFlattenedJSON(rawState);
+    return;
+  }
+
+  if (isNestedCmiState(rawState)) {
+    runtime.loadFromJSON(rawState);
+    return;
+  }
+
+  runtime.loadFromFlattenedJSON(flattenObject(rawState));
+}
+
+function isFlattenedCmiState(rawState: Record<string, unknown>) {
+  return Object.keys(rawState).some((key) => key.startsWith('cmi.') || key.startsWith('adl.'));
+}
+
+function isNestedCmiState(rawState: Record<string, unknown>) {
+  return 'cmi' in rawState || 'adl' in rawState;
+}
+
+function flattenObject(value: unknown, prefix = ''): Record<string, unknown> {
+  if (!value || typeof value !== 'object') {
+    return prefix ? { [prefix]: value } : {};
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length === 0) {
+    return prefix ? { [prefix]: value } : {};
+  }
+
+  return entries.reduce<Record<string, unknown>>((result, [key, child]) => {
+    const nextPrefix = prefix ? `${prefix}.${key}` : key;
+    if (child && typeof child === 'object' && !Array.isArray(child)) {
+      Object.assign(result, flattenObject(child, nextPrefix));
+    } else {
+      result[nextPrefix] = child;
+    }
+
+    return result;
+  }, {});
 }
 
 function resolveRuntimeUrl(path: string) {

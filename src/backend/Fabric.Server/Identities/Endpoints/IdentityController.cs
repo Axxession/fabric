@@ -45,11 +45,12 @@ public static class IdentityEndpoints
         [FromQuery] IdentityAffiliationType? affiliationType,
         [FromQuery] int? page,
         [FromQuery] int? pageSize,
+        [FromQuery] Guid[]? ids,
         IdentityService identityService,
         CancellationToken cancellationToken = default)
     {
         var request = new ListIdentitiesRequest(query, status, affiliationType, page ?? 0, pageSize ?? 25);
-        IPaged<Identity> result = await identityService.SearchIdentitiesAsync(request, cancellationToken);
+        IPaged<Identity> result = await identityService.SearchIdentitiesAsync(request, ids, cancellationToken);
         return Results.Ok(result.Map(identity => identity.ToResponse()));
     }
 

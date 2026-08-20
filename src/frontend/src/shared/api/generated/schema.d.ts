@@ -2934,12 +2934,13 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: {
+                query: {
                     query?: string;
                     status?: components["schemas"]["IdentityStatus"];
                     affiliationType?: components["schemas"]["IdentityAffiliationType"];
                     page?: number | string;
                     pageSize?: number | string;
+                    ids: string[];
                 };
                 header?: never;
                 path?: never;
@@ -17391,6 +17392,285 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/learning/runtime/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["StartLaunchSessionRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StartLaunchSessionResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/learning/runtime/sessions/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    token: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LaunchSessionBootstrapResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Gone */
+                410: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/learning/runtime/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    token: string;
+                    scoId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ScormProgressResponse"];
+                    };
+                };
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Gone */
+                410: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RecordScormProgressRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ScormProgressResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Gone */
+                410: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/learning/runtime/content/{token}/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    token: string;
+                    path: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Gone */
+                410: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/kiosk/config": {
         parameters: {
             query?: never;
@@ -21899,6 +22179,26 @@ export interface components {
             status: components["schemas"]["HardwareOperationStatus"];
             error: null | components["schemas"]["HardwareErrorResponse"];
         };
+        LaunchSessionBootstrapResponse: {
+            /** Format: uuid */
+            enrollmentId: string;
+            /** Format: uuid */
+            courseId: string;
+            /** Format: uuid */
+            courseVersionId: string;
+            /** Format: uuid */
+            courseLanguageId: string;
+            scormVersion: components["schemas"]["ScormVersion"];
+            /** Format: uuid */
+            attemptId: null | string;
+            /** Format: uuid */
+            activeScoId: null | string;
+            contentBaseUrl: string;
+            launchPath: string;
+            /** Format: date-time */
+            expiresAt: string;
+            scos: components["schemas"]["CourseScoResponse"][];
+        };
         LearningRequirementRuleResponse: {
             /** Format: uuid */
             id: string;
@@ -23445,6 +23745,22 @@ export interface components {
             licensePlate: null | string;
             visit: null | components["schemas"]["ReceptionKioskVisitDetailsResponse"];
         };
+        RecordScormProgressRequest: {
+            token: string;
+            /** Format: uuid */
+            scoId: null | string;
+            completionStatus: null | string;
+            successStatus: null | string;
+            /** Format: double */
+            score: null | number | string;
+            /** Format: double */
+            scoreScaled: null | number | string;
+            bookmarkLocation: null | string;
+            sessionTime: null | string;
+            suspendData: null | string;
+            isCompleted: boolean;
+            rawCmiData: string;
+        };
         RelocateVisitRequest: {
             /** Format: uuid */
             locationId: null | string;
@@ -23577,6 +23893,33 @@ export interface components {
             model?: components["schemas"]["WorkflowDefinitionModel"];
             publish?: null | boolean;
         };
+        ScormProgressResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            attemptId: string;
+            /** Format: uuid */
+            courseId: string;
+            /** Format: uuid */
+            courseVersionId: string;
+            /** Format: uuid */
+            scoId: null | string;
+            /** Format: uuid */
+            identityId: string;
+            scormVersion: components["schemas"]["ScormVersion"];
+            completionStatus: null | string;
+            successStatus: null | string;
+            /** Format: double */
+            score: null | number | string;
+            /** Format: double */
+            scoreScaled: null | number | string;
+            bookmarkLocation: null | string;
+            sessionTime: null | string;
+            suspendData: null | string;
+            rawCmiData: string;
+            /** Format: date-time */
+            lastCommittedAt: string;
+        };
         /** @enum {unknown} */
         ScormVersion: "Scorm12" | "Scorm2004";
         SecureMessingConfiguration: {
@@ -23604,6 +23947,17 @@ export interface components {
         };
         StartKioskSessionRequest: {
             languageCode: null | string;
+        };
+        StartLaunchSessionRequest: {
+            /** Format: uuid */
+            enrollmentId: string;
+            /** Format: uuid */
+            languageId: string;
+            /** Format: uuid */
+            scoId: null | string;
+        };
+        StartLaunchSessionResponse: {
+            token: string;
         };
         /** @enum {unknown} */
         StoredFileVisibility: "Private" | "Public";

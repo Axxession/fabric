@@ -25,7 +25,7 @@ export default function LmsEnrollmentCreatePage() {
     queryKey: ['administration', 'lms', 'enrollment', 'identities', identityQuery],
     queryFn: async () => {
       const { data, error } = await api.GET('/api/identities', {
-        params: { query: { query: identityQuery.trim() || undefined, status: 'Active', affiliationType: undefined, page: 0, pageSize: 25 } },
+        params: { query: { query: identityQuery.trim() || undefined, status: 'Active', affiliationType: undefined, page: 0, pageSize: 25, ids: [] } },
       });
       if (error) throw new Error('Could not load identities.');
       return (data?.items ?? []) as IdentityResponse[];

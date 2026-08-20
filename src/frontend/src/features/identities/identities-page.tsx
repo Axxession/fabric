@@ -36,7 +36,7 @@ export default function IdentitiesPage() {
     queryKey: ['security-officer', 'identities', page, query],
     queryFn: async () => {
       const { data, error } = await api.GET('/api/identities', {
-        params: { query: { query: query || undefined, status: undefined, affiliationType: undefined, page, pageSize } },
+        params: { query: { query: query || undefined, status: undefined, affiliationType: undefined, page, pageSize, ids: [] } },
       });
 
       if (error) {

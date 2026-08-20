@@ -162,12 +162,16 @@ public class IdentityService(IdentitiesDbContext db, TimeProvider timeProvider)
 
     public async Task<IPaged<Identity>> SearchIdentitiesAsync(
         ListIdentitiesRequest request,
+        Guid[]? ids,
         CancellationToken cancellationToken = default)
     {
         IQueryable<Identity> query = db.Identities.AsNoTracking()
             .Include(identity => identity.EmployeeAffiliations)
             .Include(identity => identity.ContractorAffiliations)
             .Include(identity => identity.VisitorAffiliations);
+
+        if (ids is { Length: > 0 })
+            query = query.Where(identity => ids.Contains(identity.Id));
 
         if (!string.IsNullOrWhiteSpace(request.Query))
         {

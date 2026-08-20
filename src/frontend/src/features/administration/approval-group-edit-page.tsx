@@ -48,7 +48,7 @@ export default function ApprovalGroupEditPage() {
   const identitiesQuery = useQuery({
     queryKey: ['administration', 'access-model', 'approval-groups', 'identities'],
     queryFn: async () => {
-      const { data, error } = await api.GET('/api/identities', { params: { query: { query: undefined, status: 'Active', affiliationType: undefined, page: 0, pageSize: 200 } } });
+      const { data, error } = await api.GET('/api/identities', { params: { query: { query: undefined, status: 'Active', affiliationType: undefined, page: 0, pageSize: 200, ids: [] } } });
       if (error) throw new Error('Could not load identities.');
       return data?.items ?? [];
     },
