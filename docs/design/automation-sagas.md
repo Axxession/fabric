@@ -126,6 +126,44 @@ Boundary rules:
 - Access Catalog owns the grant command, grant compliance state, and package assignment lifecycle.
 - Automation/sagas own the cross-context policy that decides when to call Access Catalog.
 
+## Learning Requirement Rules
+
+Learning/requirement coupling belongs in an automation or application-service seam, not inside `Learning` or `Requirements` ownership.
+
+Recommended shape:
+
+```text
+LearningRequirementRule
+- RequirementDefinitionId
+- CourseId
+- SatisfactionMode
+- MinimumScore?
+- IsEnabled
+```
+
+Current rule semantics:
+
+- one requirement may map to one or more courses
+- one course may satisfy one or more requirements
+- the rule answers whether completion alone is enough or whether a minimum score is required
+
+Important operating rule:
+
+- the rule does not automatically create enrollments in the background
+- completion surfaces choose when to inspect missing learning requirements in their current source context and when to offer courses
+
+Current flow:
+
+```text
+completion surface resolves relevant missing learning requirements
+-> surface resolves mapped courses through LearningRequirementRule
+-> user selects course
+-> application service upserts Enrollment in Learning
+-> learner completes course
+-> automation/application service writes RequirementEvidence
+-> Requirements triggers compliance recalculation
+```
+
 ## Employee Lifecycle PACS Subject State
 
 Current simplified employee lifecycle policy:

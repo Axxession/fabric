@@ -99,7 +99,7 @@ export default function SiteEditPage() {
     queryKey: [...approvalGroupsQueryKey, 'identities'],
     queryFn: async () => {
       const { data, error } = await api.GET('/api/identities', {
-        params: { query: { query: undefined, status: 'Active', affiliationType: undefined, page: 0, pageSize: 200 } },
+        params: { query: { query: undefined, status: 'Active', affiliationType: undefined, page: 0, pageSize: 200, ids: [] } },
       });
 
       if (error) {

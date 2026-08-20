@@ -2,6 +2,7 @@ using Fabric.Server.Sagas.AccessGrantProvisioning;
 using Fabric.Server.Sagas.ContractorJobs;
 using Fabric.Server.Sagas.EmployeeLifecycle;
 using Fabric.Server.Sagas.Kiosk;
+using Fabric.Server.Sagas.LearningRequirements;
 using Fabric.Server.Sagas.VisitorPreOnboarding;
 using Microsoft.EntityFrameworkCore;
 
@@ -35,6 +36,7 @@ public static class SagaServiceCollectionExtensions
         collection.AddScoped<ContractorAssignmentAutomationService>();
         collection.AddHostedService<ContractorAssignmentAutomationWorker>();
         collection.AddScoped<ContractorJobAccessAutomationService>();
+        collection.AddScoped<LearningRequirementAutomationService>();
         collection.AddSingleton<VisitorPreOnboardingSagaTrigger>();
         collection.AddScoped<VisitorPreOnboardingSagaService>();
         collection.AddHostedService<VisitorPreOnboardingWorker>();

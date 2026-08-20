@@ -101,6 +101,7 @@ function getAppPerspectives(): readonly AppPerspective[] {
         { label: i18n.t('perspectives.administration.menu.sites.label'), description: i18n.t('perspectives.administration.menu.sites.description'), to: '/administration/sites' },
         { label: i18n.t('perspectives.administration.menu.myOrganization.label'), description: i18n.t('perspectives.administration.menu.myOrganization.description'), to: '/administration/my-organization' },
         { label: i18n.t('perspectives.administration.menu.accessModel.label'), description: i18n.t('perspectives.administration.menu.accessModel.description'), to: '/administration/access-model' },
+        { label: 'LMS', description: 'Manage courses, enrollments, reporting, and course requirements.', to: '/administration/lms' },
         { label: i18n.t('perspectives.administration.menu.credentialTypes.label'), description: i18n.t('perspectives.administration.menu.credentialTypes.description'), to: '/administration/credential-types' },
         { label: i18n.t('perspectives.administration.menu.accessControl.label'), description: i18n.t('perspectives.administration.menu.accessControl.description'), to: '/administration/access-control' },
         { label: i18n.t('perspectives.administration.menu.userManagement.label'), description: i18n.t('perspectives.administration.menu.userManagement.description'), to: '/administration/user-management' },

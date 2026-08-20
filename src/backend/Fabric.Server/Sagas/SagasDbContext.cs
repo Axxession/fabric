@@ -3,6 +3,7 @@ using Fabric.Server.Sagas.AccessGrantProvisioning;
 using Fabric.Server.Sagas.ContractorJobs;
 using Fabric.Server.Sagas.EmployeeLifecycle;
 using Fabric.Server.Sagas.Kiosk;
+using Fabric.Server.Sagas.LearningRequirements;
 using Fabric.Server.Sagas.Persistence.Configuration;
 using Fabric.Server.Sagas.VisitorPreOnboarding;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +23,7 @@ public class SagasDbContext : TenantDbContext
     public DbSet<OrganizationalUnitPackageRule> OrganizationalUnitPackageRules { get; set; } = null!;
     public DbSet<PersonaPackageRule> PersonaPackageRules { get; set; } = null!;
     public DbSet<ContractorJobPackageRule> ContractorJobPackageRules { get; set; } = null!;
+    public DbSet<LearningRequirementRule> LearningRequirementRules { get; set; } = null!;
     public DbSet<ContractorAssignmentAutomationMailbox> ContractorAssignmentAutomationMailboxes { get; set; } = null!;
     public DbSet<EmployeeLifecycleAutomationSettings> EmployeeLifecycleAutomationSettings { get; set; } = null!;
     public DbSet<EmployeeAccessAutomationReconciliation> EmployeeAccessAutomationReconciliations { get; set; } = null!;
@@ -51,6 +53,7 @@ public class SagasDbContext : TenantDbContext
         modelBuilder.ApplyConfiguration(new OrganizationalUnitPackageRuleConfiguration());
         modelBuilder.ApplyConfiguration(new PersonaPackageRuleConfiguration());
         modelBuilder.ApplyConfiguration(new ContractorJobPackageRuleConfiguration());
+        modelBuilder.ApplyConfiguration(new LearningRequirementRuleConfiguration());
         modelBuilder.ApplyConfiguration(new ContractorAssignmentAutomationMailboxConfiguration());
         modelBuilder.ApplyConfiguration(new EmployeeLifecycleAutomationSettingsConfiguration());
         modelBuilder.ApplyConfiguration(new EmployeeAccessAutomationReconciliationConfiguration());

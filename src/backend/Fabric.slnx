@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/Hardware/">
     <Project Path="hardware\Fabric.Hardware.Agent\Fabric.Hardware.Agent.csproj" />
+    <Project Path="hardware\Fabric.Hardware.Agent.Tests\Fabric.Hardware.Agent.Tests.csproj" />
     <Project Path="hardware\Fabric.Hardware.Collector\Fabric.Hardware.Collector.csproj" />
     <Project Path="hardware\Fabric.Hardware.Contracts\Fabric.Hardware.Contracts.csproj" />
     <Project Path="hardware\Fabric.Hardware.Desfire.Tests\Fabric.Hardware.Desfire.Tests.csproj" />
@@ -12,10 +13,8 @@
   <Folder Name="/Properties/">
     <File Path="Directory.Packages.props" />
   </Folder>
+  <Project Path="Fabric.Server.Tests\Fabric.Server.Tests.csproj" />
   <Project Path="Fabric.Server\Fabric.Server.csproj" />
-  <Folder Name="/Integrations/">
-    <Project Path="integrations\Fabric.Keycloak\Fabric.Keycloak.csproj" />
-  </Folder>
   <Folder Name="/AccessControl/">
     <Project Path="access-control\unipass\AccessControl.Unipass.Tests\AccessControl.Unipass.Tests.csproj" />
     <Project Path="access-control\unipass\AccessControl.Unipass\AccessControl.Unipass.csproj" />

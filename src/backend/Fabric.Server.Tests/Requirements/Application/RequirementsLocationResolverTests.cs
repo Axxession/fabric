@@ -1,4 +1,6 @@
 using Fabric.Server.Infrastructure.Tenancy;
+using Fabric.Server.Contractors.Persistence;
+using Fabric.Server.Identities.Persistence;
 using Fabric.Server.Locations.Persistence;
 using Fabric.Server.Core;
 using Fabric.Server.Requirements.Application;
@@ -11,7 +13,7 @@ namespace Fabric.Server.Tests.Requirements.Application;
 public sealed class RequirementsLocationResolverTests
 {
     [Fact]
-    public async Task ResolveApplicableZoneIdsAsync_WhenNestedMappingsExist_ReturnsAncestorOrder()
+    public async Task DeriveForGrantAsync_WhenNestedPoliciesExist_IncludesAncestorPolicies()
     {
         TenantContext tenantContext = new();
         DbContextOptions<RequirementsDbContext> requirementsOptions = new DbContextOptionsBuilder<RequirementsDbContext>()
@@ -34,26 +36,44 @@ public sealed class RequirementsLocationResolverTests
             LocationLookup.Room(siteId, buildingId, roomId));
 
         DateTimeOffset now = DateTimeOffset.UtcNow;
-        Result<EnforcementZone, EnforcementZoneErrors> perimeterCreate = EnforcementZone.Create("PERIM", "Perimeter", null, now);
-        Result<EnforcementZone, EnforcementZoneErrors> roomCreate = EnforcementZone.Create("ROOM", "Server Room", null, now);
-        perimeterCreate.IsSuccess(out EnforcementZone perimeterZone);
-        roomCreate.IsSuccess(out EnforcementZone roomZone);
+        Result<RequirementDefinition, RequirementDefinitionErrors> siteRequirementCreate = RequirementDefinition.Create("PERIM", "Perimeter", null, RequirementFulfillmentKind.Document, false, now);
+        Result<RequirementDefinition, RequirementDefinitionErrors> roomRequirementCreate = RequirementDefinition.Create("ROOM", "Server Room", null, RequirementFulfillmentKind.Document, false, now);
+        siteRequirementCreate.IsSuccess(out RequirementDefinition siteRequirement);
+        roomRequirementCreate.IsSuccess(out RequirementDefinition roomRequirement);
 
-        requirementsDb.EnforcementZones.AddRange(perimeterZone, roomZone);
-        requirementsDb.EnforcementZoneLocations.AddRange(
-            EnforcementZoneLocation.Create(perimeterZone.Id, siteId, now),
-            EnforcementZoneLocation.Create(roomZone.Id, roomId, now));
+        requirementsDb.RequirementDefinitions.AddRange(siteRequirement, roomRequirement);
+        requirementsDb.LocationRequirementPolicies.AddRange(
+            LocationRequirementPolicy.Create(siteId, siteRequirement.Id, RequirementSubjectKind.Visitor, true, now),
+            LocationRequirementPolicy.Create(roomId, roomRequirement.Id, RequirementSubjectKind.Visitor, true, now));
 
         await locationsDb.SaveChangesAsync();
         await requirementsDb.SaveChangesAsync();
 
-        RequirementsLocationResolver resolver = new(requirementsDb, locationsDb);
+        GrantRequirementsService service = new(requirementsDb, locationsDb, CreateContractorsDbContext(), CreateIdentitiesDbContext(), TimeProvider.System);
 
-        Guid[]? zoneIds = await resolver.ResolveApplicableZoneIdsAsync(roomId);
+        Result<IReadOnlyList<DerivedGrantRequirement>, RequirementsEvaluationErrors> result = await service.DeriveForGrantAsync(Guid.NewGuid(), RequirementSubjectKind.Visitor, roomId);
 
-        Assert.NotNull(zoneIds);
-        Assert.Equal(2, zoneIds!.Length);
-        Assert.Contains(perimeterZone.Id, zoneIds);
-        Assert.Contains(roomZone.Id, zoneIds);
+        Assert.True(result.IsSuccess(out IReadOnlyList<DerivedGrantRequirement> requirements));
+        Assert.Equal(2, requirements.Count);
+        Assert.Contains(requirements, item => item.RequirementDefinitionId == siteRequirement.Id);
+        Assert.Contains(requirements, item => item.RequirementDefinitionId == roomRequirement.Id);
+    }
+
+    private static ContractorsDbContext CreateContractorsDbContext()
+    {
+        TenantContext tenantContext = new();
+        DbContextOptions<ContractorsDbContext> options = new DbContextOptionsBuilder<ContractorsDbContext>()
+            .UseInMemoryDatabase($"requirements-contractors-{Guid.NewGuid()}")
+            .Options;
+        return new ContractorsDbContext(options, tenantContext);
+    }
+
+    private static IdentitiesDbContext CreateIdentitiesDbContext()
+    {
+        TenantContext tenantContext = new();
+        DbContextOptions<IdentitiesDbContext> options = new DbContextOptionsBuilder<IdentitiesDbContext>()
+            .UseInMemoryDatabase($"requirements-identities-{Guid.NewGuid()}")
+            .Options;
+        return new IdentitiesDbContext(options, tenantContext);
     }
 }

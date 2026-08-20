@@ -26,7 +26,7 @@ public sealed class RequirementsService(
         if (await db.RequirementDefinitions.AnyAsync(item => item.Code == request.Code, cancellationToken))
             return Result.Failure<RequirementDefinition, RequirementDefinitionErrors>(RequirementDefinitionErrors.CodeRequired);
 
-        Result<RequirementDefinition, RequirementDefinitionErrors> create = RequirementDefinition.Create(request.Code, request.Name, request.Description, request.EvaluatorKind, request.IsSensitive, timeProvider.GetUtcNow());
+        Result<RequirementDefinition, RequirementDefinitionErrors> create = RequirementDefinition.Create(request.Code, request.Name, request.Description, request.FulfillmentKind, request.IsSensitive, timeProvider.GetUtcNow());
         if (create.IsFailure(out RequirementDefinitionErrors error))
             return Result.Failure<RequirementDefinition, RequirementDefinitionErrors>(error);
 
@@ -42,7 +42,7 @@ public sealed class RequirementsService(
         if (definition is null)
             return Result.Failure<RequirementDefinition, RequirementDefinitionErrors>(RequirementDefinitionErrors.RequirementDefinitionNotFound);
 
-        Result<RequirementDefinitionErrors> update = definition.Update(request.Code, request.Name, request.Description, request.EvaluatorKind, request.IsSensitive, timeProvider.GetUtcNow());
+        Result<RequirementDefinitionErrors> update = definition.Update(request.Code, request.Name, request.Description, request.FulfillmentKind, request.IsSensitive, timeProvider.GetUtcNow());
         if (update.IsFailure(out RequirementDefinitionErrors error))
             return Result.Failure<RequirementDefinition, RequirementDefinitionErrors>(error);
 

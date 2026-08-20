@@ -29,7 +29,7 @@ type EvidenceFormValues = {
   readonly verifiedAt: string;
 };
 
-const evidenceKinds: RequirementEvidenceKind[] = ['UploadedDocument', 'ExternalCheck', 'Onboarded', 'Computed', 'Escort'];
+const evidenceKinds: RequirementEvidenceKind[] = ['UploadedDocument', 'LearningCourseCompletion'];
 const evidenceStatuses: RequirementEvidenceStatus[] = ['Valid', 'Invalid'];
 const evidenceQueryKey = ['requirements', 'evidence'] as const;
 const definitionsQueryKey = ['requirements', 'definitions'] as const;
