@@ -20,7 +20,6 @@ public sealed record PlatformTenantResponse(
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc,
     OidcSettingsResponse Oidc,
-    ThemeSettingsResponse Theme,
     LogoSettingsResponse? Logo,
     HostSettingsResponse Host,
     bool CanProvisionKeycloakRealm,

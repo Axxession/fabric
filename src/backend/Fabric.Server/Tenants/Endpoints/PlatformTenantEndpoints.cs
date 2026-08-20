@@ -338,7 +338,6 @@ public static class PlatformTenantEndpoints
 
     private static PlatformTenantResponse ToPlatformResponse(Tenant tenant, IEnumerable<TenantIntegration> integrations, bool canProvisionKeycloakRealm)
     {
-        TenantConfiguration configuration = NormalizeConfiguration(tenant.Configuration);
         TenantIntegration? keycloak = integrations.SingleOrDefault(item => item.Name == TenantIntegrationName.Keycloak);
         TenantIntegration? microsoftGraph = integrations.SingleOrDefault(item => item.Name == TenantIntegrationName.MicrosoftGraph);
 
@@ -348,10 +347,9 @@ public static class PlatformTenantEndpoints
             tenant.IsActive,
             tenant.CreatedAtUtc,
             tenant.UpdatedAtUtc,
-            configuration.Oidc.ToResponse(),
-            configuration.Theme.ToResponse(),
-            configuration.Logo?.ToResponse(),
-            configuration.Host.ToResponse(),
+            tenant.Configuration.Oidc.ToResponse(),
+            tenant.Configuration.Logo?.ToResponse(),
+            (tenant.Configuration.Host ?? new HostSettings()).ToResponse(),
             canProvisionKeycloakRealm,
             ToKeycloakSummary(keycloak),
             ToMicrosoftGraphSummary(microsoftGraph));
@@ -388,14 +386,6 @@ public static class PlatformTenantEndpoints
 
         return resolved;
     }
-
-    private static TenantConfiguration NormalizeConfiguration(TenantConfiguration configuration) => new()
-    {
-        Oidc = configuration.Oidc,
-        Theme = configuration.Theme ?? ThemeSettings.Default,
-        Logo = configuration.Logo,
-        Host = configuration.Host ?? new HostSettings(),
-    };
 
     private static HostSettingsResponse ToResponse(this HostSettings host) =>
         new(host.AssignmentMode);

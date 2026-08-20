@@ -41,26 +41,6 @@ public sealed class TenantConfigurationConfiguration : IEntityTypeConfiguration<
                     .IsRequired();
             });
 
-            configuration.OwnsOne(c => c.Theme, theme =>
-            {
-                ThemeSettings defaults = ThemeSettings.Default;
-
-                theme.Property(t => t.BackgroundColor).HasColumnName("theme_background_color").HasMaxLength(7).HasDefaultValue(defaults.BackgroundColor).IsRequired();
-                theme.Property(t => t.ContentColor).HasColumnName("theme_content_color").HasMaxLength(7).HasDefaultValue(defaults.ContentColor).IsRequired();
-                theme.Property(t => t.PrimaryColor).HasColumnName("theme_primary_color").HasMaxLength(7).HasDefaultValue(defaults.PrimaryColor).IsRequired();
-                theme.Property(t => t.TextColor).HasColumnName("theme_text_color").HasMaxLength(7).HasDefaultValue(defaults.TextColor).IsRequired();
-                theme.Property(t => t.TextMutedColor).HasColumnName("theme_text_muted_color").HasMaxLength(7).HasDefaultValue(defaults.TextMutedColor).IsRequired();
-                theme.Property(t => t.BorderColor).HasColumnName("theme_border_color").HasMaxLength(7).HasDefaultValue(defaults.BorderColor).IsRequired();
-                theme.Property(t => t.HoverBlueColor).HasColumnName("theme_hover_blue_color").HasMaxLength(7).HasDefaultValue(defaults.HoverBlueColor).IsRequired();
-                theme.Property(t => t.ActiveBlueColor).HasColumnName("theme_active_blue_color").HasMaxLength(7).HasDefaultValue(defaults.ActiveBlueColor).IsRequired();
-                theme.Property(t => t.HoverGrayColor).HasColumnName("theme_hover_gray_color").HasMaxLength(7).HasDefaultValue(defaults.HoverGrayColor).IsRequired();
-                theme.Property(t => t.ErrorColor).HasColumnName("theme_error_color").HasMaxLength(7).HasDefaultValue(defaults.ErrorColor).IsRequired();
-                theme.Property(t => t.ErrorBackgroundColor).HasColumnName("theme_error_background_color").HasMaxLength(7).HasDefaultValue(defaults.ErrorBackgroundColor).IsRequired();
-                theme.Property(t => t.DangerColor).HasColumnName("theme_danger_color").HasMaxLength(7).HasDefaultValue(defaults.DangerColor).IsRequired();
-                theme.Property(t => t.SuccessColor).HasColumnName("theme_success_color").HasMaxLength(7).HasDefaultValue(defaults.SuccessColor).IsRequired();
-                theme.Property(t => t.SuccessBackgroundColor).HasColumnName("theme_success_background_color").HasMaxLength(7).HasDefaultValue(defaults.SuccessBackgroundColor).IsRequired();
-            });
-
             configuration.OwnsOne(c => c.Logo, logo =>
             {
                 logo.Property(l => l.ContentType)

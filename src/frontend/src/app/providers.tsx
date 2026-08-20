@@ -47,7 +47,7 @@ export function TenantAppProviders({ children }: { children: ReactNode }) {
     async function loadTenantSettings() {
       try {
         const settings = await fetchTenantSettings();
-        applyFabricTheme(settings.theme);
+        applyFabricTheme(defaultFabricTheme);
         setTenantSettings(settings);
       } catch (error) {
         if (controller.signal.aborted) {

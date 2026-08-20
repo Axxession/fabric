@@ -20178,7 +20178,6 @@ export interface components {
         AdminTenantSettingsResponse: {
             version: string;
             oidc: components["schemas"]["OidcSettingsResponse"];
-            theme: components["schemas"]["ThemeSettingsResponse"];
             logo: null | components["schemas"]["LogoSettingsResponse"];
         };
         /** @enum {unknown} */
@@ -24001,24 +24000,7 @@ export interface components {
         TenantSettingsResponse: {
             version: string;
             oidc: components["schemas"]["OidcSettingsResponse"];
-            theme: components["schemas"]["ThemeSettingsResponse"];
             logo: null | components["schemas"]["LogoSettingsResponse"];
-        };
-        ThemeSettingsResponse: {
-            backgroundColor: string;
-            contentColor: string;
-            primaryColor: string;
-            textColor: string;
-            textMutedColor: string;
-            borderColor: string;
-            hoverBlueColor: string;
-            activeBlueColor: string;
-            hoverGrayColor: string;
-            errorColor: string;
-            errorBackgroundColor: string;
-            dangerColor: string;
-            successColor: string;
-            successBackgroundColor: string;
         };
         TransformationPlanOperationResponse: {
             /** Format: int32 */
@@ -24392,23 +24374,6 @@ export interface components {
         };
         UpdateTenantSettingsRequest: {
             oidc: components["schemas"]["UpdateOidcSettingsRequest"];
-            theme: components["schemas"]["UpdateThemeSettingsRequest"];
-        };
-        UpdateThemeSettingsRequest: {
-            backgroundColor: string;
-            contentColor: string;
-            primaryColor: string;
-            textColor: string;
-            textMutedColor: string;
-            borderColor: string;
-            hoverBlueColor: string;
-            activeBlueColor: string;
-            hoverGrayColor: string;
-            errorColor: string;
-            errorBackgroundColor: string;
-            dangerColor: string;
-            successColor: string;
-            successBackgroundColor: string;
         };
         UpdateTransformationRequest: {
             name: string;

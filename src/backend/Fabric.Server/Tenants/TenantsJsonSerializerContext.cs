@@ -9,7 +9,6 @@ namespace Fabric.Server.Tenants;
 [JsonSerializable(typeof(TenantSettingsResponse))]
 [JsonSerializable(typeof(AdminTenantSettingsResponse))]
 [JsonSerializable(typeof(OidcSettingsResponse))]
-[JsonSerializable(typeof(ThemeSettingsResponse))]
 [JsonSerializable(typeof(LogoSettingsResponse))]
 [JsonSerializable(typeof(PlatformAuthSettingsResponse))]
 [JsonSerializable(typeof(PlatformTenantListItemResponse))]

@@ -1,5 +1,3 @@
-import { fabricThemeSchema, type FabricTheme } from '@/shared/theme/fabric-theme';
-
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 
@@ -10,7 +8,6 @@ type LogoSettingsResponse = components['schemas']['LogoSettingsResponse'];
 export type TenantSettings = {
   version: string;
   oidc: TenantOidcSettings;
-  theme: FabricTheme;
   logo: TenantLogoSettings | null;
 };
 
@@ -48,10 +45,9 @@ function parseTenantSettings(value: TenantSettingsResponse): TenantSettings {
   }
 
   const oidc = parseOidcSettings(value.oidc);
-  const theme = fabricThemeSchema.parse(value.theme);
   const logo = parseLogoSettings(value.logo);
 
-  return { version: value.version, oidc, theme, logo };
+  return { version: value.version, oidc, logo };
 }
 function parseOidcSettings(value: OidcSettingsResponse | undefined): TenantOidcSettings {
   if (!value || typeof value.metadataUrl !== 'string' || typeof value.clientId !== 'string' || typeof value.requireHttpsMetadata !== 'boolean') {

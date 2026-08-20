@@ -7,14 +7,11 @@ using Fabric.Server.Tenants.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Text.RegularExpressions;
 
 namespace Fabric.Server.Tenants.Endpoints;
 
 public static class TenantsEndpoints
 {
-    private static readonly Regex HexColorRegex = new("^#(?:[0-9a-fA-F]{3}){1,2}$", RegexOptions.Compiled);
-
     public static IEndpointRouteBuilder MapTenantEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/api/tenants/settings", GetTenantSettings)
@@ -75,23 +72,6 @@ public static class TenantsEndpoints
                 MetadataUrl = request.Oidc.MetadataUrl.Trim(),
                 ClientId = request.Oidc.ClientId.Trim(),
                 RequireHttpsMetadata = request.Oidc.RequireHttpsMetadata
-            },
-            Theme = new ThemeSettings
-            {
-                BackgroundColor = request.Theme.BackgroundColor.Trim(),
-                ContentColor = request.Theme.ContentColor.Trim(),
-                PrimaryColor = request.Theme.PrimaryColor.Trim(),
-                TextColor = request.Theme.TextColor.Trim(),
-                TextMutedColor = request.Theme.TextMutedColor.Trim(),
-                BorderColor = request.Theme.BorderColor.Trim(),
-                HoverBlueColor = request.Theme.HoverBlueColor.Trim(),
-                ActiveBlueColor = request.Theme.ActiveBlueColor.Trim(),
-                HoverGrayColor = request.Theme.HoverGrayColor.Trim(),
-                ErrorColor = request.Theme.ErrorColor.Trim(),
-                ErrorBackgroundColor = request.Theme.ErrorBackgroundColor.Trim(),
-                DangerColor = request.Theme.DangerColor.Trim(),
-                SuccessColor = request.Theme.SuccessColor.Trim(),
-                SuccessBackgroundColor = request.Theme.SuccessBackgroundColor.Trim()
             }
         };
 
@@ -115,30 +95,6 @@ public static class TenantsEndpoints
 
         if (string.IsNullOrWhiteSpace(request.Oidc.ClientId))
             return ValidationProblem("OIDC client ID is required.");
-
-        if (request.Theme is null)
-            return ValidationProblem("Theme settings are required.");
-
-        string[] colors =
-        [
-            request.Theme.BackgroundColor,
-            request.Theme.ContentColor,
-            request.Theme.PrimaryColor,
-            request.Theme.TextColor,
-            request.Theme.TextMutedColor,
-            request.Theme.BorderColor,
-            request.Theme.HoverBlueColor,
-            request.Theme.ActiveBlueColor,
-            request.Theme.HoverGrayColor,
-            request.Theme.ErrorColor,
-            request.Theme.ErrorBackgroundColor,
-            request.Theme.DangerColor,
-            request.Theme.SuccessColor,
-            request.Theme.SuccessBackgroundColor
-        ];
-
-        if (colors.Any(color => string.IsNullOrWhiteSpace(color) || !HexColorRegex.IsMatch(color.Trim())))
-            return ValidationProblem("Theme colors must be hex colors.");
 
         return null;
     }

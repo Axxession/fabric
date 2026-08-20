@@ -11,7 +11,6 @@ export type PlatformTenantListItem = {
 };
 
 export type PlatformTenant = PlatformTenantListItem & {
-  theme: PlatformTenantThemeSettings;
   logo: PlatformTenantLogoSettings | null;
   canProvisionKeycloakRealm: boolean;
   keycloak: PlatformTenantIntegrationSummary;
@@ -26,23 +25,6 @@ export type PlatformTenantOidcSettings = {
 
 export type PlatformTenantHostSettings = {
   assignmentMode: string;
-};
-
-export type PlatformTenantThemeSettings = {
-  backgroundColor: string;
-  contentColor: string;
-  primaryColor: string;
-  textColor: string;
-  textMutedColor: string;
-  borderColor: string;
-  hoverBlueColor: string;
-  activeBlueColor: string;
-  hoverGrayColor: string;
-  errorColor: string;
-  errorBackgroundColor: string;
-  dangerColor: string;
-  successColor: string;
-  successBackgroundColor: string;
 };
 
 export type PlatformTenantLogoSettings = {

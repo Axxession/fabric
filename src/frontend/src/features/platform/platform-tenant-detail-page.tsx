@@ -146,8 +146,6 @@ export default function PlatformTenantDetailPage() {
                 <CardDescription>Read-only values outside the current editing scope.</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4 text-[14px] text-muted-foreground">
-                <ReadOnlyRow label="Theme primary color" value={tenantQuery.data.theme.primaryColor} />
-                <ReadOnlyRow label="Theme background color" value={tenantQuery.data.theme.backgroundColor} />
                 <ReadOnlyRow label="Logo" value={tenantQuery.data.logo ? `Configured (${tenantQuery.data.logo.contentType})` : 'Not configured'} />
                 <ReadOnlyRow label="Host assignment mode" value={tenantQuery.data.host.assignmentMode} />
               </CardContent>

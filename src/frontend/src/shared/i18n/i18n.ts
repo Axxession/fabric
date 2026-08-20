@@ -420,17 +420,9 @@ const resources = {
       home: {
         loadingPerspectives: 'Loading perspectives...',
         couldNotLoadCurrentActor: 'Could not load current actor.',
-        productTagline: 'Physical identity and access management',
-        title: 'Welcome to your visitor and access workspace.',
-        description: 'Sign in to manage visits, identities, credentials, access policies, organizations, and audit workflows from one tenant-aware portal.',
-        secureByDefault: 'Secure by default',
-        secureByDefaultDescription: 'Modules stay behind your tenant identity provider. Fabric starts the authorization code flow with PKCE using settings loaded from tenant configuration.',
-        highlights: {
-          tenantSignIn: 'Tenant-specific sign in',
-          oidcPkce: 'OIDC code flow with PKCE',
-          protectedRoutes: 'Protected module routes',
-          bearerTokens: 'Bearer tokens for API requests',
-        },
+        title: 'Fabric',
+        slugLine: 'Physical identity and access management',
+        systemReminder: 'Sign in to continue in the operational workspace.',
       },
       desfireStudio: {
         title: 'DESFire Studio',
