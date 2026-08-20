@@ -23,6 +23,7 @@ public sealed record PlatformTenantResponse(
     ThemeSettingsResponse Theme,
     LogoSettingsResponse? Logo,
     HostSettingsResponse Host,
+    bool CanProvisionKeycloakRealm,
     PlatformTenantIntegrationSummaryResponse Keycloak,
     PlatformTenantIntegrationSummaryResponse MicrosoftGraph);
 

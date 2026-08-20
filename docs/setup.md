@@ -175,6 +175,36 @@ Required `AdminOidc` fields in `MultiTenant` mode:
 - `ClientId`: Admin client id.
 - `RequireHttpsMetadata`: Set `false` only for local HTTP identity providers.
 
+## Keycloak Realm Provisioning
+
+Platform Keycloak realm provisioning is optional.
+
+If `KeycloakRealmProvisioning` is configured, platform administrators can provision a tenant Keycloak realm from Fabric. Fabric uses this config to authenticate against a bootstrap realm such as `master`.
+
+```json
+{
+  "KeycloakRealmProvisioning": {
+    "Url": "https://login.example.com",
+    "Realm": "master",
+    "ClientId": "fabric-platform",
+    "ClientSecret": "replace-with-secret"
+  }
+}
+```
+
+Required fields when this section is present:
+
+- `Url`: Keycloak base URL.
+- `Realm`: Bootstrap realm, often `master`.
+- `ClientId`: Bootstrap client id.
+- `ClientSecret`: Bootstrap client secret.
+
+Provisioning creates a tenant realm named after the Fabric tenant id, creates client `portal` for frontend login, creates client `fabric` for tenant administration, grants the `fabric` service account all `account` and `realm-management` client roles, then links the created realm back to the tenant's OIDC and Keycloak integration settings.
+
+Provisioning also seeds tenant realm roles for Fabric authorization, excluding `platform-admin`, and creates an initial `admin` user with temporary password `axxession` and all seeded tenant roles.
+
+See `docs/integration/keycloak-realm-creation.md` for the provisioning model and boundary.
+
 ## Email Configuration
 
 Email is optional. If no email config exists, email send attempts return `NotConfigured`.

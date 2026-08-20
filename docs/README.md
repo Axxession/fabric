@@ -43,3 +43,4 @@ When a task matches one of the conditions below, use the Read tool to load the c
 | File | Covers | Load when... |
 |---|---|---|
 | `integration/keycloak-tenant.md` | Tenant-scoped Keycloak user management, groups, roles, membership, password reset, and boundary to realm provisioning | changing or understanding the tenant Keycloak integration |
+| `integration/keycloak-realm-creation.md` | Platform-scoped Keycloak realm provisioning for tenants, master-realm credentials, created clients, role mapping, and tenant linking flow | changing or understanding tenant realm bootstrap and Keycloak realm creation |

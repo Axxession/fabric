@@ -13,6 +13,7 @@ export type PlatformTenantListItem = {
 export type PlatformTenant = PlatformTenantListItem & {
   theme: PlatformTenantThemeSettings;
   logo: PlatformTenantLogoSettings | null;
+  canProvisionKeycloakRealm: boolean;
   keycloak: PlatformTenantIntegrationSummary;
   microsoftGraph: PlatformTenantIntegrationSummary;
 };
@@ -93,6 +94,12 @@ export async function deactivatePlatformTenant(tenantId: string): Promise<Platfo
 
 export async function activatePlatformTenant(tenantId: string): Promise<PlatformTenant> {
   return requestJson<PlatformTenant>(`/api/platform/tenants/${encodeURIComponent(tenantId)}/activate`, {
+    method: 'POST',
+  });
+}
+
+export async function provisionPlatformTenantKeycloak(tenantId: string): Promise<PlatformTenant> {
+  return requestJson<PlatformTenant>(`/api/platform/tenants/${encodeURIComponent(tenantId)}/keycloak/provision`, {
     method: 'POST',
   });
 }

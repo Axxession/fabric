@@ -1,4 +1,7 @@
 using System.Text.Json;
+using Fabric.Server.Core;
+using Fabric.Server.Integrations.Keycloak;
+using Fabric.Server.Integrations.Keycloak.Endpoints;
 using Fabric.Server.Infrastructure.Authentication;
 using Fabric.Server.Infrastructure.Tenancy;
 using Fabric.Server.Tenants.Contracts;
@@ -49,6 +52,12 @@ public static class PlatformTenantEndpoints
             .Produces<PlatformTenantResponse>()
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound);
 
+        group.MapPost("/tenants/{tenantId}/keycloak/provision", ProvisionTenantKeycloak)
+            .Produces<PlatformTenantResponse>()
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound)
+            .Produces<ProblemDetails>(StatusCodes.Status409Conflict)
+            .Produces<ProblemDetails>(StatusCodes.Status502BadGateway);
+
         return app;
     }
 
@@ -76,7 +85,7 @@ public static class PlatformTenantEndpoints
                 tenant.CreatedAtUtc,
                 tenant.UpdatedAtUtc,
                 tenant.Configuration.Oidc.ToResponse(),
-                tenant.Configuration.Host.ToResponse()))
+                (tenant.Configuration.Host ?? new HostSettings()).ToResponse()))
             .ToListAsync(cancellationToken);
 
         return Results.Ok(response);
@@ -85,6 +94,7 @@ public static class PlatformTenantEndpoints
     private static async Task<IResult> GetTenant(
         string tenantId,
         TenantsDbContext dbContext,
+        IOptions<KeycloakRealmProvisioningOptions> provisioningOptions,
         CancellationToken cancellationToken = default)
     {
         Tenant? tenant = await dbContext.Tenants
@@ -99,13 +109,14 @@ public static class PlatformTenantEndpoints
             .Where(item => item.TenantId == tenant.Id)
             .ToListAsync(cancellationToken);
 
-        return Results.Ok(ToPlatformResponse(tenant, integrations));
+        return Results.Ok(ToPlatformResponse(tenant, integrations, provisioningOptions.Value.IsConfigured()));
     }
 
     private static async Task<IResult> CreateTenant(
         [FromBody] CreatePlatformTenantRequest request,
         TenantsDbContext dbContext,
         TimeProvider timeProvider,
+        IOptions<KeycloakRealmProvisioningOptions> provisioningOptions,
         CancellationToken cancellationToken = default)
     {
         IResult? validationResult = ValidateCreateRequest(request);
@@ -135,14 +146,16 @@ public static class PlatformTenantEndpoints
         dbContext.Tenants.Add(tenant);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return Results.Created($"/api/platform/tenants/{tenant.Id}", ToPlatformResponse(tenant, []));
+        return Results.Created($"/api/platform/tenants/{tenant.Id}", ToPlatformResponse(tenant, [], provisioningOptions.Value.IsConfigured()));
     }
 
     private static async Task<IResult> UpdateTenant(
         string tenantId,
         [FromBody] UpdatePlatformTenantRequest request,
         TenantsDbContext dbContext,
+        ITenantStore tenantStore,
         TimeProvider timeProvider,
+        IOptions<KeycloakRealmProvisioningOptions> provisioningOptions,
         CancellationToken cancellationToken = default)
     {
         IResult? validationResult = ValidateUpdateRequest(request);
@@ -156,25 +169,32 @@ public static class PlatformTenantEndpoints
             return Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Tenant not found", detail: $"Tenant '{tenantId}' does not exist.");
 
         DateTimeOffset now = timeProvider.GetUtcNow();
-        tenant.UpdateDisplayName(request.DisplayName.Trim(), now);
-        tenant.UpdateConfiguration(tenant.Configuration with
-        {
-            Oidc = new OidcSettings
-            {
-                MetadataUrl = request.Oidc.MetadataUrl.Trim(),
-                ClientId = request.Oidc.ClientId.Trim(),
-                RequireHttpsMetadata = request.Oidc.RequireHttpsMetadata,
-            }
-        }, now);
+        string normalizedDisplayName = request.DisplayName.Trim();
+        string normalizedMetadataUrl = request.Oidc.MetadataUrl.Trim();
+        string normalizedClientId = request.Oidc.ClientId.Trim();
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await dbContext.Tenants
+            .Where(item => item.Id == tenant.Id)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(item => item.DisplayName, normalizedDisplayName)
+                .SetProperty(item => item.UpdatedAtUtc, now)
+                .SetProperty(item => item.Configuration.Oidc.MetadataUrl, normalizedMetadataUrl)
+                .SetProperty(item => item.Configuration.Oidc.ClientId, normalizedClientId)
+                .SetProperty(item => item.Configuration.Oidc.RequireHttpsMetadata, request.Oidc.RequireHttpsMetadata),
+                cancellationToken);
+
+        tenantStore.InvalidateTenant(tenant.Id);
+
+        tenant = await dbContext.Tenants
+            .AsNoTracking()
+            .SingleAsync(item => item.Id == tenant.Id, cancellationToken);
 
         List<TenantIntegration> integrations = await dbContext.TenantIntegrations
             .AsNoTracking()
             .Where(item => item.TenantId == tenant.Id)
             .ToListAsync(cancellationToken);
 
-        return Results.Ok(ToPlatformResponse(tenant, integrations));
+        return Results.Ok(ToPlatformResponse(tenant, integrations, provisioningOptions.Value.IsConfigured()));
     }
 
     private static async Task<IResult> DeactivateTenant(
@@ -182,6 +202,7 @@ public static class PlatformTenantEndpoints
         TenantsDbContext dbContext,
         ITenantStore tenantStore,
         TimeProvider timeProvider,
+        IOptions<KeycloakRealmProvisioningOptions> provisioningOptions,
         CancellationToken cancellationToken = default)
     {
         Tenant? tenant = await dbContext.Tenants
@@ -199,7 +220,7 @@ public static class PlatformTenantEndpoints
             .Where(item => item.TenantId == tenant.Id)
             .ToListAsync(cancellationToken);
 
-        return Results.Ok(ToPlatformResponse(tenant, integrations));
+        return Results.Ok(ToPlatformResponse(tenant, integrations, provisioningOptions.Value.IsConfigured()));
     }
 
     private static async Task<IResult> ActivateTenant(
@@ -207,6 +228,7 @@ public static class PlatformTenantEndpoints
         TenantsDbContext dbContext,
         ITenantStore tenantStore,
         TimeProvider timeProvider,
+        IOptions<KeycloakRealmProvisioningOptions> provisioningOptions,
         CancellationToken cancellationToken = default)
     {
         Tenant? tenant = await dbContext.Tenants
@@ -224,11 +246,99 @@ public static class PlatformTenantEndpoints
             .Where(item => item.TenantId == tenant.Id)
             .ToListAsync(cancellationToken);
 
-        return Results.Ok(ToPlatformResponse(tenant, integrations));
+        return Results.Ok(ToPlatformResponse(tenant, integrations, provisioningOptions.Value.IsConfigured()));
     }
 
-    private static PlatformTenantResponse ToPlatformResponse(Tenant tenant, IEnumerable<TenantIntegration> integrations)
+    private static async Task<IResult> ProvisionTenantKeycloak(
+        string tenantId,
+        TenantsDbContext dbContext,
+        ITenantStore tenantStore,
+        TimeProvider timeProvider,
+        IOptions<TenancyOptions> tenancyOptions,
+        IOptions<KeycloakRealmProvisioningOptions> provisioningOptions,
+        KeycloakRealmProvisioningService provisioningService,
+        CancellationToken cancellationToken = default)
     {
+        Tenant? tenant = await dbContext.Tenants
+            .SingleOrDefaultAsync(item => item.Id == tenantId.Trim(), cancellationToken);
+
+        if (tenant is null)
+            return Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "Tenant not found", detail: $"Tenant '{tenantId}' does not exist.");
+
+        List<TenantIntegration> integrations = await dbContext.TenantIntegrations
+            .Where(item => item.TenantId == tenant.Id)
+            .ToListAsync(cancellationToken);
+
+        TenantIntegration? currentKeycloak = integrations.SingleOrDefault(item => item.Name == TenantIntegrationName.Keycloak);
+        if (IsKeycloakIntegrationConfigured(currentKeycloak))
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Keycloak already configured",
+                detail: $"Tenant '{tenant.Id}' already has a configured Keycloak integration.");
+        }
+
+        string tenantBaseUrl = ResolveTenantBaseUrl(tenancyOptions.Value.TenantBaseUrl, tenant.Id);
+        Result<ProvisionKeycloakRealmResult, KeycloakAdminError> provisionResult = await provisioningService.ProvisionTenantRealmAsync(
+            tenant.Id,
+            tenant.DisplayName,
+            tenantBaseUrl,
+            cancellationToken);
+
+        if (provisionResult.IsFailure(out KeycloakAdminError provisionError))
+            return ResultsExtensions.Problem(provisionError);
+
+        provisionResult.IsSuccess(out ProvisionKeycloakRealmResult provisionedRealm);
+        DateTimeOffset now = timeProvider.GetUtcNow();
+        bool requireHttpsMetadata = string.Equals(new Uri(provisionedRealm.MetadataUrl).Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
+
+        await dbContext.Tenants
+            .Where(item => item.Id == tenant.Id)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(item => item.UpdatedAtUtc, now)
+                .SetProperty(item => item.Configuration.Oidc.MetadataUrl, provisionedRealm.MetadataUrl)
+                .SetProperty(item => item.Configuration.Oidc.ClientId, provisionedRealm.PortalClientId)
+                .SetProperty(item => item.Configuration.Oidc.RequireHttpsMetadata, requireHttpsMetadata),
+                cancellationToken);
+
+        string integrationJson = JsonSerializer.Serialize(
+            new KeycloakIntegrationConfig
+            {
+                AdminApi = new KeycloakAdminApiIntegrationConfig
+                {
+                    IsEnabled = true,
+                    Url = provisioningOptions.Value.Url.Trim(),
+                    Realm = provisionedRealm.Realm,
+                    ClientId = provisionedRealm.FabricClientId,
+                    ClientSecret = provisionedRealm.FabricClientSecret,
+                }
+            },
+            JsonOptions);
+
+        if (currentKeycloak is null)
+        {
+            currentKeycloak = TenantIntegration.Create(tenant.Id, TenantIntegrationName.Keycloak, integrationJson, now);
+            dbContext.TenantIntegrations.Add(currentKeycloak);
+            integrations.Add(currentKeycloak);
+        }
+        else
+        {
+            currentKeycloak.UpdateData(integrationJson, now);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        tenantStore.InvalidateTenant(tenant.Id);
+
+        tenant = await dbContext.Tenants
+            .AsNoTracking()
+            .SingleAsync(item => item.Id == tenant.Id, cancellationToken);
+
+        return Results.Ok(ToPlatformResponse(tenant, integrations, provisioningService.CanProvision));
+    }
+
+    private static PlatformTenantResponse ToPlatformResponse(Tenant tenant, IEnumerable<TenantIntegration> integrations, bool canProvisionKeycloakRealm)
+    {
+        TenantConfiguration configuration = NormalizeConfiguration(tenant.Configuration);
         TenantIntegration? keycloak = integrations.SingleOrDefault(item => item.Name == TenantIntegrationName.Keycloak);
         TenantIntegration? microsoftGraph = integrations.SingleOrDefault(item => item.Name == TenantIntegrationName.MicrosoftGraph);
 
@@ -238,10 +348,11 @@ public static class PlatformTenantEndpoints
             tenant.IsActive,
             tenant.CreatedAtUtc,
             tenant.UpdatedAtUtc,
-            tenant.Configuration.Oidc.ToResponse(),
-            tenant.Configuration.Theme.ToResponse(),
-            tenant.Configuration.Logo?.ToResponse(),
-            tenant.Configuration.Host.ToResponse(),
+            configuration.Oidc.ToResponse(),
+            configuration.Theme.ToResponse(),
+            configuration.Logo?.ToResponse(),
+            configuration.Host.ToResponse(),
+            canProvisionKeycloakRealm,
             ToKeycloakSummary(keycloak),
             ToMicrosoftGraphSummary(microsoftGraph));
     }
@@ -265,6 +376,26 @@ public static class PlatformTenantEndpoints
             !string.IsNullOrWhiteSpace(config?.Email.Secret),
             integration?.UpdatedAt);
     }
+
+    private static bool IsKeycloakIntegrationConfigured(TenantIntegration? integration) =>
+        Deserialize<KeycloakIntegrationConfig>(integration)?.AdminApi.IsConfigured() ?? false;
+
+    private static string ResolveTenantBaseUrl(string tenantBaseUrl, string tenantId)
+    {
+        string resolved = tenantBaseUrl.Replace("{tenant}", tenantId, StringComparison.OrdinalIgnoreCase).TrimEnd('/');
+        if (!Uri.TryCreate(resolved, UriKind.Absolute, out _))
+            throw new InvalidOperationException("Tenancy:TenantBaseUrl must be an absolute URL.");
+
+        return resolved;
+    }
+
+    private static TenantConfiguration NormalizeConfiguration(TenantConfiguration configuration) => new()
+    {
+        Oidc = configuration.Oidc,
+        Theme = configuration.Theme ?? ThemeSettings.Default,
+        Logo = configuration.Logo,
+        Host = configuration.Host ?? new HostSettings(),
+    };
 
     private static HostSettingsResponse ToResponse(this HostSettings host) =>
         new(host.AssignmentMode);

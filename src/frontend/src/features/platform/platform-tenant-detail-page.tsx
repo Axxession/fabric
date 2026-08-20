@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, KeyRound } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 
-import { activatePlatformTenant, deactivatePlatformTenant, fetchPlatformTenant, platformTenantsQueryKey, updatePlatformTenant, type PlatformTenantUpsertValues } from '@/features/platform/platform-tenants';
+import { activatePlatformTenant, deactivatePlatformTenant, fetchPlatformTenant, platformTenantsQueryKey, provisionPlatformTenantKeycloak, updatePlatformTenant, type PlatformTenantUpsertValues } from '@/features/platform/platform-tenants';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button, buttonVariants } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
@@ -51,6 +51,16 @@ export default function PlatformTenantDetailPage() {
     onError: (mutationError) => setError(mutationError instanceof Error ? mutationError.message : 'Could not update tenant state.'),
   });
 
+  const provisionKeycloak = useMutation({
+    mutationFn: () => provisionPlatformTenantKeycloak(tenantId),
+    onSuccess: async (tenant) => {
+      setValues({ displayName: tenant.displayName, oidc: tenant.oidc });
+      await queryClient.invalidateQueries({ queryKey: platformTenantsQueryKey });
+      await queryClient.invalidateQueries({ queryKey: [...platformTenantsQueryKey, tenantId] });
+    },
+    onError: (mutationError) => setError(mutationError instanceof Error ? mutationError.message : 'Could not provision Keycloak realm.'),
+  });
+
   return (
     <div className="grid gap-6">
       <header className="flex items-start gap-4">
@@ -96,6 +106,17 @@ export default function PlatformTenantDetailPage() {
             <div className="flex flex-col gap-3 border-t border-border px-5 pt-5 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-wrap gap-3">
                 <Button type="button" variant={tenantQuery.data.isActive ? 'destructive' : 'secondary'} onClick={() => { setError(null); toggleActive.mutate(); }} disabled={toggleActive.isPending}>{toggleActive.isPending ? 'Updating...' : tenantQuery.data.isActive ? 'Deactivate tenant' : 'Activate tenant'}</Button>
+                {tenantQuery.data.canProvisionKeycloakRealm ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => { setError(null); provisionKeycloak.mutate(); }}
+                    disabled={provisionKeycloak.isPending || tenantQuery.data.keycloak.isConfigured}
+                  >
+                    <KeyRound className="mr-2 size-4" />
+                    {provisionKeycloak.isPending ? 'Provisioning...' : tenantQuery.data.keycloak.isConfigured ? 'Keycloak provisioned' : 'Provision Keycloak realm'}
+                  </Button>
+                ) : null}
                 <Link to="/platform/tenants" className={cn(buttonVariants({ variant: 'outline' }), 'inline-flex')}>Back to tenants</Link>
               </div>
               <Button type="button" onClick={() => { setError(null); saveTenant.mutate(); }} disabled={saveTenant.isPending}>{saveTenant.isPending ? 'Saving...' : 'Save changes'}</Button>
@@ -106,9 +127,14 @@ export default function PlatformTenantDetailPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Integration summary</CardTitle>
-                <CardDescription>Platform view of tenant-side external admin connections.</CardDescription>
+                <CardDescription>Platform view of tenant-side external admin connections and provisioning status.</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4">
+                {tenantQuery.data.canProvisionKeycloakRealm && !tenantQuery.data.keycloak.isConfigured ? (
+                  <div className="rounded-interactive border border-dashed border-border bg-background px-4 py-4 text-[13px] text-muted-foreground">
+                    Platform Keycloak provisioning is configured. Use <span className="font-semibold text-foreground">Provision Keycloak realm</span> to create the tenant realm, portal client, and tenant admin client.
+                  </div>
+                ) : null}
                 <IntegrationSummary title="Keycloak" summary={tenantQuery.data.keycloak} />
                 <IntegrationSummary title="Microsoft Graph" summary={tenantQuery.data.microsoftGraph} />
               </CardContent>
