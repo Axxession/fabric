@@ -18,10 +18,10 @@ public static class TenantSettingsMapper
             configuration.Theme.ToResponse(),
             configuration.Logo?.ToResponse());
 
-    private static OidcSettingsResponse ToResponse(this OidcSettings oidc) =>
+    public static OidcSettingsResponse ToResponse(this OidcSettings oidc) =>
         new(oidc.MetadataUrl, oidc.ClientId, oidc.RequireHttpsMetadata);
 
-    private static ThemeSettingsResponse ToResponse(this ThemeSettings theme) =>
+    public static ThemeSettingsResponse ToResponse(this ThemeSettings theme) =>
         new(
             theme.BackgroundColor,
             theme.ContentColor,
@@ -38,7 +38,7 @@ public static class TenantSettingsMapper
             theme.SuccessColor,
             theme.SuccessBackgroundColor);
 
-    private static LogoSettingsResponse ToResponse(this LogoSettings logo) =>
+    public static LogoSettingsResponse ToResponse(this LogoSettings logo) =>
         new(logo.ContentType, Convert.ToBase64String(logo.Data));
 
 }

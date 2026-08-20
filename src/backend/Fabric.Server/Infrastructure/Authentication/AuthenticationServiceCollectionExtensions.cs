@@ -1,18 +1,32 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using Fabric.Server.Infrastructure.Tenancy;
 
 namespace Fabric.Server.Infrastructure.Authentication;
 
 public static class AuthenticationServiceCollectionExtensions
 {
+    private const string FabricBearerScheme = "FabricBearer";
+
     public static IServiceCollection AddFabricAuthentication(this IServiceCollection services)
     {
         services.AddSingleton<ITenantOidcConfigurationStore, TenantOidcConfigurationStore>();
+        services.AddSingleton<IPlatformOidcConfigurationStore, PlatformOidcConfigurationStore>();
         services.AddTransient<IClaimsTransformation, FabricClaimsTransformer>();
 
-        services.AddAuthentication(TenantBearerAuthenticationDefaults.AuthenticationScheme)
+        services.AddAuthentication(FabricBearerScheme)
+            .AddPolicyScheme(FabricBearerScheme, "Fabric bearer selector", options =>
+            {
+                options.ForwardDefaultSelector = context =>
+                    context.Request.Path.StartsWithSegments("/api/platform", StringComparison.OrdinalIgnoreCase)
+                        ? PlatformBearerAuthenticationDefaults.AuthenticationScheme
+                        : TenantBearerAuthenticationDefaults.AuthenticationScheme;
+            })
             .AddScheme<AuthenticationSchemeOptions, TenantBearerAuthenticationHandler>(
                 TenantBearerAuthenticationDefaults.AuthenticationScheme,
+                _ => { })
+            .AddScheme<AuthenticationSchemeOptions, PlatformBearerAuthenticationHandler>(
+                PlatformBearerAuthenticationDefaults.AuthenticationScheme,
                 _ => { })
             .AddScheme<AuthenticationSchemeOptions, ReceptionKioskAuthenticationHandler>(
                 ReceptionKioskAuthenticationDefaults.AuthenticationScheme,
@@ -27,7 +41,7 @@ public static class AuthenticationServiceCollectionExtensions
                 HardwareAgentAuthenticationDefaults.AuthenticationScheme,
                 _ => { });
 
-        var requireAuthPolicy = new AuthorizationPolicyBuilder(TenantBearerAuthenticationDefaults.AuthenticationScheme)
+        var requireAuthPolicy = new AuthorizationPolicyBuilder(FabricBearerScheme)
             .RequireAuthenticatedUser()
             .Build();
 
@@ -39,6 +53,12 @@ public static class AuthenticationServiceCollectionExtensions
                 policy.AuthenticationSchemes.Add(TenantBearerAuthenticationDefaults.AuthenticationScheme);
                 policy.RequireAuthenticatedUser();
                 policy.RequireRole(FabricRoleDefaults.AdminRole);
+            })
+            .AddPolicy(FabricRoleDefaults.PlatformAdminPolicy, policy =>
+            {
+                policy.AuthenticationSchemes.Add(PlatformBearerAuthenticationDefaults.AuthenticationScheme);
+                policy.RequireAuthenticatedUser();
+                policy.RequireRole(FabricRoleDefaults.PlatformAdminRole);
             })
             .AddPolicy(FabricRoleDefaults.HostPolicy, policy =>
             {

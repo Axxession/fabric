@@ -2,22 +2,37 @@ import { AuthProvider } from 'react-oidc-context';
 import { WebStorageStateStore } from 'oidc-client-ts';
 import type { ReactNode } from 'react';
 
-import type { TenantSettings } from '@/shared/tenant/tenant-settings';
+export type OidcClientSettings = {
+  metadataUrl: string;
+  clientId: string;
+};
 
-export function FabricAuthProvider({ tenantSettings, children }: { tenantSettings: TenantSettings; children: ReactNode }) {
+export function FabricAuthProvider({
+  settings,
+  callbackPath,
+  postLogoutPath,
+  storageKeyPrefix,
+  children,
+}: {
+  settings: OidcClientSettings;
+  callbackPath: string;
+  postLogoutPath: string;
+  storageKeyPrefix: string;
+  children: ReactNode;
+}) {
   const origin = window.location.origin;
 
   return (
     <AuthProvider
-      authority={getAuthority(tenantSettings.oidc.metadataUrl)}
-      metadataUrl={tenantSettings.oidc.metadataUrl}
-      client_id={tenantSettings.oidc.clientId}
-      redirect_uri={`${origin}/auth/callback`}
-      post_logout_redirect_uri={`${origin}/`}
+      authority={getAuthority(settings.metadataUrl)}
+      metadataUrl={settings.metadataUrl}
+      client_id={settings.clientId}
+      redirect_uri={`${origin}${callbackPath}`}
+      post_logout_redirect_uri={`${origin}${postLogoutPath}`}
       response_type="code"
       scope="openid profile email"
       automaticSilentRenew
-      userStore={new WebStorageStateStore({ store: window.localStorage })}
+      userStore={new WebStorageStateStore({ store: window.localStorage, prefix: storageKeyPrefix })}
       onSigninCallback={(user) => {
         window.history.replaceState({}, document.title, getReturnTo(user?.state));
       }}

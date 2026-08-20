@@ -10,12 +10,11 @@ import { BrandingProvider } from '@/shared/branding/branding-context';
 import { appBranding } from '@/shared/branding/fabric-branding';
 import { FabricAuthProvider } from '@/shared/auth/auth-provider';
 import { AuthTokenBridge } from '@/shared/auth/auth-token-bridge';
+import { fetchPlatformAuthSettings, type PlatformAuthSettings } from '@/shared/platform/platform-auth-settings';
 import { TenantSettingsProvider } from '@/shared/tenant/tenant-settings-context';
 import { fetchTenantSettings, getLogoDataUrl, type TenantSettings } from '@/shared/tenant/tenant-settings';
 
-export function AppProviders({ children }: { children: ReactNode }) {
-  const [tenantSettings, setTenantSettings] = useState<TenantSettings | null>(null);
-  const [tenantSettingsError, setTenantSettingsError] = useState<string | null>(null);
+export function GlobalAppProviders({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -27,6 +26,20 @@ export function AppProviders({ children }: { children: ReactNode }) {
         },
       }),
   );
+
+  return (
+    <I18nextProvider i18n={i18n}>
+      <QueryClientProvider client={queryClient}>
+        {children}
+        <Toaster />
+      </QueryClientProvider>
+    </I18nextProvider>
+  );
+}
+
+export function TenantAppProviders({ children }: { children: ReactNode }) {
+  const [tenantSettings, setTenantSettings] = useState<TenantSettings | null>(null);
+  const [tenantSettingsError, setTenantSettingsError] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -62,19 +75,68 @@ export function AppProviders({ children }: { children: ReactNode }) {
   const branding = { ...appBranding, logoUrl: getLogoDataUrl(tenantSettings.logo) };
 
   return (
-    <I18nextProvider i18n={i18n}>
-      <QueryClientProvider client={queryClient}>
-        <TenantSettingsProvider settings={tenantSettings}>
-          <BrandingProvider branding={branding}>
-            <FabricAuthProvider tenantSettings={tenantSettings}>
-              <AuthTokenBridge />
-              {children}
-            </FabricAuthProvider>
-          </BrandingProvider>
-        </TenantSettingsProvider>
-        <Toaster />
-      </QueryClientProvider>
-    </I18nextProvider>
+    <TenantSettingsProvider settings={tenantSettings}>
+      <BrandingProvider branding={branding}>
+        <FabricAuthProvider
+          settings={tenantSettings.oidc}
+          callbackPath="/auth/callback"
+          postLogoutPath="/"
+          storageKeyPrefix="fabric.tenant.oidc"
+        >
+          <AuthTokenBridge />
+          {children}
+        </FabricAuthProvider>
+      </BrandingProvider>
+    </TenantSettingsProvider>
+  );
+}
+
+export function PlatformAppProviders({ children }: { children: ReactNode }) {
+  const [platformAuthSettings, setPlatformAuthSettings] = useState<PlatformAuthSettings | null>(null);
+  const [platformAuthError, setPlatformAuthError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadPlatformAuthSettings() {
+      try {
+        applyFabricTheme(defaultFabricTheme);
+        const settings = await fetchPlatformAuthSettings();
+        setPlatformAuthSettings(settings);
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setPlatformAuthError(error instanceof Error ? error.message : 'Platform authentication settings could not be loaded.');
+      }
+    }
+
+    void loadPlatformAuthSettings();
+
+    return () => controller.abort();
+  }, []);
+
+  if (platformAuthError) {
+    return <TenantSettingsError message={platformAuthError} />;
+  }
+
+  if (!platformAuthSettings) {
+    return <TenantSettingsLoading />;
+  }
+
+  return (
+    <BrandingProvider branding={appBranding}>
+      <FabricAuthProvider
+        settings={platformAuthSettings.oidc}
+        callbackPath="/platform/auth/callback"
+        postLogoutPath="/platform"
+        storageKeyPrefix="fabric.platform.oidc"
+      >
+        <AuthTokenBridge />
+        {children}
+      </FabricAuthProvider>
+    </BrandingProvider>
   );
 }
 

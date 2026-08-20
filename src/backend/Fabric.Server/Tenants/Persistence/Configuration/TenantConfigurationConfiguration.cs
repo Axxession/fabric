@@ -17,6 +17,10 @@ public sealed class TenantConfigurationConfiguration : IEntityTypeConfiguration<
 
         builder.HasKey(tenant => tenant.Id).HasName("pk_tenants");
         builder.Property(tenant => tenant.Id).HasColumnName("id").HasMaxLength(100).ValueGeneratedNever();
+        builder.Property(tenant => tenant.DisplayName).HasColumnName("display_name").HasMaxLength(200).IsRequired();
+        builder.Property(tenant => tenant.IsActive).HasColumnName("is_active").HasDefaultValue(true).IsRequired();
+        builder.Property(tenant => tenant.CreatedAtUtc).HasColumnName("created_at_utc").IsRequired();
+        builder.Property(tenant => tenant.UpdatedAtUtc).HasColumnName("updated_at_utc").IsRequired();
 
         builder.OwnsOne(tenant => tenant.Configuration, configuration =>
         {

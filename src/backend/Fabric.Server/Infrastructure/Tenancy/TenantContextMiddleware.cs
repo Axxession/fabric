@@ -11,6 +11,12 @@ public sealed class TenantContextMiddleware(
         ITenantContextAccessor tenantContext,
         ITenantStore tenantStore)
     {
+        if (IsPlatformRequest(context.Request.Path))
+        {
+            await next(context);
+            return;
+        }
+
         string tenantId = options.Value.Mode switch
         {
             TenancyMode.SingleTenant => options.Value.DefaultTenant.Id,
@@ -41,4 +47,8 @@ public sealed class TenantContextMiddleware(
         int firstDot = host.IndexOf('.');
         return firstDot > 0 ? host[..firstDot] : host;
     }
+
+    private static bool IsPlatformRequest(PathString path) =>
+        path.StartsWithSegments("/api/platform", StringComparison.OrdinalIgnoreCase)
+        || path.StartsWithSegments("/platform", StringComparison.OrdinalIgnoreCase);
 }

@@ -19,7 +19,7 @@ public sealed class TenantStore(TenantsDbContext dbContext, IMemoryCache cache) 
 
         Tenant? tenant = await dbContext.Tenants
             .AsNoTracking()
-            .SingleOrDefaultAsync(t => t.Id == normalizedTenantId, cancellationToken);
+            .SingleOrDefaultAsync(t => t.Id == normalizedTenantId && t.IsActive, cancellationToken);
 
         if (tenant is null)
             return null;

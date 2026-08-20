@@ -52,6 +52,7 @@ public static class TenantsEndpoints
         IApplicationVersionProvider versionProvider,
         ITenantStore tenantStore,
         TenantsDbContext dbContext,
+        TimeProvider timeProvider,
         CancellationToken cancellationToken = default)
     {
         IResult? validationResult = ValidateRequest(request);
@@ -94,7 +95,7 @@ public static class TenantsEndpoints
             }
         };
 
-        tenant.UpdateConfiguration(configuration);
+        tenant.UpdateConfiguration(configuration, timeProvider.GetUtcNow());
         await dbContext.SaveChangesAsync(cancellationToken);
         tenantStore.InvalidateTenant(tenant.Id);
 

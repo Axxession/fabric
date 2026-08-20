@@ -134,6 +134,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapTenantEndpoints();
+app.MapPlatformTenantEndpoints();
 app.MapTenantIntegrationEndpoints();
 app.MapKeycloakUserEndpoints();
 app.MapKeycloakRoleEndpoints();

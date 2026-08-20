@@ -3,6 +3,7 @@ namespace Fabric.Server.Infrastructure.Authentication;
 public static class FabricRoleDefaults
 {
     public const string AdminRole = "admin";
+    public const string PlatformAdminRole = "platform-admin";
     public const string HostRole = "host";
     public const string ManagerRole = "manager";
     public const string SecurityOfficerRole = "security-officer";
@@ -11,6 +12,7 @@ public static class FabricRoleDefaults
     public const string ContractorPlanningRole = "contractor-planning";
 
     public const string AdminPolicy = "AdminOnly";
+    public const string PlatformAdminPolicy = "PlatformAdminOnly";
     public const string HostPolicy = "HostOnly";
     public const string ManagerPolicy = "ManagerOnly";
     public const string SecurityOfficerPolicy = "SecurityOfficerOnly";

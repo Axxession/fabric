@@ -14,14 +14,16 @@
     ]
   },
   "Tenancy": {
-    "Mode": "MultiTenant",
+    "Mode": "SingleTenant",
     "TenantBaseUrl": "http://localhost:5173",
-  },
-  "AdminOidc" : {
-      "MetadataUrl": "http://localhost:7080/realms/dev/.well-known/openid-configuration",
-      "ClientId": "portal",
-      "RequireHttpsMetadata": false
-
+    "DefaultTenant": {
+      "Id": "main-tenant",
+      "Oidc": {
+        "MetadataUrl": "http://localhost:7080/realms/dev/.well-known/openid-configuration",
+        "ClientId": "portal",
+        "RequireHttpsMetadata": false
+      }
+    }
   },
   "Email": {
     "Graph": {

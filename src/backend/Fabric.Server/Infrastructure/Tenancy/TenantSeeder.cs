@@ -16,6 +16,7 @@ public sealed class TenantSeeder(TenantsDbContext dbContext, IOptions<TenancyOpt
             return;
 
         DefaultTenantOptions defaultTenant = options.Value.DefaultTenant;
+        DateTimeOffset now = DateTimeOffset.UtcNow;
 
         OidcSettings configuredOidc = new()
         {
@@ -29,10 +30,10 @@ public sealed class TenantSeeder(TenantsDbContext dbContext, IOptions<TenancyOpt
 
         if (tenant is null)
         {
-            tenant = Tenant.Create(defaultTenant.Id, new TenantConfiguration
+            tenant = Tenant.Create(defaultTenant.Id, defaultTenant.Id, new TenantConfiguration
             {
                 Oidc = configuredOidc
-            });
+            }, now);
 
             dbContext.Tenants.Add(tenant);
             await dbContext.SaveChangesAsync(cancellationToken);
@@ -40,20 +41,15 @@ public sealed class TenantSeeder(TenantsDbContext dbContext, IOptions<TenancyOpt
             return;
         }
 
-        if (tenant.Configuration.Oidc == configuredOidc)
+        if (tenant.Configuration.Oidc == configuredOidc && tenant.IsActive)
         {
             await SeedIntegrationsAsync(defaultTenant, cancellationToken);
             return;
         }
 
-        await dbContext.Tenants
-            .Where(item => item.Id == defaultTenant.Id)
-            .ExecuteUpdateAsync(
-                updates => updates
-                    .SetProperty(item => item.Configuration.Oidc.MetadataUrl, _ => configuredOidc.MetadataUrl)
-                    .SetProperty(item => item.Configuration.Oidc.ClientId, _ => configuredOidc.ClientId)
-                    .SetProperty(item => item.Configuration.Oidc.RequireHttpsMetadata, _ => configuredOidc.RequireHttpsMetadata),
-                cancellationToken);
+        tenant.Activate(now);
+        tenant.UpdateConfiguration(tenant.Configuration with { Oidc = configuredOidc }, now);
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         await SeedIntegrationsAsync(defaultTenant, cancellationToken);
     }

@@ -1,8 +1,10 @@
 import { useTranslation } from 'react-i18next';
-import { Navigate, Outlet, createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
+import { Navigate, Outlet, createRootRoute, createRoute, createRouter, useLocation } from '@tanstack/react-router';
 import { lazy, Suspense } from 'react';
 
+import { GlobalAppProviders, PlatformAppProviders, TenantAppProviders } from '@/app/providers';
 import { AppLayout } from '@/shared/layout/app-layout';
+import { PlatformLayout } from '@/shared/layout/platform-layout';
 import { ProtectedRoute } from '@/shared/auth/protected-route';
 import { IntegratorRoute } from '@/features/integrations/integrator-route';
 import { EmployeeContractorPlannerRoute } from '@/features/perspectives/employee-contractor-planner-route';
@@ -112,6 +114,9 @@ const LmsCourseRequirementEditPage = lazy(() => import('@/features/administratio
 const ScormTestPage = lazy(() => import('@/features/learning/scorm-test-page'));
 const PackageCreatePage = lazy(() => import('@/features/administration/package-create-page'));
 const PackageEditPage = lazy(() => import('@/features/administration/package-edit-page'));
+const PlatformTenantCreatePage = lazy(() => import('@/features/platform/platform-tenant-create-page'));
+const PlatformTenantDetailPage = lazy(() => import('@/features/platform/platform-tenant-detail-page'));
+const PlatformTenantsPage = lazy(() => import('@/features/platform/platform-tenants-page'));
 const RequirementCreatePage = lazy(() => import('@/features/administration/requirement-create-page'));
 const RequirementEditPage = lazy(() => import('@/features/administration/requirement-edit-page'));
 const PersonaCreatePage = lazy(() => import('@/features/administration/persona-create-page'));
@@ -136,8 +141,18 @@ const VisitCreatePage = lazy(() => import('@/features/visitors-management/visit-
 const VisitInvitationDetailPage = lazy(() => import('@/features/visitors-management/visit-invitation-detail-page'));
 
 const rootRoute = createRootRoute({
+  component: RootProviders,
+});
+
+const platformLayoutRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/platform',
   component: () => (
-    <Outlet />
+    <ProtectedRoute>
+      <PlatformLayout>
+        <Outlet />
+      </PlatformLayout>
+    </ProtectedRoute>
   ),
 });
 
@@ -185,6 +200,36 @@ const kioskLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/kiosk',
   component: () => <Outlet />,
+});
+
+const platformIndexRoute = createRoute({
+  getParentRoute: () => platformLayoutRoute,
+  path: '/',
+  component: () => <Navigate to="/platform/tenants" />,
+});
+
+const platformAuthCallbackRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/platform/auth/callback',
+  component: () => <LazyRoute component={<AuthCallbackPage />} />,
+});
+
+const platformTenantsRoute = createRoute({
+  getParentRoute: () => platformLayoutRoute,
+  path: '/tenants',
+  component: () => <LazyRoute component={<PlatformTenantsPage />} />,
+});
+
+const platformTenantCreateRoute = createRoute({
+  getParentRoute: () => platformLayoutRoute,
+  path: '/tenants/new',
+  component: () => <LazyRoute component={<PlatformTenantCreatePage />} />,
+});
+
+const platformTenantDetailRoute = createRoute({
+  getParentRoute: () => platformLayoutRoute,
+  path: '/tenants/$tenantId',
+  component: () => <LazyRoute component={<PlatformTenantDetailPage />} />,
 });
 
 const indexRoute = createRoute({
@@ -1146,6 +1191,13 @@ const routeTree = rootRoute.addChildren([
     desfireStudioPrintRunDetailRoute,
   ]),
   kioskLayoutRoute.addChildren([kioskIndexRoute, kioskSetupRoute]),
+  platformAuthCallbackRoute,
+  platformLayoutRoute.addChildren([
+    platformIndexRoute,
+    platformTenantsRoute,
+    platformTenantCreateRoute,
+    platformTenantDetailRoute,
+  ]),
 ]);
 
 export function createAppRouter() {
@@ -1172,6 +1224,15 @@ function ProtectedLazyRoute({ component }: { component: React.ReactNode }) {
       <LazyRoute component={component} />
     </ProtectedRoute>
   );
+}
+
+function RootProviders() {
+  const location = useLocation();
+  const providers = location.pathname.startsWith('/platform')
+    ? <PlatformAppProviders><Outlet /></PlatformAppProviders>
+    : <TenantAppProviders><Outlet /></TenantAppProviders>;
+
+  return <GlobalAppProviders>{providers}</GlobalAppProviders>;
 }
 
 function RouteFallback() {
