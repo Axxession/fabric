@@ -4,7 +4,7 @@ import { ArrowLeft, CalendarDays, Mail, MapPin, QrCode, UserRound } from 'lucide
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { getGrantApprovalLabel, getGrantApprovalVariant, getGrantBusinessSummary, getGrantComplianceLabel, getGrantComplianceUntilLabel, getGrantComplianceVariant, getGrantStatusVariant } from '@/shared/access-grants/grant-status';
+import { getContextComplianceLabel, getContextComplianceVariant, getGrantApprovalLabel, getGrantApprovalVariant, getGrantBusinessSummary, getGrantComplianceLabel, getGrantComplianceUntilLabel, getGrantComplianceVariant, getGrantStatusVariant } from '@/shared/access-grants/grant-status';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { Badge } from '@/shared/components/ui/badge';
@@ -12,9 +12,11 @@ import { Card } from '@/shared/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 
 type AccessGrantResponse = components['schemas']['AccessGrantResponse'];
+type ContextAssignedPackageResponse = components['schemas']['ContextAssignedPackageResponse'];
 type CredentialPACSAssignmentResponse = components['schemas']['CredentialPACSAssignmentResponse'];
 type CredentialResponse = components['schemas']['CredentialResponse'];
 type CredentialTypeResponse = components['schemas']['CredentialTypeResponse'];
+type RequirementComplianceResponse = components['schemas']['RequirementComplianceResponse'];
 type VisitorPreOnboardingSaga = components['schemas']['VisitorPreOnboardingSaga'];
 type VisitInvitationResponse = components['schemas']['VisitInvitationResponse'];
 type VisitResponse = components['schemas']['VisitResponse'];
@@ -23,7 +25,7 @@ type VisitorResponse = components['schemas']['VisitorResponse'];
 export default function VisitInvitationDetailPage() {
   const { t } = useTranslation();
   const { visitId, invitationId } = useParams({ from: '/main/employee/visitors/$visitId/invitations/$invitationId' });
-  const [activeTab, setActiveTab] = useState<'overview' | 'access' | 'credential'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'access' | 'requirements' | 'credential'>('overview');
 
   const detailsQuery = useQuery({
     queryKey: ['visitors-management', 'visits', visitId, 'invitations', invitationId, 'details'],
@@ -58,33 +60,28 @@ export default function VisitInvitationDetailPage() {
       const visitor = visitorResult.data;
       const credential = credentialResult.data ?? null;
 
-      const [grantsResult, packageResults, credentialTypeResult, credentialAssignmentsResult] = await Promise.all([
+      const [packagesResult, credentialTypeResult, credentialAssignmentsResult, complianceResult] = await Promise.all([
         saga?.arrivalId
-          ? api.GET('/api/access-catalog/access-grants', { params: { query: { IdentityId: visitor.identityId, PackageId: undefined, Status: undefined, Page: 0, PageSize: 200 } as never } })
-          : Promise.resolve({ data: { items: [] }, error: undefined }),
-        saga?.arrivalId
-          ? api.GET('/api/access-catalog/packages', { params: { query: { Name: undefined, Page: 0, PageSize: 200 } as never } })
-          : Promise.resolve({ data: { items: [] }, error: undefined }),
+          ? api.POST('/api/access-catalog/access-grants/assigned-packages/by-source', { body: [{ sourceKind: 'VisitInvitation', sourceId: invitationId }] })
+          : Promise.resolve({ data: [], error: undefined }),
         credential?.credentialTypeId
           ? api.GET('/api/credential-management/credential-types/{id}', { params: { path: { id: credential.credentialTypeId } } })
           : Promise.resolve({ data: null, error: undefined }),
         credential?.id
           ? api.GET('/api/access-control/credential-pacs-assignments', { params: { query: { CredentialId: credential.id, CredentialIds: [], AccessControlSystemId: undefined, Status: undefined, Page: 0, PageSize: 200 } as never } })
           : Promise.resolve({ data: { items: [] }, error: undefined }),
+        api.GET('/api/requirements/context-compliance/visits/{visitId}/invitations/{invitationId}', { params: { path: { visitId, invitationId } } }),
       ]);
 
-      if (grantsResult.error || packageResults.error || credentialTypeResult.error || credentialAssignmentsResult.error) {
+      if (packagesResult.error || credentialTypeResult.error || credentialAssignmentsResult.error || !visitorResult.data || !visitResult.data) {
         throw new Error(t('visitorsManagement.invitationDetail.couldNotLoad'));
       }
 
-      const packageById = new Map((packageResults.data?.items ?? []).map((item) => [item.id, item]));
-      const assignedPackages = ((grantsResult.data?.items ?? []) as AccessGrantResponse[])
-        .filter((grant) => grant.sourceKind === 'ReceptionArrival' && grant.sourceId === saga?.arrivalId)
-        .map((grant) => ({
-          grant,
-          packageName: packageById.get(grant.packageId)?.name ?? grant.packageId,
-          isProvisioned: grant.materializationOutcomes.length > 0 && grant.materializationOutcomes.every((outcome) => outcome.status === 'Created'),
-        }));
+      if (complianceResult.error || !complianceResult.data) {
+        throw new Error(t('visitorsManagement.invitationDetail.couldNotLoad'));
+      }
+
+      const assignedPackages = (packagesResult.data?.[0]?.packages ?? []) as ContextAssignedPackageResponse[];
 
       return {
         visit,
@@ -97,6 +94,7 @@ export default function VisitInvitationDetailPage() {
         credential,
         credentialType: credentialTypeResult.data ?? null,
         credentialAssignments: credentialAssignmentsResult.data?.items ?? [],
+        compliance: complianceResult.data,
       };
     },
   });
@@ -109,7 +107,7 @@ export default function VisitInvitationDetailPage() {
     return <p className="rounded-interactive border border-error bg-error-background px-4 py-3 text-[14px] text-error" role="alert">{t('visitorsManagement.invitationDetail.couldNotLoad')}</p>;
   }
 
-  const { visit, invitation, visitor, saga, locationLabel, confirmationLink, assignedPackages, credential, credentialType, credentialAssignments } = detailsQuery.data;
+  const { visit, invitation, visitor, saga, locationLabel, confirmationLink, assignedPackages, credential, credentialType, credentialAssignments, compliance } = detailsQuery.data;
   const credentialProvisioningStatus = getCredentialProvisioningStatus(credential, credentialAssignments, t);
   const visitTimeLabel = `${formatDateTime(visit.start ?? '')} - ${formatDateTime(visit.stop ?? '')}`;
   const hostLabel = [visit.host.firstName, visit.host.lastName].filter(Boolean).join(' ') || visit.host.email || '-';
@@ -138,10 +136,11 @@ export default function VisitInvitationDetailPage() {
         </div>
       </header>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'overview' | 'access' | 'credential')}>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'overview' | 'access' | 'requirements' | 'credential')}>
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="access">Access <span className="text-[12px] font-medium text-muted-foreground">{assignedPackages.length}</span></TabsTrigger>
+          <TabsTrigger value="requirements">Requirements <span className="text-[12px] font-medium text-muted-foreground">{compliance.requirements.length}</span></TabsTrigger>
           <TabsTrigger value="credential">Credential {credential ? <span className="text-[12px] font-medium text-muted-foreground">1</span> : null}</TabsTrigger>
         </TabsList>
 
@@ -186,38 +185,54 @@ export default function VisitInvitationDetailPage() {
           <Card className="p-5 sm:p-6">
             <h2 className="text-[18px] font-semibold tracking-tight">{t('visitorsManagement.invitationDetail.assignedPackages')}</h2>
             {assignedPackages.length === 0 ? <p className="mt-5 text-[14px] text-muted-foreground">{t('visitorsManagement.invitationDetail.noAssignedPackages')}</p> : (
-              <div className="mt-5 overflow-x-auto">
-                <table className="w-full min-w-[36rem] border-collapse text-left text-[14px]">
-                  <thead className="border-b border-border bg-background/70 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                    <tr>
-                      <th className="px-5 py-4 font-semibold">{t('visitorsManagement.invitationDetail.package')}</th>
-                      <th className="px-5 py-4 font-semibold">{t('visitorsManagement.invitationDetail.status')}</th>
-                      <th className="px-5 py-4 font-semibold">{t('visitorsManagement.invitationDetail.provisioned')}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {assignedPackages.map((item) => (
-                      <tr key={item.grant.id}>
-                        <td className="px-5 py-5 align-top">
-                          <div className="font-semibold text-foreground">{item.packageName}</div>
-                          <div className="mt-1 text-[13px] text-muted-foreground">{formatValidityRange(item.grant.validFrom, item.grant.validUntil)}</div>
-                        </td>
-                        <td className="px-5 py-5 align-top">
-                          <Badge variant={getGrantStatusVariant(item.grant.status)}>{item.grant.status}</Badge>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            <Badge variant={getGrantApprovalVariant(item.grant.approvalStatus)}>{getGrantApprovalLabel(item.grant.approvalStatus)}</Badge>
-                            <Badge variant={getGrantComplianceVariant(item.grant.complianceStatus)}>{getGrantComplianceLabel(item.grant.complianceStatus)}</Badge>
+              <div className="mt-5 grid gap-4">
+                {assignedPackages.map((item) => (
+                  <article key={item.packageId} className="rounded-structural border border-border bg-background p-4">
+                    <h3 className="font-semibold text-foreground">{item.packageName}</h3>
+                    <div className="mt-4 grid gap-3">
+                      {item.grants.map((grant) => (
+                        <div key={grant.grantId} className="rounded-interactive border border-border bg-content p-3">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <p className="font-medium text-foreground">{grant.accessItemName}</p>
+                              <p className="mt-1 text-[13px] text-muted-foreground">{formatValidityRange(grant.validFrom, grant.validUntil)}</p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <Badge variant={getGrantStatusVariant(grant.status)}>{grant.status}</Badge>
+                              <Badge variant={getGrantApprovalVariant(grant.approvalStatus)}>{getGrantApprovalLabel(grant.approvalStatus)}</Badge>
+                              <Badge variant={getGrantComplianceVariant(grant.complianceStatus)}>{getGrantComplianceLabel(grant.complianceStatus)}</Badge>
+                              <Badge variant={grant.provisioningStatus === 'Provisioned' ? 'success' : 'secondary'}>{grant.provisioningStatus === 'Provisioned' ? t('visitorsManagement.invitationDetail.provisionedLabel') : grant.provisioningStatus}</Badge>
+                            </div>
                           </div>
-                          <div className="mt-2 text-[13px] text-muted-foreground">{getGrantBusinessSummary(item.grant)}</div>
-                          {getGrantComplianceUntilLabel(item.grant) ? <div className="mt-1 text-[13px] text-muted-foreground">Compliant until {formatDateTime(getGrantComplianceUntilLabel(item.grant)!)}</div> : null}
-                          {item.grant.status === 'Revoked' && item.grant.revokeCause ? <div className="mt-2 text-[13px] text-muted-foreground">{formatAccessGrantRevokeCause(item.grant.revokeCause, t)}</div> : null}
-                          {item.grant.status === 'Revoked' && item.grant.revokedBy ? <div className="mt-1 text-[13px] text-muted-foreground">{item.grant.revokedBy}</div> : null}
-                        </td>
-                        <td className="px-5 py-5 align-top"><Badge variant={item.isProvisioned ? 'success' : 'secondary'}>{item.isProvisioned ? t('visitorsManagement.invitationDetail.provisionedLabel') : t('visitorsManagement.invitationDetail.notYet')}</Badge></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          <p className="mt-3 text-[13px] text-muted-foreground">{getGrantBusinessSummary(grant as unknown as AccessGrantResponse)}</p>
+                          {grant.compliantUntil ? <p className="mt-1 text-[13px] text-muted-foreground">{t('visitorsManagement.invitationDetail.compliantUntil')} {formatDateTime(grant.compliantUntil)}</p> : null}
+                          {grant.revokeCause ? <p className="mt-2 text-[13px] text-muted-foreground">{formatAccessGrantRevokeCause(grant.revokeCause, t)}</p> : null}
+                          {grant.revokedBy ? <p className="mt-1 text-[13px] text-muted-foreground">{grant.revokedBy}</p> : null}
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="requirements" className="mt-5">
+          <Card className="p-5 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-[18px] font-semibold tracking-tight">{t('visitorsManagement.invitationDetail.contextCompliance')}</h2>
+                <p className="mt-1 text-[14px] text-muted-foreground">{t('visitorsManagement.invitationDetail.contextComplianceDescription')}</p>
+              </div>
+              <Badge variant={getContextComplianceVariant(compliance.status)}>{getContextComplianceLabel(compliance.status)}</Badge>
+            </div>
+
+            {compliance.compliantUntil ? <p className="mt-4 text-[13px] text-muted-foreground">{t('visitorsManagement.invitationDetail.compliantUntil')} {formatDateTime(compliance.compliantUntil)}</p> : null}
+            {compliance.unavailableReason ? <p className="mt-4 rounded-interactive border border-border bg-background px-4 py-3 text-[14px] text-muted-foreground">{compliance.unavailableReason}</p> : null}
+            {compliance.requirements.length === 0 ? <p className="mt-5 text-[14px] text-muted-foreground">{t('visitorsManagement.invitationDetail.noRequirements')}</p> : (
+              <div className="mt-5 grid gap-3">
+                {compliance.requirements.map((requirement) => <RequirementCard key={requirement.requirementDefinitionId} requirement={requirement} />)}
               </div>
             )}
           </Card>
@@ -332,6 +347,48 @@ function Detail({ icon, label, value, hint }: { readonly icon: React.ReactNode; 
 
 function Info({ label, value }: { readonly label: string; readonly value: string }) {
   return <div className="rounded-interactive border border-border p-3"><div className="text-[12px] uppercase text-muted-foreground">{label}</div><div className="mt-1 break-all text-[14px] font-medium text-foreground">{value}</div></div>;
+}
+
+function RequirementCard({ requirement }: { readonly requirement: RequirementComplianceResponse }) {
+  return (
+    <div className="rounded-structural border border-border bg-background p-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="font-medium text-foreground">{requirement.name}</p>
+          <p className="mt-1 text-[14px] text-muted-foreground">{requirement.code}{requirement.isBlocking ? ' - blocking' : ' - non-blocking'}</p>
+        </div>
+        <Badge variant={getRequirementComplianceVariant(requirement.status)}>{formatRequirementComplianceStatus(requirement.status)}</Badge>
+      </div>
+      <p className="mt-3 text-[14px] text-muted-foreground">{requirement.reason}</p>
+      {requirement.validUntil ? <p className="mt-2 text-[13px] text-muted-foreground">Valid until {formatDateTime(requirement.validUntil)}</p> : null}
+    </div>
+  );
+}
+
+function formatRequirementComplianceStatus(status: RequirementComplianceResponse['status']) {
+  switch (status) {
+    case 'Fulfilled':
+      return 'Compliant';
+    case 'Missing':
+      return 'Missing';
+    case 'Failed':
+      return 'Failed';
+    case 'Expired':
+      return 'Expired';
+    default:
+      return status;
+  }
+}
+
+function getRequirementComplianceVariant(status: RequirementComplianceResponse['status']): 'success' | 'secondary' | 'error' {
+  switch (status) {
+    case 'Fulfilled':
+      return 'success';
+    case 'Expired':
+      return 'secondary';
+    default:
+      return 'error';
+  }
 }
 
 function getLocationLabel(location: { type: components['schemas']['LocationType']; site: { name: string }; building?: { name: string } | null; room?: { name: string } | null }) {

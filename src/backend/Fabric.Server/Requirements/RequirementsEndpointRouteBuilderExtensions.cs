@@ -9,6 +9,7 @@ public static class RequirementsEndpointRouteBuilderExtensions
         app.MapRequirementDefinitionEndpoints();
         app.MapRequirementPolicyEndpoints();
         app.MapRequirementEvidenceEndpoints();
+        app.MapContextComplianceEndpoints();
         return app;
     }
 }

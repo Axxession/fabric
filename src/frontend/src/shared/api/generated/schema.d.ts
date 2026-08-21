@@ -3762,6 +3762,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/contractors/assignments/{assignmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assignmentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ContractorJobAssignmentResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/contractors/contractors": {
         parameters: {
             query?: never;
@@ -9471,45 +9515,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/access-catalog/access-grants/contractor-assignment-context-compliance": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["ContractorAssignmentContextComplianceRequest"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ContractorAssignmentContextComplianceResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/access-catalog/access-grants/grant-compliance-summaries/by-source": {
         parameters: {
             query?: never;
@@ -9578,6 +9583,45 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["GrantComplianceDetailResponse"][];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/access-catalog/access-grants/assigned-packages/by-source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AssignmentContextRequest"][];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ContextAssignedPackagesResponse"][];
                     };
                 };
             };
@@ -10902,6 +10946,217 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/requirements/context-compliance/visits/{visitId}/invitations/{invitationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    visitId: string;
+                    invitationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ContextComplianceResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/requirements/context-compliance/visits/{visitId}/invitations/{invitationId}/waivers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    visitId: string;
+                    invitationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateContextComplianceWaiverRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RequirementEvidenceResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/requirements/context-compliance/contractor-assignments/{assignmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assignmentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ContextComplianceResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/requirements/context-compliance/contractor-assignments/{assignmentId}/waivers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    assignmentId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateContextComplianceWaiverRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RequirementEvidenceResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/requirements/context-compliance/contractor-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ContractorAssignmentContextComplianceRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ContractorAssignmentContextComplianceResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -20754,8 +21009,39 @@ export interface components {
             /** Format: uuid */
             sourceId: string;
         };
+        ContextAssignedPackageGrantResponse: {
+            /** Format: uuid */
+            grantId: string;
+            /** Format: uuid */
+            accessItemId: string;
+            accessItemName: string;
+            status: components["schemas"]["AccessGrantStatus"];
+            approvalStatus: components["schemas"]["GrantApprovalStatus"];
+            complianceStatus: components["schemas"]["GrantComplianceStatus"];
+            provisioningStatus: components["schemas"]["GrantProvisioningStatus"];
+            /** Format: date-time */
+            compliantUntil: null | string;
+            /** Format: date-time */
+            validFrom: string;
+            /** Format: date-time */
+            validUntil: null | string;
+            revokedBy: null | string;
+            revokeCause: components["schemas"]["AccessGrantRevokeCause"];
+        };
+        ContextAssignedPackageResponse: {
+            /** Format: uuid */
+            packageId: string;
+            packageName: string;
+            grants: components["schemas"]["ContextAssignedPackageGrantResponse"][];
+        };
+        ContextAssignedPackagesResponse: {
+            sourceKind: components["schemas"]["AssignmentSourceKind"];
+            /** Format: uuid */
+            sourceId: string;
+            packages: components["schemas"]["ContextAssignedPackageResponse"][];
+        };
         /** @enum {unknown} */
-        AssignmentSourceKind: "CatalogRequest" | "OrganizationalUnit" | "Persona" | "ReceptionArrival" | "VisitorLocation" | "ContractorJob" | "Manual";
+        AssignmentSourceKind: "CatalogRequest" | "OrganizationalUnit" | "Persona" | "VisitInvitation" | "VisitorLocation" | "ContractorAssignment" | "Manual";
         AttemptResponse: {
             /** Format: uuid */
             id: string;
@@ -20963,6 +21249,21 @@ export interface components {
             /** Format: date-time */
             compliantUntil: null | string;
             requirements: components["schemas"]["ContextComplianceRequirementResponse"][];
+        };
+        ContextComplianceResponse: {
+            status: components["schemas"]["ContextComplianceStatus"];
+            /** Format: date-time */
+            compliantUntil: null | string;
+            unavailableReason: null | string;
+            requirements: components["schemas"]["RequirementComplianceResponse"][];
+        };
+        CreateContextComplianceWaiverRequest: {
+            /** Format: uuid */
+            requirementDefinitionId: string;
+            /** Format: date-time */
+            validUntil: string;
+            reason: string;
+            sourceReference: null | string;
         };
         ContextComplianceRequirementResponse: {
             /** Format: uuid */
@@ -24197,6 +24498,7 @@ export interface components {
             reason: string;
             /** Format: date-time */
             validUntil: null | string;
+            allowedEvidenceKinds: components["schemas"]["RequirementEvidenceKind"][];
         };
         RequirementDefinitionResponse: {
             /** Format: uuid */

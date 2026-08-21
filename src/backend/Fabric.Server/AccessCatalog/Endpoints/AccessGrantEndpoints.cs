@@ -10,6 +10,7 @@ using Fabric.Server.Identities.Persistence;
 using Fabric.Server.Locations.Persistence;
 using Fabric.Server.Requirements.Domain;
 using Fabric.Server.Requirements.Application;
+using Fabric.Server.Requirements.Contracts;
 using Fabric.Server.Requirements.Persistence;
 using Fabric.Server.Sagas;
 using Fabric.Server.Sagas.ContractorJobs;
@@ -29,9 +30,9 @@ public static class AccessGrantEndpoints
         grants.MapGet("", ListAccessGrants).Produces<Page<AccessGrantResponse>>();
         grants.MapPost("", CreateAccessGrant).Produces<CreateAccessGrantResponse>(StatusCodes.Status201Created);
         grants.MapPost("/recalculate-requirements", RecalculateGrantRequirements).Produces<RecalculateGrantRequirementsResponse>();
-        grants.MapPost("/contractor-assignment-context-compliance", GetContractorAssignmentContextCompliance).Produces<ContractorAssignmentContextComplianceResponse>();
         grants.MapPost("/grant-compliance-summaries/by-source", ListGrantComplianceSummariesBySource).Produces<GrantComplianceSummaryResponse[]>();
         grants.MapPost("/grant-compliance-details/by-source", ListGrantComplianceDetailsBySource).Produces<GrantComplianceDetailResponse[]>();
+        grants.MapPost("/assigned-packages/by-source", ListAssignedPackagesBySource).Produces<ContextAssignedPackagesResponse[]>();
         grants.MapGet("/{accessGrantId:guid}", GetAccessGrant).Produces<AccessGrantResponse>().Produces(StatusCodes.Status404NotFound);
         grants.MapPost("/{accessGrantId:guid}/reconcile", ReconcileAccessGrant).Produces(StatusCodes.Status202Accepted).Produces(StatusCodes.Status404NotFound);
         grants.MapPost("/{accessGrantId:guid}/revoke", RevokeAccessGrant).Produces<AccessGrantResponse>().Produces(StatusCodes.Status404NotFound);
@@ -197,7 +198,8 @@ public static class AccessGrantEndpoints
                 item.requirement.IsBlocking,
                 item.evaluation.Status,
                 item.evaluation.Reason,
-                item.evaluation.ValidUntil))
+                item.evaluation.ValidUntil,
+                definitionsById[item.requirement.RequirementDefinitionId].AllowedEvidenceKinds))
             .OrderBy(item => item.Name)
             .ToArray();
 
@@ -273,6 +275,64 @@ public static class AccessGrantEndpoints
             .ToArray();
 
         return Results.Ok(response);
+    }
+
+    private static async Task<IResult> ListAssignedPackagesBySource(
+        [FromBody] AssignmentContextRequest[] request,
+        AccessCatalogDbContext db,
+        AccessControlDbContext accessControlDb,
+        SagasDbContext sagasDb,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken = default)
+    {
+        AssignmentContextRequest[] contexts = request
+            .DistinctBy(item => (item.SourceKind, item.SourceId))
+            .ToArray();
+        if (contexts.Length == 0)
+            return Results.Ok(Array.Empty<ContextAssignedPackagesResponse>());
+
+        AccessGrant[] grants = await LoadGrantsForContextsAsync(db, contexts, cancellationToken);
+        AccessGrantResponse[] responses = await BuildGrantResponsesAsync(grants, db, accessControlDb, sagasDb, timeProvider, cancellationToken);
+        Guid[] packageIds = responses.Select(item => item.PackageId).Distinct().ToArray();
+        Guid[] accessItemIds = responses.Select(item => item.AccessItemId).Distinct().ToArray();
+        Dictionary<Guid, string> packageNamesById = packageIds.Length == 0
+            ? []
+            : await db.Packages.AsNoTracking().Where(item => packageIds.Contains(item.Id)).ToDictionaryAsync(item => item.Id, item => item.Name, cancellationToken);
+        Dictionary<Guid, string> accessItemNamesById = accessItemIds.Length == 0
+            ? []
+            : await accessControlDb.AccessItems.AsNoTracking().Where(item => accessItemIds.Contains(item.Id)).ToDictionaryAsync(item => item.Id, item => item.Name, cancellationToken);
+
+        ContextAssignedPackagesResponse[] result = contexts
+            .Select(context => new ContextAssignedPackagesResponse(
+                context.SourceKind,
+                context.SourceId,
+                responses
+                    .Where(item => item.SourceKind == context.SourceKind && item.SourceId == context.SourceId)
+                    .GroupBy(item => item.PackageId)
+                    .Select(group => new ContextAssignedPackageResponse(
+                        group.Key,
+                        packageNamesById.GetValueOrDefault(group.Key, group.Key.ToString()),
+                        group
+                            .Select(item => new ContextAssignedPackageGrantResponse(
+                                item.Id,
+                                item.AccessItemId,
+                                accessItemNamesById.GetValueOrDefault(item.AccessItemId, item.AccessItemId.ToString()),
+                                item.Status,
+                                item.ApprovalStatus,
+                                item.ComplianceStatus,
+                                item.ProvisioningStatus,
+                                item.CompliantUntil,
+                                item.ValidFrom,
+                                item.ValidUntil,
+                                item.RevokedBy,
+                                item.RevokeCause))
+                            .OrderBy(item => item.AccessItemName)
+                            .ToArray()))
+                    .OrderBy(item => item.PackageName)
+                    .ToArray()))
+            .ToArray();
+
+        return Results.Ok(result);
     }
 
     private static async Task<IResult> RevokeAccessGrant(Guid accessGrantId, AccessGrantService service, AccessCatalogDbContext db, AccessControlDbContext accessControlDb, SagasDbContext sagasDb, TimeProvider timeProvider, HttpContext httpContext, CancellationToken cancellationToken = default)
@@ -439,7 +499,8 @@ public static class AccessGrantEndpoints
             requirements.Any(item => item.IsBlocking),
             status,
             reason,
-            validUntil);
+            validUntil,
+            definition?.AllowedEvidenceKinds ?? []);
     }
 
     private static (ContextComplianceStatus status, DateTimeOffset? compliantUntil) AggregateContextCompliance(

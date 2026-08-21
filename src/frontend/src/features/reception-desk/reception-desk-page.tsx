@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { ChevronLeft, ChevronRight, Clock, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -82,8 +83,8 @@ export function ReceptionDeskHistoryPage() {
 
 function ExpectedArrivalsTab() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [page, setPage] = useState(0);
-  const [selectedArrivalId, setSelectedArrivalId] = useState<string | null>(null);
   const [intervalState, setIntervalState] = useState(() => getStoredIntervalState(arrivalIntervalStorageKey));
   const interval = useMemo(() => getArrivalInterval(intervalState.anchorDate, intervalState.view), [intervalState.anchorDate, intervalState.view]);
   const intervalOptions = getIntervalOptions(t);
@@ -120,18 +121,16 @@ function ExpectedArrivalsTab() {
   const arrivals = pagedArrivals?.items ?? [];
   const pagination = getPaginationState(pagedArrivals, arrivals.length, page);
 
-  function setView(view: ArrivalIntervalView) {
-    setPage(0);
-    setSelectedArrivalId(null);
-    setIntervalState((current) => ({ ...current, view }));
-  }
+    function setView(view: ArrivalIntervalView) {
+      setPage(0);
+      setIntervalState((current) => ({ ...current, view }));
+    }
 
-  function jumpInterval(direction: -1 | 1) {
-    setPage(0);
-    setSelectedArrivalId(null);
-    setIntervalState((current) => ({
-      ...current,
-      anchorDate: addInterval(new Date(current.anchorDate), current.view, direction).toISOString(),
+    function jumpInterval(direction: -1 | 1) {
+      setPage(0);
+      setIntervalState((current) => ({
+        ...current,
+        anchorDate: addInterval(new Date(current.anchorDate), current.view, direction).toISOString(),
     }));
   }
 
@@ -190,11 +189,8 @@ function ExpectedArrivalsTab() {
         isLoading={expectedArrivalsQuery.isLoading}
         loadingText={t('receptionDesk.list.loadingExpected')}
         mode="expected"
-        selectedArrivalId={selectedArrivalId}
-        onSelectArrival={setSelectedArrivalId}
+        onSelectArrival={(id) => void navigate({ to: '/reception-desk-workstation/arrivals/$arrivalId', params: { arrivalId: id } })}
       />
-
-      {selectedArrivalId ? <ExpectedArrivalDetails arrivalId={selectedArrivalId} onClose={() => setSelectedArrivalId(null)} /> : null}
 
       <ArrivalPagination label="expected arrivals" pagination={pagination} isVisible={!expectedArrivalsQuery.isLoading && !expectedArrivalsQuery.isError && pagination.totalItems > 0} setPage={setPage} />
     </section>

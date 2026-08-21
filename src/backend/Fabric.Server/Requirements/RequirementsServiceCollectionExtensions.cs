@@ -18,6 +18,7 @@ public static class RequirementsServiceCollectionExtensions
             options.SerializerOptions.TypeInfoResolverChain.Add(RequirementsJsonSerializerContext.Default));
 
         collection.AddScoped<GrantRequirementsService>();
+        collection.AddScoped<ContextComplianceService>();
         collection.AddScoped<RequirementsService>();
         return collection;
     }

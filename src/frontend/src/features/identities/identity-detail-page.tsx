@@ -2243,9 +2243,9 @@ function formatSourceLabel(sourceKind: AccessGrantResponse['sourceKind']) {
     case 'OrganizationalUnit':
     case 'Persona':
       return 'HR Policy';
-    case 'ContractorJob':
+    case 'ContractorAssignment':
       return 'Contractor Policy';
-    case 'ReceptionArrival':
+    case 'VisitInvitation':
     case 'VisitorLocation':
       return 'Visitor Policy';
     case 'Manual':

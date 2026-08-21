@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Fabric.Server.AccessCatalog.Contracts;
 using Fabric.Server.AccessCatalog.Domain;
 using Fabric.Server.Core;
+using Fabric.Server.Requirements.Contracts;
 using Fabric.Server.Requirements.Domain;
 using Fabric.Server.Sagas.AccessGrantProvisioning;
 using Microsoft.AspNetCore.Mvc;
@@ -32,11 +33,11 @@ namespace Fabric.Server.AccessCatalog;
 [JsonSerializable(typeof(AccessGrantMaterializationOutcomeResponse))]
 [JsonSerializable(typeof(GrantComplianceDetailResponse))]
 [JsonSerializable(typeof(GrantComplianceSummaryResponse))]
+[JsonSerializable(typeof(ContextAssignedPackageGrantResponse))]
+[JsonSerializable(typeof(ContextAssignedPackageResponse))]
+[JsonSerializable(typeof(ContextAssignedPackagesResponse))]
 [JsonSerializable(typeof(AssignmentContextRequest))]
 [JsonSerializable(typeof(AssignmentContextRequest[]))]
-[JsonSerializable(typeof(ContractorAssignmentContextComplianceRequest))]
-[JsonSerializable(typeof(ContractorAssignmentContextComplianceResponse))]
-[JsonSerializable(typeof(ContractorAssignmentContextCompliancePackageResponse))]
 [JsonSerializable(typeof(AccessDurationKind))]
 [JsonSerializable(typeof(AccessDurationKind?))]
 [JsonSerializable(typeof(AccessGrantMaterializationOutcomeStatus))]
@@ -104,6 +105,7 @@ namespace Fabric.Server.AccessCatalog;
 [JsonSerializable(typeof(Page<PackageResponse>))]
 [JsonSerializable(typeof(GrantComplianceSummaryResponse[]))]
 [JsonSerializable(typeof(GrantComplianceDetailResponse[]))]
+[JsonSerializable(typeof(ContextAssignedPackagesResponse[]))]
 [JsonSerializable(typeof(ProblemDetails))]
 [JsonSerializable(typeof(UpdateApprovalDefinitionRequest))]
 [JsonSerializable(typeof(UpdateApprovalGroupRequest))]

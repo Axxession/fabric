@@ -1,5 +1,6 @@
 using Fabric.Server.AccessCatalog.Domain;
 using Fabric.Server.Core;
+using Fabric.Server.Requirements.Contracts;
 using Fabric.Server.Requirements.Domain;
 using Fabric.Server.Sagas.AccessGrantProvisioning;
 
@@ -38,14 +39,29 @@ public sealed record GrantComplianceSummaryResponse(
     DateTimeOffset? CompliantUntil,
     int GrantCount);
 
-public sealed record RequirementComplianceResponse(
-    Guid RequirementDefinitionId,
-    string Code,
-    string Name,
-    bool IsBlocking,
-    RequirementResultStatus Status,
-    string Reason,
-    DateTimeOffset? ValidUntil);
+public sealed record ContextAssignedPackageGrantResponse(
+    Guid GrantId,
+    Guid AccessItemId,
+    string AccessItemName,
+    AccessGrantStatus Status,
+    GrantApprovalStatus ApprovalStatus,
+    GrantComplianceStatus ComplianceStatus,
+    GrantProvisioningStatus ProvisioningStatus,
+    DateTimeOffset? CompliantUntil,
+    DateTimeOffset ValidFrom,
+    DateTimeOffset? ValidUntil,
+    string? RevokedBy,
+    AccessGrantRevokeCause? RevokeCause);
+
+public sealed record ContextAssignedPackageResponse(
+    Guid PackageId,
+    string PackageName,
+    ContextAssignedPackageGrantResponse[] Grants);
+
+public sealed record ContextAssignedPackagesResponse(
+    AssignmentSourceKind SourceKind,
+    Guid SourceId,
+    ContextAssignedPackageResponse[] Packages);
 
 public sealed record GrantComplianceDetailResponse(
     AssignmentSourceKind SourceKind,
@@ -53,27 +69,6 @@ public sealed record GrantComplianceDetailResponse(
     GrantComplianceStatus? ComplianceStatus,
     DateTimeOffset? CompliantUntil,
     RequirementComplianceResponse[] Requirements);
-
-public sealed record ContractorAssignmentContextComplianceRequest(
-    Guid ContractorId,
-    Guid ContractorJobId,
-    DateTimeOffset AssignedFrom,
-    DateTimeOffset AssignedUntil);
-
-public sealed record ContractorAssignmentContextCompliancePackageResponse(
-    Guid PackageId,
-    string PackageName,
-    ContextComplianceStatus Status,
-    DateTimeOffset? CompliantUntil,
-    RequirementComplianceResponse[] Requirements);
-
-public sealed record ContractorAssignmentContextComplianceResponse(
-    Guid ContractorId,
-    Guid ContractorJobId,
-    Guid LocationId,
-    Guid JobTypeId,
-    string? UnavailableReason,
-    ContractorAssignmentContextCompliancePackageResponse[] Packages);
 
 public sealed record ListPackageRequestsRequest : BaseListRequest
 {

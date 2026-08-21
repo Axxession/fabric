@@ -72,9 +72,9 @@ public enum AssignmentSourceKind
     CatalogRequest,
     OrganizationalUnit,
     Persona,
-    ReceptionArrival,
+    VisitInvitation,
     VisitorLocation,
-    ContractorJob,
+    ContractorAssignment,
     Manual
 }
 

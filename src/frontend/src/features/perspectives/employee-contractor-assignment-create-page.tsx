@@ -83,7 +83,7 @@ export default function EmployeeContractorAssignmentCreatePage() {
     queryKey: ['employee', 'contractors', 'jobs', jobId, 'assignment-context-compliance', form.contractorId, form.assignedFrom, form.assignedUntil],
     enabled: isPreviewReady,
     queryFn: async () => {
-      const { data, error } = await api.POST('/api/access-catalog/access-grants/contractor-assignment-context-compliance', {
+      const { data, error } = await api.POST('/api/requirements/context-compliance/contractor-preview', {
         body: {
           contractorId: form.contractorId,
           contractorJobId: jobId,

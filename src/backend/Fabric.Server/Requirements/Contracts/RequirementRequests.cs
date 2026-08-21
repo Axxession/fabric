@@ -15,6 +15,8 @@ public sealed record ListRequirementsRequest : BaseListRequest
 public sealed record CreateRequirementDefinitionRequest(string Code, string Name, string? Description, RequirementEvidenceKind[] AllowedEvidenceKinds, bool IsSensitive);
 public sealed record UpdateRequirementDefinitionRequest(string Code, string Name, string? Description, RequirementEvidenceKind[] AllowedEvidenceKinds, bool IsSensitive);
 public sealed record CreateLocationRequirementPolicyRequest(Guid LocationId, Guid RequirementDefinitionId, RequirementSubjectKind SubjectKind, bool IsBlocking);
+public sealed record ContractorAssignmentContextComplianceRequest(Guid ContractorId, Guid ContractorJobId, DateTimeOffset AssignedFrom, DateTimeOffset AssignedUntil);
+public sealed record CreateContextComplianceWaiverRequest(Guid RequirementDefinitionId, DateTimeOffset ValidUntil, string Reason, string? SourceReference);
 public sealed record ListLocationJobRequirementPoliciesRequest : BaseListRequest
 {
     public Guid? LocationId { get; set; }

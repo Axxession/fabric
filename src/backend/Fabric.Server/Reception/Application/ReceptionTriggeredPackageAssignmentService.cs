@@ -79,8 +79,8 @@ public sealed class ReceptionTriggeredPackageAssignmentService(
             return;
 
         IReadOnlyList<AccessGrant> accessGrants = await accessGrantService.ListActiveForSourceAsync(
-            AssignmentSourceKind.ReceptionArrival,
-            arrival.Id,
+            AssignmentSourceKind.VisitInvitation,
+            arrival.InvitationId ?? arrival.Id,
             assignment.PackageId,
             cancellationToken);
 
@@ -94,8 +94,8 @@ public sealed class ReceptionTriggeredPackageAssignmentService(
                 identityId.Value,
                 arrival.LocationId.Value,
                 AssignmentChannel.AutomaticConfiguration,
-                AssignmentSourceKind.ReceptionArrival,
-                arrival.Id,
+                AssignmentSourceKind.VisitInvitation,
+                arrival.InvitationId ?? arrival.Id,
                 AccessDurationKind.Temporary,
                 validFrom,
                 validUntil,

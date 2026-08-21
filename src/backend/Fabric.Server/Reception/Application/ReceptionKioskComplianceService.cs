@@ -9,9 +9,10 @@ using Fabric.Server.Reception.Contracts;
 using Fabric.Server.Reception.Domain;
 using Fabric.Server.Reception.Persistence;
 using Fabric.Server.Requirements.Application;
+using Fabric.Server.Requirements.Contracts;
 using Fabric.Server.Requirements.Domain;
-using Fabric.Server.Requirements.Persistence;
 using Fabric.Server.Sagas.LearningRequirements;
+using Fabric.Server.Visitors.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Fabric.Server.Reception.Application;
@@ -20,8 +21,8 @@ public sealed class ReceptionKioskComplianceService(
     ReceptionDbContext receptionDb,
     ContractorsDbContext contractorsDb,
     LearningDbContext learningDb,
-    RequirementsDbContext requirementsDb,
-    GrantRequirementsService grantRequirementsService,
+    VisitorsDbContext visitorsDb,
+    ContextComplianceService contextComplianceService,
     LearningRequirementAutomationService learningRequirementAutomationService,
     IdentityService identityService,
     EnrollmentService enrollmentService,
@@ -35,53 +36,25 @@ public sealed class ReceptionKioskComplianceService(
         if (arrival is null)
             return Result.Failure<ReceptionKioskComplianceResponse, ReceptionErrors>(ReceptionErrors.ArrivalNotFound);
 
-        KioskRequirementContext context = await BuildRequirementContextAsync(arrival, cancellationToken);
-        if (!context.LocationId.HasValue)
-        {
-            return Result.Success<ReceptionKioskComplianceResponse, ReceptionErrors>(
-                new ReceptionKioskComplianceResponse(ContextComplianceStatus.Compliant, []));
-        }
-
-        Result<IReadOnlyList<DerivedGrantRequirement>, RequirementsEvaluationErrors> derivation = await grantRequirementsService.DeriveForGrantAsync(
-            context.IdentityId ?? Guid.Empty,
-            context.SubjectKind,
-            context.LocationId.Value,
-            context.ContractorJobTypeIds,
-            cancellationToken);
-        if (derivation.IsFailure(out _))
+        Result<ContextComplianceResponse, RequirementsEvaluationErrors> evaluation = await EvaluateArrivalContextAsync(arrival, cancellationToken);
+        if (evaluation.IsFailure(out _))
             return Result.Success<ReceptionKioskComplianceResponse, ReceptionErrors>(new ReceptionKioskComplianceResponse(ContextComplianceStatus.NonCompliant, []));
 
-        derivation.IsSuccess(out IReadOnlyList<DerivedGrantRequirement> derivedRequirements);
-        if (derivedRequirements.Count == 0)
-            return Result.Success<ReceptionKioskComplianceResponse, ReceptionErrors>(new ReceptionKioskComplianceResponse(ContextComplianceStatus.Compliant, []));
-
-        Guid[] requirementDefinitionIds = derivedRequirements.Select(item => item.RequirementDefinitionId).Distinct().ToArray();
-        Dictionary<Guid, RequirementDefinition> definitionsById = await requirementsDb.RequirementDefinitions
-            .AsNoTracking()
-            .Where(item => requirementDefinitionIds.Contains(item.Id))
-            .ToDictionaryAsync(item => item.Id, cancellationToken);
-        Dictionary<Guid, EvaluatedGrantRequirement> evaluationsById = context.IdentityId.HasValue
-            ? (await grantRequirementsService.EvaluateGrantRequirementsAsync(context.IdentityId.Value, requirementDefinitionIds, cancellationToken))
-                .ToDictionary(item => item.RequirementDefinitionId)
-            : [];
-        Dictionary<Guid, OutstandingLearningCourseOption> coursesByRequirementId = context.IdentityId.HasValue
-            ? (await learningRequirementAutomationService.ListOutstandingLearningCoursesAsync(context.IdentityId.Value, requirementDefinitionIds, cancellationToken))
+        evaluation.IsSuccess(out ContextComplianceResponse? contextCompliance);
+        Guid? identityId = await ResolveIdentityIdAsync(arrival, cancellationToken);
+        Guid[] requirementDefinitionIds = contextCompliance!.Requirements.Select(item => item.RequirementDefinitionId).Distinct().ToArray();
+        Dictionary<Guid, OutstandingLearningCourseOption> coursesByRequirementId = identityId.HasValue
+            ? (await learningRequirementAutomationService.ListOutstandingLearningCoursesAsync(identityId.Value, requirementDefinitionIds, cancellationToken))
                 .GroupBy(item => item.RequirementDefinitionId)
                 .ToDictionary(group => group.Key, group => group.First())
             : [];
 
-        ReceptionKioskComplianceRequirementResponse[] requirements = derivedRequirements
-            .Select(item => BuildRequirementResponse(item, definitionsById.GetValueOrDefault(item.RequirementDefinitionId), evaluationsById.GetValueOrDefault(item.RequirementDefinitionId), coursesByRequirementId.GetValueOrDefault(item.RequirementDefinitionId), context.IdentityId.HasValue))
+        ReceptionKioskComplianceRequirementResponse[] requirements = contextCompliance.Requirements
+            .Select(item => BuildRequirementResponse(item, coursesByRequirementId.GetValueOrDefault(item.RequirementDefinitionId)))
             .OrderBy(item => item.Name)
             .ToArray();
 
-        ContextComplianceStatus status = requirements.Any(item => item.IsBlocking && item.Status != RequirementResultStatus.Fulfilled)
-            ? ContextComplianceStatus.NonCompliant
-            : requirements.Any(item => item.ValidUntil.HasValue)
-                ? ContextComplianceStatus.TemporarilyCompliant
-                : ContextComplianceStatus.Compliant;
-
-        return Result.Success<ReceptionKioskComplianceResponse, ReceptionErrors>(new ReceptionKioskComplianceResponse(status, requirements));
+        return Result.Success<ReceptionKioskComplianceResponse, ReceptionErrors>(new ReceptionKioskComplianceResponse(contextCompliance.Status, requirements));
     }
 
     public async Task<Result<ReceptionKioskComplianceCourseLaunchResponse, ReceptionErrors>> LaunchRequirementCourseAsync(
@@ -142,20 +115,39 @@ public sealed class ReceptionKioskComplianceService(
                 token));
     }
 
-    private async Task<KioskRequirementContext> BuildRequirementContextAsync(ExpectedArrival arrival, CancellationToken cancellationToken)
+    private async Task<Result<ContextComplianceResponse, RequirementsEvaluationErrors>> EvaluateArrivalContextAsync(ExpectedArrival arrival, CancellationToken cancellationToken)
     {
         Guid? identityId = await ResolveIdentityIdAsync(arrival, cancellationToken);
-        if (arrival.Type != ArrivalType.Contractor || !arrival.JobAssignmentId.HasValue)
-            return new KioskRequirementContext(arrival.LocationId, identityId, arrival.Type == ArrivalType.Contractor ? RequirementSubjectKind.Contractor : RequirementSubjectKind.Visitor, null);
+        string? unavailableReason = identityId.HasValue ? null : "No linked identity is available for compliance evaluation.";
 
-        Guid[] jobTypeIds = await contractorsDb.ContractorJobAssignments
+        if (arrival.Type == ArrivalType.Visitor)
+        {
+            if (!arrival.InvitationId.HasValue)
+                return Result.Success<ContextComplianceResponse, RequirementsEvaluationErrors>(new ContextComplianceResponse(ContextComplianceStatus.NonCompliant, null, unavailableReason, []));
+
+            VisitWindow? visit = await visitorsDb.Visits
+                .AsNoTracking()
+                .Where(item => item.Invitations.Any(invitation => invitation.Id == arrival.InvitationId.Value))
+                .Select(visit => new VisitWindow(visit.LocationId, visit.Stop))
+                .SingleOrDefaultAsync(cancellationToken);
+
+            return visit is null
+                ? Result.Success<ContextComplianceResponse, RequirementsEvaluationErrors>(new ContextComplianceResponse(ContextComplianceStatus.NonCompliant, null, unavailableReason, []))
+                : await contextComplianceService.EvaluateAsync(identityId, RequirementSubjectKind.Visitor, visit.LocationId, visit.Stop, unavailableReason: unavailableReason, cancellationToken: cancellationToken);
+        }
+
+        if (arrival.Type != ArrivalType.Contractor || !arrival.JobAssignmentId.HasValue)
+            return await contextComplianceService.EvaluateAsync(identityId, RequirementSubjectKind.Visitor, arrival.LocationId, arrival.ExpectedOffboardTime, unavailableReason: unavailableReason, cancellationToken: cancellationToken);
+
+        ContractorAssignmentWindow? assignment = await contractorsDb.ContractorJobAssignments
             .AsNoTracking()
             .Where(item => item.Id == arrival.JobAssignmentId.Value)
-            .Join(contractorsDb.ContractorJobs.AsNoTracking(), assignment => assignment.ContractorJobId, job => job.Id, (_, job) => job.JobTypeId)
-            .Distinct()
-            .ToArrayAsync(cancellationToken);
+            .Join(contractorsDb.ContractorJobs.AsNoTracking(), assignment => assignment.ContractorJobId, job => job.Id, (assignment, job) => new ContractorAssignmentWindow(job.LocationId, job.JobTypeId, assignment.AssignedUntil))
+            .SingleOrDefaultAsync(cancellationToken);
 
-        return new KioskRequirementContext(arrival.LocationId, identityId, RequirementSubjectKind.Contractor, jobTypeIds);
+        return assignment is null
+            ? Result.Success<ContextComplianceResponse, RequirementsEvaluationErrors>(new ContextComplianceResponse(ContextComplianceStatus.NonCompliant, null, unavailableReason, []))
+            : await contextComplianceService.EvaluateAsync(identityId, RequirementSubjectKind.Contractor, assignment.LocationId, assignment.AssignedUntil, [assignment.JobTypeId], unavailableReason, cancellationToken);
     }
 
     private async Task<Guid?> ResolveIdentityIdAsync(ExpectedArrival arrival, CancellationToken cancellationToken)
@@ -173,27 +165,20 @@ public sealed class ReceptionKioskComplianceService(
     }
 
     private static ReceptionKioskComplianceRequirementResponse BuildRequirementResponse(
-        DerivedGrantRequirement requirement,
-        RequirementDefinition? definition,
-        EvaluatedGrantRequirement? evaluation,
-        OutstandingLearningCourseOption? course,
-        bool hasIdentity)
+        RequirementComplianceResponse requirement,
+        OutstandingLearningCourseOption? course)
     {
-        RequirementResultStatus status = evaluation?.Status ?? RequirementResultStatus.Missing;
-        string reason = hasIdentity
-            ? evaluation?.Reason ?? "Requirement evidence is missing."
-            : "No linked identity is available for compliance evaluation.";
-
         return new ReceptionKioskComplianceRequirementResponse(
             requirement.RequirementDefinitionId,
-            definition?.Code ?? requirement.RequirementDefinitionId.ToString(),
-            definition?.Name ?? requirement.RequirementDefinitionId.ToString(),
+            requirement.Code,
+            requirement.Name,
             requirement.IsBlocking,
-            status,
-            reason,
-            evaluation?.ValidUntil,
+            requirement.Status,
+            requirement.Reason,
+            requirement.ValidUntil,
             course is null ? null : new ReceptionKioskLearningCourseOptionResponse(course.CourseId, course.CourseCode, course.CourseTitle));
     }
 
-    private sealed record KioskRequirementContext(Guid? LocationId, Guid? IdentityId, RequirementSubjectKind SubjectKind, IReadOnlyCollection<Guid>? ContractorJobTypeIds);
+    private sealed record VisitWindow(Guid? LocationId, DateTimeOffset Stop);
+    private sealed record ContractorAssignmentWindow(Guid LocationId, Guid JobTypeId, DateTimeOffset AssignedUntil);
 }

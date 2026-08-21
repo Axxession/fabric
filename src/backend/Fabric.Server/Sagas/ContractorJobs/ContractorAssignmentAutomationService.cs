@@ -195,7 +195,7 @@ DO UPDATE SET
     {
         AccessGrant[] existingGrants = await accessCatalogDb.AccessGrants
             .Where(item => item.AssignmentChannel == AssignmentChannel.AutomaticConfiguration)
-            .Where(item => item.SourceKind == AssignmentSourceKind.ContractorJob)
+            .Where(item => item.SourceKind == AssignmentSourceKind.ContractorAssignment)
             .Where(item => item.SourceId == assignmentId)
             .ToArrayAsync(cancellationToken);
 
@@ -223,7 +223,7 @@ DO UPDATE SET
                             identityId.Value,
                             snapshot.LocationId,
                             AssignmentChannel.AutomaticConfiguration,
-                            AssignmentSourceKind.ContractorJob,
+                            AssignmentSourceKind.ContractorAssignment,
                             assignmentId,
                             AccessDurationKind.Temporary,
                             snapshot.AssignedFrom,

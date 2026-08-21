@@ -14,6 +14,14 @@ public static class ContractorJobAssignmentEndpoints
 {
     public static IEndpointRouteBuilder MapContractorJobAssignmentEndpoints(this IEndpointRouteBuilder app)
     {
+        RouteGroupBuilder assignmentLookup = app.MapGroup("/api/contractors/assignments")
+            .RequireAuthorization(FabricRoleDefaults.ContractorEnrollmentOrPlanningPolicy);
+
+        assignmentLookup.MapGet("/{assignmentId:guid}", GetContractorJobAssignmentById)
+            .WithSummary("Get contractor assignment by id")
+            .Produces<ContractorJobAssignmentResponse>()
+            .Produces(StatusCodes.Status404NotFound);
+
         RouteGroupBuilder assignments = app.MapGroup("/api/contractors/jobs/{contractorJobId:guid}/assignments")
             .RequireAuthorization(FabricRoleDefaults.ContractorEnrollmentOrPlanningPolicy);
 
@@ -53,6 +61,24 @@ public static class ContractorJobAssignmentEndpoints
             .Produces<ProblemDetails>(StatusCodes.Status409Conflict);
 
         return app;
+    }
+
+    private static async Task<IResult> GetContractorJobAssignmentById(Guid assignmentId, ContractorsDbContext db, CurrentActorService currentActorService, HttpContext httpContext, CancellationToken cancellationToken = default)
+    {
+        Result<Guid, IResult> actorIdentity = await ContractorAuthorization.GetCurrentIdentityIdAsync(httpContext, currentActorService, cancellationToken);
+        if (actorIdentity.IsFailure(out IResult errorResult))
+            return errorResult;
+
+        actorIdentity.IsSuccess(out Guid currentIdentityId);
+        ContractorJobAssignment? assignment = await db.ContractorJobAssignments.AsNoTracking().SingleOrDefaultAsync(item => item.Id == assignmentId, cancellationToken);
+        if (assignment is null)
+            return Results.NotFound();
+
+        bool jobExists = await ContractorAuthorization.OwnsJobAsync(db, assignment.ContractorJobId, currentIdentityId, cancellationToken);
+        if (!jobExists)
+            return Results.NotFound();
+
+        return Results.Ok(assignment.ToResponse());
     }
 
     private static async Task<IResult> ListContractorJobAssignments(

@@ -113,7 +113,7 @@ export default function EmployeeContractorJobDetailPage() {
     enabled: assignments.length > 0,
     queryFn: async () => {
       const { data, error } = await api.POST('/api/access-catalog/access-grants/grant-compliance-summaries/by-source', {
-        body: assignments.map((assignment) => ({ sourceKind: 'ContractorJob', sourceId: assignment.id })),
+        body: assignments.map((assignment) => ({ sourceKind: 'ContractorAssignment', sourceId: assignment.id })),
       });
 
       if (error) {

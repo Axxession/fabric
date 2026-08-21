@@ -68,7 +68,7 @@ export default function EmployeeContractorAssignmentDetailPage() {
     enabled: Boolean(assignmentQuery.data),
     queryFn: async () => {
       const { data, error } = await api.POST('/api/access-catalog/access-grants/grant-compliance-details/by-source', {
-        body: [{ sourceKind: 'ContractorJob', sourceId: assignmentId }],
+        body: [{ sourceKind: 'ContractorAssignment', sourceId: assignmentId }],
       });
       if (error) {
         throw new Error('Could not load grant compliance.');

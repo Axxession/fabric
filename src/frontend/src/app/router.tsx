@@ -122,6 +122,7 @@ const RequirementEditPage = lazy(() => import('@/features/administration/require
 const PersonaCreatePage = lazy(() => import('@/features/administration/persona-create-page'));
 const PersonaEditPage = lazy(() => import('@/features/administration/persona-edit-page'));
 const ReceptionDeskArrivalsPage = lazy(() => import('@/features/reception-desk/reception-desk-arrivals-page'));
+const ReceptionDeskArrivalDetailPage = lazy(() => import('@/features/reception-desk/reception-desk-arrival-detail-page'));
 const ReceptionDeskExpectedArrivalsPage = lazy(() => import('@/features/reception-desk/reception-desk-expected-arrivals-page'));
 const ReceptionDeskHistoryPage = lazy(() => import('@/features/reception-desk/reception-desk-history-page'));
 const ReceptionDeskWorkstationPage = lazy(() => import('@/features/reception-desk/reception-desk-workstation-page'));
@@ -977,6 +978,12 @@ const receptionDeskWorkstationArrivalsRoute = createRoute({
   component: () => <ProtectedLazyRoute component={<ReceptionDeskArrivalsPage />} />,
 });
 
+const receptionDeskWorkstationArrivalDetailRoute = createRoute({
+  getParentRoute: () => receptionDeskWorkstationLayoutRoute,
+  path: '/arrivals/$arrivalId',
+  component: () => <ProtectedLazyRoute component={<ReceptionDeskArrivalDetailPage />} />,
+});
+
 const receptionDeskWorkstationHistoryRoute = createRoute({
   getParentRoute: () => receptionDeskWorkstationLayoutRoute,
   path: '/history',
@@ -1215,6 +1222,7 @@ const routeTree = rootRoute.addChildren([
     receptionDeskWorkstationSetupRoute,
     receptionDeskWorkstationExpectedArrivalsRoute,
     receptionDeskWorkstationArrivalsRoute,
+    receptionDeskWorkstationArrivalDetailRoute,
     receptionDeskWorkstationHistoryRoute,
   ]),
   desfireStudioLayoutRoute.addChildren([

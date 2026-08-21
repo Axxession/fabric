@@ -2,6 +2,11 @@ using Fabric.Server.Requirements.Domain;
 
 namespace Fabric.Server.Requirements.Contracts;
 
+public sealed record RequirementComplianceResponse(Guid RequirementDefinitionId, string Code, string Name, bool IsBlocking, RequirementResultStatus Status, string Reason, DateTimeOffset? ValidUntil, RequirementEvidenceKind[] AllowedEvidenceKinds);
+public sealed record ContextComplianceResponse(ContextComplianceStatus Status, DateTimeOffset? CompliantUntil, string? UnavailableReason, RequirementComplianceResponse[] Requirements);
+public sealed record ContractorAssignmentContextCompliancePackageResponse(Guid PackageId, string PackageName, ContextComplianceStatus Status, DateTimeOffset? CompliantUntil, RequirementComplianceResponse[] Requirements);
+public sealed record ContractorAssignmentContextComplianceResponse(Guid ContractorId, Guid ContractorJobId, Guid LocationId, Guid JobTypeId, string? UnavailableReason, ContractorAssignmentContextCompliancePackageResponse[] Packages);
+
 public sealed record RequirementDefinitionResponse(Guid Id, string Code, string Name, string? Description, RequirementEvidenceKind[] AllowedEvidenceKinds, bool IsSensitive, bool IsActive, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
 public sealed record LocationRequirementPolicyResponse(Guid Id, Guid LocationId, Guid RequirementDefinitionId, RequirementSubjectKind SubjectKind, bool IsBlocking, bool IsEnabled, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
 public sealed record LocationJobRequirementPolicyResponse(Guid Id, Guid LocationId, Guid JobTypeId, Guid RequirementDefinitionId, bool IsBlocking, bool IsEnabled, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
