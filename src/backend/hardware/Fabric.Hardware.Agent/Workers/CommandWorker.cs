@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json.Nodes;
 using Fabric.Hardware.Agent.Devices;
+using Fabric.Hardware.BelgianEid;
 using Fabric.Hardware.Agent.Gateway;
 using Fabric.Hardware.Agent.Options;
 using Fabric.Hardware.Contracts;
@@ -17,6 +18,7 @@ public sealed class CommandWorker(
     IReadOnlyList<IDispenserDevice> dispensers,
     IReadOnlyList<ICollectorDevice> collectors,
     IReadOnlyList<IEncoderDevice> encoders,
+    IReadOnlyList<IEidReaderDevice> eidReaders,
     IReadOnlyList<IRfidReaderDevice> rfidReaders,
     TimeProvider timeProvider,
     IOptions<HardwareAgentOptions> options,
@@ -28,6 +30,7 @@ public sealed class CommandWorker(
     private int _drainWorkerActive;
     private readonly IReadOnlyDictionary<string, ICollectorDevice> _collectors = collectors.ToDictionary(collector => collector.DeviceId, StringComparer.OrdinalIgnoreCase);
     private readonly IReadOnlyDictionary<string, IDispenserDevice> _dispensers = dispensers.ToDictionary(dispenser => dispenser.DeviceId, StringComparer.OrdinalIgnoreCase);
+    private readonly IReadOnlyDictionary<string, IEidReaderDevice> _eidReaders = eidReaders.ToDictionary(eidReader => eidReader.DeviceId, StringComparer.OrdinalIgnoreCase);
     private readonly IReadOnlyDictionary<string, IEncoderDevice> _encoders = encoders.ToDictionary(encoder => encoder.DeviceId, StringComparer.OrdinalIgnoreCase);
     private readonly HardwareAgentOptions _options = options.Value;
     private readonly IReadOnlyDictionary<string, IQrReaderDevice> _qrReaders = qrReaders.ToDictionary(qrReader => qrReader.DeviceId, StringComparer.OrdinalIgnoreCase);
@@ -230,6 +233,9 @@ public sealed class CommandWorker(
         if (_encoders.TryGetValue(command.DeviceId, out IEncoderDevice? encoder))
             return await ExecuteEncoderCommandAsync(command, encoder, stoppingToken, execution);
 
+        if (_eidReaders.TryGetValue(command.DeviceId, out IEidReaderDevice? eidReader))
+            return await ExecuteEidCommandAsync(command, eidReader, stoppingToken, execution);
+
         if (_rfidReaders.TryGetValue(command.DeviceId, out IRfidReaderDevice? rfidReader))
             return await ExecuteRfidCommandAsync(command, rfidReader, stoppingToken, execution);
 
@@ -326,6 +332,71 @@ public sealed class CommandWorker(
         }
     }
 
+    private async Task<PostHardwareCommandResultRequest> ExecuteEidCommandAsync(HardwareCommandEnvelope command, IEidReaderDevice eidReader, CancellationToken stoppingToken, ActiveCommandExecution execution)
+    {
+        using var timeout = new CancellationTokenSource(_options.CommandTimeout);
+        using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, timeout.Token, execution.RemoteCancellation.Token);
+
+        try
+        {
+            if (string.Equals(command.Capability, HardwareCapabilities.EidRead, StringComparison.OrdinalIgnoreCase))
+            {
+                execution.SetPhase("eid read");
+                BelgianEidIdentity identity = await eidReader.ReadAsync(linkedCancellation.Token);
+                var result = new JsonObject
+                {
+                    ["firstName"] = identity.FirstName,
+                    ["lastName"] = identity.LastName,
+                    ["nationalNumber"] = identity.NationalNumber,
+                    ["documentNumber"] = identity.DocumentNumber,
+                    ["expiryDate"] = identity.ExpiryDate?.ToString("yyyy-MM-dd"),
+                    ["nationality"] = identity.Nationality,
+                    ["birthLocation"] = identity.BirthLocation,
+                    ["birthDateRaw"] = identity.BirthDateRaw
+                };
+                return new PostHardwareCommandResultRequest(HardwareOperationStatus.Succeeded, result, null, timeProvider.GetUtcNow());
+            }
+
+            if (string.Equals(command.Capability, HardwareCapabilities.EidVerifyPin, StringComparison.OrdinalIgnoreCase))
+            {
+                if (!TryReadPin(command.Payload, out string? pin, out PostHardwareCommandResultRequest? invalidPayload))
+                    return invalidPayload!;
+
+                execution.SetPhase("eid verify pin");
+                bool validPin = await eidReader.VerifyPinAsync(pin, linkedCancellation.Token);
+                var result = new JsonObject { ["validPin"] = validPin };
+                return new PostHardwareCommandResultRequest(HardwareOperationStatus.Succeeded, result, null, timeProvider.GetUtcNow());
+            }
+
+            if (string.Equals(command.Capability, HardwareCapabilities.EidWaitRemoval, StringComparison.OrdinalIgnoreCase))
+            {
+                execution.SetPhase("eid wait removal");
+                await eidReader.WaitForRemovalAsync(linkedCancellation.Token);
+                var result = new JsonObject { ["removed"] = true };
+                return new PostHardwareCommandResultRequest(HardwareOperationStatus.Succeeded, result, null, timeProvider.GetUtcNow());
+            }
+
+            return Failure(HardwareOperationStatus.Failed, "unsupported_capability", "Capability is not supported by this device.");
+        }
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested && !stoppingToken.IsCancellationRequested)
+        {
+            return Failure(HardwareOperationStatus.Timeout, "timeout", "eID command timed out.");
+        }
+        catch (OperationCanceledException) when (execution.IsRemoteCancellationRequested)
+        {
+            return HandleRemoteCancellation(command, execution);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            return Failure(HardwareOperationStatus.Cancelled, "cancelled", "eID command was cancelled.");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or DllNotFoundException or BadImageFormatException)
+        {
+            logger.CommandDeviceUnavailable(command.CommandId, eidReader.DeviceId, ex);
+            return Failure(HardwareOperationStatus.DeviceUnavailable, "device_unavailable", ex.Message);
+        }
+    }
+
     private async Task<PostHardwareCommandResultRequest> ExchangeEncoderApduAsync(JsonObject? payload, IEncoderDevice encoder, CancellationToken cancellationToken)
     {
         if (!TryReadApduRequest(payload, out RfidApduExchangeRequest? request, out PostHardwareCommandResultRequest? invalidPayload))
@@ -405,6 +476,9 @@ public sealed class CommandWorker(
         if (string.Equals(command.Capability, HardwareCapabilities.CardEject, StringComparison.OrdinalIgnoreCase))
             return await EjectCardAsync(command, collector, stoppingToken, execution);
 
+        if (string.Equals(command.Capability, HardwareCapabilities.CardWaitRemoval, StringComparison.OrdinalIgnoreCase))
+            return await WaitForCollectorCardRemovalAsync(command, collector, stoppingToken, execution);
+
         return Failure(HardwareOperationStatus.Failed, "unsupported_capability", "Capability is not supported by this device.");
     }
 
@@ -434,17 +508,20 @@ public sealed class CommandWorker(
         if (!_rfidReaders.TryGetValue(collector.RfidReaderDeviceId, out IRfidReaderDevice? rfidReader))
             return Failure(HardwareOperationStatus.DeviceUnavailable, "rfid_reader_unavailable", "Configured RFID reader is not available on this agent.");
 
+        if (!TryReadTimeoutSeconds(command.Payload, out TimeSpan? timeoutOverride, out PostHardwareCommandResultRequest? invalidPayload))
+            return invalidPayload!;
+
         try
         {
-            execution.SetPhase("waiting for collector card present");
-            using var waitCancellation = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, execution.RemoteCancellation.Token);
-            await collector.WaitForCardAtReaderAsync(waitCancellation.Token);
-
-            using var timeout = new CancellationTokenSource(collector.RfidReadTimeout);
+            TimeSpan operationTimeout = timeoutOverride ?? collector.RfidReadTimeout;
+            using var timeout = new CancellationTokenSource(operationTimeout);
             using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, timeout.Token, execution.RemoteCancellation.Token);
 
             try
             {
+                execution.SetPhase("waiting for collector card present");
+                await collector.WaitForCardAtReaderAsync(linkedCancellation.Token);
+
                 execution.SetPhase("collector rfid read");
                 string cardNumber = await rfidReader.ReadCardAsync(linkedCancellation.Token);
                 var result = new JsonObject { ["cardNumber"] = cardNumber };
@@ -452,7 +529,7 @@ public sealed class CommandWorker(
             }
             catch (OperationCanceledException) when (timeout.IsCancellationRequested && !stoppingToken.IsCancellationRequested)
             {
-                return Failure(HardwareOperationStatus.Timeout, "rfid_read_timeout", "RFID read timed out.");
+                return Failure(HardwareOperationStatus.Timeout, "collector_card_present_timeout", "Collector card present operation timed out.");
             }
         }
         catch (OperationCanceledException) when (execution.IsRemoteCancellationRequested)
@@ -511,28 +588,45 @@ public sealed class CommandWorker(
                 return Failure(HardwareOperationStatus.Failed, "eject_failed", "Collector did not confirm card eject.");
             }
 
-            using var removalTimeout = new CancellationTokenSource(collector.RemovalTimeout);
-            using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, removalTimeout.Token, execution.RemoteCancellation.Token);
+            var result = new JsonObject { ["ejected"] = true };
+            return new PostHardwareCommandResultRequest(HardwareOperationStatus.Succeeded, result, null, timeProvider.GetUtcNow());
+        }
+        catch (OperationCanceledException) when (execution.IsRemoteCancellationRequested)
+        {
+            return HandleRemoteCancellation(command, execution);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            return Failure(HardwareOperationStatus.Cancelled, "cancelled", "Card eject operation was cancelled.");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            logger.CommandDeviceUnavailable(command.CommandId, collector.DeviceId, ex);
+            return Failure(HardwareOperationStatus.DeviceUnavailable, "device_unavailable", "Collector is not available.");
+        }
+    }
+
+    private async Task<PostHardwareCommandResultRequest> WaitForCollectorCardRemovalAsync(HardwareCommandEnvelope command, ICollectorDevice collector, CancellationToken stoppingToken, ActiveCommandExecution execution)
+    {
+        if (!TryReadTimeoutSeconds(command.Payload, out TimeSpan? timeoutOverride, out PostHardwareCommandResultRequest? invalidPayload))
+            return invalidPayload!;
+
+        try
+        {
+            TimeSpan removalTimeout = timeoutOverride ?? collector.RemovalTimeout;
+            using var timeout = new CancellationTokenSource(removalTimeout);
+            using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, timeout.Token, execution.RemoteCancellation.Token);
 
             try
             {
                 execution.SetPhase("waiting for collector card removal");
                 await collector.WaitForCardRemovalAsync(linkedCancellation.Token);
-                var removed = new JsonObject
-                {
-                    ["removed"] = true,
-                    ["recollected"] = false
-                };
-                return new PostHardwareCommandResultRequest(HardwareOperationStatus.Succeeded, removed, null, timeProvider.GetUtcNow());
+                var result = new JsonObject { ["removed"] = true };
+                return new PostHardwareCommandResultRequest(HardwareOperationStatus.Succeeded, result, null, timeProvider.GetUtcNow());
             }
-            catch (OperationCanceledException) when (removalTimeout.IsCancellationRequested && !stoppingToken.IsCancellationRequested)
+            catch (OperationCanceledException) when (timeout.IsCancellationRequested && !stoppingToken.IsCancellationRequested)
             {
-                bool recollected = await collector.CollectAsync(placeInCollectorStack: true, stoppingToken);
-                var timeoutResult = new JsonObject
-                {
-                    ["removed"] = false,
-                    ["recollected"] = recollected
-                };
+                var timeoutResult = new JsonObject { ["removed"] = false };
                 return new PostHardwareCommandResultRequest(
                     HardwareOperationStatus.Timeout,
                     timeoutResult,
@@ -546,7 +640,7 @@ public sealed class CommandWorker(
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
-            return Failure(HardwareOperationStatus.Cancelled, "cancelled", "Card eject operation was cancelled.");
+            return Failure(HardwareOperationStatus.Cancelled, "cancelled", "Card removal wait operation was cancelled.");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
@@ -720,6 +814,33 @@ public sealed class CommandWorker(
         }
     }
 
+    private bool TryReadTimeoutSeconds(JsonObject? payload, out TimeSpan? timeout, out PostHardwareCommandResultRequest? error)
+    {
+        timeout = null;
+        error = null;
+
+        if (payload?["timeoutSeconds"] is null)
+            return true;
+
+        try
+        {
+            int timeoutSeconds = payload["timeoutSeconds"]!.GetValue<int>();
+            if (timeoutSeconds <= 0)
+            {
+                error = Failure(HardwareOperationStatus.Failed, "invalid_payload", "timeoutSeconds must be greater than zero.");
+                return false;
+            }
+
+            timeout = TimeSpan.FromSeconds(timeoutSeconds);
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            error = Failure(HardwareOperationStatus.Failed, "invalid_payload", "timeoutSeconds must be an integer value.");
+            return false;
+        }
+    }
+
     private bool TryReadCardPrintRequest(JsonObject? payload, out string? frontImageBase64, out PostHardwareCommandResultRequest? error)
     {
         frontImageBase64 = null;
@@ -746,6 +867,35 @@ public sealed class CommandWorker(
         catch (Exception ex) when (ex is InvalidOperationException or FormatException)
         {
             error = Failure(HardwareOperationStatus.Failed, "invalid_payload", "frontImageBase64 must be valid base64.");
+            return false;
+        }
+    }
+
+    private bool TryReadPin(JsonObject? payload, out string? pin, out PostHardwareCommandResultRequest? error)
+    {
+        pin = null;
+        error = null;
+
+        if (payload is null)
+        {
+            error = Failure(HardwareOperationStatus.Failed, "invalid_payload", "pin is required.");
+            return false;
+        }
+
+        try
+        {
+            pin = payload["pin"]?.GetValue<string>();
+            if (pin is null)
+            {
+                error = Failure(HardwareOperationStatus.Failed, "invalid_payload", "pin is required.");
+                return false;
+            }
+
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            error = Failure(HardwareOperationStatus.Failed, "invalid_payload", "pin must be a string value.");
             return false;
         }
     }

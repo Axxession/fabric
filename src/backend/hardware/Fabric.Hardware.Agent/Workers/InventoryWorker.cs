@@ -12,6 +12,7 @@ public sealed class InventoryWorker(
     IReadOnlyList<IDispenserDevice> dispensers,
     IReadOnlyList<ICollectorDevice> collectors,
     IReadOnlyList<IEncoderDevice> encoders,
+    IReadOnlyList<IEidReaderDevice> eidReaders,
     IReadOnlyList<IRfidReaderDevice> rfidReaders,
     TimeProvider timeProvider,
     IOptions<HardwareAgentOptions> options,
@@ -35,6 +36,7 @@ public sealed class InventoryWorker(
                     .. dispensers.Select(dispenser => dispenser.GetInventoryItem()),
                     .. collectors.Select(collector => collector.GetInventoryItem()),
                     .. encoders.Select(encoder => encoder.GetInventoryItem()),
+                    .. eidReaders.Select(eidReader => eidReader.GetInventoryItem()),
                     .. rfidReaders.Select(rfidReader => rfidReader.GetInventoryItem())
                 ];
 

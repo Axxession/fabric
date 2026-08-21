@@ -38,7 +38,10 @@ public sealed class KioskWorkflowResumer(AutomationTenantScopeRunner tenantScope
         KioskInstructionActivityKind.Form => await tenantScopeRunner.RunInTenantScopeAsync(tenantContext.TenantId, async (serviceProvider, innerCancellationToken) =>
         {
             IWorkflowResumer workflowResumer = serviceProvider.GetRequiredService<IWorkflowResumer>();
-            return await workflowResumer.ResumeAsync<Activities.ShowFormInstruction>(stimulus, workflowInstanceId, options, innerCancellationToken);
+            IEnumerable<object> resumed = await workflowResumer.ResumeAsync<Activities.ReadEidCardActivity>(stimulus, workflowInstanceId, options, innerCancellationToken);
+            return resumed.Any()
+                ? resumed
+                : await workflowResumer.ResumeAsync<Activities.ShowFormInstruction>(stimulus, workflowInstanceId, options, innerCancellationToken);
         }, cancellationToken),
         _ => throw new InvalidOperationException($"Unsupported kiosk instruction kind '{kind}'.")
     };

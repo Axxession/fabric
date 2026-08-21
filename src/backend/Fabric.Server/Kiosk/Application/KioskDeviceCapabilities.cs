@@ -10,9 +10,9 @@ public static class KioskDeviceCapabilities
         KioskDeviceType.QrReader => [HardwareCapabilities.QrScan],
         KioskDeviceType.RfidReader => [HardwareCapabilities.RfidRead],
         KioskDeviceType.Dispenser => [HardwareCapabilities.CardDispense],
-        KioskDeviceType.Collector => [HardwareCapabilities.CardPresent, HardwareCapabilities.CardCollect, HardwareCapabilities.CardEject],
+        KioskDeviceType.Collector => [HardwareCapabilities.CardPresent, HardwareCapabilities.CardCollect, HardwareCapabilities.CardEject, HardwareCapabilities.CardWaitRemoval],
         KioskDeviceType.Encoder => [HardwareCapabilities.CardPresent, HardwareCapabilities.RfidApduExchange, HardwareCapabilities.CardEject],
-        KioskDeviceType.EidReader => ["eid.read"],
+        KioskDeviceType.EidReader => [HardwareCapabilities.EidRead],
         KioskDeviceType.PassportReader => [HardwareCapabilities.PassportScan],
         KioskDeviceType.LabelPrinter => [HardwareCapabilities.LabelPrint],
         _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)

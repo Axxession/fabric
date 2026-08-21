@@ -9,10 +9,14 @@ public static class HardwareCapabilities
     public const string CardDispense = "card.dispense";
     public const string CardCollect = "card.collect";
     public const string CardEject = "card.eject";
+    public const string CardWaitRemoval = "card.wait-removal";
     public const string PassportScan = "passport.scan";
     public const string RfidRead = "rfid.read";
     public const string RfidEncode = "rfid.encode";
     public const string RfidApduExchange = "rfid.apdu.exchange";
+    public const string EidRead = "eid.read";
+    public const string EidVerifyPin = "eid.verify-pin";
+    public const string EidWaitRemoval = "eid.wait-removal";
     public const string LabelPrint = "label.print";
     public const string PrinterStatus = "printer.status";
 }

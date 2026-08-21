@@ -94,6 +94,9 @@ internal static partial class AgentLog
     [LoggerMessage(Level = LogLevel.Warning, Message = "RFID EAS reader {DeviceId} is unavailable")]
     public static partial void RfidEasUnavailable(this ILogger logger, string deviceId, Exception exception);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Belgian eID reader {DeviceId} is unavailable")]
+    public static partial void BelgianEidUnavailable(this ILogger logger, string deviceId, Exception exception);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Collector {DeviceId} opened on {ComPort}")]
     public static partial void CollectorOpened(this ILogger logger, string deviceId, string comPort);
 

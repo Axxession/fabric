@@ -1,6 +1,6 @@
 namespace Fabric.Hardware.Agent.Options;
 
-public sealed class HardwareAgentOptionsValidator(IReadOnlyList<EncoderOptions> encoders) : IValidateOptions<HardwareAgentOptions>
+public sealed class HardwareAgentOptionsValidator(IReadOnlyList<EncoderOptions> encoders, IReadOnlyList<EidReaderOptions> eidReaders) : IValidateOptions<HardwareAgentOptions>
 {
     public ValidateOptionsResult Validate(string? name, HardwareAgentOptions options)
     {
@@ -12,7 +12,7 @@ public sealed class HardwareAgentOptionsValidator(IReadOnlyList<EncoderOptions> 
         if (options.InventoryInterval <= TimeSpan.Zero)
             failures.Add("Inventory interval must be positive.");
 
-        if (options.QrReaders.Length == 0 && options.Dispensers.Length == 0 && options.Collectors.Length == 0 && options.RfidEas.Readers.Length == 0 && encoders.Count == 0)
+        if (options.QrReaders.Length == 0 && options.Dispensers.Length == 0 && options.Collectors.Length == 0 && options.RfidEas.Readers.Length == 0 && encoders.Count == 0 && eidReaders.Count == 0)
             failures.Add("At least one hardware device must be configured.");
 
         foreach (EncoderOptions encoder in encoders)
@@ -57,6 +57,31 @@ public sealed class HardwareAgentOptionsValidator(IReadOnlyList<EncoderOptions> 
 
         foreach (string duplicateEncoderId in duplicateEncoderIds)
             failures.Add($"Encoder device id '{duplicateEncoderId}' is configured more than once.");
+
+        foreach (EidReaderOptions eidReader in eidReaders)
+        {
+            if (string.IsNullOrWhiteSpace(eidReader.DeviceId))
+                failures.Add("eID reader device id is required.");
+
+            if (eidReader is BelgianEidReaderOptions belgianEidReader)
+            {
+                if (string.IsNullOrWhiteSpace(belgianEidReader.Pkcs11ModulePath))
+                    failures.Add($"eID reader {belgianEidReader.DeviceId} PKCS#11 module path is required.");
+
+                if (belgianEidReader.ReadTimeoutMilliseconds <= 0)
+                    failures.Add($"eID reader {belgianEidReader.DeviceId} read timeout milliseconds must be greater than zero.");
+            }
+        }
+
+        string[] duplicateEidReaderIds = eidReaders
+            .Where(eidReader => !string.IsNullOrWhiteSpace(eidReader.DeviceId))
+            .GroupBy(eidReader => eidReader.DeviceId, StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .ToArray();
+
+        foreach (string duplicateEidReaderId in duplicateEidReaderIds)
+            failures.Add($"eID reader device id '{duplicateEidReaderId}' is configured more than once.");
 
         foreach (QrReaderDeviceOptions qrReader in options.QrReaders)
         {
@@ -174,6 +199,7 @@ public sealed class HardwareAgentOptionsValidator(IReadOnlyList<EncoderOptions> 
             .Concat(options.Dispensers.Select(dispenser => dispenser.DeviceId))
             .Concat(options.Collectors.Select(collector => collector.DeviceId))
             .Concat(options.RfidEas.Readers.Select(rfidReader => rfidReader.DeviceId))
+            .Concat(eidReaders.Select(eidReader => eidReader.DeviceId))
             .Concat(encoders.Select(encoder => encoder.DeviceId))
             .Where(deviceId => !string.IsNullOrWhiteSpace(deviceId))
             .GroupBy(deviceId => deviceId, StringComparer.OrdinalIgnoreCase)

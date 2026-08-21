@@ -27,6 +27,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Fabric.Hardware.Contracts\Fabric.Hardware.Contracts.csproj" />
+    <ProjectReference Include="..\Fabric.Hardware.BelgianEid\Fabric.Hardware.BelgianEid.csproj" />
     <ProjectReference Include="..\Fabric.Hardware.Collector\Fabric.Hardware.Collector.csproj" />
     <ProjectReference Include="..\Fabric.Hardware.Dependencies.EvolisPrinter\Fabric.Hardware.Dependencies.EvolisPrinter.csproj" />
     <ProjectReference Include="..\Fabric.Hardware.Dependencies.FargoPrinter\Fabric.Hardware.Dependencies.FargoPrinter.csproj" />

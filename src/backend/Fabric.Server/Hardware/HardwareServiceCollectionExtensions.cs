@@ -25,7 +25,11 @@ public static class HardwareServiceCollectionExtensions
             .ValidateOnStart();
 
         collection.AddScoped<HardwareAgentKeyHasher>();
+        collection.AddScoped<ICollectorService, CollectorService>();
+        collection.AddScoped<IDispenserService, DispenserService>();
+        collection.AddScoped<IEidReaderService, EidReaderService>();
         collection.AddScoped<IQrScanner, QrScanner>();
+        collection.AddScoped<IRfidReaderService, RfidReaderService>();
         collection.AddScoped<ILabelPrinter, LabelPrinter>();
         collection.AddScoped<ICardPrinter, CardPrinter>();
         collection.AddSingleton<HardwareCommandStore>();

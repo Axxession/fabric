@@ -2,6 +2,7 @@ using Fabric.Hardware.Agent;
 using Fabric.Hardware.Agent.Devices;
 using Fabric.Hardware.Agent.Gateway;
 using Fabric.Hardware.Agent.Options;
+using Fabric.Hardware.BelgianEid;
 using Fabric.Hardware.RfidEas;
 using Fabric.Hardware.RfidEas.Infrastructure;
 
@@ -15,6 +16,7 @@ if (ShouldListEncoders(args))
 
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 IReadOnlyList<EncoderOptions> encoderOptions = EncoderOptionsParser.Parse(builder.Configuration);
+IReadOnlyList<EidReaderOptions> eidReaderOptions = EidReaderOptionsParser.Parse(builder.Configuration);
 
 builder.Services.AddTransient<TimeProvider>(_ => TimeProvider.System);
 
@@ -26,7 +28,8 @@ builder.Services.AddOptions<HardwareAgentOptions>()
     .ValidateDataAnnotations()
     .ValidateOnStart();
 builder.Services.AddSingleton<IReadOnlyList<EncoderOptions>>(encoderOptions);
-builder.Services.AddSingleton<IValidateOptions<HardwareAgentOptions>>(_ => new HardwareAgentOptionsValidator(encoderOptions));
+builder.Services.AddSingleton<IReadOnlyList<EidReaderOptions>>(eidReaderOptions);
+builder.Services.AddSingleton<IValidateOptions<HardwareAgentOptions>>(_ => new HardwareAgentOptionsValidator(encoderOptions, eidReaderOptions));
 
 builder.Services.AddHttpClient<HardwareGatewayClient>((serviceProvider, client) =>
 {
@@ -78,6 +81,17 @@ builder.Services.AddSingleton<IReadOnlyList<IRfidReaderDevice>>(serviceProvider 
     return options.RfidEas.Readers
         .Select<RfidEasReaderOptions, IRfidReaderDevice>(readerOptions => new EasRfidReaderDevice(readerOptions, () => reader.Value, logger))
         .ToArray();
+});
+builder.Services.AddSingleton<IReadOnlyList<IEidReaderDevice>>(serviceProvider =>
+{
+    IReadOnlyList<EidReaderOptions> options = serviceProvider.GetRequiredService<IReadOnlyList<EidReaderOptions>>();
+    ILogger<BelgianEidReader> readerLogger = serviceProvider.GetRequiredService<ILogger<BelgianEidReader>>();
+    ILogger<BelgianEidReaderDevice> deviceLogger = serviceProvider.GetRequiredService<ILogger<BelgianEidReaderDevice>>();
+    return options.Select(eidReader => (IEidReaderDevice)(eidReader switch
+    {
+        BelgianEidReaderOptions belgianEidReader => new BelgianEidReaderDevice(belgianEidReader, readerLogger, deviceLogger),
+        _ => throw new InvalidOperationException($"Unsupported eID reader option type '{eidReader.GetType().Name}'.")
+    })).ToArray();
 });
 builder.Services.AddSingleton<IReadOnlyList<IEncoderDevice>>(serviceProvider =>
 {

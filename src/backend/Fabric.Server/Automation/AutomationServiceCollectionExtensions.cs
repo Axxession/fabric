@@ -112,7 +112,6 @@ public static class AutomationServiceCollectionExtensions
 
     public static WebApplication UseAutomation(this WebApplication app)
     {
-        app.UseTenants();
         app.UseWorkflowsApi(); // Use Elsa API endpoints.
         app.UseWorkflows(); // Use Elsa middleware to handle HTTP requests mapped to HTTP Endpoint activities.
         //app.UseWorkflowsSignalRHubs(); // Optional SignalR integration. Elsa Studio uses SignalR to receive real-time updates from the server.

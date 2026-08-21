@@ -1,3 +1,4 @@
+using Elsa.Tenants.Extensions;
 using Fabric.Server.Actors;
 using Fabric.Server.Actors.Endpoints;
 using Fabric.Server.AccessCatalog;
@@ -127,6 +128,11 @@ if (File.Exists(frontendIndexPath))
 {
     app.UseDefaultFiles();
     app.MapStaticAssets().AllowAnonymous();
+}
+
+if (enableAutomation)
+{
+    app.UseTenants();
 }
 
 app.UseMiddleware<TenantContextMiddleware>();

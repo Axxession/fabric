@@ -27,7 +27,7 @@ public sealed class SerialCollectorDevice(CollectorDeviceOptions options, ILogge
             options.DeviceId,
             "card-collector",
             "serial",
-            [HardwareCapabilities.CardPresent, HardwareCapabilities.CardCollect, HardwareCapabilities.CardEject],
+            [HardwareCapabilities.CardPresent, HardwareCapabilities.CardCollect, HardwareCapabilities.CardEject, HardwareCapabilities.CardWaitRemoval],
             detected ? "online" : "offline",
             new HardwareDeviceDiagnostics(options.ComPort, Configured: !string.IsNullOrWhiteSpace(options.ComPort), Detected: detected, Platform: Environment.OSVersion.Platform.ToString()));
     }
