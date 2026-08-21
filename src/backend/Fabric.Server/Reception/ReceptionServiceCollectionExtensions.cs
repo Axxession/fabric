@@ -20,7 +20,11 @@ public static class ReceptionServiceCollectionExtensions
         collection.AddScoped<ReceptionService>();
         collection.AddScoped<ReceptionLocationScopeService>();
         collection.AddScoped<ReceptionTriggeredPackageAssignmentService>();
+        collection.AddScoped<ReceptionKioskComplianceService>();
+        collection.AddScoped<ReceptionKioskSessionService>();
+        collection.AddScoped<IReceptionKioskSessionStorage, ReceptionKioskSessionStorage>();
         collection.AddScoped<ReceptionKioskKeyHasher>();
+        collection.AddHostedService<ReceptionKioskSessionCleanupService>();
         return collection;
     }
 }

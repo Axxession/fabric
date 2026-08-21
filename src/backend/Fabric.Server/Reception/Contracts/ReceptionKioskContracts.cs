@@ -1,4 +1,5 @@
 using Fabric.Server.Reception.Domain;
+using Fabric.Server.Requirements.Domain;
 using Fabric.Server.Visitors.Domain;
 using Riok.Mapperly.Abstractions;
 
@@ -79,6 +80,77 @@ public record ReceptionKioskVisitDetailsResponse(
 );
 
 public record ReceptionKioskContractorDetailsResponse();
+
+public record ReceptionKioskComplianceResponse(
+    ContextComplianceStatus Status,
+    ReceptionKioskComplianceRequirementResponse[] Requirements
+);
+
+public record ReceptionKioskComplianceRequirementResponse(
+    Guid RequirementDefinitionId,
+    string Code,
+    string Name,
+    bool IsBlocking,
+    RequirementResultStatus Status,
+    string Reason,
+    DateTimeOffset? ValidUntil,
+    ReceptionKioskLearningCourseOptionResponse? Course
+);
+
+public record ReceptionKioskLearningCourseOptionResponse(
+    Guid CourseId,
+    string CourseCode,
+    string CourseTitle
+);
+
+public record ReceptionKioskComplianceCourseLaunchRequest(
+    Guid? LanguageId
+);
+
+public record ReceptionKioskComplianceCourseLaunchResponse(
+    Guid RequirementDefinitionId,
+    Guid CourseId,
+    string CourseTitle,
+    ReceptionKioskCourseLanguageResponse[] Languages,
+    string? Token
+);
+
+public record ReceptionKioskCourseLanguageResponse(
+    Guid Id,
+    string LanguageCode,
+    string DisplayLabel
+);
+
+public record StartReceptionKioskSessionRequest(string Code);
+
+public record StopReceptionKioskSessionRequest(
+    ReceptionKioskSessionStopReason Reason,
+    string? Message
+);
+
+public record StoreReceptionKioskSessionCaptureRequest(byte[] Content);
+
+public record MarkReceptionKioskSessionNonCompliantRequest(string? Message);
+
+public record ReceptionKioskSessionStepResponse(
+    ReceptionKioskSessionStep Step,
+    ReceptionKioskSessionStepStatus Status
+);
+
+public record ReceptionKioskSessionResponse(
+    Guid Id,
+    Guid KioskId,
+    Guid ArrivalId,
+    ReceptionKioskExpectedArrivalResponse Arrival,
+    ReceptionKioskSessionStatus Status,
+    ReceptionKioskSessionStep? CurrentStep,
+    ReceptionKioskSessionStopReason? StopReason,
+    string? StopMessage,
+    DateTimeOffset StartedAt,
+    DateTimeOffset LastInteractionAt,
+    DateTimeOffset? CompletedAt,
+    ReceptionKioskSessionStepResponse[] Steps
+);
 
 [Mapper]
 public static partial class ReceptionKioskMapper

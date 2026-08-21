@@ -71,6 +71,8 @@ type ScormPlayerProps = {
   token: string;
   onExit?: () => void;
   onComplete?: (result: { completionStatus: string | null; successStatus: string | null; score: number | null }) => void;
+  showSessionHeader?: boolean;
+  iframeHeightClassName?: string;
 };
 
 type ScormApiInstance = Scorm12API | Scorm2004API;
@@ -82,7 +84,7 @@ declare global {
   }
 }
 
-export function ScormPlayer({ token, onExit, onComplete }: ScormPlayerProps) {
+export function ScormPlayer({ token, onExit, onComplete, showSessionHeader = true, iframeHeightClassName = 'h-[78vh]' }: ScormPlayerProps) {
   const runtimeRef = useRef<ScormApiInstance | null>(null);
   const completionReportedRef = useRef(false);
   const [launchUrl, setLaunchUrl] = useState<string | null>(null);
@@ -172,19 +174,21 @@ export function ScormPlayer({ token, onExit, onComplete }: ScormPlayerProps) {
 
   return (
     <div className="grid gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-structural border border-border bg-content px-4 py-3">
-        <div>
-          <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">SCORM session</p>
-          <p className="mt-1 text-[14px] text-foreground">{bootstrapQuery.data.scos.find((item) => item.id === bootstrapQuery.data.activeScoId)?.title ?? 'Launch SCO'}</p>
+      {showSessionHeader ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-structural border border-border bg-content px-4 py-3">
+          <div>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">SCORM session</p>
+            <p className="mt-1 text-[14px] text-foreground">{bootstrapQuery.data.scos.find((item) => item.id === bootstrapQuery.data.activeScoId)?.title ?? 'Launch SCO'}</p>
+          </div>
+          <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
+            <span>{saveState === 'saving' ? 'Saving progress...' : saveState === 'saved' ? 'Progress saved' : saveState === 'error' ? 'Progress save failed' : 'Runtime ready'}</span>
+            {onExit ? <Button type="button" variant="outline" size="sm" onClick={onExit}><X className="size-4" aria-hidden="true" />Exit</Button> : null}
+          </div>
         </div>
-        <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
-          <span>{saveState === 'saving' ? 'Saving progress...' : saveState === 'saved' ? 'Progress saved' : saveState === 'error' ? 'Progress save failed' : 'Runtime ready'}</span>
-          {onExit ? <Button type="button" variant="outline" size="sm" onClick={onExit}><X className="size-4" aria-hidden="true" />Exit</Button> : null}
-        </div>
-      </div>
+      ) : null}
 
       <Card className="overflow-hidden p-0">
-        <iframe title="SCORM player" src={launchUrl} className="h-[78vh] w-full border-0 bg-white" allow="fullscreen" />
+        <iframe title="SCORM player" src={launchUrl} className={`${iframeHeightClassName} w-full border-0 bg-white`} allow="fullscreen" />
       </Card>
     </div>
   );

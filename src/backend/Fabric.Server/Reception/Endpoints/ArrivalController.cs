@@ -83,6 +83,17 @@ public static class ArrivalEndpoints
             .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
             .Produces<ProblemDetails>(StatusCodes.Status404NotFound)
             .Produces<ProblemDetails>(StatusCodes.Status409Conflict);
+        kioskArrivals.MapGet("/{id:guid}/compliance", GetKioskArrivalCompliance)
+            .WithDescription("Load compliance overview for an arrival from a reception kiosk")
+            .WithSummary("Kiosk arrival compliance")
+            .Produces<ReceptionKioskComplianceResponse>()
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound);
+        kioskArrivals.MapPost("/{id:guid}/compliance/requirements/{requirementDefinitionId:guid}/launch", LaunchKioskComplianceCourse)
+            .WithDescription("Launch a kiosk compliance course for an arrival")
+            .WithSummary("Kiosk launch compliance course")
+            .Produces<ReceptionKioskComplianceCourseLaunchResponse>()
+            .Produces<ProblemDetails>(StatusCodes.Status404NotFound)
+            .Produces<ProblemDetails>(StatusCodes.Status409Conflict);
         kioskArrivals.MapPost("/{id:guid}/check-in", CheckInArrivalFromKiosk)
             .WithDescription("Check in an arrival from a reception kiosk")
             .WithSummary("Kiosk check in arrival")
@@ -440,6 +451,26 @@ public static class ArrivalEndpoints
                 await onboardingSagaService.EnqueueVisitorArrivedAsync(id, cancellationToken);
         }
 
+        return result.AsResponse(MapError);
+    }
+
+    private static async Task<IResult> GetKioskArrivalCompliance(
+        Guid id,
+        ReceptionKioskComplianceService complianceService,
+        CancellationToken cancellationToken = default)
+    {
+        Result<ReceptionKioskComplianceResponse, ReceptionErrors> result = await complianceService.GetComplianceAsync(id, cancellationToken);
+        return result.AsResponse(MapError);
+    }
+
+    private static async Task<IResult> LaunchKioskComplianceCourse(
+        Guid id,
+        Guid requirementDefinitionId,
+        [FromBody] ReceptionKioskComplianceCourseLaunchRequest request,
+        ReceptionKioskComplianceService complianceService,
+        CancellationToken cancellationToken = default)
+    {
+        Result<ReceptionKioskComplianceCourseLaunchResponse, ReceptionErrors> result = await complianceService.LaunchRequirementCourseAsync(id, requirementDefinitionId, request.LanguageId, cancellationToken);
         return result.AsResponse(MapError);
     }
 

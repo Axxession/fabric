@@ -163,6 +163,7 @@ app.MapLocationEndpoints();
 app.MapRequirementsEndpoints();
 app.MapReceptionEndpoints();
 app.MapReceptionKioskEndpoints();
+app.MapReceptionKioskSessionEndpoints();
 app.MapReceptionDeskWorkstationEndpoints();
 app.MapReceptionAccessRuleAssignmentEndpoints();
 app.MapHardwareManagementEndpoints();

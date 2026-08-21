@@ -126,13 +126,18 @@ const ReceptionDeskExpectedArrivalsPage = lazy(() => import('@/features/receptio
 const ReceptionDeskHistoryPage = lazy(() => import('@/features/reception-desk/reception-desk-history-page'));
 const ReceptionDeskWorkstationPage = lazy(() => import('@/features/reception-desk/reception-desk-workstation-page'));
 const ReceptionDeskWorkstationSetupPage = lazy(() => import('@/features/reception-desk/reception-desk-workstation-setup-page'));
-const ReceptionKioskArrivalPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-arrival-page'));
-const ReceptionKioskDocumentScanPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-document-scan-page'));
-const ReceptionKioskFaceScanPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-face-scan-page'));
 const ReceptionKioskFailedPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-failed-page'));
 const ReceptionKioskNoRegistrationPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-no-registration-page'));
 const ReceptionKioskPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-page'));
 const ReceptionKioskScanQrPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-scan-qr-page'));
+const ReceptionKioskSessionComplianceCoursePage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-session-compliance-course-page'));
+const ReceptionKioskSessionComplianceLanguagePage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-session-compliance-language-page'));
+const ReceptionKioskSessionCompliancePage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-session-compliance-page'));
+const ReceptionKioskSessionDocumentPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-session-document-page'));
+const ReceptionKioskSessionFacePage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-session-face-page'));
+const ReceptionKioskSessionOnboardPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-session-onboard-page'));
+const ReceptionKioskSessionPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-session-page'));
+const ReceptionKioskSessionTerminalPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-session-terminal-page'));
 const ReceptionKioskSetupPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-setup-page'));
 const ReceptionKioskSuccessPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-success-page'));
 const ReceptionKioskWrongLocationPage = lazy(() => import('@/features/reception-kiosk/reception-kiosk-wrong-location-page'));
@@ -1002,23 +1007,6 @@ const receptionKioskScanQrRoute = createRoute({
   component: () => <LazyRoute component={<ReceptionKioskScanQrPage />} />,
 });
 
-const receptionKioskArrivalRoute = createRoute({
-  getParentRoute: () => receptionKioskLayoutRoute,
-  path: '/arrival',
-  component: () => <LazyRoute component={<ReceptionKioskArrivalPage />} />,
-});
-
-const receptionKioskFaceScanRoute = createRoute({
-  getParentRoute: () => receptionKioskLayoutRoute,
-  path: '/scan-face',
-  component: () => <LazyRoute component={<ReceptionKioskFaceScanPage />} />,
-});
-
-const receptionKioskDocumentScanRoute = createRoute({
-  getParentRoute: () => receptionKioskLayoutRoute,
-  path: '/scan-document',
-  component: () => <LazyRoute component={<ReceptionKioskDocumentScanPage />} />,
-});
 
 const receptionKioskSuccessRoute = createRoute({
   getParentRoute: () => receptionKioskLayoutRoute,
@@ -1042,6 +1030,54 @@ const receptionKioskWrongLocationRoute = createRoute({
   getParentRoute: () => receptionKioskLayoutRoute,
   path: '/wrong-location',
   component: () => <LazyRoute component={<ReceptionKioskWrongLocationPage />} />,
+});
+
+const receptionKioskSessionRoute = createRoute({
+  getParentRoute: () => receptionKioskLayoutRoute,
+  path: '/session',
+  component: () => <LazyRoute component={<ReceptionKioskSessionPage />} />,
+});
+
+const receptionKioskSessionFaceRoute = createRoute({
+  getParentRoute: () => receptionKioskLayoutRoute,
+  path: '/session/face',
+  component: () => <LazyRoute component={<ReceptionKioskSessionFacePage />} />,
+});
+
+const receptionKioskSessionDocumentRoute = createRoute({
+  getParentRoute: () => receptionKioskLayoutRoute,
+  path: '/session/document',
+  component: () => <LazyRoute component={<ReceptionKioskSessionDocumentPage />} />,
+});
+
+const receptionKioskSessionComplianceRoute = createRoute({
+  getParentRoute: () => receptionKioskLayoutRoute,
+  path: '/session/compliance',
+  component: () => <LazyRoute component={<ReceptionKioskSessionCompliancePage />} />,
+});
+
+const receptionKioskSessionComplianceLanguageRoute = createRoute({
+  getParentRoute: () => receptionKioskLayoutRoute,
+  path: '/session/compliance/language',
+  component: () => <LazyRoute component={<ReceptionKioskSessionComplianceLanguagePage />} />,
+});
+
+const receptionKioskSessionComplianceCourseRoute = createRoute({
+  getParentRoute: () => receptionKioskLayoutRoute,
+  path: '/session/compliance/course',
+  component: () => <LazyRoute component={<ReceptionKioskSessionComplianceCoursePage />} />,
+});
+
+const receptionKioskSessionOnboardRoute = createRoute({
+  getParentRoute: () => receptionKioskLayoutRoute,
+  path: '/session/onboard',
+  component: () => <LazyRoute component={<ReceptionKioskSessionOnboardPage />} />,
+});
+
+const receptionKioskSessionTerminalRoute = createRoute({
+  getParentRoute: () => receptionKioskLayoutRoute,
+  path: '/session/terminal',
+  component: () => <LazyRoute component={<ReceptionKioskSessionTerminalPage />} />,
 });
 
 const kioskIndexRoute = createRoute({
@@ -1157,7 +1193,23 @@ const routeTree = rootRoute.addChildren([
     ]),
     visitorConfirmationRoute,
   ]),
-  receptionKioskLayoutRoute.addChildren([receptionKioskIndexRoute, receptionKioskSetupRoute, receptionKioskScanQrRoute, receptionKioskArrivalRoute, receptionKioskFaceScanRoute, receptionKioskDocumentScanRoute, receptionKioskSuccessRoute, receptionKioskFailedRoute, receptionKioskNoRegistrationRoute, receptionKioskWrongLocationRoute]),
+  receptionKioskLayoutRoute.addChildren([
+    receptionKioskIndexRoute,
+    receptionKioskSetupRoute,
+    receptionKioskScanQrRoute,
+    receptionKioskSuccessRoute,
+    receptionKioskFailedRoute,
+    receptionKioskNoRegistrationRoute,
+    receptionKioskWrongLocationRoute,
+    receptionKioskSessionRoute,
+    receptionKioskSessionFaceRoute,
+    receptionKioskSessionDocumentRoute,
+    receptionKioskSessionComplianceRoute,
+    receptionKioskSessionComplianceLanguageRoute,
+    receptionKioskSessionComplianceCourseRoute,
+    receptionKioskSessionOnboardRoute,
+    receptionKioskSessionTerminalRoute,
+  ]),
   receptionDeskWorkstationLayoutRoute.addChildren([
     receptionDeskWorkstationIndexRoute,
     receptionDeskWorkstationSetupRoute,

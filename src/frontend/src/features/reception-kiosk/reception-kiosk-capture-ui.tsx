@@ -14,7 +14,7 @@ export function ReceptionKioskCaptureShell({
   title,
   description,
 }: {
-  readonly backTo: '/reception-kiosk/arrival' | '/reception-kiosk/scan-face' | '/reception-kiosk';
+  readonly backTo: '/reception-kiosk' | '/reception-kiosk/session/terminal';
   readonly children: ReactNode;
   readonly progressLabel: string;
   readonly title: string;
@@ -154,11 +154,13 @@ export function ReceptionKioskFooterActions({
 export function ReceptionKioskCancelLink({
   to,
   label,
+  onClick,
 }: {
-  readonly to: '/reception-kiosk/arrival' | '/reception-kiosk';
+  readonly to: '/reception-kiosk' | '/reception-kiosk/session/terminal';
   readonly label: string;
+  readonly onClick?: () => void;
 }) {
-  return <Link to={to} className={buttonVariants({ variant: 'outline', size: 'lg', className: 'h-14 rounded-[1rem] text-[18px]' })}>{label}</Link>;
+  return <Link to={to} onClick={onClick} className={buttonVariants({ variant: 'outline', size: 'lg', className: 'h-14 rounded-[1rem] text-[18px]' })}>{label}</Link>;
 }
 
 export function getStepProgressLabel(step: ReceptionKioskOnboardingStep, totalSteps: number, stepIndex: number): string {

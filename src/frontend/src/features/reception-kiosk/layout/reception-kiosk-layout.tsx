@@ -1,3 +1,4 @@
+import { useRouterState } from '@tanstack/react-router';
 import { type ReactNode } from 'react';
 
 import { FabricLogo } from '@/shared/branding/fabric-logo';
@@ -5,6 +6,8 @@ import { useBranding } from '@/shared/branding/branding-context';
 
 export function ReceptionKioskLayout({ children }: { readonly children: ReactNode }) {
   const branding = useBranding();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const isWideSessionPage = pathname === '/reception-kiosk/session/compliance/course';
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -19,7 +22,7 @@ export function ReceptionKioskLayout({ children }: { readonly children: ReactNod
       </header>
 
       <main className="min-h-[calc(100vh-89px)] px-4 py-6 sm:px-8 sm:py-10">
-        <div className="mx-auto flex min-h-[calc(100vh-161px)] w-full max-w-6xl items-center justify-center">{children}</div>
+        <div className={`mx-auto flex min-h-[calc(100vh-161px)] w-full ${isWideSessionPage ? 'max-w-none items-stretch justify-stretch' : 'max-w-6xl items-center justify-center'}`}>{children}</div>
       </main>
     </div>
   );

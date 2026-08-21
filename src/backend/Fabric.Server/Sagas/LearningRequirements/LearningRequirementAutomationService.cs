@@ -105,10 +105,12 @@ public sealed class LearningRequirementAutomationService(
         if (definitionIds.Length == 0)
             return [];
 
-        RequirementDefinition[] definitions = await requirementsDb.RequirementDefinitions
+        RequirementDefinition[] definitions = (await requirementsDb.RequirementDefinitions
             .AsNoTracking()
-            .Where(item => item.IsActive && item.AllowedEvidenceKinds.Contains(RequirementEvidenceKind.CourseCompletion) && definitionIds.Contains(item.Id))
-            .ToArrayAsync(cancellationToken);
+            .Where(item => item.IsActive && definitionIds.Contains(item.Id))
+            .ToArrayAsync(cancellationToken))
+            .Where(item => item.AllowsEvidenceKind(RequirementEvidenceKind.CourseCompletion))
+            .ToArray();
         if (definitions.Length == 0)
             return [];
 
@@ -160,10 +162,13 @@ public sealed class LearningRequirementAutomationService(
         if (rules.Length == 0)
             return;
 
-        RequirementDefinition[] definitions = await requirementsDb.RequirementDefinitions
+        Guid[] requirementDefinitionIds = rules.Select(rule => rule.RequirementDefinitionId).Distinct().ToArray();
+        RequirementDefinition[] definitions = (await requirementsDb.RequirementDefinitions
             .AsNoTracking()
-            .Where(item => rules.Select(rule => rule.RequirementDefinitionId).Contains(item.Id) && item.AllowedEvidenceKinds.Contains(RequirementEvidenceKind.CourseCompletion))
-            .ToArrayAsync(cancellationToken);
+            .Where(item => requirementDefinitionIds.Contains(item.Id))
+            .ToArrayAsync(cancellationToken))
+            .Where(item => item.AllowsEvidenceKind(RequirementEvidenceKind.CourseCompletion))
+            .ToArray();
         if (definitions.Length == 0)
             return;
 

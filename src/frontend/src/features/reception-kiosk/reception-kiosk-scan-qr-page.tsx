@@ -4,7 +4,7 @@ import { Link, Navigate, useNavigate } from '@tanstack/react-router';
 import { ArrowLeft, Camera } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-import { checkInReceptionKioskArrival, checkOutReceptionKioskArrival, clearReceptionKioskArrival, ReceptionKioskArrivalLookupError, ReceptionKioskArrivalNotFoundError, ReceptionKioskWrongLocationError, lookupReceptionKioskArrival, saveReceptionKioskArrival, saveReceptionKioskMissedCode } from './reception-kiosk-api';
+import { checkInReceptionKioskArrival, checkOutReceptionKioskArrival, clearReceptionKioskArrival, ReceptionKioskArrivalLookupError, ReceptionKioskArrivalNotFoundError, ReceptionKioskWrongLocationError, lookupReceptionKioskArrival, saveReceptionKioskMissedCode, startReceptionKioskSession } from './reception-kiosk-api';
 import { clearOnboardingState } from './reception-kiosk-onboarding';
 import { saveReceptionKioskResult, saveReceptionKioskWrongLocation } from './reception-kiosk-result';
 import { hasReceptionKioskSettings } from './reception-kiosk-settings';
@@ -58,8 +58,8 @@ export default function ReceptionKioskScanQrPage() {
           return;
         }
 
-        saveReceptionKioskArrival(arrival);
-        await navigate({ to: '/reception-kiosk/arrival' });
+        await startReceptionKioskSession(code);
+        await navigate({ to: '/reception-kiosk/session' });
       } catch (lookupError) {
         if (disposed) {
           return;

@@ -61,7 +61,11 @@ public class ReceptionService(
         await db.Arrivals
             .Where(arrival => arrival.InvitationId == invitationId && arrival.VisitorId == visitorId)
             .Where(arrival => arrival.Status != OnboardingStatus.Offboarded)
-            .OrderByDescending(arrival => GetExistingVisitorArrivalPriority(arrival.Status))
+            .OrderByDescending(arrival => arrival.Status == OnboardingStatus.Onboarded
+                ? 3
+                : arrival.Status == OnboardingStatus.NotYetOnboarded
+                    ? 2
+                    : 0)
             .ThenByDescending(arrival => arrival.ExpectedArrivalTime)
             .ThenBy(arrival => arrival.Id)
             .FirstOrDefaultAsync(ct);
@@ -533,14 +537,6 @@ public class ReceptionService(
             ArrivalType.Visitor => arrival.VisitorId == subjectId,
             ArrivalType.Contractor => arrival.ContractorId == subjectId,
             _ => false,
-        };
-
-    private static int GetExistingVisitorArrivalPriority(OnboardingStatus status) =>
-        status switch
-        {
-            OnboardingStatus.Onboarded => 3,
-            OnboardingStatus.NotYetOnboarded => 2,
-            _ => 0,
         };
 
     private static ExpectedArrival SelectBestKioskArrival(List<ExpectedArrival> arrivals, Guid kioskLocationId, DateTimeOffset now) =>

@@ -36,6 +36,7 @@ When a task matches one of the conditions below, use the Read tool to load the c
 | `design/credential-management.md` | Credential issuance, ranges, recycle rules, PACS credential targeting | changing credential allocation, issuance, recycle, or PACS credential provisioning |
 | `design/printing.md` | PrintDesign ownership, template parsing, rendering split, DESFire/label integration boundaries | changing visual print designs, rendering, card/label template storage, or print-job ownership |
 | `design/learning.md` | Learning bounded-context ownership, SCORM course delivery, enrollments, attempts, and requirement integration seam | designing or changing learning, LMS, SCORM course delivery, enrollments, attempts, or course-to-requirement integration |
+| `design/reception-kiosk.md` | Reception kiosk onboarding sessions, step ownership, storage, terminal flow, and future check-in split | designing or changing the reception kiosk onboarding or session-driven kiosk flow |
 | `design/access-cross-context-use-cases.md` | End-to-end examples across access domains | validating or understanding cross-context access flows |
 
 ### Integrations
