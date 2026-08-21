@@ -20,6 +20,7 @@
     <PackageReference Include="Elsa.Persistence.EFCore.PostgreSql" />
     <PackageReference Include="Elsa.Scheduling" />
     <PackageReference Include="Elsa.Tenants" />
+    <PackageReference Include="Elsa.Tenants.AspNetCore" />
     <PackageReference Include="Elsa.Workflows.Api" />
     <PackageReference Include="Fluid.Core" />
     <PackageReference Include="ManagedCode.Storage.Azure" />

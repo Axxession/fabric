@@ -1,10 +1,11 @@
 using Elsa.Workflows.Runtime;
 using Elsa.Workflows.Runtime.Options;
+using Fabric.Server.Infrastructure.Tenancy;
 using Fabric.Server.Kiosk.Domain;
 
 namespace Fabric.Server.Automation.Kiosk;
 
-public sealed class KioskWorkflowResumer(IWorkflowResumer workflowResumer)
+public sealed class KioskWorkflowResumer(AutomationTenantScopeRunner tenantScopeRunner, ITenantContext tenantContext)
 {
     public async Task ResumeInstructionAsync(KioskSession session, string instructionId, KioskInstructionActivityKind kind, KioskInstructionResult result, CancellationToken cancellationToken)
     {
@@ -29,8 +30,16 @@ public sealed class KioskWorkflowResumer(IWorkflowResumer workflowResumer)
 
     private async Task<IEnumerable<object>> ResumeAsync(KioskInstructionActivityKind kind, KioskInstructionBookmark stimulus, string workflowInstanceId, ResumeBookmarkOptions options, CancellationToken cancellationToken) => kind switch
     {
-        KioskInstructionActivityKind.Choice => await workflowResumer.ResumeAsync<Activities.ShowChoiceInstruction>(stimulus, workflowInstanceId, options, cancellationToken),
-        KioskInstructionActivityKind.Form => await workflowResumer.ResumeAsync<Activities.ShowFormInstruction>(stimulus, workflowInstanceId, options, cancellationToken),
+        KioskInstructionActivityKind.Choice => await tenantScopeRunner.RunInTenantScopeAsync(tenantContext.TenantId, async (serviceProvider, innerCancellationToken) =>
+        {
+            IWorkflowResumer workflowResumer = serviceProvider.GetRequiredService<IWorkflowResumer>();
+            return await workflowResumer.ResumeAsync<Activities.ShowChoiceInstruction>(stimulus, workflowInstanceId, options, innerCancellationToken);
+        }, cancellationToken),
+        KioskInstructionActivityKind.Form => await tenantScopeRunner.RunInTenantScopeAsync(tenantContext.TenantId, async (serviceProvider, innerCancellationToken) =>
+        {
+            IWorkflowResumer workflowResumer = serviceProvider.GetRequiredService<IWorkflowResumer>();
+            return await workflowResumer.ResumeAsync<Activities.ShowFormInstruction>(stimulus, workflowInstanceId, options, innerCancellationToken);
+        }, cancellationToken),
         _ => throw new InvalidOperationException($"Unsupported kiosk instruction kind '{kind}'.")
     };
 }

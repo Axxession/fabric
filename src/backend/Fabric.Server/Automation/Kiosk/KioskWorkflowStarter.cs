@@ -2,12 +2,13 @@ using Elsa.Common.Models;
 using Elsa.Workflows.Models;
 using Elsa.Workflows.Runtime;
 using Elsa.Workflows.Runtime.Messages;
+using Fabric.Server.Infrastructure.Tenancy;
 using Fabric.Server.Kiosk.Domain;
 using Fabric.Server.Kiosk.Persistence;
 
 namespace Fabric.Server.Automation.Kiosk;
 
-public sealed class KioskWorkflowStarter(IWorkflowRuntime workflowRuntime, KioskDbContext db, TimeProvider timeProvider, ILogger<KioskWorkflowStarter> logger)
+public sealed class KioskWorkflowStarter(AutomationTenantScopeRunner tenantScopeRunner, ITenantContext tenantContext, KioskDbContext db, TimeProvider timeProvider, ILogger<KioskWorkflowStarter> logger)
 {
     public async Task StartSessionWorkflowAsync(Server.Kiosk.Domain.Kiosk kiosk, KioskSession session, CancellationToken cancellationToken)
     {
@@ -18,18 +19,24 @@ public sealed class KioskWorkflowStarter(IWorkflowRuntime workflowRuntime, Kiosk
 
         try
         {
-            IWorkflowClient client = await workflowRuntime.CreateClientAsync(cancellationToken);
-            RunWorkflowInstanceResponse result = await client.CreateAndRunInstanceAsync(new CreateAndRunWorkflowInstanceRequest
+            string tenantId = tenantContext.TenantId;
+            RunWorkflowInstanceResponse result = await tenantScopeRunner.RunInTenantScopeAsync(tenantId, async (serviceProvider, innerCancellationToken) =>
             {
-                WorkflowDefinitionHandle = WorkflowDefinitionHandle.ByDefinitionId(kiosk.WorkflowDefinitionId, VersionOptions.Published),
-                CorrelationId = session.Id.ToString("N"),
-                Input = new Dictionary<string, object>
+                IWorkflowRuntime workflowRuntime = serviceProvider.GetRequiredService<IWorkflowRuntime>();
+                IWorkflowClient client = await workflowRuntime.CreateClientAsync(innerCancellationToken);
+                return await client.CreateAndRunInstanceAsync(new CreateAndRunWorkflowInstanceRequest
                 {
+                    WorkflowDefinitionHandle = WorkflowDefinitionHandle.ByDefinitionId(kiosk.WorkflowDefinitionId, VersionOptions.Published),
+                    CorrelationId = session.Id.ToString("N"),
+                    Input = new Dictionary<string, object>
+                    {
+                        [KioskWorkflowContext.TenantIdInputName] = tenantId,
                     [KioskWorkflowContext.KioskIdInputName] = kiosk.Id,
                     [KioskWorkflowContext.SessionIdInputName] = session.Id,
                     [KioskWorkflowContext.ProfileIdInputName] = kiosk.ProfileId,
                     [KioskWorkflowContext.LanguageCodeInputName] = session.LanguageCode
-                }
+                    }
+                }, innerCancellationToken);
             }, cancellationToken);
 
             DateTimeOffset now = timeProvider.GetUtcNow();

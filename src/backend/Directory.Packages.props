@@ -25,6 +25,7 @@
     <PackageVersion Include="Elsa.Persistence.EFCore.PostgreSql" Version="$(ElsaVersion)" />
     <PackageVersion Include="Elsa.Scheduling" Version="$(ElsaVersion)" />
     <PackageVersion Include="Elsa.Tenants" Version="$(ElsaVersion)" />
+    <PackageVersion Include="Elsa.Tenants.AspNetCore" Version="$(ElsaVersion)" />
     <PackageVersion Include="Elsa.Workflows.Api" Version="$(ElsaVersion)" />
     <PackageVersion Include="Evolis.SDK" Version="9.3.0" />
     <PackageVersion Include="Fluid.Core" Version="2.31.0" />

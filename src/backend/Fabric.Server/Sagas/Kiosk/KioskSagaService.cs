@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Fabric.Server.Automation.Kiosk;
+using Fabric.Server.Automation;
 using Fabric.Server.Infrastructure.Tenancy;
 using Fabric.Server.Kiosk;
 using Fabric.Server.Kiosk.Application;
@@ -15,7 +16,8 @@ public sealed class KioskSagaService(
     KioskDbContext kioskDb,
     KioskInstructionService instructionService,
     KioskWorkflowResumer workflowResumer,
-    IWorkflowRuntime workflowRuntime,
+    AutomationTenantScopeRunner tenantScopeRunner,
+    ITenantContext tenantContext,
     TimeProvider timeProvider,
     ILogger<KioskSagaService> logger)
 {
@@ -56,8 +58,12 @@ public sealed class KioskSagaService(
         {
             try
             {
-                var client = await workflowRuntime.CreateClientAsync(session.WorkflowInstanceId, cancellationToken);
-                await client.CancelAsync(cancellationToken);
+                await tenantScopeRunner.RunInTenantScopeAsync(tenantContext.TenantId, async (serviceProvider, innerCancellationToken) =>
+                {
+                    IWorkflowRuntime workflowRuntime = serviceProvider.GetRequiredService<IWorkflowRuntime>();
+                    var client = await workflowRuntime.CreateClientAsync(session.WorkflowInstanceId, innerCancellationToken);
+                    await client.CancelAsync(innerCancellationToken);
+                }, cancellationToken);
             }
             catch (Exception exception)
             {
