@@ -16,8 +16,8 @@ import { Input } from '@/shared/components/ui/input';
 import { DetailRow, ErrorText, formatDateTimeLabel, getAssignmentStatusVariant, getContractorAssignmentFormState, invalidateContractorJobQueries, MutedText, toApiDateTimeValue } from './employee-contractor-job-shared';
 
 type ContractorResponse = components['schemas']['ContractorResponse'];
-type AssignmentComplianceDetailResponse = components['schemas']['AssignmentComplianceDetailResponse'];
-type AssignmentRequirementComplianceResponse = components['schemas']['AssignmentRequirementComplianceResponse'];
+type GrantComplianceDetailResponse = components['schemas']['GrantComplianceDetailResponse'];
+type RequirementComplianceResponse = components['schemas']['RequirementComplianceResponse'];
 type UpdateContractorJobAssignmentRequest = components['schemas']['UpdateContractorJobAssignmentRequest'];
 
 export default function EmployeeContractorAssignmentDetailPage() {
@@ -64,14 +64,14 @@ export default function EmployeeContractorAssignmentDetailPage() {
   });
 
   const complianceDetailQuery = useQuery({
-    queryKey: ['employee', 'contractors', 'jobs', jobId, 'assignments', assignmentId, 'compliance-detail'],
+    queryKey: ['employee', 'contractors', 'jobs', jobId, 'assignments', assignmentId, 'grant-compliance-detail'],
     enabled: Boolean(assignmentQuery.data),
     queryFn: async () => {
-      const { data, error } = await api.POST('/api/access-catalog/access-grants/compliance-details/by-source', {
+      const { data, error } = await api.POST('/api/access-catalog/access-grants/grant-compliance-details/by-source', {
         body: [{ sourceKind: 'ContractorJob', sourceId: assignmentId }],
       });
       if (error) {
-        throw new Error('Could not load assignment compliance.');
+        throw new Error('Could not load grant compliance.');
       }
 
       return data?.[0] ?? null;
@@ -203,20 +203,20 @@ export default function EmployeeContractorAssignmentDetailPage() {
           <div className="rounded-structural border border-border p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="text-[16px] font-semibold tracking-tight text-foreground">Compliance</h3>
-                <p className="mt-1 text-[13px] text-muted-foreground">Current compliance state for access granted from this assignment.</p>
+                <h3 className="text-[16px] font-semibold tracking-tight text-foreground">Grant compliance</h3>
+                <p className="mt-1 text-[13px] text-muted-foreground">Current persisted grant compliance for access issued from this assignment.</p>
               </div>
               {compliance?.complianceStatus ? <Badge variant={getGrantComplianceVariant(compliance.complianceStatus)}>{getGrantComplianceLabel(compliance.complianceStatus)}</Badge> : <span className="text-[13px] text-muted-foreground">No grant</span>}
             </div>
             {compliance?.compliantUntil ? <p className="mt-3 text-[13px] text-muted-foreground">Compliant until {formatDateTimeLabel(compliance.compliantUntil)}</p> : null}
-            {!compliance || compliance.requirements.length === 0 ? <p className="mt-3 text-[13px] text-muted-foreground">No compliance requirements attached to this assignment yet.</p> : null}
+            {!compliance || compliance.requirements.length === 0 ? <p className="mt-3 text-[13px] text-muted-foreground">No grant requirements attached to this assignment yet.</p> : null}
           </div>
 
           {compliance && compliance.requirements.length > 0 ? (
             <div className="rounded-structural border border-border p-4">
               <div>
-                <h3 className="text-[16px] font-semibold tracking-tight text-foreground">Requirements</h3>
-                <p className="mt-1 text-[13px] text-muted-foreground">See what is required for compliance and what is currently missing.</p>
+                <h3 className="text-[16px] font-semibold tracking-tight text-foreground">Grant requirements</h3>
+                <p className="mt-1 text-[13px] text-muted-foreground">See the grant-attached requirement snapshot and what is currently missing.</p>
               </div>
               <div className="mt-4 grid gap-3">
                 {compliance.requirements.map((requirement) => (
@@ -258,7 +258,7 @@ export default function EmployeeContractorAssignmentDetailPage() {
   );
 }
 
-function formatRequirementComplianceStatus(status: AssignmentRequirementComplianceResponse['status']) {
+function formatRequirementComplianceStatus(status: RequirementComplianceResponse['status']) {
   switch (status) {
     case 'Fulfilled':
       return 'Compliant';
@@ -273,7 +273,7 @@ function formatRequirementComplianceStatus(status: AssignmentRequirementComplian
   }
 }
 
-function getRequirementComplianceVariant(status: AssignmentRequirementComplianceResponse['status']): 'success' | 'secondary' | 'error' {
+function getRequirementComplianceVariant(status: RequirementComplianceResponse['status']): 'success' | 'secondary' | 'error' {
   switch (status) {
     case 'Fulfilled':
       return 'success';

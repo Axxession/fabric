@@ -319,7 +319,7 @@ export default function ContractorJobTypeEditPage() {
                       {item.isBlocking ? <Badge variant="error">Blocking</Badge> : <Badge variant="secondary">Non-blocking</Badge>}
                       {item.isEnabled ? <Badge variant="success">Enabled</Badge> : <Badge variant="secondary">Disabled</Badge>}
                     </div>
-                    <p className="mt-1 text-[14px] text-muted-foreground">Location: {getLocationLabel(location)} • Fulfillment: {item.fulfillmentKind}{item.isSensitive ? ' • Sensitive' : ''}</p>
+                    <p className="mt-1 text-[14px] text-muted-foreground">Location: {getLocationLabel(location)} • Evidence kinds: {formatAllowedEvidenceKinds(item.allowedEvidenceKinds)}{item.isSensitive ? ' • Sensitive' : ''}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <Link to="/administration/access-model/compliancy/$requirementId/edit" params={{ requirementId: item.requirementDefinitionId }} className="inline-flex size-9 items-center justify-center rounded-interactive border border-border text-muted-foreground transition hover:bg-hover-blue hover:text-foreground" aria-label={`Edit ${item.requirementName}`}>
@@ -352,4 +352,9 @@ function toFormValues(jobType: JobTypeResponse): ContractorJobTypeFormValues {
     name: jobType.name,
     description: jobType.description ?? '',
   };
+}
+
+function formatAllowedEvidenceKinds(allowedEvidenceKinds: Array<string | null> | null | undefined) {
+  if (!allowedEvidenceKinds || allowedEvidenceKinds.length === 0) return 'None';
+  return allowedEvidenceKinds.filter((item): item is string => item !== null).map((item) => item === 'CourseCompletion' ? 'Course completion' : item === 'RequirementWaiver' ? 'Requirement waiver' : 'Document').join(', ');
 }

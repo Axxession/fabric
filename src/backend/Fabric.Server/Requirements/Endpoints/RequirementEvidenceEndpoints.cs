@@ -113,6 +113,8 @@ public static class RequirementEvidenceEndpoints
     private static (int statusCode, ProblemDetails? problemDetails) MapError(RequirementEvidenceErrors error) => error switch
     {
         RequirementEvidenceErrors.RequirementEvidenceNotFound => Problem(StatusCodes.Status404NotFound, "Requirement evidence not found."),
+        RequirementEvidenceErrors.RequirementDefinitionNotFound => Problem(StatusCodes.Status404NotFound, "Requirement definition not found."),
+        RequirementEvidenceErrors.EvidenceKindNotAllowed => Problem(StatusCodes.Status400BadRequest, "Evidence kind is not allowed for this requirement."),
         RequirementEvidenceErrors.SummaryRequired => Problem(StatusCodes.Status400BadRequest, "Requirement evidence summary is required."),
         RequirementEvidenceErrors.ValidUntilMustBeAfterValidFrom => Problem(StatusCodes.Status400BadRequest, "Valid until must be after valid from."),
         RequirementEvidenceErrors.FileTooLarge => Problem(StatusCodes.Status400BadRequest, "Evidence file is too large."),

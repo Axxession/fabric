@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
-import { getGrantComplianceLabel, getGrantComplianceVariant } from '@/shared/access-grants/grant-status';
+import { getContextComplianceLabel, getContextComplianceVariant } from '@/shared/access-grants/grant-status';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/components/ui/card';
@@ -16,9 +16,9 @@ import { Input } from '@/shared/components/ui/input';
 import { ErrorText, formatDateTimeLabel, getEmptyContractorAssignmentFormState, invalidateContractorJobQueries, MutedText, toApiDateTimeValue } from './employee-contractor-job-shared';
 
 type ContractorResponse = components['schemas']['ContractorResponse'];
-type ContractorAssignmentCompliancePreviewResponse = components['schemas']['ContractorAssignmentCompliancePreviewResponse'];
-type ContractorAssignmentCompliancePreviewPackageResponse = components['schemas']['ContractorAssignmentCompliancePreviewPackageResponse'];
-type AssignmentRequirementComplianceResponse = components['schemas']['AssignmentRequirementComplianceResponse'];
+type ContractorAssignmentContextComplianceResponse = components['schemas']['ContractorAssignmentContextComplianceResponse'];
+type ContractorAssignmentContextCompliancePackageResponse = components['schemas']['ContractorAssignmentContextCompliancePackageResponse'];
+type RequirementComplianceResponse = components['schemas']['RequirementComplianceResponse'];
 type CreateContractorJobAssignmentRequest = components['schemas']['CreateContractorJobAssignmentRequest'];
 type ContractorAssignmentFormState = components['schemas']['CreateContractorJobAssignmentRequest'] & { assignedFrom: string; assignedUntil: string };
 
@@ -80,10 +80,10 @@ export default function EmployeeContractorAssignmentCreatePage() {
   const job = jobQuery.data;
   const isPreviewReady = Boolean(job && form.contractorId && form.assignedFrom && form.assignedUntil && new Date(form.assignedFrom) <= new Date(form.assignedUntil) && new Date(form.assignedUntil) <= new Date(job.plannedEnd));
   const previewQuery = useQuery({
-    queryKey: ['employee', 'contractors', 'jobs', jobId, 'assignment-preview', form.contractorId, form.assignedFrom, form.assignedUntil],
+    queryKey: ['employee', 'contractors', 'jobs', jobId, 'assignment-context-compliance', form.contractorId, form.assignedFrom, form.assignedUntil],
     enabled: isPreviewReady,
     queryFn: async () => {
-      const { data, error } = await api.POST('/api/access-catalog/access-grants/contractor-assignment-preview', {
+      const { data, error } = await api.POST('/api/access-catalog/access-grants/contractor-assignment-context-compliance', {
         body: {
           contractorId: form.contractorId,
           contractorJobId: jobId,
@@ -93,7 +93,7 @@ export default function EmployeeContractorAssignmentCreatePage() {
       });
 
       if (error || !data) {
-        throw new Error('Could not load compliance preview.');
+          throw new Error('Could not load context compliance.');
       }
 
       return data;
@@ -186,8 +186,8 @@ export default function EmployeeContractorAssignmentCreatePage() {
             </label>
           </div>
 
-          {previewQuery.isError ? <ErrorText message="Could not load compliance preview." /> : null}
-          {previewQuery.isLoading ? <MutedText message="Loading compliance preview..." /> : null}
+          {previewQuery.isError ? <ErrorText message="Could not load context compliance." /> : null}
+          {previewQuery.isLoading ? <MutedText message="Loading context compliance..." /> : null}
           {previewQuery.data ? <CompliancePreviewCard preview={previewQuery.data} /> : null}
 
           <div className="flex justify-end gap-2">
@@ -200,12 +200,12 @@ export default function EmployeeContractorAssignmentCreatePage() {
   );
 }
 
-function CompliancePreviewCard({ preview }: { readonly preview: ContractorAssignmentCompliancePreviewResponse }) {
+function CompliancePreviewCard({ preview }: { readonly preview: ContractorAssignmentContextComplianceResponse }) {
   return (
     <div className="rounded-structural border border-border p-4">
       <div>
-        <h3 className="text-[18px] font-semibold tracking-tight">Compliance preview</h3>
-        <p className="mt-2 text-[14px] text-muted-foreground">Preview what access packages would be assigned and what is currently missing for compliance before you create the assignment.</p>
+        <h3 className="text-[18px] font-semibold tracking-tight">Context compliance</h3>
+        <p className="mt-2 text-[14px] text-muted-foreground">Assess the assignment context live before you create the assignment and any grants.</p>
       </div>
 
       {preview.unavailableReason ? <p className="mt-4 rounded-interactive border border-border bg-background px-4 py-3 text-[14px] text-muted-foreground">{preview.unavailableReason}</p> : null}
@@ -220,9 +220,9 @@ function CompliancePreviewCard({ preview }: { readonly preview: ContractorAssign
                   <p className="font-medium text-foreground">{item.packageName}</p>
                   {item.compliantUntil ? <p className="mt-1 text-[14px] text-muted-foreground">Compliant until {formatDateTimeLabel(item.compliantUntil)}</p> : null}
                 </div>
-                <Badge variant={getGrantComplianceVariant(item.status)}>{getGrantComplianceLabel(item.status)}</Badge>
+                  <Badge variant={getContextComplianceVariant(item.status)}>{getContextComplianceLabel(item.status)}</Badge>
               </div>
-              {item.requirements.length === 0 ? <p className="mt-4 text-[14px] text-muted-foreground">No compliance requirements for this package.</p> : <div className="mt-4 grid gap-3">{item.requirements.map((requirement) => <PreviewRequirementCard key={requirement.requirementDefinitionId} requirement={requirement} />)}</div>}
+              {item.requirements.length === 0 ? <p className="mt-4 text-[14px] text-muted-foreground">No context compliance requirements for this package.</p> : <div className="mt-4 grid gap-3">{item.requirements.map((requirement) => <PreviewRequirementCard key={requirement.requirementDefinitionId} requirement={requirement} />)}</div>}
             </div>
           ))}
         </div>
@@ -231,7 +231,7 @@ function CompliancePreviewCard({ preview }: { readonly preview: ContractorAssign
   );
 }
 
-function PreviewRequirementCard({ requirement }: { readonly requirement: AssignmentRequirementComplianceResponse }) {
+function PreviewRequirementCard({ requirement }: { readonly requirement: RequirementComplianceResponse }) {
   return (
     <div className="rounded-structural border border-border p-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -247,7 +247,7 @@ function PreviewRequirementCard({ requirement }: { readonly requirement: Assignm
   );
 }
 
-function formatRequirementComplianceStatus(status: AssignmentRequirementComplianceResponse['status']) {
+function formatRequirementComplianceStatus(status: RequirementComplianceResponse['status']) {
   switch (status) {
     case 'Fulfilled':
       return 'Compliant';
@@ -262,7 +262,7 @@ function formatRequirementComplianceStatus(status: AssignmentRequirementComplian
   }
 }
 
-function getRequirementComplianceVariant(status: AssignmentRequirementComplianceResponse['status']): 'success' | 'secondary' | 'error' {
+function getRequirementComplianceVariant(status: RequirementComplianceResponse['status']): 'success' | 'secondary' | 'error' {
   switch (status) {
     case 'Fulfilled':
       return 'success';

@@ -20,7 +20,7 @@ import { cn } from '@/shared/utils/cn';
 import { DetailRow, EmptyText, ErrorText, formatDateTimeLabel, getAssignmentStatusVariant, getContractorJobFormState, getContractorJobStatusVariant, invalidateContractorJobQueries, MutedText, toApiDateTimeValue, type ContractorJobFormState } from './employee-contractor-job-shared';
 
 type CompanyResponse = components['schemas']['CompanyResponse'];
-type AssignmentComplianceSummaryResponse = components['schemas']['AssignmentComplianceSummaryResponse'];
+type GrantComplianceSummaryResponse = components['schemas']['GrantComplianceSummaryResponse'];
 type ContractorJobAssignmentResponse = components['schemas']['ContractorJobAssignmentResponse'];
 type ContractorResponse = components['schemas']['ContractorResponse'];
 type JobTypeResponse = components['schemas']['JobTypeResponse'];
@@ -109,18 +109,18 @@ export default function EmployeeContractorJobDetailPage() {
   const contractorIds = Array.from(new Set((assignmentsQuery.data ?? []).map((assignment) => assignment.contractorId)));
   const assignments = assignmentsQuery.data ?? [];
   const assignmentComplianceQuery = useQuery({
-    queryKey: ['employee', 'contractors', 'jobs', jobId, 'assignments', 'compliance', assignments.map((assignment) => assignment.id).join(',')],
+    queryKey: ['employee', 'contractors', 'jobs', jobId, 'assignments', 'grant-compliance', assignments.map((assignment) => assignment.id).join(',')],
     enabled: assignments.length > 0,
     queryFn: async () => {
-      const { data, error } = await api.POST('/api/access-catalog/access-grants/compliance-summaries/by-source', {
+      const { data, error } = await api.POST('/api/access-catalog/access-grants/grant-compliance-summaries/by-source', {
         body: assignments.map((assignment) => ({ sourceKind: 'ContractorJob', sourceId: assignment.id })),
       });
 
       if (error) {
-        throw new Error('Could not load assignment compliance.');
+        throw new Error('Could not load assignment grant compliance.');
       }
 
-      return new Map((data ?? []).map((item: AssignmentComplianceSummaryResponse) => [item.sourceId, item]));
+      return new Map((data ?? []).map((item: GrantComplianceSummaryResponse) => [item.sourceId, item]));
     },
   });
 
@@ -484,7 +484,7 @@ function formatContractorName(contractor: ContractorResponse | undefined, assign
   return `${contractor.firstName} ${contractor.lastName}`;
 }
 
-function renderComplianceBadge(compliance: AssignmentComplianceSummaryResponse | undefined) {
+function renderComplianceBadge(compliance: GrantComplianceSummaryResponse | undefined) {
   if (!compliance?.complianceStatus) {
     return <span className="text-[13px] text-muted-foreground">-</span>;
   }

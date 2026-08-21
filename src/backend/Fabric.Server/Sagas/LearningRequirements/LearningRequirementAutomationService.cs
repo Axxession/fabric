@@ -24,7 +24,7 @@ public sealed class LearningRequirementAutomationService(
         RequirementDefinition? requirement = await requirementsDb.RequirementDefinitions.SingleOrDefaultAsync(item => item.Id == requirementDefinitionId, cancellationToken);
         if (requirement is null)
             return Result.Failure<LearningRequirementRule, string>("Requirement definition not found.");
-        if (requirement.FulfillmentKind != RequirementFulfillmentKind.Learning)
+        if (!requirement.AllowsEvidenceKind(RequirementEvidenceKind.CourseCompletion))
             return Result.Failure<LearningRequirementRule, string>("Requirement definition is not learning-fulfillable.");
         if (!await learningDb.Courses.AnyAsync(item => item.Id == courseId, cancellationToken))
             return Result.Failure<LearningRequirementRule, string>("Course not found.");
@@ -59,7 +59,7 @@ public sealed class LearningRequirementAutomationService(
         RequirementDefinition? requirement = await requirementsDb.RequirementDefinitions.SingleOrDefaultAsync(item => item.Id == requirementDefinitionId, cancellationToken);
         if (requirement is null)
             return Result.Failure<LearningRequirementRule, string>("Requirement definition not found.");
-        if (requirement.FulfillmentKind != RequirementFulfillmentKind.Learning)
+        if (!requirement.AllowsEvidenceKind(RequirementEvidenceKind.CourseCompletion))
             return Result.Failure<LearningRequirementRule, string>("Requirement definition is not learning-fulfillable.");
         if (!await learningDb.Courses.AnyAsync(item => item.Id == courseId, cancellationToken))
             return Result.Failure<LearningRequirementRule, string>("Course not found.");
@@ -107,7 +107,7 @@ public sealed class LearningRequirementAutomationService(
 
         RequirementDefinition[] definitions = await requirementsDb.RequirementDefinitions
             .AsNoTracking()
-            .Where(item => item.IsActive && item.FulfillmentKind == RequirementFulfillmentKind.Learning && definitionIds.Contains(item.Id))
+            .Where(item => item.IsActive && item.AllowedEvidenceKinds.Contains(RequirementEvidenceKind.CourseCompletion) && definitionIds.Contains(item.Id))
             .ToArrayAsync(cancellationToken);
         if (definitions.Length == 0)
             return [];
@@ -162,7 +162,7 @@ public sealed class LearningRequirementAutomationService(
 
         RequirementDefinition[] definitions = await requirementsDb.RequirementDefinitions
             .AsNoTracking()
-            .Where(item => rules.Select(rule => rule.RequirementDefinitionId).Contains(item.Id) && item.FulfillmentKind == RequirementFulfillmentKind.Learning)
+            .Where(item => rules.Select(rule => rule.RequirementDefinitionId).Contains(item.Id) && item.AllowedEvidenceKinds.Contains(RequirementEvidenceKind.CourseCompletion))
             .ToArrayAsync(cancellationToken);
         if (definitions.Length == 0)
             return;
@@ -185,7 +185,7 @@ public sealed class LearningRequirementAutomationService(
             await requirementsService.CreateRequirementEvidenceAsync(new CreateRequirementEvidenceRequest(
                 identityId,
                 rule.RequirementDefinitionId,
-                RequirementEvidenceKind.LearningCourseCompletion,
+                RequirementEvidenceKind.CourseCompletion,
                 RequirementEvidenceStatus.Valid,
                 completedAt,
                 null,

@@ -24,7 +24,7 @@ export default function LmsCourseRequirementCreatePage() {
   const [satisfactionMode, setSatisfactionMode] = useState<'Completion' | 'MinimumScore'>('Completion');
   const [minimumScore, setMinimumScore] = useState('');
 
-  const requirementsQuery = useQuery({ queryKey: ['administration', 'lms', 'requirements-options'], queryFn: async () => { const { data, error } = await api.GET('/api/requirements/definitions', { params: { query: { Query: undefined, IsActive: true, LocationId: undefined, Page: 0, PageSize: 200 } as never } }); if (error || !data) throw new Error('Could not load requirements.'); return (data as PageOfRequirementDefinitionResponse).items?.filter((item) => item.fulfillmentKind === 'Learning') ?? []; } });
+  const requirementsQuery = useQuery({ queryKey: ['administration', 'lms', 'requirements-options'], queryFn: async () => { const { data, error } = await api.GET('/api/requirements/definitions', { params: { query: { Query: undefined, IsActive: true, LocationId: undefined, Page: 0, PageSize: 200 } as never } }); if (error || !data) throw new Error('Could not load requirements.'); return (data as PageOfRequirementDefinitionResponse).items?.filter((item) => item.allowedEvidenceKinds?.includes('CourseCompletion')) ?? []; } });
   const coursesQuery = useQuery({ queryKey: ['administration', 'lms', 'courses-options'], queryFn: async () => { const { data, error } = await api.GET('/api/learning/courses', { params: { query: { Query: undefined, IsActive: true, Page: 0, PageSize: 200 } as never } }); if (error || !data) throw new Error('Could not load courses.'); return (data as PageOfCourseResponse).items ?? []; } });
 
   const createRule = useMutation({

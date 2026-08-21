@@ -6,7 +6,7 @@ import { useEffect, useId, useState } from 'react';
 import { toast } from 'sonner';
 
 import { useCurrentActor } from '@/shared/actors/current-actor';
-import { getGrantComplianceLabel, getGrantComplianceVariant } from '@/shared/access-grants/grant-status';
+import { getContextComplianceLabel, getContextComplianceVariant } from '@/shared/access-grants/grant-status';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { getLocationLabel, LocationSelector, type LocationResponse } from '@/shared/components/location-selector';
@@ -236,7 +236,7 @@ export default function EmployeeRequestAccessPage() {
   const primaryLocationIds = new Set(workLocations.filter((item: EmployeeWorkLocationResponse) => item.isPrimary).map((item: EmployeeWorkLocationResponse) => item.locationId));
   const selectedLocationDetails = selectedLocationDetailsQuery.data ?? new Map<string, LocationResponse>();
   const approvalPreview = approvalPreviewQuery.data?.approvals ?? [];
-  const compliancePreview = approvalPreviewQuery.data?.compliance ?? [];
+  const contextCompliance = approvalPreviewQuery.data?.contextCompliance ?? [];
   const myRequests = myRequestsQuery.data ?? [];
   const filteredMyRequests = myRequests.filter((request) => matchesMyRequestFilter(request, myRequestFilter));
   const myRequestPackages = requestPackageDetailsQuery.data ?? new Map<string, PackageResponse>();
@@ -559,7 +559,7 @@ export default function EmployeeRequestAccessPage() {
                             <SummaryBlock label="Access items" value={String(approvalPreview.length)} />
                             <SummaryBlock label="Approval requirements" value={String(approvalPreview.reduce((total, item) => total + item.requirements.length, 0))} />
                             <SummaryBlock label="Autoapproved items" value={String(approvalPreview.filter((item) => item.requirements.length === 0).length)} />
-                            <SummaryBlock label="Locations with issues" value={String(compliancePreview.filter(hasComplianceIssue).length)} />
+                            <SummaryBlock label="Locations with issues" value={String(contextCompliance.filter(hasComplianceIssue).length)} />
                           </div>
 
                           <section className="rounded-[18px] border border-border bg-content p-5 shadow-[0_10px_28px_rgba(17,24,39,0.08)]">
@@ -571,17 +571,17 @@ export default function EmployeeRequestAccessPage() {
                           </section>
 
                           <section className="rounded-[18px] border border-border bg-content p-5 shadow-[0_10px_28px_rgba(17,24,39,0.08)]">
-                            <h3 className="text-[18px] font-semibold tracking-tight text-foreground">Compliance status</h3>
-                            <p className="mt-2 text-[14px] text-muted-foreground">Provisioning waits until the required compliance checks are satisfied. Problematic locations stay visible first; compliant locations collapse below.</p>
-                            <div className="mt-4 rounded-interactive border border-border bg-background px-4 py-3 text-[13px] text-muted-foreground">Approval can still proceed while compliance is pending. Provisioning resumes once blocking compliance items are fulfilled.</div>
-                            {compliancePreview.length === 0 && !approvalPreviewQuery.isError ? <p className="mt-5 rounded-structural border border-dashed border-border p-6 text-[14px] text-muted-foreground">No compliance preview returned.</p> : (
+                            <h3 className="text-[18px] font-semibold tracking-tight text-foreground">Context compliance</h3>
+                            <p className="mt-2 text-[14px] text-muted-foreground">Assess the selected access context live before submitting. Problematic locations stay visible first; compliant locations collapse below.</p>
+                            <div className="mt-4 rounded-interactive border border-border bg-background px-4 py-3 text-[13px] text-muted-foreground">Approval can still proceed while context compliance is pending. Grant provisioning resumes once blocking items are fulfilled.</div>
+                            {contextCompliance.length === 0 && !approvalPreviewQuery.isError ? <p className="mt-5 rounded-structural border border-dashed border-border p-6 text-[14px] text-muted-foreground">No context compliance returned.</p> : (
                               <div className="mt-5 grid gap-4">
-                                {compliancePreview.filter(hasComplianceIssue).map((item) => <CompliancePreviewRow key={item.locationId} item={item} />)}
-                                {compliancePreview.filter((item) => !hasComplianceIssue(item)).length > 0 ? (
+                                {contextCompliance.filter(hasComplianceIssue).map((item) => <CompliancePreviewRow key={item.locationId} item={item} />)}
+                                {contextCompliance.filter((item) => !hasComplianceIssue(item)).length > 0 ? (
                                   <details className="rounded-[18px] border border-border bg-background p-4">
-                                    <summary className="cursor-pointer list-none text-[14px] font-semibold text-foreground">Compliant locations ({compliancePreview.filter((item) => !hasComplianceIssue(item)).length})</summary>
+                                    <summary className="cursor-pointer list-none text-[14px] font-semibold text-foreground">Compliant locations ({contextCompliance.filter((item) => !hasComplianceIssue(item)).length})</summary>
                                     <div className="mt-4 grid gap-3">
-                                      {compliancePreview.filter((item) => !hasComplianceIssue(item)).map((item) => <CompliancePreviewRow key={item.locationId} item={item} compact />)}
+                                      {contextCompliance.filter((item) => !hasComplianceIssue(item)).map((item) => <CompliancePreviewRow key={item.locationId} item={item} compact />)}
                                     </div>
                                   </details>
                                 ) : null}
@@ -627,9 +627,9 @@ export default function EmployeeRequestAccessPage() {
                       </div>
 
                       <div className="rounded-[18px] border border-border bg-content p-5 shadow-[0_10px_28px_rgba(17,24,39,0.08)]">
-                        <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Compliance summary</p>
+                        <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Context compliance summary</p>
                         <div className="mt-4 grid gap-2 text-[14px] text-foreground">
-                          {compliancePreview.length === 0 ? <p>No compliance preview.</p> : compliancePreview.map((item) => <p key={item.locationId}>{item.locationLabel}: {getGrantComplianceLabel(item.status)}{item.compliantUntil ? ` until ${formatDateTimeLabel(item.compliantUntil)}` : ''}</p>)}
+                          {contextCompliance.length === 0 ? <p>No context compliance.</p> : contextCompliance.map((item) => <p key={item.locationId}>{item.locationLabel}: {getContextComplianceLabel(item.status)}{item.compliantUntil ? ` until ${formatDateTimeLabel(item.compliantUntil)}` : ''}</p>)}
                         </div>
                       </div>
                     </div>
@@ -843,7 +843,7 @@ function ApprovalPreviewRow({ item, selectedLocationDetails }: { readonly item: 
   );
 }
 
-function CompliancePreviewRow({ item, compact = false }: { readonly item: PackageRequestPreviewResponse['compliance'][number]; readonly compact?: boolean }) {
+function CompliancePreviewRow({ item, compact = false }: { readonly item: PackageRequestPreviewResponse['contextCompliance'][number]; readonly compact?: boolean }) {
   const issueCount = item.requirements.filter((requirement) => requirement.status !== 'Fulfilled').length;
 
   return (
@@ -854,12 +854,12 @@ function CompliancePreviewRow({ item, compact = false }: { readonly item: Packag
           {item.compliantUntil ? <p className="mt-1 text-[14px] text-muted-foreground">Compliant until {formatDateTimeLabel(item.compliantUntil)}</p> : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={getGrantComplianceVariant(item.status)}>{getGrantComplianceLabel(item.status)}</Badge>
+          <Badge variant={getContextComplianceVariant(item.status)}>{getContextComplianceLabel(item.status)}</Badge>
           {!compact && issueCount > 0 ? <RequestMetaChip>{`${issueCount} open issue${issueCount === 1 ? '' : 's'}`}</RequestMetaChip> : null}
         </div>
       </div>
 
-      {compact ? null : item.requirements.length === 0 ? <p className="mt-4 text-[14px] text-muted-foreground">No compliance requirements for this location.</p> : (
+      {compact ? null : item.requirements.length === 0 ? <p className="mt-4 text-[14px] text-muted-foreground">No context compliance requirements for this location.</p> : (
         <div className="mt-4 grid gap-3">
           {item.requirements.map((requirement) => (
             <div key={requirement.requirementDefinitionId} className="rounded-interactive border border-border bg-content p-3">
@@ -910,7 +910,7 @@ function matchesMyRequestFilter(request: PackageRequestResponse, filter: MyReque
   }
 }
 
-function hasComplianceIssue(item: PackageRequestPreviewResponse['compliance'][number]) {
+function hasComplianceIssue(item: PackageRequestPreviewResponse['contextCompliance'][number]) {
   return item.status !== 'Compliant' || item.requirements.some((requirement) => requirement.status !== 'Fulfilled');
 }
 

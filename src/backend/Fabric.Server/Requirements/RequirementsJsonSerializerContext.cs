@@ -26,7 +26,6 @@ namespace Fabric.Server.Requirements;
 [JsonSerializable(typeof(Page<RequirementDefinitionResponse>))]
 [JsonSerializable(typeof(Page<RequirementEvidenceResponse>))]
 [JsonSerializable(typeof(ProblemDetails))]
-[JsonSerializable(typeof(RequirementFulfillmentKind[]))]
 [JsonSerializable(typeof(RequirementSubjectKind[]))]
 [JsonSerializable(typeof(RequirementEvidenceKind[]))]
 [JsonSerializable(typeof(RequirementEvidenceStatus[]))]

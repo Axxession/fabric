@@ -10,7 +10,7 @@ public sealed class RequirementDefinition
     public string Code { get; private set; } = null!;
     public string Name { get; private set; } = null!;
     public string? Description { get; private set; }
-    public RequirementFulfillmentKind FulfillmentKind { get; private set; }
+    public RequirementEvidenceKind[] AllowedEvidenceKinds { get; private set; } = [];
     public bool IsSensitive { get; private set; }
     public bool IsActive { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
@@ -20,11 +20,11 @@ public sealed class RequirementDefinition
         string code,
         string name,
         string? description,
-        RequirementFulfillmentKind fulfillmentKind,
+        IReadOnlyCollection<RequirementEvidenceKind> allowedEvidenceKinds,
         bool isSensitive,
         DateTimeOffset now)
     {
-        Result<RequirementDefinitionErrors> validation = Validate(code, name);
+        Result<RequirementDefinitionErrors> validation = Validate(code, name, allowedEvidenceKinds);
         if (validation.IsFailure(out RequirementDefinitionErrors error))
             return Result.Failure<RequirementDefinition, RequirementDefinitionErrors>(error);
 
@@ -34,7 +34,7 @@ public sealed class RequirementDefinition
             Code = code.Trim(),
             Name = name.Trim(),
             Description = NormalizeOptional(description),
-            FulfillmentKind = fulfillmentKind,
+            AllowedEvidenceKinds = NormalizeAllowedEvidenceKinds(allowedEvidenceKinds),
             IsSensitive = isSensitive,
             IsActive = true,
             CreatedAt = now,
@@ -46,22 +46,24 @@ public sealed class RequirementDefinition
         string code,
         string name,
         string? description,
-        RequirementFulfillmentKind fulfillmentKind,
+        IReadOnlyCollection<RequirementEvidenceKind> allowedEvidenceKinds,
         bool isSensitive,
         DateTimeOffset now)
     {
-        Result<RequirementDefinitionErrors> validation = Validate(code, name);
+        Result<RequirementDefinitionErrors> validation = Validate(code, name, allowedEvidenceKinds);
         if (validation.IsFailure(out RequirementDefinitionErrors error))
             return Result.Failure(error);
 
         Code = code.Trim();
         Name = name.Trim();
         Description = NormalizeOptional(description);
-        FulfillmentKind = fulfillmentKind;
+        AllowedEvidenceKinds = NormalizeAllowedEvidenceKinds(allowedEvidenceKinds);
         IsSensitive = isSensitive;
         UpdatedAt = now;
         return Result.Success<RequirementDefinitionErrors>();
     }
+
+    public bool AllowsEvidenceKind(RequirementEvidenceKind evidenceKind) => AllowedEvidenceKinds.Contains(evidenceKind);
 
     public Result<RequirementDefinitionErrors> Activate(DateTimeOffset now)
     {
@@ -83,7 +85,7 @@ public sealed class RequirementDefinition
         return Result.Success<RequirementDefinitionErrors>();
     }
 
-    private static Result<RequirementDefinitionErrors> Validate(string code, string name)
+    private static Result<RequirementDefinitionErrors> Validate(string code, string name, IReadOnlyCollection<RequirementEvidenceKind> allowedEvidenceKinds)
     {
         if (string.IsNullOrWhiteSpace(code))
             return Result.Failure(RequirementDefinitionErrors.CodeRequired);
@@ -91,8 +93,17 @@ public sealed class RequirementDefinition
         if (string.IsNullOrWhiteSpace(name))
             return Result.Failure(RequirementDefinitionErrors.NameRequired);
 
+        if (allowedEvidenceKinds.Count == 0)
+            return Result.Failure(RequirementDefinitionErrors.AllowedEvidenceKindsRequired);
+
         return Result.Success<RequirementDefinitionErrors>();
     }
+
+    private static RequirementEvidenceKind[] NormalizeAllowedEvidenceKinds(IReadOnlyCollection<RequirementEvidenceKind> allowedEvidenceKinds) =>
+        allowedEvidenceKinds
+            .Distinct()
+            .OrderBy(item => item)
+            .ToArray();
 
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

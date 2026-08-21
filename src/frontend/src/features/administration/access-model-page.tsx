@@ -360,7 +360,7 @@ function RequirementsPanel({ name, onNameChange, onOpenRequirement, response, is
             <tr>
               <th className="px-4 py-3 font-semibold">Name</th>
               <th className="px-4 py-3 font-semibold">Code</th>
-              <th className="px-4 py-3 font-semibold">Fulfillment</th>
+              <th className="px-4 py-3 font-semibold">Evidence kinds</th>
               <th className="px-4 py-3 font-semibold">Sensitive</th>
               <th className="px-4 py-3 font-semibold">Status</th>
               <th className="px-4 py-3 text-right font-semibold">Actions</th>
@@ -371,7 +371,7 @@ function RequirementsPanel({ name, onNameChange, onOpenRequirement, response, is
               <tr key={item.id} className="transition hover:bg-hover-blue">
                 <td className="px-4 py-4 font-medium text-foreground">{item.name}</td>
                 <td className="px-4 py-4 text-muted-foreground">{item.code}</td>
-                <td className="px-4 py-4 text-muted-foreground">{item.fulfillmentKind}</td>
+                <td className="px-4 py-4 text-muted-foreground">{formatAllowedEvidenceKinds(item.allowedEvidenceKinds)}</td>
                 <td className="px-4 py-4 text-muted-foreground">{item.isSensitive ? 'Yes' : 'No'}</td>
                 <td className="px-4 py-4"><StatusBadge status={item.isActive ? 'Active' : 'Inactive'} /></td>
                 <td className="px-4 py-4">
@@ -402,7 +402,7 @@ function RequirementsPanel({ name, onNameChange, onOpenRequirement, response, is
                 <StatusBadge status={item.isActive ? 'Active' : 'Inactive'} />
               </div>
               <dl className="mt-3 grid gap-2 text-[14px] text-muted-foreground">
-                <div><dt className="font-medium text-foreground">Fulfillment</dt><dd>{item.fulfillmentKind}</dd></div>
+                <div><dt className="font-medium text-foreground">Evidence kinds</dt><dd>{formatAllowedEvidenceKinds(item.allowedEvidenceKinds)}</dd></div>
                 <div><dt className="font-medium text-foreground">Sensitive</dt><dd>{item.isSensitive ? 'Yes' : 'No'}</dd></div>
               </dl>
               <div className="mt-4 flex gap-2">
@@ -1450,4 +1450,9 @@ function getVisiblePages(totalPages: number, currentPage: number) {
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+}
+
+function formatAllowedEvidenceKinds(allowedEvidenceKinds: Array<string | null> | null | undefined) {
+  if (!allowedEvidenceKinds || allowedEvidenceKinds.length === 0) return 'None';
+  return allowedEvidenceKinds.filter((item): item is string => item !== null).map((item) => item === 'CourseCompletion' ? 'Course completion' : item === 'RequirementWaiver' ? 'Requirement waiver' : 'Document').join(', ');
 }

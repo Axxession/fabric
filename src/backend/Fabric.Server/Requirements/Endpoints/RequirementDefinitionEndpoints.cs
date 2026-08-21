@@ -79,6 +79,7 @@ public static class RequirementDefinitionEndpoints
         RequirementDefinitionErrors.RequirementDefinitionInUse => Problem(StatusCodes.Status409Conflict, "Requirement definition is in use and cannot be deleted."),
         RequirementDefinitionErrors.CodeRequired => Problem(StatusCodes.Status400BadRequest, "Requirement definition code is required."),
         RequirementDefinitionErrors.NameRequired => Problem(StatusCodes.Status400BadRequest, "Requirement definition name is required."),
+        RequirementDefinitionErrors.AllowedEvidenceKindsRequired => Problem(StatusCodes.Status400BadRequest, "At least one allowed evidence kind is required."),
         _ => Problem(StatusCodes.Status400BadRequest, "Requirement definition request is invalid.")
     };
 

@@ -5,17 +5,21 @@ import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Textarea } from '@/shared/components/ui/textarea';
 
-type RequirementFulfillmentKind = components['schemas']['RequirementFulfillmentKind'];
+type RequirementEvidenceKind = Exclude<components['schemas']['RequirementEvidenceKind'], null>;
 
 export type RequirementFormValues = {
   readonly code: string;
   readonly name: string;
   readonly description: string;
-  readonly fulfillmentKind: RequirementFulfillmentKind;
+  readonly allowedEvidenceKinds: readonly RequirementEvidenceKind[];
   readonly isSensitive: boolean;
 };
 
-const fulfillmentOptions: RequirementFulfillmentKind[] = ['Document', 'Learning'];
+const evidenceKindOptions: ReadonlyArray<{ value: RequirementEvidenceKind; label: string; description: string; }> = [
+  { value: 'Document', label: 'Document', description: 'Uploaded document or certificate.' },
+  { value: 'CourseCompletion', label: 'Course completion', description: 'Satisfied by learning completion.' },
+  { value: 'RequirementWaiver', label: 'Requirement waiver', description: 'Satisfied by a manual waiver.' },
+];
 
 export function RequirementForm({ initialValues, isSubmitting, submitLabel, onSubmit }: { readonly initialValues: RequirementFormValues; readonly isSubmitting: boolean; readonly submitLabel: string; readonly onSubmit: (values: RequirementFormValues) => void; }) {
   const [values, setValues] = useState(initialValues);
@@ -43,12 +47,30 @@ export function RequirementForm({ initialValues, isSubmitting, submitLabel, onSu
       </label>
 
       <div className="grid gap-5 md:grid-cols-2">
-        <label className="grid gap-2 text-[14px] font-medium">
-          <span>Fulfillment</span>
-          <select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={values.fulfillmentKind} onChange={(event) => setValues((current) => ({ ...current, fulfillmentKind: event.target.value as RequirementFulfillmentKind }))}>
-            {fulfillmentOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-          </select>
-        </label>
+        <fieldset className="grid gap-3 rounded-structural border border-border p-4">
+          <legend className="px-1 text-[14px] font-medium">Allowed evidence kinds</legend>
+          {evidenceKindOptions.map((option) => {
+            const checked = values.allowedEvidenceKinds.includes(option.value);
+            return (
+              <label key={option.value} className="flex items-start gap-3 rounded-interactive border border-border px-3 py-3 text-[14px] font-medium">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={(event) => setValues((current) => ({
+                    ...current,
+                    allowedEvidenceKinds: event.target.checked
+                      ? [...current.allowedEvidenceKinds, option.value]
+                      : current.allowedEvidenceKinds.filter((item) => item !== option.value),
+                  }))}
+                />
+                <span>
+                  <span className="block text-foreground">{option.label}</span>
+                  <span className="block text-[13px] font-normal text-muted-foreground">{option.description}</span>
+                </span>
+              </label>
+            );
+          })}
+        </fieldset>
 
         <label className="flex items-center gap-3 rounded-structural border border-border p-4 text-[14px] font-medium">
           <input type="checkbox" checked={values.isSensitive} onChange={(event) => setValues((current) => ({ ...current, isSensitive: event.target.checked }))} />

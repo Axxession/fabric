@@ -20,7 +20,7 @@ This document describes the `Requirements` bounded context after moving grant-at
 The context exists to answer two questions:
 
 ```text
-1. Which requirements apply for this grant context right now?
+1. Which requirements apply for this subject context right now?
 2. For this already-attached grant requirement set, which requirements are currently satisfied and until when?
 ```
 
@@ -32,6 +32,44 @@ The context must support:
 - multiple evidence mechanisms, not only uploaded documents
 - pre-arrival evaluation so future grants can be provisioned when they become compliant
 - short-lived and continuous requirements such as escort presence
+
+## Context Compliance And Grant Compliance
+
+The domain should use two separate terms:
+
+- `Context Compliance` = a live assessment for a subject context such as visitor arrival, contractor assignment, employee work-location access request, or another location-scoped business context
+- `Grant Compliance` = the compliance state stored on a specific issued grant
+
+`Context Compliance` answers:
+
+```text
+Given this subject, location, time window, and source context right now:
+- which requirements apply?
+- which are fulfilled?
+- what is the current overall compliance state?
+```
+
+Important rules:
+
+- `Context Compliance` is live by default
+- it is derived from current policy, current evidence, and current context facts
+- it can exist even when no grant exists yet
+- optional read models or cached projections may be added later for operational UX, but they are not the source of truth
+
+`Grant Compliance` answers:
+
+```text
+For this already-issued grant:
+- are the attached grant requirements fulfilled?
+- is the grant compliant, temporarily compliant, or non-compliant?
+```
+
+Important rules:
+
+- `Grant Compliance` is persisted on the grant in `AccessCatalog`
+- grant creation uses `Context Compliance` inputs to derive the grant's attached requirement snapshot
+- later evidence changes or explicit recalculation operations can update `Grant Compliance`
+- policy changes do not automatically mutate the grant's attached requirement set
 
 ## Core Domain Rules
 
@@ -242,7 +280,7 @@ Behavior:
 
 ## Grant Requirement Derivation
 
-When a grant is created, `AccessCatalog` derives and attaches its effective requirement set using `Requirements` policy.
+When a grant is created, `AccessCatalog` uses `Context Compliance` inputs from `Requirements` to derive and attach its effective requirement set.
 
 Derivation inputs:
 
@@ -266,7 +304,7 @@ Important rules:
 
 ## Grant Compliance Evaluation
 
-`Requirements` evaluators compute compliance for the requirement set attached to a grant.
+`Requirements` evaluators compute `Grant Compliance` for the requirement set attached to a grant.
 
 Evaluation outputs consumed by `AccessCatalog`:
 
@@ -304,7 +342,7 @@ CompliantUntil
 
 ## Recalculation Triggers
 
-Attached grant requirements are not re-derived automatically, but their compliance result is recalculated when relevant facts change.
+Attached grant requirements are not re-derived automatically, but their `Grant Compliance` result is recalculated when relevant facts change.
 
 Primary triggers:
 
@@ -318,12 +356,12 @@ Policy changes do not automatically trigger re-derivation.
 
 ## Boundary Rules
 
-- `Requirements` owns requirement definitions, location-based requirement policy, evidence, and evaluator behavior.
+- `Requirements` owns requirement definitions, location-based requirement policy, evidence, evaluator behavior, and live `Context Compliance` assessment.
 - `Requirements` consumes contractor planning facts from `Contractors` to resolve active job types for derivation.
 - `Requirements` consumes arrival/onboarding timing from `ReceptionDesk` when required by evaluators.
 - `Requirements` does not own packages, grants, approvals, or grant replacement.
 - `Requirements` does not own PACS-native provisioning.
-- `AccessCatalog` owns grant-attached requirements and grant compliance status derived from `Requirements` evaluation.
+- `AccessCatalog` owns grant-attached requirements and persisted `Grant Compliance` status derived from `Requirements` evaluation.
 
 ## Example: Employee Request
 

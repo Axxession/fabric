@@ -26,7 +26,7 @@ public sealed class RequirementsService(
         if (await db.RequirementDefinitions.AnyAsync(item => item.Code == request.Code, cancellationToken))
             return Result.Failure<RequirementDefinition, RequirementDefinitionErrors>(RequirementDefinitionErrors.CodeRequired);
 
-        Result<RequirementDefinition, RequirementDefinitionErrors> create = RequirementDefinition.Create(request.Code, request.Name, request.Description, request.FulfillmentKind, request.IsSensitive, timeProvider.GetUtcNow());
+        Result<RequirementDefinition, RequirementDefinitionErrors> create = RequirementDefinition.Create(request.Code, request.Name, request.Description, request.AllowedEvidenceKinds, request.IsSensitive, timeProvider.GetUtcNow());
         if (create.IsFailure(out RequirementDefinitionErrors error))
             return Result.Failure<RequirementDefinition, RequirementDefinitionErrors>(error);
 
@@ -42,7 +42,7 @@ public sealed class RequirementsService(
         if (definition is null)
             return Result.Failure<RequirementDefinition, RequirementDefinitionErrors>(RequirementDefinitionErrors.RequirementDefinitionNotFound);
 
-        Result<RequirementDefinitionErrors> update = definition.Update(request.Code, request.Name, request.Description, request.FulfillmentKind, request.IsSensitive, timeProvider.GetUtcNow());
+        Result<RequirementDefinitionErrors> update = definition.Update(request.Code, request.Name, request.Description, request.AllowedEvidenceKinds, request.IsSensitive, timeProvider.GetUtcNow());
         if (update.IsFailure(out RequirementDefinitionErrors error))
             return Result.Failure<RequirementDefinition, RequirementDefinitionErrors>(error);
 
@@ -152,8 +152,12 @@ public sealed class RequirementsService(
 
     public async Task<Result<RequirementEvidence, RequirementEvidenceErrors>> CreateRequirementEvidenceAsync(CreateRequirementEvidenceRequest request, CancellationToken cancellationToken = default)
     {
-        if (!await db.RequirementDefinitions.AnyAsync(item => item.Id == request.RequirementDefinitionId, cancellationToken))
-            return Result.Failure<RequirementEvidence, RequirementEvidenceErrors>(RequirementEvidenceErrors.SummaryRequired);
+        RequirementDefinition? definition = await db.RequirementDefinitions.SingleOrDefaultAsync(item => item.Id == request.RequirementDefinitionId, cancellationToken);
+        if (definition is null)
+            return Result.Failure<RequirementEvidence, RequirementEvidenceErrors>(RequirementEvidenceErrors.RequirementDefinitionNotFound);
+
+        if (!definition.AllowsEvidenceKind(request.EvidenceKind))
+            return Result.Failure<RequirementEvidence, RequirementEvidenceErrors>(RequirementEvidenceErrors.EvidenceKindNotAllowed);
 
         Result<RequirementEvidence, RequirementEvidenceErrors> create = RequirementEvidence.Create(
             request.IdentityId,

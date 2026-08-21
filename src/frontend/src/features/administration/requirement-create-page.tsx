@@ -13,7 +13,7 @@ import { RequirementForm, type RequirementFormValues } from './requirement-form'
 type CreateRequirementDefinitionRequest = components['schemas']['CreateRequirementDefinitionRequest'];
 
 const requirementsQueryKey = ['administration', 'access-model', 'compliancy', 'requirements'] as const;
-const emptyRequirement: RequirementFormValues = { code: '', name: '', description: '', fulfillmentKind: 'Document', isSensitive: false };
+const emptyRequirement: RequirementFormValues = { code: '', name: '', description: '', allowedEvidenceKinds: ['Document'], isSensitive: false };
 
 export default function RequirementCreatePage() {
   const navigate = useNavigate();
@@ -42,7 +42,7 @@ export default function RequirementCreatePage() {
       code: values.code,
       name: values.name,
       description: values.description.trim() === '' ? null : values.description,
-      fulfillmentKind: values.fulfillmentKind,
+      allowedEvidenceKinds: [...values.allowedEvidenceKinds],
       isSensitive: values.isSensitive,
     });
   }

@@ -127,6 +127,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/platform/auth/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlatformAuthSettingsResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tenant-integrations/keycloak": {
         parameters: {
             query?: never;
@@ -1627,6 +1662,327 @@ export interface paths {
         get: operations["ElsaResilienceEndpointsResilienceStrategiesListEndpoint"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/tenants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlatformTenantListItemResponse"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreatePlatformTenantRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlatformTenantResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/tenants/{tenantId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tenantId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlatformTenantResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tenantId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdatePlatformTenantRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlatformTenantResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/tenants/{tenantId}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tenantId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlatformTenantResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/tenants/{tenantId}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tenantId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlatformTenantResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/platform/tenants/{tenantId}/keycloak/provision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tenantId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlatformTenantResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Bad Gateway */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -9115,7 +9471,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/access-catalog/access-grants/contractor-assignment-preview": {
+    "/api/access-catalog/access-grants/contractor-assignment-context-compliance": {
         parameters: {
             query?: never;
             header?: never;
@@ -9133,7 +9489,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["ContractorAssignmentCompliancePreviewRequest"];
+                    "application/json": components["schemas"]["ContractorAssignmentContextComplianceRequest"];
                 };
             };
             responses: {
@@ -9143,7 +9499,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ContractorAssignmentCompliancePreviewResponse"];
+                        "application/json": components["schemas"]["ContractorAssignmentContextComplianceResponse"];
                     };
                 };
             };
@@ -9154,7 +9510,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/access-catalog/access-grants/compliance-summaries/by-source": {
+    "/api/access-catalog/access-grants/grant-compliance-summaries/by-source": {
         parameters: {
             query?: never;
             header?: never;
@@ -9182,7 +9538,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["AssignmentComplianceSummaryResponse"][];
+                        "application/json": components["schemas"]["GrantComplianceSummaryResponse"][];
                     };
                 };
             };
@@ -9193,7 +9549,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/access-catalog/access-grants/compliance-details/by-source": {
+    "/api/access-catalog/access-grants/grant-compliance-details/by-source": {
         parameters: {
             query?: never;
             header?: never;
@@ -9221,7 +9577,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["AssignmentComplianceDetailResponse"][];
+                        "application/json": components["schemas"]["GrantComplianceDetailResponse"][];
                     };
                 };
             };
@@ -20393,40 +20749,10 @@ export interface components {
         };
         /** @enum {unknown} */
         AssignmentChannel: "CatalogRequest" | "AutomaticConfiguration" | "Manual";
-        AssignmentComplianceDetailResponse: {
-            sourceKind: components["schemas"]["AssignmentSourceKind"];
-            /** Format: uuid */
-            sourceId: string;
-            complianceStatus: null | components["schemas"]["GrantComplianceStatus"];
-            /** Format: date-time */
-            compliantUntil: null | string;
-            requirements: components["schemas"]["AssignmentRequirementComplianceResponse"][];
-        };
-        AssignmentComplianceSummaryResponse: {
-            sourceKind: components["schemas"]["AssignmentSourceKind"];
-            /** Format: uuid */
-            sourceId: string;
-            complianceStatus: null | components["schemas"]["GrantComplianceStatus"];
-            /** Format: date-time */
-            compliantUntil: null | string;
-            /** Format: int32 */
-            grantCount: number | string;
-        };
         AssignmentContextRequest: {
             sourceKind: components["schemas"]["AssignmentSourceKind"];
             /** Format: uuid */
             sourceId: string;
-        };
-        AssignmentRequirementComplianceResponse: {
-            /** Format: uuid */
-            requirementDefinitionId: string;
-            code: string;
-            name: string;
-            isBlocking: boolean;
-            status: components["schemas"]["RequirementResultStatus"];
-            reason: string;
-            /** Format: date-time */
-            validUntil: null | string;
         };
         /** @enum {unknown} */
         AssignmentSourceKind: "CatalogRequest" | "OrganizationalUnit" | "Persona" | "ReceptionArrival" | "VisitorLocation" | "ContractorJob" | "Manual";
@@ -20621,16 +20947,24 @@ export interface components {
             methodName?: null | string;
             tag?: unknown;
         };
-        CompliancePreviewLocationResponse: {
+        ConfirmInvitationRequest: {
+            firstName: string;
+            lastName: string;
+            email: string;
+            company: string;
+            transport: components["schemas"]["ModeOfTransport"];
+            licensePlate: null | string;
+        };
+        ContextComplianceLocationResponse: {
             /** Format: uuid */
             locationId: string;
             locationLabel: string;
-            status: components["schemas"]["GrantComplianceStatus"];
+            status: components["schemas"]["ContextComplianceStatus"];
             /** Format: date-time */
             compliantUntil: null | string;
-            requirements: components["schemas"]["ComplianceRequirementPreviewResponse"][];
+            requirements: components["schemas"]["ContextComplianceRequirementResponse"][];
         };
-        ComplianceRequirementPreviewResponse: {
+        ContextComplianceRequirementResponse: {
             /** Format: uuid */
             requirementDefinitionId: string;
             code: string;
@@ -20641,24 +20975,18 @@ export interface components {
             /** Format: date-time */
             validUntil: null | string;
         };
-        ConfirmInvitationRequest: {
-            firstName: string;
-            lastName: string;
-            email: string;
-            company: string;
-            transport: components["schemas"]["ModeOfTransport"];
-            licensePlate: null | string;
-        };
-        ContractorAssignmentCompliancePreviewPackageResponse: {
+        /** @enum {unknown} */
+        ContextComplianceStatus: "Compliant" | "TemporarilyCompliant" | "NonCompliant";
+        ContractorAssignmentContextCompliancePackageResponse: {
             /** Format: uuid */
             packageId: string;
             packageName: string;
-            status: components["schemas"]["GrantComplianceStatus"];
+            status: components["schemas"]["ContextComplianceStatus"];
             /** Format: date-time */
             compliantUntil: null | string;
-            requirements: components["schemas"]["AssignmentRequirementComplianceResponse"][];
+            requirements: components["schemas"]["RequirementComplianceResponse"][];
         };
-        ContractorAssignmentCompliancePreviewRequest: {
+        ContractorAssignmentContextComplianceRequest: {
             /** Format: uuid */
             contractorId: string;
             /** Format: uuid */
@@ -20668,7 +20996,7 @@ export interface components {
             /** Format: date-time */
             assignedUntil: string;
         };
-        ContractorAssignmentCompliancePreviewResponse: {
+        ContractorAssignmentContextComplianceResponse: {
             /** Format: uuid */
             contractorId: string;
             /** Format: uuid */
@@ -20678,7 +21006,7 @@ export interface components {
             /** Format: uuid */
             jobTypeId: string;
             unavailableReason: null | string;
-            packages: components["schemas"]["ContractorAssignmentCompliancePreviewPackageResponse"][];
+            packages: components["schemas"]["ContractorAssignmentContextCompliancePackageResponse"][];
         };
         ContractorJobAssignmentResponse: {
             /** Format: uuid */
@@ -21193,6 +21521,11 @@ export interface components {
         CreatePersonaRequest: {
             name: string;
         };
+        CreatePlatformTenantRequest: {
+            id: string;
+            displayName: string;
+            oidc: components["schemas"]["UpdateOidcSettingsRequest"];
+        };
         CreatePrintDesignRequest: {
             name: string;
             /** Format: int32 */
@@ -21220,7 +21553,7 @@ export interface components {
             code: string;
             name: string;
             description: null | string;
-            fulfillmentKind: components["schemas"]["RequirementFulfillmentKind"];
+            allowedEvidenceKinds: components["schemas"]["RequirementEvidenceKind"][];
             isSensitive: boolean;
         };
         CreateSiteRequest: {
@@ -21624,8 +21957,27 @@ export interface components {
         };
         /** @enum {unknown} */
         GrantApprovalStatus: "NotRequired" | "Pending" | "Approved" | "Rejected";
+        GrantComplianceDetailResponse: {
+            sourceKind: components["schemas"]["AssignmentSourceKind"];
+            /** Format: uuid */
+            sourceId: string;
+            complianceStatus: null | components["schemas"]["GrantComplianceStatus"];
+            /** Format: date-time */
+            compliantUntil: null | string;
+            requirements: components["schemas"]["RequirementComplianceResponse"][];
+        };
         /** @enum {unknown} */
         GrantComplianceStatus: "Compliant" | "TemporarilyCompliant" | "NonCompliant";
+        GrantComplianceSummaryResponse: {
+            sourceKind: components["schemas"]["AssignmentSourceKind"];
+            /** Format: uuid */
+            sourceId: string;
+            complianceStatus: null | components["schemas"]["GrantComplianceStatus"];
+            /** Format: date-time */
+            compliantUntil: null | string;
+            /** Format: int32 */
+            grantCount: number | string;
+        };
         /** @enum {unknown} */
         GrantProvisioningStatus: "NonProvisionable" | "Provisioning" | "Provisioned";
         GrantRequirementResponse: {
@@ -22323,7 +22675,7 @@ export interface components {
             requirementDefinitionId: string;
             requirementCode: string;
             requirementName: string;
-            fulfillmentKind: components["schemas"]["RequirementFulfillmentKind"];
+            allowedEvidenceKinds: components["schemas"]["RequirementEvidenceKind"][];
             isSensitive: boolean;
             subjectKind: components["schemas"]["RequirementSubjectKind"];
             isBlocking: boolean;
@@ -22344,7 +22696,7 @@ export interface components {
             requirementDefinitionId: string;
             requirementCode: string;
             requirementName: string;
-            fulfillmentKind: components["schemas"]["RequirementFulfillmentKind"];
+            allowedEvidenceKinds: components["schemas"]["RequirementEvidenceKind"][];
             isSensitive: boolean;
             isBlocking: boolean;
             isEnabled: boolean;
@@ -22586,7 +22938,7 @@ export interface components {
         };
         PackageRequestPreviewResponse: {
             approvals: components["schemas"]["ApprovalRequirementsPreviewAccessItemResponse"][];
-            compliance: components["schemas"]["CompliancePreviewLocationResponse"][];
+            contextCompliance: components["schemas"]["ContextComplianceLocationResponse"][];
         };
         PackageRequestResponse: {
             /** Format: uuid */
@@ -23539,6 +23891,42 @@ export interface components {
             keySettings?: components["schemas"]["PiccKeySettingsSpecification"];
             config?: components["schemas"]["PiccConfigurationSpecification"];
         };
+        PlatformAuthSettingsResponse: {
+            oidc: components["schemas"]["OidcSettingsResponse"];
+        };
+        PlatformTenantIntegrationSummaryResponse: {
+            isConfigured: boolean;
+            isEnabled: boolean;
+            hasSecret: boolean;
+            /** Format: date-time */
+            updatedAtUtc: null | string;
+        };
+        PlatformTenantListItemResponse: {
+            id: string;
+            displayName: string;
+            isActive: boolean;
+            /** Format: date-time */
+            createdAtUtc: string;
+            /** Format: date-time */
+            updatedAtUtc: string;
+            oidc: components["schemas"]["OidcSettingsResponse"];
+            host: components["schemas"]["HostSettingsResponse"];
+        };
+        PlatformTenantResponse: {
+            id: string;
+            displayName: string;
+            isActive: boolean;
+            /** Format: date-time */
+            createdAtUtc: string;
+            /** Format: date-time */
+            updatedAtUtc: string;
+            oidc: components["schemas"]["OidcSettingsResponse"];
+            logo: null | components["schemas"]["LogoSettingsResponse"];
+            host: components["schemas"]["HostSettingsResponse"];
+            canProvisionKeycloakRealm: boolean;
+            keycloak: components["schemas"]["PlatformTenantIntegrationSummaryResponse"];
+            microsoftGraph: components["schemas"]["PlatformTenantIntegrationSummaryResponse"];
+        };
         Port: {
             name?: string;
             displayName?: null | string;
@@ -23799,13 +24187,24 @@ export interface components {
         Request: {
             variables?: components["schemas"]["VariableUpdateValue"][];
         };
+        RequirementComplianceResponse: {
+            /** Format: uuid */
+            requirementDefinitionId: string;
+            code: string;
+            name: string;
+            isBlocking: boolean;
+            status: components["schemas"]["RequirementResultStatus"];
+            reason: string;
+            /** Format: date-time */
+            validUntil: null | string;
+        };
         RequirementDefinitionResponse: {
             /** Format: uuid */
             id: string;
             code: string;
             name: string;
             description: null | string;
-            fulfillmentKind: components["schemas"]["RequirementFulfillmentKind"];
+            allowedEvidenceKinds: components["schemas"]["RequirementEvidenceKind"][];
             isSensitive: boolean;
             isActive: boolean;
             /** Format: date-time */
@@ -23814,7 +24213,7 @@ export interface components {
             updatedAt: string;
         };
         /** @enum {unknown} */
-        RequirementEvidenceKind: "UploadedDocument" | "ExternalCheck" | "Onboarded" | "Computed" | "Escort" | "LearningCourseCompletion" | null;
+        RequirementEvidenceKind: "Document" | "CourseCompletion" | "RequirementWaiver" | null;
         RequirementEvidenceResponse: {
             /** Format: uuid */
             id: string;
@@ -23841,8 +24240,6 @@ export interface components {
         };
         /** @enum {unknown} */
         RequirementEvidenceStatus: "Valid" | "Invalid";
-        /** @enum {unknown} */
-        RequirementFulfillmentKind: "Document" | "Learning";
         /** @enum {unknown} */
         RequirementResultStatus: "Fulfilled" | "Missing" | "Failed" | "Expired";
         /** @enum {unknown} */
@@ -24331,6 +24728,10 @@ export interface components {
         UpdatePersonaRequest: {
             name: string;
         };
+        UpdatePlatformTenantRequest: {
+            displayName: string;
+            oidc: components["schemas"]["UpdateOidcSettingsRequest"];
+        };
         UpdatePrintDesignRequest: {
             name: string;
             /** Format: int32 */
@@ -24360,7 +24761,7 @@ export interface components {
             code: string;
             name: string;
             description: null | string;
-            fulfillmentKind: components["schemas"]["RequirementFulfillmentKind"];
+            allowedEvidenceKinds: components["schemas"]["RequirementEvidenceKind"][];
             isSensitive: boolean;
         };
         UpdateRoomRequest: {

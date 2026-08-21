@@ -128,7 +128,7 @@ public sealed class PackageRequestService(
         List<ApprovalRequirement> requirements = await BuildRequirementsAsync(flows, beneficiaryIdentityId, cancellationToken);
 
         RequirementSubjectKind subjectKind = await ResolveSubjectKindAsync(beneficiaryIdentityId, cancellationToken);
-        List<CompliancePreviewModel> compliance = [];
+        List<ContextComplianceModel> contextCompliance = [];
         foreach (Guid locationId in value.RequestedLocationIds)
         {
             Result<IReadOnlyList<DerivedGrantRequirement>, RequirementsEvaluationErrors> derivation = await grantRequirementsService.DeriveForGrantAsync(
@@ -148,10 +148,10 @@ public sealed class PackageRequestService(
                 .Where(item => requirementDefinitionIds.Contains(item.Id))
                 .ToDictionaryAsync(item => item.Id, cancellationToken);
 
-            ComplianceRequirementPreviewModel[] requirementPreviews = derivedRequirements
+            ContextComplianceRequirementModel[] requirementPreviews = derivedRequirements
                 .Join(evaluations, requirement => requirement.RequirementDefinitionId, evaluation => evaluation.RequirementDefinitionId, (requirement, evaluation) => new { requirement, evaluation })
                 .Where(item => definitionsById.ContainsKey(item.requirement.RequirementDefinitionId))
-                .Select(item => new ComplianceRequirementPreviewModel(
+                .Select(item => new ContextComplianceRequirementModel(
                     item.requirement.RequirementDefinitionId,
                     definitionsById[item.requirement.RequirementDefinitionId].Code,
                     definitionsById[item.requirement.RequirementDefinitionId].Name,
@@ -169,13 +169,13 @@ public sealed class PackageRequestService(
                 .OrderBy(item => item)
                 .FirstOrDefault();
             bool temporary = compliantUntil.HasValue && (!validUntil.HasValue || compliantUntil.Value < validUntil.Value);
-            GrantComplianceStatus status = anyBlockingFailure
-                ? GrantComplianceStatus.NonCompliant
+            ContextComplianceStatus status = anyBlockingFailure
+                ? ContextComplianceStatus.NonCompliant
                 : temporary
-                    ? GrantComplianceStatus.TemporarilyCompliant
-                    : GrantComplianceStatus.Compliant;
+                    ? ContextComplianceStatus.TemporarilyCompliant
+                    : ContextComplianceStatus.Compliant;
 
-            compliance.Add(new CompliancePreviewModel(
+            contextCompliance.Add(new ContextComplianceModel(
                 locationId,
                 status,
                 temporary ? compliantUntil : null,
@@ -189,7 +189,7 @@ public sealed class PackageRequestService(
                     accessItemId,
                     complianceRequiredByAccessItemId.GetValueOrDefault(accessItemId, true),
                     requirementsByAccessItemId[accessItemId].Where(item => item.Status == ApprovalStatus.Pending).ToArray())).ToArray(),
-                compliance.ToArray()));
+                contextCompliance.ToArray()));
     }
 
     public async Task<IReadOnlyList<Guid>> GetExpirableRequestIdsAsync(CancellationToken cancellationToken = default)
@@ -451,7 +451,7 @@ public sealed class PackageRequestService(
     }
 }
 
-public sealed record ComplianceRequirementPreviewModel(Guid RequirementDefinitionId, string Code, string Name, bool IsBlocking, RequirementResultStatus Status, string Reason, DateTimeOffset? ValidUntil);
-public sealed record CompliancePreviewModel(Guid LocationId, GrantComplianceStatus Status, DateTimeOffset? CompliantUntil, ComplianceRequirementPreviewModel[] Requirements);
+public sealed record ContextComplianceRequirementModel(Guid RequirementDefinitionId, string Code, string Name, bool IsBlocking, RequirementResultStatus Status, string Reason, DateTimeOffset? ValidUntil);
+public sealed record ContextComplianceModel(Guid LocationId, ContextComplianceStatus Status, DateTimeOffset? CompliantUntil, ContextComplianceRequirementModel[] Requirements);
 public sealed record ApprovalRequirementsPreviewItem(Guid AccessItemId, bool IsComplianceRequired, IReadOnlyList<ApprovalRequirement> Requirements);
-public sealed record PackageRequestPreviewModel(IReadOnlyList<ApprovalRequirementsPreviewItem> ApprovalItems, IReadOnlyList<CompliancePreviewModel> Compliance);
+public sealed record PackageRequestPreviewModel(IReadOnlyList<ApprovalRequirementsPreviewItem> ApprovalItems, IReadOnlyList<ContextComplianceModel> ContextCompliance);

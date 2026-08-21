@@ -72,7 +72,7 @@ export default function RequirementEditPage() {
       code: values.code,
       name: values.name,
       description: values.description.trim() === '' ? null : values.description,
-      fulfillmentKind: values.fulfillmentKind,
+      allowedEvidenceKinds: [...values.allowedEvidenceKinds],
       isSensitive: values.isSensitive,
     });
   }
@@ -109,7 +109,7 @@ function toFormValues(requirement: RequirementDefinitionResponse): RequirementFo
     code: requirement.code,
     name: requirement.name,
     description: requirement.description ?? '',
-    fulfillmentKind: requirement.fulfillmentKind,
+    allowedEvidenceKinds: (requirement.allowedEvidenceKinds ?? []).filter((item): item is NonNullable<typeof item> => item !== null),
     isSensitive: requirement.isSensitive,
   };
 }

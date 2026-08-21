@@ -2,6 +2,7 @@ import type { components } from '@/shared/api/generated/schema';
 
 type AccessGrantResponse = components['schemas']['AccessGrantResponse'];
 type PackageRequestDetailGrantResponse = components['schemas']['PackageRequestDetailGrantResponse'];
+type ContextComplianceStatus = Exclude<components['schemas']['ContextComplianceStatus'], null>;
 
 type GrantLike = Pick<AccessGrantResponse, 'status' | 'approvalStatus' | 'complianceStatus' | 'compliantUntil' | 'provisioningStatus'>;
 
@@ -40,11 +41,33 @@ export function getGrantComplianceVariant(status: AccessGrantResponse['complianc
   }
 }
 
+export function getContextComplianceVariant(status: ContextComplianceStatus): 'success' | 'secondary' | 'error' {
+  switch (status) {
+    case 'Compliant':
+      return 'success';
+    case 'NonCompliant':
+      return 'error';
+    default:
+      return 'secondary';
+  }
+}
+
 export function getGrantApprovalLabel(status: AccessGrantResponse['approvalStatus']) {
   return status === 'NotRequired' ? 'Approval not required' : status;
 }
 
 export function getGrantComplianceLabel(status: AccessGrantResponse['complianceStatus']) {
+  switch (status) {
+    case 'TemporarilyCompliant':
+      return 'Temporarily compliant';
+    case 'NonCompliant':
+      return 'Non-compliant';
+    default:
+      return 'Compliant';
+  }
+}
+
+export function getContextComplianceLabel(status: ContextComplianceStatus) {
   switch (status) {
     case 'TemporarilyCompliant':
       return 'Temporarily compliant';

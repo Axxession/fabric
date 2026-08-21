@@ -401,19 +401,19 @@ public static class PackageRequestEndpoints
             .ToArray();
 
         Dictionary<Guid, string> locationLabels = [];
-        foreach (CompliancePreviewModel item in preview.Compliance)
+        foreach (ContextComplianceModel item in preview.ContextCompliance)
         {
             LocationResponse? location = (await locationService.GetLocationById(item.LocationId, cancellationToken))?.ToResponse();
             locationLabels[item.LocationId] = location is null ? item.LocationId.ToString() : FormatLocationLabel(location);
         }
 
-        CompliancePreviewLocationResponse[] compliance = preview.Compliance
-            .Select(item => new CompliancePreviewLocationResponse(
+        ContextComplianceLocationResponse[] contextCompliance = preview.ContextCompliance
+            .Select(item => new ContextComplianceLocationResponse(
                 item.LocationId,
                 locationLabels.GetValueOrDefault(item.LocationId, item.LocationId.ToString()),
                 item.Status,
                 item.CompliantUntil,
-                item.Requirements.Select(requirement => new ComplianceRequirementPreviewResponse(
+                item.Requirements.Select(requirement => new ContextComplianceRequirementResponse(
                     requirement.RequirementDefinitionId,
                     requirement.Code,
                     requirement.Name,
@@ -424,7 +424,7 @@ public static class PackageRequestEndpoints
             .OrderBy(item => item.LocationLabel)
             .ToArray();
 
-        return new PackageRequestPreviewResponse(approvals, compliance);
+        return new PackageRequestPreviewResponse(approvals, contextCompliance);
     }
 
     private static async Task<Dictionary<Guid, AccessGrantProvisioningSagaState>> LoadSagaStatesAsync(SagasDbContext db, Guid[] accessGrantIds, CancellationToken cancellationToken)

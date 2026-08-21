@@ -3,6 +3,7 @@ using System;
 using Fabric.Server.Requirements.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Fabric.Server.Requirements.Persistence.Migrations
 {
     [DbContext(typeof(RequirementsDbContext))]
-    partial class RequirementsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260820130242_ReplaceRequirementFulfillmentWithAllowedEvidenceKinds")]
+    partial class ReplaceRequirementFulfillmentWithAllowedEvidenceKinds
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

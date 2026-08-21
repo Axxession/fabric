@@ -148,6 +148,7 @@ public sealed class GrantRequirementsService(
             .ToArrayAsync(cancellationToken);
 
         RequirementEvidence[] validEvidence = evidence
+            .Where(item => definition.AllowsEvidenceKind(item.EvidenceKind))
             .Where(item => item.Status == RequirementEvidenceStatus.Valid)
             .Where(item => !item.ValidFrom.HasValue || item.ValidFrom.Value <= now)
             .Where(item => !item.ValidUntil.HasValue || item.ValidUntil.Value > now)
@@ -167,10 +168,10 @@ public sealed class GrantRequirementsService(
                 "Requirement fulfilled.");
         }
 
-        if (evidence.Any(item => item.Status == RequirementEvidenceStatus.Valid && item.ValidUntil.HasValue && item.ValidUntil.Value <= now))
+        if (evidence.Any(item => definition.AllowsEvidenceKind(item.EvidenceKind) && item.Status == RequirementEvidenceStatus.Valid && item.ValidUntil.HasValue && item.ValidUntil.Value <= now))
             return new RequirementEvaluation(RequirementResultStatus.Expired, null, null, null, "Requirement evidence expired.");
 
-        if (evidence.Any(item => item.Status == RequirementEvidenceStatus.Invalid))
+        if (evidence.Any(item => definition.AllowsEvidenceKind(item.EvidenceKind) && item.Status == RequirementEvidenceStatus.Invalid))
             return new RequirementEvaluation(RequirementResultStatus.Failed, null, null, null, "Requirement evidence is invalid.");
 
         return new RequirementEvaluation(RequirementResultStatus.Missing, null, null, null, "Requirement evidence is missing.");

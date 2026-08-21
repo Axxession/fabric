@@ -12,8 +12,8 @@ public sealed record ListRequirementsRequest : BaseListRequest
     public Guid? LocationId { get; set; }
 }
 
-public sealed record CreateRequirementDefinitionRequest(string Code, string Name, string? Description, RequirementFulfillmentKind FulfillmentKind, bool IsSensitive);
-public sealed record UpdateRequirementDefinitionRequest(string Code, string Name, string? Description, RequirementFulfillmentKind FulfillmentKind, bool IsSensitive);
+public sealed record CreateRequirementDefinitionRequest(string Code, string Name, string? Description, RequirementEvidenceKind[] AllowedEvidenceKinds, bool IsSensitive);
+public sealed record UpdateRequirementDefinitionRequest(string Code, string Name, string? Description, RequirementEvidenceKind[] AllowedEvidenceKinds, bool IsSensitive);
 public sealed record CreateLocationRequirementPolicyRequest(Guid LocationId, Guid RequirementDefinitionId, RequirementSubjectKind SubjectKind, bool IsBlocking);
 public sealed record ListLocationJobRequirementPoliciesRequest : BaseListRequest
 {

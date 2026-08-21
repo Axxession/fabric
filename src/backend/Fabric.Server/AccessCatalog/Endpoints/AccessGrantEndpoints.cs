@@ -29,9 +29,9 @@ public static class AccessGrantEndpoints
         grants.MapGet("", ListAccessGrants).Produces<Page<AccessGrantResponse>>();
         grants.MapPost("", CreateAccessGrant).Produces<CreateAccessGrantResponse>(StatusCodes.Status201Created);
         grants.MapPost("/recalculate-requirements", RecalculateGrantRequirements).Produces<RecalculateGrantRequirementsResponse>();
-        grants.MapPost("/contractor-assignment-preview", PreviewContractorAssignmentCompliance).Produces<ContractorAssignmentCompliancePreviewResponse>();
-        grants.MapPost("/compliance-summaries/by-source", ListAssignmentComplianceSummariesBySource).Produces<AssignmentComplianceSummaryResponse[]>();
-        grants.MapPost("/compliance-details/by-source", ListAssignmentComplianceDetailsBySource).Produces<AssignmentComplianceDetailResponse[]>();
+        grants.MapPost("/contractor-assignment-context-compliance", GetContractorAssignmentContextCompliance).Produces<ContractorAssignmentContextComplianceResponse>();
+        grants.MapPost("/grant-compliance-summaries/by-source", ListGrantComplianceSummariesBySource).Produces<GrantComplianceSummaryResponse[]>();
+        grants.MapPost("/grant-compliance-details/by-source", ListGrantComplianceDetailsBySource).Produces<GrantComplianceDetailResponse[]>();
         grants.MapGet("/{accessGrantId:guid}", GetAccessGrant).Produces<AccessGrantResponse>().Produces(StatusCodes.Status404NotFound);
         grants.MapPost("/{accessGrantId:guid}/reconcile", ReconcileAccessGrant).Produces(StatusCodes.Status202Accepted).Produces(StatusCodes.Status404NotFound);
         grants.MapPost("/{accessGrantId:guid}/revoke", RevokeAccessGrant).Produces<AccessGrantResponse>().Produces(StatusCodes.Status404NotFound);
@@ -114,8 +114,8 @@ public static class AccessGrantEndpoints
         return Results.Ok(new RecalculateGrantRequirementsResponse(processed, futureOnly));
     }
 
-    private static async Task<IResult> PreviewContractorAssignmentCompliance(
-        [FromBody] ContractorAssignmentCompliancePreviewRequest request,
+    private static async Task<IResult> GetContractorAssignmentContextCompliance(
+        [FromBody] ContractorAssignmentContextComplianceRequest request,
         ContractorsDbContext contractorsDb,
         IdentitiesDbContext identitiesDb,
         RequirementsDbContext requirementsDb,
@@ -157,7 +157,7 @@ public static class AccessGrantEndpoints
 
         if (!identityId.HasValue)
         {
-            return Results.Ok(new ContractorAssignmentCompliancePreviewResponse(
+            return Results.Ok(new ContractorAssignmentContextComplianceResponse(
                 request.ContractorId,
                 request.ContractorJobId,
                 job.LocationId,
@@ -187,10 +187,10 @@ public static class AccessGrantEndpoints
                 .Where(item => requirementDefinitionIds.Contains(item.Id))
                 .ToDictionaryAsync(item => item.Id, cancellationToken);
 
-        AssignmentRequirementComplianceResponse[] requirements = derivedRequirements
+        RequirementComplianceResponse[] requirements = derivedRequirements
             .Join(evaluations, requirement => requirement.RequirementDefinitionId, evaluation => evaluation.RequirementDefinitionId, (requirement, evaluation) => new { requirement, evaluation })
             .Where(item => definitionsById.ContainsKey(item.requirement.RequirementDefinitionId))
-            .Select(item => new AssignmentRequirementComplianceResponse(
+            .Select(item => new RequirementComplianceResponse(
                 item.requirement.RequirementDefinitionId,
                 definitionsById[item.requirement.RequirementDefinitionId].Code,
                 definitionsById[item.requirement.RequirementDefinitionId].Name,
@@ -201,9 +201,9 @@ public static class AccessGrantEndpoints
             .OrderBy(item => item.Name)
             .ToArray();
 
-        (GrantComplianceStatus status, DateTimeOffset? compliantUntil) = AggregateCompliance(requirements, request.AssignedUntil);
-        ContractorAssignmentCompliancePreviewPackageResponse[] packages = packageIds
-            .Select(packageId => new ContractorAssignmentCompliancePreviewPackageResponse(
+        (ContextComplianceStatus status, DateTimeOffset? compliantUntil) = AggregateContextCompliance(requirements, request.AssignedUntil);
+        ContractorAssignmentContextCompliancePackageResponse[] packages = packageIds
+            .Select(packageId => new ContractorAssignmentContextCompliancePackageResponse(
                 packageId,
                 packageNamesById.GetValueOrDefault(packageId, packageId.ToString()),
                 status,
@@ -211,7 +211,7 @@ public static class AccessGrantEndpoints
                 requirements))
             .ToArray();
 
-        return Results.Ok(new ContractorAssignmentCompliancePreviewResponse(
+        return Results.Ok(new ContractorAssignmentContextComplianceResponse(
             request.ContractorId,
             request.ContractorJobId,
             job.LocationId,
@@ -220,7 +220,7 @@ public static class AccessGrantEndpoints
             packages));
     }
 
-    private static async Task<IResult> ListAssignmentComplianceSummariesBySource(
+    private static async Task<IResult> ListGrantComplianceSummariesBySource(
         [FromBody] AssignmentContextRequest[] request,
         AccessCatalogDbContext db,
         CancellationToken cancellationToken = default)
@@ -229,16 +229,16 @@ public static class AccessGrantEndpoints
             .DistinctBy(item => (item.SourceKind, item.SourceId))
             .ToArray();
         if (contexts.Length == 0)
-            return Results.Ok(Array.Empty<AssignmentComplianceSummaryResponse>());
+            return Results.Ok(Array.Empty<GrantComplianceSummaryResponse>());
 
         AccessGrant[] grants = await LoadGrantsForContextsAsync(db, contexts, cancellationToken);
-        AssignmentComplianceSummaryResponse[] response = contexts
+        GrantComplianceSummaryResponse[] response = contexts
             .Select(context => BuildComplianceSummary(context, grants.Where(grant => grant.SourceKind == context.SourceKind && grant.SourceId == context.SourceId).ToArray()))
             .ToArray();
         return Results.Ok(response);
     }
 
-    private static async Task<IResult> ListAssignmentComplianceDetailsBySource(
+    private static async Task<IResult> ListGrantComplianceDetailsBySource(
         [FromBody] AssignmentContextRequest[] request,
         AccessCatalogDbContext db,
         RequirementsDbContext requirementsDb,
@@ -248,7 +248,7 @@ public static class AccessGrantEndpoints
             .DistinctBy(item => (item.SourceKind, item.SourceId))
             .ToArray();
         if (contexts.Length == 0)
-            return Results.Ok(Array.Empty<AssignmentComplianceDetailResponse>());
+            return Results.Ok(Array.Empty<GrantComplianceDetailResponse>());
 
         AccessGrant[] grants = await LoadGrantsForContextsAsync(db, contexts, cancellationToken);
         Guid[] grantIds = grants.Select(item => item.Id).Distinct().ToArray();
@@ -263,7 +263,7 @@ public static class AccessGrantEndpoints
             ? []
             : await requirementsDb.RequirementDefinitions.AsNoTracking().Where(item => requirementDefinitionIds.Contains(item.Id)).ToDictionaryAsync(item => item.Id, cancellationToken);
 
-        AssignmentComplianceDetailResponse[] response = contexts
+        GrantComplianceDetailResponse[] response = contexts
             .Select(context => BuildComplianceDetail(
                 context,
                 grants.Where(grant => grant.SourceKind == context.SourceKind && grant.SourceId == context.SourceId).ToArray(),
@@ -379,7 +379,7 @@ public static class AccessGrantEndpoints
             .ToArrayAsync(cancellationToken);
     }
 
-    private static AssignmentComplianceSummaryResponse BuildComplianceSummary(
+    private static GrantComplianceSummaryResponse BuildComplianceSummary(
         AssignmentContextRequest context,
         AccessGrant[] grants)
     {
@@ -390,7 +390,7 @@ public static class AccessGrantEndpoints
         return new(context.SourceKind, context.SourceId, status, compliantUntil, grants.Length);
     }
 
-    private static AssignmentComplianceDetailResponse BuildComplianceDetail(
+    private static GrantComplianceDetailResponse BuildComplianceDetail(
         AssignmentContextRequest context,
         AccessGrant[] grants,
         GrantRequirement[] requirements,
@@ -402,7 +402,7 @@ public static class AccessGrantEndpoints
 
         HashSet<Guid> grantIds = grants.Select(item => item.Id).ToHashSet();
         (GrantComplianceStatus status, DateTimeOffset? compliantUntil) = AggregateCompliance(grants);
-        AssignmentRequirementComplianceResponse[] requirementDetails = requirements
+        RequirementComplianceResponse[] requirementDetails = requirements
             .Where(item => grantIds.Contains(item.AccessGrantId))
             .GroupBy(item => item.RequirementDefinitionId)
             .Select(group => BuildRequirementDetail(group.Key, group.ToArray(), requirementResults, definitionsById))
@@ -412,7 +412,7 @@ public static class AccessGrantEndpoints
         return new(context.SourceKind, context.SourceId, status, compliantUntil, requirementDetails);
     }
 
-    private static AssignmentRequirementComplianceResponse BuildRequirementDetail(
+    private static RequirementComplianceResponse BuildRequirementDetail(
         Guid requirementDefinitionId,
         GrantRequirement[] requirements,
         GrantRequirementResult[] requirementResults,
@@ -442,8 +442,8 @@ public static class AccessGrantEndpoints
             validUntil);
     }
 
-    private static (GrantComplianceStatus status, DateTimeOffset? compliantUntil) AggregateCompliance(
-        IReadOnlyList<AssignmentRequirementComplianceResponse> requirements,
+    private static (ContextComplianceStatus status, DateTimeOffset? compliantUntil) AggregateContextCompliance(
+        IReadOnlyList<RequirementComplianceResponse> requirements,
         DateTimeOffset? validUntil)
     {
         bool anyBlockingFailure = requirements.Any(item => item.IsBlocking && item.Status != RequirementResultStatus.Fulfilled);
@@ -455,10 +455,10 @@ public static class AccessGrantEndpoints
             .FirstOrDefault();
         bool temporary = compliantUntil.HasValue && (!validUntil.HasValue || compliantUntil.Value < validUntil.Value);
         return anyBlockingFailure
-            ? (GrantComplianceStatus.NonCompliant, null)
+            ? (ContextComplianceStatus.NonCompliant, null)
             : temporary
-                ? (GrantComplianceStatus.TemporarilyCompliant, compliantUntil)
-                : (GrantComplianceStatus.Compliant, null);
+                ? (ContextComplianceStatus.TemporarilyCompliant, compliantUntil)
+                : (ContextComplianceStatus.Compliant, null);
     }
 
     private static GrantRequirementResult? SelectRequirementResultForDisplay(GrantRequirementResult[] results)

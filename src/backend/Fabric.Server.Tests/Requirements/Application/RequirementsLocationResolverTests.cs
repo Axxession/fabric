@@ -36,8 +36,8 @@ public sealed class RequirementsLocationResolverTests
             LocationLookup.Room(siteId, buildingId, roomId));
 
         DateTimeOffset now = DateTimeOffset.UtcNow;
-        Result<RequirementDefinition, RequirementDefinitionErrors> siteRequirementCreate = RequirementDefinition.Create("PERIM", "Perimeter", null, RequirementFulfillmentKind.Document, false, now);
-        Result<RequirementDefinition, RequirementDefinitionErrors> roomRequirementCreate = RequirementDefinition.Create("ROOM", "Server Room", null, RequirementFulfillmentKind.Document, false, now);
+        Result<RequirementDefinition, RequirementDefinitionErrors> siteRequirementCreate = RequirementDefinition.Create("PERIM", "Perimeter", null, [RequirementEvidenceKind.Document], false, now);
+        Result<RequirementDefinition, RequirementDefinitionErrors> roomRequirementCreate = RequirementDefinition.Create("ROOM", "Server Room", null, [RequirementEvidenceKind.Document], false, now);
         siteRequirementCreate.IsSuccess(out RequirementDefinition siteRequirement);
         roomRequirementCreate.IsSuccess(out RequirementDefinition roomRequirement);
 

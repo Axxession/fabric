@@ -29,14 +29,14 @@ type EvidenceFormValues = {
   readonly verifiedAt: string;
 };
 
-const evidenceKinds: RequirementEvidenceKind[] = ['UploadedDocument', 'LearningCourseCompletion'];
+const evidenceKindOptions: RequirementEvidenceKind[] = ['Document', 'CourseCompletion', 'RequirementWaiver'];
 const evidenceStatuses: RequirementEvidenceStatus[] = ['Valid', 'Invalid'];
 const evidenceQueryKey = ['requirements', 'evidence'] as const;
 const definitionsQueryKey = ['requirements', 'definitions'] as const;
 
 const emptyForm: EvidenceFormValues = {
   requirementDefinitionId: '',
-  evidenceKind: 'UploadedDocument',
+  evidenceKind: 'Document',
   status: 'Valid',
   validFrom: '',
   validUntil: '',
@@ -155,9 +155,11 @@ export function IdentityEvidenceCard({ identityId, title = 'Evidence', descripti
   }
 
   function startAdd() {
+    const defaultRequirement = (definitionsQuery.data ?? [])[0] as RequirementDefinitionResponse | undefined;
+    const defaultEvidenceKind = defaultRequirement?.allowedEvidenceKinds?.[0] as RequirementEvidenceKind | undefined;
     setIsAdding(true);
     setEditingId(null);
-    setFormValues({ ...emptyForm, verifiedAt: getNowLocalValue() });
+    setFormValues({ ...emptyForm, requirementDefinitionId: defaultRequirement?.id ?? '', evidenceKind: defaultEvidenceKind ?? emptyForm.evidenceKind, verifiedAt: getNowLocalValue() });
     setSelectedFile(null);
   }
 
@@ -166,7 +168,7 @@ export function IdentityEvidenceCard({ identityId, title = 'Evidence', descripti
     setEditingId(evidence.id);
     setFormValues({
       requirementDefinitionId: evidence.requirementDefinitionId,
-      evidenceKind: (evidence.evidenceKind ?? 'UploadedDocument') as RequirementEvidenceKind,
+      evidenceKind: (evidence.evidenceKind ?? 'Document') as RequirementEvidenceKind,
       status: evidence.status as RequirementEvidenceStatus,
       validFrom: toLocalDateTimeValue(evidence.validFrom),
       validUntil: toLocalDateTimeValue(evidence.validUntil),
@@ -215,6 +217,9 @@ export function IdentityEvidenceCard({ identityId, title = 'Evidence', descripti
     createEvidence.mutate(formData);
   }
 
+  const selectedDefinition = formValues.requirementDefinitionId ? definitionsById.get(formValues.requirementDefinitionId) : undefined;
+  const allowedEvidenceKinds = (selectedDefinition?.allowedEvidenceKinds?.length ? selectedDefinition.allowedEvidenceKinds : evidenceKindOptions) as RequirementEvidenceKind[];
+
   return (
     <Card className="p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -235,7 +240,14 @@ export function IdentityEvidenceCard({ identityId, title = 'Evidence', descripti
           {!editingId ? (
             <label className="grid gap-2 text-[14px] font-medium">
               <span>Requirement</span>
-              <select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={formValues.requirementDefinitionId} onChange={(event) => setFormValues((current) => ({ ...current, requirementDefinitionId: event.target.value }))}>
+              <select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={formValues.requirementDefinitionId} onChange={(event) => {
+                const requirementDefinitionId = event.target.value;
+                const definition = definitionsById.get(requirementDefinitionId);
+                const nextEvidenceKind = definition?.allowedEvidenceKinds?.includes(formValues.evidenceKind)
+                  ? formValues.evidenceKind
+                  : (definition?.allowedEvidenceKinds?.[0] as RequirementEvidenceKind | undefined) ?? emptyForm.evidenceKind;
+                setFormValues((current) => ({ ...current, requirementDefinitionId, evidenceKind: nextEvidenceKind }));
+              }}>
                 <option value="">Select requirement</option>
                 {(definitionsQuery.data ?? []).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
@@ -246,7 +258,7 @@ export function IdentityEvidenceCard({ identityId, title = 'Evidence', descripti
             <label className="grid gap-2 text-[14px] font-medium">
               <span>Evidence kind</span>
               <select className="rounded-interactive border border-border bg-content px-3 py-2 text-[14px] outline-none transition focus:border-primary" value={formValues.evidenceKind} onChange={(event) => setFormValues((current) => ({ ...current, evidenceKind: event.target.value as RequirementEvidenceKind }))} disabled={Boolean(editingId)}>
-                {evidenceKinds.map((option) => <option key={option} value={option}>{option}</option>)}
+                {allowedEvidenceKinds.map((option) => <option key={option} value={option}>{formatEvidenceKind(option)}</option>)}
               </select>
             </label>
             <label className="grid gap-2 text-[14px] font-medium">
@@ -321,7 +333,7 @@ export function IdentityEvidenceCard({ identityId, title = 'Evidence', descripti
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge variant={item.status === 'Valid' ? 'success' : 'error'}>{item.status}</Badge>
-                          <Badge variant="secondary">{item.evidenceKind}</Badge>
+                          <Badge variant="secondary">{formatEvidenceKind(item.evidenceKind as RequirementEvidenceKind)}</Badge>
                           {item.fileName ? <Badge variant="secondary">{item.fileName}</Badge> : null}
                         </div>
                         <p className="mt-2 font-medium text-foreground">{item.summary}</p>
@@ -363,4 +375,15 @@ function getNowLocalValue() {
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+}
+
+function formatEvidenceKind(value: RequirementEvidenceKind) {
+  switch (value) {
+    case 'CourseCompletion':
+      return 'Course completion';
+    case 'RequirementWaiver':
+      return 'Requirement waiver';
+    default:
+      return 'Document';
+  }
 }

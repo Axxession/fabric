@@ -29,12 +29,12 @@ public sealed class RequirementsServiceTests
         identityCreate.IsSuccess(out Identity identity);
         identitiesDb.Identities.Add(identity);
 
-        Result<RequirementDefinition, RequirementDefinitionErrors> requirementCreate = RequirementDefinition.Create("site_training", "Site Training", null, RequirementFulfillmentKind.Document, false, now);
+        Result<RequirementDefinition, RequirementDefinitionErrors> requirementCreate = RequirementDefinition.Create("site_training", "Site Training", null, [RequirementEvidenceKind.Document], false, now);
         requirementCreate.IsSuccess(out RequirementDefinition requirement);
         requirementsDb.RequirementDefinitions.Add(requirement);
 
-        Result<RequirementEvidence, RequirementEvidenceErrors> evidenceEarlyCreate = RequirementEvidence.Create(identity.Id, requirement.Id, RequirementEvidenceKind.UploadedDocument, RequirementEvidenceStatus.Valid, now.AddDays(-2), now.AddDays(1), null, "Old site training", false, now, null, null, now);
-        Result<RequirementEvidence, RequirementEvidenceErrors> evidenceLateCreate = RequirementEvidence.Create(identity.Id, requirement.Id, RequirementEvidenceKind.UploadedDocument, RequirementEvidenceStatus.Valid, now.AddDays(-1), now.AddDays(3), null, "New site training", false, now, null, null, now);
+        Result<RequirementEvidence, RequirementEvidenceErrors> evidenceEarlyCreate = RequirementEvidence.Create(identity.Id, requirement.Id, RequirementEvidenceKind.Document, RequirementEvidenceStatus.Valid, now.AddDays(-2), now.AddDays(1), null, "Old site training", false, now, null, null, now);
+        Result<RequirementEvidence, RequirementEvidenceErrors> evidenceLateCreate = RequirementEvidence.Create(identity.Id, requirement.Id, RequirementEvidenceKind.Document, RequirementEvidenceStatus.Valid, now.AddDays(-1), now.AddDays(3), null, "New site training", false, now, null, null, now);
         evidenceEarlyCreate.IsSuccess(out RequirementEvidence evidenceEarly);
         evidenceLateCreate.IsSuccess(out RequirementEvidence evidenceLate);
 
@@ -50,7 +50,7 @@ public sealed class RequirementsServiceTests
         EvaluatedGrantRequirement evaluation = Assert.Single(result);
         Assert.Equal(RequirementResultStatus.Fulfilled, evaluation.Status);
         Assert.Equal(now.AddDays(1), evaluation.ValidUntil);
-        Assert.Equal(RequirementEvidenceKind.UploadedDocument, evaluation.EvidenceKind);
+        Assert.Equal(RequirementEvidenceKind.Document, evaluation.EvidenceKind);
     }
 
     private static RequirementsDbContext CreateRequirementsDbContext()

@@ -1,11 +1,5 @@
 namespace Fabric.Server.Requirements.Domain;
 
-public enum RequirementFulfillmentKind
-{
-    Document,
-    Learning,
-}
-
 public enum RequirementSubjectKind
 {
     Employee,
@@ -16,12 +10,9 @@ public enum RequirementSubjectKind
 
 public enum RequirementEvidenceKind
 {
-    UploadedDocument,
-    ExternalCheck,
-    Onboarded,
-    Computed,
-    Escort,
-    LearningCourseCompletion,
+    Document,
+    CourseCompletion,
+    RequirementWaiver,
 }
 
 public enum RequirementEvidenceStatus
@@ -42,4 +33,11 @@ public enum RequirementResultStatus
     Missing,
     Failed,
     Expired
+}
+
+public enum ContextComplianceStatus
+{
+    Compliant,
+    TemporarilyCompliant,
+    NonCompliant,
 }

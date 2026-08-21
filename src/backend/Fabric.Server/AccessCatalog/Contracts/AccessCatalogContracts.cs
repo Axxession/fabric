@@ -31,14 +31,14 @@ public sealed record ListAccessGrantsRequest : BaseListRequest
 
 public sealed record AssignmentContextRequest(AssignmentSourceKind SourceKind, Guid SourceId);
 
-public sealed record AssignmentComplianceSummaryResponse(
+public sealed record GrantComplianceSummaryResponse(
     AssignmentSourceKind SourceKind,
     Guid SourceId,
     GrantComplianceStatus? ComplianceStatus,
     DateTimeOffset? CompliantUntil,
     int GrantCount);
 
-public sealed record AssignmentRequirementComplianceResponse(
+public sealed record RequirementComplianceResponse(
     Guid RequirementDefinitionId,
     string Code,
     string Name,
@@ -47,33 +47,33 @@ public sealed record AssignmentRequirementComplianceResponse(
     string Reason,
     DateTimeOffset? ValidUntil);
 
-public sealed record AssignmentComplianceDetailResponse(
+public sealed record GrantComplianceDetailResponse(
     AssignmentSourceKind SourceKind,
     Guid SourceId,
     GrantComplianceStatus? ComplianceStatus,
     DateTimeOffset? CompliantUntil,
-    AssignmentRequirementComplianceResponse[] Requirements);
+    RequirementComplianceResponse[] Requirements);
 
-public sealed record ContractorAssignmentCompliancePreviewRequest(
+public sealed record ContractorAssignmentContextComplianceRequest(
     Guid ContractorId,
     Guid ContractorJobId,
     DateTimeOffset AssignedFrom,
     DateTimeOffset AssignedUntil);
 
-public sealed record ContractorAssignmentCompliancePreviewPackageResponse(
+public sealed record ContractorAssignmentContextCompliancePackageResponse(
     Guid PackageId,
     string PackageName,
-    GrantComplianceStatus Status,
+    ContextComplianceStatus Status,
     DateTimeOffset? CompliantUntil,
-    AssignmentRequirementComplianceResponse[] Requirements);
+    RequirementComplianceResponse[] Requirements);
 
-public sealed record ContractorAssignmentCompliancePreviewResponse(
+public sealed record ContractorAssignmentContextComplianceResponse(
     Guid ContractorId,
     Guid ContractorJobId,
     Guid LocationId,
     Guid JobTypeId,
     string? UnavailableReason,
-    ContractorAssignmentCompliancePreviewPackageResponse[] Packages);
+    ContractorAssignmentContextCompliancePackageResponse[] Packages);
 
 public sealed record ListPackageRequestsRequest : BaseListRequest
 {
@@ -132,9 +132,9 @@ public sealed record ApprovalRequirementPreviewApprovalGroupResponse(Guid Id, st
 public sealed record ApprovalRequirementPreviewApproverIdentityResponse(Guid Id, string DisplayName, string? Email);
 public sealed record ApprovalRequirementPreviewResponse(Guid LocationId, ApprovalRequirementType Type, ApprovalDecisionRole Role, ApprovalRequirementPreviewApprovalGroupResponse? ApprovalGroup, ApprovalRequirementPreviewApproverIdentityResponse? ApproverIdentity);
 public sealed record ApprovalRequirementsPreviewAccessItemResponse(Guid AccessItemId, string Name, string? Description, bool IsComplianceRequired, ApprovalRequirementPreviewResponse[] Requirements);
-public sealed record ComplianceRequirementPreviewResponse(Guid RequirementDefinitionId, string Code, string Name, bool IsBlocking, RequirementResultStatus Status, string Reason, DateTimeOffset? ValidUntil);
-public sealed record CompliancePreviewLocationResponse(Guid LocationId, string LocationLabel, GrantComplianceStatus Status, DateTimeOffset? CompliantUntil, ComplianceRequirementPreviewResponse[] Requirements);
-public sealed record PackageRequestPreviewResponse(ApprovalRequirementsPreviewAccessItemResponse[] Approvals, CompliancePreviewLocationResponse[] Compliance);
+public sealed record ContextComplianceRequirementResponse(Guid RequirementDefinitionId, string Code, string Name, bool IsBlocking, RequirementResultStatus Status, string Reason, DateTimeOffset? ValidUntil);
+public sealed record ContextComplianceLocationResponse(Guid LocationId, string LocationLabel, ContextComplianceStatus Status, DateTimeOffset? CompliantUntil, ContextComplianceRequirementResponse[] Requirements);
+public sealed record PackageRequestPreviewResponse(ApprovalRequirementsPreviewAccessItemResponse[] Approvals, ContextComplianceLocationResponse[] ContextCompliance);
 public sealed record ApprovalDecisionResponse(Guid Id, Guid RequestId, Guid ApprovalRequirementId, Guid ApproverIdentityId, ApprovalDecisionRole Role, ApprovalDecisionKind DecisionKind, string? Note, DateTimeOffset DecidedAt);
 public sealed record PackageRequestResponse(Guid Id, Guid PackageId, Guid RequesterIdentityId, Guid BeneficiaryIdentityId, string RequestReason, PackageRequestStatus Status, PackageRequestSubStatus? SubStatus, AccessDurationKind DurationKind, DateTimeOffset ValidFrom, DateTimeOffset? ValidUntil, DateTimeOffset CreatedAt, DateTimeOffset ExpiresAt, DateTimeOffset? DecidedAt, Guid[] LocationIds);
 public sealed record PackageRequestDetailLocationResponse(Guid Id, string Label, Guid SiteId, string SiteName);
